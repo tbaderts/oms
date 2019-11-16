@@ -11,8 +11,12 @@ import reactor.core.publisher.Flux;
 @Controller
 public class RSocketOrderController {
 
+	private final EmitterProcessor<Order> processor;
+
 	@Autowired
-	private EmitterProcessor<Order> processor;
+	public RSocketOrderController(EmitterProcessor<Order> processor) {
+		this.processor = processor;
+	}
 
 	@MessageMapping("order-stream")
 	public Flux<Order> orderStream(String msg) {

@@ -12,8 +12,12 @@ import reactor.core.publisher.Flux;
 @RestController
 public class RestOrderController {
 
+	private final EmitterProcessor<Order> processor;
+
 	@Autowired
-	private EmitterProcessor<Order> processor;
+	public RestOrderController(EmitterProcessor<Order> processor) {
+		this.processor = processor;
+	}
 
 	@GetMapping(value = "/orders/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
 	public Flux<Order> orderStream() {

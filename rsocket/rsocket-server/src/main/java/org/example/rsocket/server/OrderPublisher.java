@@ -8,6 +8,8 @@ import org.example.rsocket.domain.Order;
 import org.example.rsocket.domain.OrderType;
 import org.example.rsocket.domain.Side;
 import org.example.rsocket.domain.Tif;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -19,14 +21,17 @@ import reactor.core.publisher.EmitterProcessor;
 
 @Component
 public class OrderPublisher {
-	
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OrderPublisher.class);
+	private final EmitterProcessor<Order> processor;
+	private final ObjectMapper objectMapper;
 	private AtomicInteger count = new AtomicInteger();
 
 	@Autowired
-	private EmitterProcessor<Order> processor;
-
-	@Autowired
-	private ObjectMapper objectMapper;
+	public OrderPublisher(EmitterProcessor<Order> processor, ObjectMapper objectMapper) {
+		this.processor = processor;
+		this.objectMapper = objectMapper;
+	}
 
 	@Scheduled(fixedRate = 3000)
 	public void createOrder() throws JsonProcessingException {
@@ -38,7 +43,7 @@ public class OrderPublisher {
 		order.setOrderType(OrderType.MARKET);
 		order.setTif(Tif.DAY);
 		order.setTransactionTimestamp(Instant.now());
-		//System.out.println(objectMapper.writeValueAsString(order));
+		LOGGER.debug(objectMapper.writeValueAsString(order));
 		processor.onNext(order);
 	}
 
