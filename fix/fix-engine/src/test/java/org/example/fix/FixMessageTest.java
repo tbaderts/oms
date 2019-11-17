@@ -79,7 +79,6 @@ public class FixMessageTest {
 		Message msg = MessageUtils.parse(messageFactory, dictionary, messageString);
 
 		if (msg instanceof NewOrderSingle) {
-			System.out.println(msg.toXML(dictionary));
 			NewOrderSingle order = (NewOrderSingle) msg;
 			Text text = new Text();
 			order.get(text);
