@@ -5,10 +5,10 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
 
-import { format } from 'date-fns';
+import { format, fromUnixTime } from 'date-fns';
 
 const URL = 'http://localhost:8081/orders/sse/';
-const DATE_FORMAT = 'dd/MM/yyyy HH:mm:ss:SSS';
+const DATE_FORMAT = 'dd/MM/yyyy HH:mm:ss.SSS';
 
 class App extends Component {
     constructor(props) {
@@ -23,10 +23,10 @@ class App extends Component {
                 {headerName: 'Tif', field: 'tif'},
                 {headerName: 'Quantity', field: 'quantity'},
                 {headerName: 'Symbol', field: 'symbol'},
-                {headerName: 'TransactionTimestamp', field: 'transactionTimestamp', valueFormatter: this.dateFormatter}
+                {headerName: 'TransactionTimestamp', field: 'transactionTimestamp', valueFormatter: this.dateFormatter, sort: "desc"}
             ],
             rowSelection: "single",
-            paginationPageSize: 50,
+            paginationPageSize: 25,
             floatingFilter: true,
             getRowNodeId: function (item) {
                 return item.id;
@@ -80,7 +80,7 @@ class App extends Component {
     }
     
     dateFormatter(params) {
-    	return format(params.value, DATE_FORMAT);
+    	return format(fromUnixTime(params.value), DATE_FORMAT);
     }
 
     render() {

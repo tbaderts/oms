@@ -34,7 +34,7 @@ public class OrderPublisher {
 		this.objectMapper = objectMapper;
 	}
 
-	@Scheduled(fixedRate = 3000)
+	@Scheduled(fixedRate = 5000)
 	public void createOrder() throws JsonProcessingException {
 		Order order = new Order();
 		order.setId(count.getAndIncrement());
