@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.example.rsocket.domain.Order;
 import org.example.rsocket.domain.OrderType;
 import org.example.rsocket.domain.Side;
+import org.example.rsocket.domain.State;
 import org.example.rsocket.domain.Tif;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,7 @@ public class OrderPublisher {
 	public void createOrder() throws JsonProcessingException {
 		Order order = new Order();
 		order.setId(count.getAndIncrement());
+		order.setState(State.LIVE);
 		order.setSymbol("INTC");
 		order.setSide(Side.BUY);
 		order.setQuantity(new BigDecimal(100));
