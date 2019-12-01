@@ -3,6 +3,7 @@ package org.example.rsocket;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.messaging.rsocket.MetadataExtractor;
 
@@ -13,6 +14,7 @@ import io.rsocket.frame.decoder.PayloadDecoder;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.util.DefaultPayload;
 
+@SpringBootTest
 public class RSocketTest {
 
 	@Test
@@ -23,13 +25,13 @@ public class RSocketTest {
 
 	private RSocket connect() {
 		return RSocketFactory.connect().dataMimeType(MediaType.APPLICATION_JSON_VALUE)
-				.mimeType(MetadataExtractor.ROUTE_KEY, "orders")
+				.mimeType(MetadataExtractor.ROUTE_KEY, "order-stream")
 				.frameDecoder(PayloadDecoder.ZERO_COPY).transport(TcpClientTransport.create(7000)).start()
 				.block();
 	}
 
 	private void requestStream(RSocket rSocket) {
-		rSocket.requestStream(DefaultPayload.create("")).subscribe(new TestSubscriber());
+		rSocket.requestStream(DefaultPayload.create("test request")).subscribe(new TestSubscriber());
 	}
 	
 	private static class TestSubscriber implements Subscriber<Payload> {

@@ -8,3 +8,7 @@ spring:
       write-dates-as-timestamps: false
 server:
   port : 8080
+logging:
+  level:
+    root: INFO
+    org.example.rsocket.server: DEBUG
