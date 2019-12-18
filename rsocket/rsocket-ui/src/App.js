@@ -5,7 +5,7 @@ import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-balham-dark.css';
 
-import { format, fromUnixTime } from 'date-fns';
+import { format } from 'date-fns';
 
 const URL = 'http://localhost:8081/orders/sse/';
 const DATE_FORMAT = 'dd/MM/yyyy HH:mm:ss.SSS';
@@ -80,37 +80,35 @@ class App extends Component {
 	}
 
 	dateFormatter(params) {
-		return format(fromUnixTime(params.value), DATE_FORMAT);
+		return format(new Date(params.value), DATE_FORMAT);
 	}
 
 	render() {
 		return (
-			<div style={{ height: '800px', width: '100%' }}>
-				<div
-					id="orderData"
-					style={{
-						boxSizing: "border-box",
-						height: "100%",
-						width: "100%"
-					}}
-					className="ag-theme-balham-dark"
-				>
-					<AgGridReact
-						onGridReady={this.onGridReady}
-						enableSorting={true}
-						enableFilter={true}
-						pagination={true}
-						rowSelection={this.state.rowSelection}
-						rowDeselection={true}
-						enableColResize={true}
-						columnDefs={this.state.columnDefs}
-						rowData={this.state.rowData}
-						getRowNodeId={this.state.getRowNodeId}>
-					</AgGridReact>
-					<button onClick={this.clearAllFilters}>Clear filters</button>
-					<button onClick={this.clearData}>Clear data</button>
-					<button onClick={this.getRowData}>Log to console</button>
-				</div>
+			<div
+				id="orderData"
+				style={{
+					boxSizing: "border-box",
+					height: "800px",
+					width: "100%"
+				}}
+				className="ag-theme-balham-dark"
+			>
+				<AgGridReact
+					onGridReady={this.onGridReady}
+					enableSorting={true}
+					enableFilter={true}
+					pagination={true}
+					rowSelection={this.state.rowSelection}
+					rowDeselection={true}
+					enableColResize={true}
+					columnDefs={this.state.columnDefs}
+					rowData={this.state.rowData}
+					getRowNodeId={this.state.getRowNodeId}>
+				</AgGridReact>
+				<button onClick={this.clearAllFilters}>Clear filters</button>
+				<button onClick={this.clearData}>Clear data</button>
+				<button onClick={this.getRowData}>Log to console</button>
 			</div>
 		);
 	}

@@ -17,8 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import reactor.core.publisher.EmitterProcessor;
 
 @Component
@@ -34,7 +32,7 @@ public class OrderPublisher {
 	}
 
 	@Scheduled(fixedRate = 5000)
-	public void createOrder() throws JsonProcessingException {
+	public void createOrder() {
 		Order order = new Order();
 		order.setId(count.getAndIncrement());
 		order.setState(State.LIVE);

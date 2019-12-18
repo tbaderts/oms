@@ -3,6 +3,7 @@ package org.example.rsocket.domain;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -15,6 +16,7 @@ public class Order {
 	private BigDecimal cumQty;
 	private State state;
 	private String symbol;
+	@JsonFormat(shape = JsonFormat.Shape.STRING)
 	private Instant transactionTimestamp;
 
 	public Integer getId() {

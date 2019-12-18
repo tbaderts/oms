@@ -5,6 +5,7 @@ import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -17,6 +18,7 @@ public class Order {
 	private BigDecimal cumQty;
 	private State state;
 	private String symbol;
+	@JsonFormat(shape = JsonFormat.Shape.STRING)
 	private Instant transactionTimestamp;
 
 	public Integer getId() {
