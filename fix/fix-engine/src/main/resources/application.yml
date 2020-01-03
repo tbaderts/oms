@@ -1,0 +1,15 @@
+server:
+    port: 8080
+spring:
+    kafka:
+        consumer:
+            group-id: 0
+            auto-offset-reset: earliest
+fix:
+    sessions:
+        - sessionName: SIM
+          sessionID: FIX.4.4:DEMO->SIMULATOR
+          destinationUser: out_fix_sim
+        - sessionName: INTERNAL
+          sessionID: FIX.4.4:DEMO->TEST
+          destinationUser: out_fix_internal
