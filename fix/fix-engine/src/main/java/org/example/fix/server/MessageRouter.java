@@ -1,5 +1,7 @@
 package org.example.fix.server;
 
+import java.util.Optional;
+
 import org.example.fix.app.FixSessionConfig;
 import org.example.fix.domain.Order;
 import org.slf4j.Logger;
@@ -25,13 +27,18 @@ public class MessageRouter {
 	}
 
 	public void route(Order order) {
-		String sessionIDString = fixSessionConfig.getSessionMap().get(order.getDestinationUser()).getSessionID();
-		SessionID sessionID = new SessionID(sessionIDString);
+		Optional<String> sessionIDString = Optional.ofNullable(fixSessionConfig.getSessionMap().get(order.getDestinationUser()).getSessionID());
 
-		try {
-			Session.sendToTarget(messageMapper.mapOrder(order), sessionID);
-		} catch (SessionNotFound e) {
-			LOGGER.error("Exception while sending message: {}", e);
+		if (sessionIDString.isPresent()) {
+			SessionID sessionID = new SessionID(sessionIDString.get());
+
+			try {
+				Session.sendToTarget(messageMapper.mapOrder(order), sessionID);
+			} catch (SessionNotFound e) {
+				LOGGER.error("Exception while sending message: {}", e);
+			}
+		} else {
+			LOGGER.warn("No sessionID configured for destination user: {}", order.getDestinationUser());
 		}
 	}
 
