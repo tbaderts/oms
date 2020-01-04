@@ -3,7 +3,7 @@ server:
 spring:
     kafka:
         consumer:
-            group-id: 0
+            group-id: test-consumer-group
             auto-offset-reset: earliest
 fix:
     sessions:

@@ -2,7 +2,12 @@ package org.example.fix.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import quickfix.Application;
 import quickfix.DoNotSend;
@@ -13,11 +18,22 @@ import quickfix.Message;
 import quickfix.RejectLogon;
 import quickfix.SessionID;
 import quickfix.UnsupportedMessageType;
+import quickfix.fix44.ExecutionReport;
 
 @Component
 public class FixEngineApp implements Application {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(FixEngineApp.class);
+	private final KafkaTemplate<String, String> kafkaTemplate;
+	private final MessageMapper messageMapper;
+	private final ObjectMapper objectMapper;
+	
+	@Autowired
+	public FixEngineApp(KafkaTemplate<String, String> kafkaTemplate, MessageMapper messageMapper, ObjectMapper objectMapper) {
+		this.kafkaTemplate = kafkaTemplate;
+		this.messageMapper = messageMapper;
+		this.objectMapper = objectMapper;
+	}
 
 	@Override
 	public void onCreate(SessionID sessionId) {
@@ -52,6 +68,15 @@ public class FixEngineApp implements Application {
 	@Override
 	public void fromApp(Message message, SessionID sessionId) throws FieldNotFound, IncorrectDataFormat, IncorrectTagValue, UnsupportedMessageType {
 		LOGGER.info("fromApp, message: {}, sessionId: {}", message, sessionId);
+		if (message instanceof ExecutionReport) {
+			try {
+				String fill = objectMapper.writeValueAsString(messageMapper.mapExecutionReport((ExecutionReport) message));
+				LOGGER.info("Sending fill message: {}", fill);
+				kafkaTemplate.send("fills", fill);
+			} catch (JsonProcessingException e) {
+				LOGGER.warn("Exception converting message to json", e);
+			}
+		}
 	}
 
 }
