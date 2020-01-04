@@ -1,3 +1,6 @@
+PATH=/c/apps/apache-maven-3.6.3/bin:$PATH
+mvn spring-boot:run
+
 kafka:
 set ZOOKEEPER_HOME=C:\apps\zookeeper-3.4.12
 set PATH=%PATH%;%ZOOKEEPER_HOME%\bin

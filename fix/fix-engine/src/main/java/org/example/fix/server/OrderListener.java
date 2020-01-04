@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import quickfix.SessionNotFound;
+
 @Component
 public class OrderListener {
 
@@ -27,13 +29,17 @@ public class OrderListener {
 	}
 
 	@KafkaListener(topics = "orders")
-	public void listen(ConsumerRecord<String, String> record) throws JsonProcessingException {
+	public void listen(ConsumerRecord<String, String> record) {
 		LOGGER.info("Received message: {}", record);
 		Optional<String> value = Optional.ofNullable(record.value());
 		if (value.isPresent()) {
-			Order order = objectMapper.readValue(value.get(), Order.class);
-			LOGGER.info("Route order: {}", order);
-			messageRouter.route(order);
+			try {
+				Order order = objectMapper.readValue(value.get(), Order.class);
+				LOGGER.info("Route order: {}", order);
+				messageRouter.route(order);
+			} catch (SessionNotFound | JsonProcessingException e) {
+				LOGGER.error("Exception while sending message: {}", e);
+			}
 		}
 	}
 }

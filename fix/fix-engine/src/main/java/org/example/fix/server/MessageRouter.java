@@ -7,6 +7,8 @@ import org.example.fix.domain.Order;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
 
 import quickfix.Session;
@@ -26,17 +28,13 @@ public class MessageRouter {
 		this.fixSessionConfig = fixSessionConfig;
 	}
 
-	public void route(Order order) {
+	@Retryable(value = { SessionNotFound.class }, maxAttempts = 50, backoff = @Backoff(delay = 500))
+	public void route(Order order) throws SessionNotFound {
 		Optional<String> sessionIDString = Optional.ofNullable(fixSessionConfig.getSessionMap().get(order.getDestinationUser()).getSessionID());
 
 		if (sessionIDString.isPresent()) {
 			SessionID sessionID = new SessionID(sessionIDString.get());
-
-			try {
-				Session.sendToTarget(messageMapper.mapOrder(order), sessionID);
-			} catch (SessionNotFound e) {
-				LOGGER.error("Exception while sending message: {}", e);
-			}
+			Session.sendToTarget(messageMapper.mapOrder(order), sessionID);
 		} else {
 			LOGGER.warn("No sessionID configured for destination user: {}", order.getDestinationUser());
 		}

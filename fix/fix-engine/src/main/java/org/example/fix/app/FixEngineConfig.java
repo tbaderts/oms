@@ -1,6 +1,8 @@
 package org.example.fix.app;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 import javax.management.JMException;
 
@@ -13,6 +15,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
+import org.springframework.retry.RetryCallback;
+import org.springframework.retry.RetryContext;
+import org.springframework.retry.RetryListener;
+import org.springframework.retry.listener.RetryListenerSupport;
 
 import quickfix.ConfigError;
 import quickfix.DefaultMessageFactory;
@@ -55,7 +61,7 @@ public class FixEngineConfig {
 		}
 		return null;
 	}
-	
+
 	@Bean
 	public ThreadedSocketAcceptor threadedSocketAcceptor() {
 		try {
@@ -70,6 +76,17 @@ public class FixEngineConfig {
 			LOGGER.error("Exception while creating ThreadedSocketAcceptor", e);
 		}
 		return null;
+	}
+
+	@Bean
+	public List<RetryListener> retryListeners() {
+		return Collections.singletonList(new RetryListenerSupport() {
+			@Override
+			public <T, E extends Throwable> void onError(RetryContext context, RetryCallback<T, E> callback, Throwable throwable) {
+				LOGGER.warn("Exception calling retryable method: {}, retry count={}, exception:", context.getAttribute("context.name"),
+						context.getRetryCount(), throwable);
+			}
+		});
 	}
 
 }
