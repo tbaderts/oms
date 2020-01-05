@@ -1,10 +1,11 @@
 package org.example.fix;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import quickfix.DataDictionary;
 import quickfix.DefaultMessageFactory;
 import quickfix.FieldException;
 import quickfix.FieldNotFound;
+import quickfix.FixVersions;
 import quickfix.InvalidMessage;
 import quickfix.Message;
 import quickfix.MessageFactory;
@@ -24,6 +26,7 @@ import quickfix.field.CheckSum;
 import quickfix.field.ClOrdID;
 import quickfix.field.ContraBroker;
 import quickfix.field.MsgSeqNum;
+import quickfix.field.MsgType;
 import quickfix.field.OrdType;
 import quickfix.field.OrderQty;
 import quickfix.field.SecurityID;
@@ -68,17 +71,19 @@ public class FixMessageTest {
 		assertThrows(FieldException.class, () -> {
 			dictionary.validate(order);
 		});
+		
+		MessageFactory factory = new DefaultMessageFactory();
+		Message msg = factory.create(FixVersions.BEGINSTRING_FIX44, MsgType.ORDER_SINGLE);
+		assertThat(msg, instanceOf(NewOrderSingle.class));
 	}
 
 	@Test
 	public void parseMessage() throws ConfigError, InvalidMessage, FieldNotFound {
-		MessageFactory messageFactory = new DefaultMessageFactory();
 		DataDictionary dictionary = new DataDictionary("src/main/resources/FIX44.xml");
-		Message msg = MessageUtils.parse(messageFactory, dictionary, messageString);
+		Message msg = MessageUtils.parse(new DefaultMessageFactory(), dictionary, messageString);
 
 		assertThat(msg, instanceOf(NewOrderSingle.class));
-		NewOrderSingle order = (NewOrderSingle) msg;
-		assertEquals("20191116-001", order.getClOrdID().getValue());
+		assertEquals("20191116-001", ((NewOrderSingle) msg).getClOrdID().getValue());
 	}
 
 }

@@ -1,0 +1,10 @@
+- MessageRouter support for inbound and outbound messages
+- MessageMapper strategy/factory for different FIX versions (4.2, 4.4 etc)
+- Session validation
+- Message validation
+- generate quickfixj-messages library from dictionary (repeating groups etc)
+- start/stop dispatching of inbound messages depending on FIX session status
+- admin gui (session status, logon/logoff, set msg sequence etc)
+- FIX protocol spec for all sessions
+- design spec
+- message sequences

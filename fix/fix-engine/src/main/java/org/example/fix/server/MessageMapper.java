@@ -34,6 +34,7 @@ public class MessageMapper {
 	private static final Logger LOGGER = LoggerFactory.getLogger(MessageMapper.class);
 
 	public NewOrderSingle mapOrder(Order order) {
+		// TODO use message factory, remove header etc
 		NewOrderSingle newOrderSingle = new NewOrderSingle();
 		newOrderSingle.getHeader().setField(new MsgSeqNum(1));
 		newOrderSingle.getHeader().setField(new SenderCompID("SENDER"));
