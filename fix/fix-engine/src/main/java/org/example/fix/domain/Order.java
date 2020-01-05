@@ -18,6 +18,7 @@ public class Order {
 	private BigDecimal cumQty;
 	private State state;
 	private String symbol;
+	private String currency;
 	@JsonFormat(shape = JsonFormat.Shape.STRING)
 	private Instant transactionTimestamp;
 	private String destinationUser;
@@ -84,6 +85,14 @@ public class Order {
 
 	public void setSymbol(String symbol) {
 		this.symbol = symbol;
+	}
+	
+	public String getCurrency() {
+		return currency;
+	}
+
+	public void setCurrency(String currency) {
+		this.currency = currency;
 	}
 
 	public Instant getTransactionTimestamp() {

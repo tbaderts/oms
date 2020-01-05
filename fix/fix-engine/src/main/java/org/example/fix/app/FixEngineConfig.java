@@ -7,7 +7,6 @@ import java.util.List;
 import javax.management.JMException;
 
 import org.example.fix.server.FixEngineApp;
-import org.quickfixj.jmx.JmxExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,13 +36,11 @@ public class FixEngineConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger(FixEngineConfig.class);
 	private final FixEngineApp fixEngine;
 	private final Resource sessionConfig;
-	private final JmxExporter jmxExporter;
 
 	@Autowired
 	public FixEngineConfig(FixEngineApp fixEngine, @Value("classpath:session.cfg") Resource sessionConfig) throws JMException {
 		this.fixEngine = fixEngine;
 		this.sessionConfig = sessionConfig;
-		this.jmxExporter = new JmxExporter();
 	}
 
 	@Bean
@@ -53,9 +50,7 @@ public class FixEngineConfig {
 			MessageStoreFactory storeFactory = new FileStoreFactory(settings);
 			LogFactory logFactory = new FileLogFactory(settings);
 			MessageFactory messageFactory = new DefaultMessageFactory();
-			ThreadedSocketInitiator initiator = new ThreadedSocketInitiator(fixEngine, storeFactory, settings, logFactory, messageFactory);
-			jmxExporter.register(initiator);
-			return initiator;
+			return new ThreadedSocketInitiator(fixEngine, storeFactory, settings, logFactory, messageFactory);
 		} catch (ConfigError | IOException e) {
 			LOGGER.error("Exception while creating SocketInitiator", e);
 		}
@@ -69,9 +64,7 @@ public class FixEngineConfig {
 			MessageStoreFactory storeFactory = new FileStoreFactory(settings);
 			LogFactory logFactory = new FileLogFactory(settings);
 			MessageFactory messageFactory = new DefaultMessageFactory();
-			ThreadedSocketAcceptor acceptor = new ThreadedSocketAcceptor(fixEngine, storeFactory, settings, logFactory, messageFactory);
-			jmxExporter.register(acceptor);
-			return acceptor;
+			return new ThreadedSocketAcceptor(fixEngine, storeFactory, settings, logFactory, messageFactory);
 		} catch (ConfigError | IOException e) {
 			LOGGER.error("Exception while creating ThreadedSocketAcceptor", e);
 		}

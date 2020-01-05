@@ -19,6 +19,7 @@ import quickfix.FixVersions;
 import quickfix.InvalidMessage;
 import quickfix.Message;
 import quickfix.MessageFactory;
+import quickfix.MessageParseError;
 import quickfix.MessageUtils;
 import quickfix.field.Account;
 import quickfix.field.BodyLength;
@@ -46,12 +47,12 @@ public class FixMessageTest {
 	public void testCreateMessage() throws ConfigError {
 		DataDictionary dictionary = new DataDictionary("src/main/resources/FIX44.xml");
 		NewOrderSingle order = new NewOrderSingle();
+		
 		order.getHeader().setField(new MsgSeqNum(1));
 		order.getHeader().setField(new SenderCompID("SENDER"));
 		order.getHeader().setField(new TargetCompID("TARGET"));
 		order.getHeader().setField(new SendingTime(LocalDateTime.now()));
 		order.getHeader().setField(new BodyLength());
-		order.getTrailer().setField(new CheckSum("37"));
 
 		order.set(new Account("TEST"));
 		order.set(new OrderQty(100));
@@ -61,6 +62,8 @@ public class FixMessageTest {
 		order.set(new ClOrdID("20191116-001"));
 		order.set(new OrdType(OrdType.MARKET));
 		order.set(new TransactTime(LocalDateTime.now()));
+		
+		order.getTrailer().setField(new CheckSum(String.valueOf(MessageUtils.checksum(order.toString()))));
 
 		assertDoesNotThrow(() -> {
 			dictionary.validate(order);
@@ -78,10 +81,12 @@ public class FixMessageTest {
 	}
 
 	@Test
-	public void parseMessage() throws ConfigError, InvalidMessage, FieldNotFound {
+	public void parseMessage() throws ConfigError, InvalidMessage, FieldNotFound, MessageParseError {
 		DataDictionary dictionary = new DataDictionary("src/main/resources/FIX44.xml");
+		MsgType msgType = Message.identifyType(messageString);
+		assertEquals(MsgType.ORDER_SINGLE, msgType.getValue());
+		
 		Message msg = MessageUtils.parse(new DefaultMessageFactory(), dictionary, messageString);
-
 		assertThat(msg, instanceOf(NewOrderSingle.class));
 		assertEquals("20191116-001", ((NewOrderSingle) msg).getClOrdID().getValue());
 	}

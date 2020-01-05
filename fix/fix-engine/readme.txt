@@ -1,7 +1,18 @@
 mvn spring-boot:run
 
 test message:
-{"id":1,"side":"BUY","orderType":"MARKET","tif":"DAY","quantity":100,"state":"LIVE","symbol":"INTC","transactionTimestamp":"2020-01-03T07:36:45.755Z","destinationUser":"out_fix_sim"}
+{
+  "id": 1,
+  "side": "BUY",
+  "orderType": "MARKET",
+  "tif": "DAY",
+  "quantity": 100,
+  "state": "UNACK",
+  "symbol": "INTC",
+  "currency": "USD",
+  "transactionTimestamp": "2020-01-03T07:36:45.755Z",
+  "destinationUser": "out_fix_sim"
+}
 
 admin:
 http://localhost:8080/admin/sessionstatus

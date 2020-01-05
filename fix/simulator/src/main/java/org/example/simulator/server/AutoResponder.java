@@ -1,5 +1,8 @@
 package org.example.simulator.server;
 
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -29,6 +32,7 @@ import quickfix.fix44.NewOrderSingle;
 public class AutoResponder {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(AutoResponder.class);
+	private AtomicInteger count = new AtomicInteger();
 
 	public void sendResponse(Message message, SessionID sessionId) {
 
@@ -40,8 +44,8 @@ public class AutoResponder {
 				ack.getHeader().setField(new SenderCompID("SIMULATOR"));
 				ack.getHeader().setField(new TargetCompID("DEMO"));
 				ack.set(new OrdStatus(OrdStatus.NEW));
-				ack.set(new ExecID("abc1"));
-				ack.set(new OrderID("20191230-test-001"));
+				ack.set(new ExecID("x" + count.getAndIncrement()));
+				ack.set(new OrderID(UUID.randomUUID().toString()));
 				ack.set(new ClOrdID(order.getClOrdID().getValue()));
 				ack.set(new Currency(order.getCurrency().getValue()));
 				ack.set(new ExecType(ExecType.ORDER_STATUS));
