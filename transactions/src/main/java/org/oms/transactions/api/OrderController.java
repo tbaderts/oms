@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -22,12 +24,17 @@ public class OrderController {
 
     @PostMapping("/order")
     public Mono<Order> postMethodName(@RequestBody Order order) {
-        return Mono.just(orderRepository.save(order));
+        return Mono.just(orderRepository.save(order)).publishOn(Schedulers.boundedElastic());
     }
 
-    @GetMapping("/order/{orderId}")
-    public Mono<Order> findByClOrdId(@RequestParam String orderId) {
-        return Mono.just(orderRepository.findByClOrdId(orderId));
+    @GetMapping("/orders")
+    public Mono<Iterable<Order>> findAll() {
+        return Mono.just(orderRepository.findAll()).publishOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/order/{clOrdId}")
+    public Mono<Order> findByClOrdId(@RequestParam String clOrdId) {
+        return Mono.just(orderRepository.findByClOrdId(clOrdId)).publishOn(Schedulers.boundedElastic());
     }
     
 }

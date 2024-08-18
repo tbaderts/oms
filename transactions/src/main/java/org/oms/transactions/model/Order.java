@@ -1,14 +1,15 @@
 package org.oms.transactions.model;
 
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.io.Serializable;
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 import org.springframework.data.annotation.Id;
 import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
@@ -107,6 +108,10 @@ public class Order implements Serializable {
     private State state;
 
     private CancelState cancelState;
+
+    private Set<Fill> fills = new HashSet<>();
+    
+    private Set<Order> orders = new HashSet<>();
 
     public String getId() {
         return id;
@@ -412,6 +417,22 @@ public class Order implements Serializable {
         this.cancelState = cancelState;
     }
 
+    public Set<Fill> getFills() {
+        return fills;
+    }
+
+    public void setFills(Set<Fill> fills) {
+        this.fills = fills;
+    }
+
+    public Set<Order> getOrders() {
+        return orders;
+    }
+
+    public void setOrders(Set<Order> orders) {
+        this.orders = orders;
+    }
+
     @Override
     public int hashCode() {
         return HashCodeBuilder.reflectionHashCode(this);
@@ -426,5 +447,5 @@ public class Order implements Serializable {
     public String toString() {
         return ReflectionToStringBuilder.toString(this, ToStringStyle.SHORT_PREFIX_STYLE, true, true, true, null);
     }
-    
+
 }

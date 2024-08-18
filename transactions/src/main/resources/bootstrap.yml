@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: transactions
+cloud:
+  kubernetes:
+    secrets:
+      enabled: true
+      paths:
+        - /etc/secrets
+      enableApi: false

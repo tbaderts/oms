@@ -38,6 +38,7 @@ dependencies {
 	implementation 'org.springframework.cloud:spring-cloud-starter-kubernetes-client-all'
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
     implementation 'org.springdoc:springdoc-openapi-starter-webflux-api:2.6.0'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

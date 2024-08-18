@@ -1,0 +1,15 @@
+@startuml
+client -> transactions: insert parent order
+transactions --> orders: send newOrderTx msg (prnt)
+orders --> "order-validator": triggers order validation
+"order-validator" -> transactions: accept order
+transactions --> orders: send acceptOrderTx msg (prnt)
+orders --> "order-processor": triggers child order enrichment
+"order-processor" -> transactions: insert child order
+transactions --> orders: send newOrderTx msg (chld)
+orders --> simulator: triggers fill creation
+simulator -> transactions: insert child fill
+transactions -> fills: send newFillTx msg
+fills --> allocator: triggers fill allocation
+allocator -> transactions: allocate fill to parent order
+@enduml

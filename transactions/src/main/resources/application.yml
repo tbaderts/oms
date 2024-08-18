@@ -3,13 +3,16 @@ spring:
     name: transactions
   data:
     redis:
-      host: localhost
-      port: 6379
+      cluster:
+        nodes: oms-redis-cluster:6379
+        max-redirects: 3
+      #host: localhost
+      #port: 6379
   cloud:
     kubernetes:
       discovery:
         enabled: true
-        all-namespaces: false
+        all-namespaces: true
   docker:
     compose:
       enabled: false
@@ -25,7 +28,13 @@ springdoc:
     enabled: true
 
 management:
+  endpoint:
+    health:
+      show-details: always
   endpoints:
     web:
       exposure:
-        include: actuator,health,info
+        include: actuator,health,info,metrics,prometheus
+
+server:
+  port: 8888

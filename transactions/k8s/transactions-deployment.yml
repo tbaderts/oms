@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transactions
+  labels:
+    app: transactions
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: "8888"
+    prometheus.io/path: "/actuator/prometheus"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transactions
+  template:
+    metadata:
+      labels:
+        app: transactions
+    spec:
+      containers:
+        - name: transactions
+          image: org.oms/transactions:0.0.1-SNAPSHOT 
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8888
+          resources:
+            requests:
+              cpu: "0.5"
+              memory: 300Mi
+            limits:
+              cpu: "1.0"
+              memory: 500Mi
+          readinessProbe:
+            httpGet:
+              port: 8888
+              path: /actuator/health
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 20
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              port: 8888
+              path: /actuator/info
+            initialDelaySeconds: 60
+            timeoutSeconds: 2
+            periodSeconds: 20
+            failureThreshold: 5
+      serviceAccountName: api-service-account
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transactions
+  labels:
+    app: transactions
+spec:
+  ports:
+    - port: 8888
+      protocol: TCP
+  selector:
+    app: transactions
+  type: NodePort
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: transactions-metrics
+  labels:
+    release: prometheus-operator
+spec:
+  selector:
+    matchLabels:
+      app: transactions
+  endpoints:
+    - port: http-traffic
+      path: "/actuator/prometheus"

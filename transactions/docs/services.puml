@@ -1,0 +1,28 @@
+@startuml
+
+package "aks micro services" {
+component transactions
+component [order-validator] as ordervalidator
+component [order-processor] as orderprocessor
+component simulator
+component allocator
+component client
+component [monitor-ui] as monitorui
+component [monitor-ui-backend] as monitoruibackent
+}
+component [redis-cluster] as rediscluster
+client ..> transactions : use
+ordervalidator ..> transactions : use
+orderprocessor ..> transactions : use
+allocator ..> transactions : use
+transactions -> orders #Red
+orders -> ordervalidator #Red
+orders -> orderprocessor #Red
+orders -> simulator #Red
+simulator -> fills #Blue
+fills -> allocator #Blue
+orders - rediscluster #YellowGreen
+fills - rediscluster #YellowGreen
+monitorui ..> monitoruibackent : use
+orders -> monitoruibackent #Red
+@enduml

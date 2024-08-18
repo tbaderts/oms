@@ -1,0 +1,24 @@
+- grafana dashboards
+  -> spring boot
+  -> kubernetes
+  -> redis
+
+- services
+  -> order-validator
+  -> order-processor
+  -> simulator
+  -> allocator
+  -> client
+
+- metrics for services
+  -> transactions received
+  -> orders received
+  -> messages sent
+
+- attributes
+  -> assetClass
+  -> productType
+  -> transaction
+  -> transactionNumber
+  
+- model extensions

@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-exporter-prometheus-redis-exporter
+  labels:
+    app: prometheus-redis-exporter
+spec:
+  endpoints:
+  - interval: 15s
+    port: redis-exporter
+  selector:
+    matchLabels:
+      app: oms-redis-cluster
