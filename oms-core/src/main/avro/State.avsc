@@ -1,0 +1,16 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Order state",
+  "name": "State",
+  "symbols": [
+    "NEW",
+    "UNACK",
+    "LIVE",
+    "FILLED",
+    "CXL",
+    "REJ",
+    "CLOSED",
+    "EXP"
+  ]
+}

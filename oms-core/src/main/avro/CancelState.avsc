@@ -1,0 +1,12 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Cancel state",
+  "name": "CancelState",
+  "symbols": [
+    "CXL",
+    "PCXL",
+    "PMOD",
+    "REJ"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "CommandResult",
+  "fields": [
+    {
+      "name": "id",
+      "type": ["null", "string"],
+      "doc": "unique identifier for object created by the command",
+      "default": null
+    },
+    {
+      "name": "status",
+      "type": ["null", "org.example.common.model.msg.CommandStatus"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "message",
+      "type": ["null", "string"],
+      "doc": "human-readable description of the command result",
+      "default": null
+    }
+  ]
+
+}

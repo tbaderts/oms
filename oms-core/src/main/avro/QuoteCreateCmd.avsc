@@ -1,0 +1,26 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "QuoteCreateCmd",
+  "fields": [
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Command type discriminator"
+    },
+    {
+      "name": "version",
+      "type": ["null", "string"],
+      "doc": "Command API version",
+      "default": null
+    },
+    {
+      "name": "quote",
+      "type": ["null", "org.example.common.model.msg.Quote"],
+      "doc": "",
+      "default": null
+    }
+  ]
+
+}

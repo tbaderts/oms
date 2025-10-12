@@ -1,0 +1,15 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Time in force",
+  "name": "TimeInForce",
+  "symbols": [
+    "DAY",
+    "GTC",
+    "IOC",
+    "FOK",
+    "GTD",
+    "AT_THE_OPEN",
+    "AT_THE_CLOSE"
+  ]
+}

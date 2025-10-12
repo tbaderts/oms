@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: spring-ai
+  main:
+    # Keep reactive/web server disabled when acting purely as MCP over stdio.
+    web-application-type: none
+    banner-mode: off
+  # Ollama configuration for local embeddings
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        options:
+          model: nomic-embed-text  # Fast, efficient embedding model
+          # Alternative models:
+          # - mxbai-embed-large (better quality, slower)
+          # - all-minilm (smaller, faster)
+    qdrant:
+      base-url: http://localhost:6333
+      collection-name: domain-docs
+      initialize-schema: true
+
+# Example custom properties for downstream service access (kept from original snippet)
+oms:
+  base-url: http://localhost:8090
+
+server:
+  port: 8091
+
+# Custom (non-standard) section to indicate MCP configuration. If the spring-ai mcp starter
+# expects different property names, adjust accordingly or rely purely on CLI args.
+mcp:
+  transport: stdio
+
+# Domain documentation paths (comma-separated)
+domain:
+  docs:
+    paths: C:/data/workspace/oms/oms-knowledge-base
+
+# Vector store configuration for semantic search
+vector:
+  store:
+    enabled: true
+    collection-name: domain-docs
+    chunk-size: 1000
+    chunk-overlap: 200
+    auto-index-on-startup: true
+
+logging:
+  level:
+    org.springframework.ai.mcp: DEBUG
+    org.springframework.ai.vectorstore: DEBUG
+    org.springframework.ai.embedding: DEBUG

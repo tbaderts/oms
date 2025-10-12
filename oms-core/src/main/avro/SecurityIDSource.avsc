@@ -1,0 +1,12 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Source of security identifier",
+  "name": "SecurityIDSource",
+  "symbols": [
+    "ISIN",
+    "RIC",
+    "EXCHANGE_SYMBOL",
+    "BLOOMBERG_SYMBOL"
+  ]
+}

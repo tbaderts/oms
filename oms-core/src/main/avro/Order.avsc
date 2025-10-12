@@ -1,0 +1,207 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "Order",
+  "fields": [
+    {
+      "name": "orderId",
+      "type": ["null", "string"],
+      "doc": "Business order identifier",
+      "default": null
+    },
+    {
+      "name": "parentOrderId",
+      "type": ["null", "string"],
+      "doc": "Parent order identifier for child orders",
+      "default": null
+    },
+    {
+      "name": "rootOrderId",
+      "type": ["null", "string"],
+      "doc": "Root order identifier in order hierarchy",
+      "default": null
+    },
+    {
+      "name": "sessionId",
+      "type": ["null", "string"],
+      "doc": "Trading session identifier",
+      "default": null
+    },
+    {
+      "name": "clOrdId",
+      "type": ["null", "string"],
+      "doc": "Client order identifier",
+      "default": null
+    },
+    {
+      "name": "sendingTime",
+      "type": ["null", "string"],
+      "doc": "Time when order was sent",
+      "default": null
+    },
+    {
+      "name": "account",
+      "type": ["null", "string"],
+      "doc": "Trading account",
+      "default": null
+    },
+    {
+      "name": "origClOrdId",
+      "type": ["null", "string"],
+      "doc": "Original client order identifier for amendments/cancels",
+      "default": null
+    },
+    {
+      "name": "execInst",
+      "type": ["null", "org.example.common.model.msg.ExecInst"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "handlInst",
+      "type": ["null", "org.example.common.model.msg.HandlInst"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "securityIdSource",
+      "type": ["null", "org.example.common.model.msg.SecurityIDSource"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "orderQty",
+      "type": ["null", "double"],
+      "doc": "Order quantity",
+      "default": null
+    },
+    {
+      "name": "cashOrderQty",
+      "type": ["null", "double"],
+      "doc": "Cash order quantity",
+      "default": null
+    },
+    {
+      "name": "positionEffect",
+      "type": ["null", "org.example.common.model.msg.PositionEffect"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "securityDesc",
+      "type": ["null", "string"],
+      "doc": "Security description",
+      "default": null
+    },
+    {
+      "name": "securityType",
+      "type": ["null", "string"],
+      "doc": "Type of security",
+      "default": null
+    },
+    {
+      "name": "maturityMonthYear",
+      "type": ["null", "string"],
+      "doc": "Maturity month and year for derivatives",
+      "default": null
+    },
+    {
+      "name": "strikePrice",
+      "type": ["null", "double"],
+      "doc": "Strike price for options",
+      "default": null
+    },
+    {
+      "name": "priceType",
+      "type": ["null", "org.example.common.model.msg.PriceType"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "putOrCall",
+      "type": ["null", "int"],
+      "doc": "Put or Call indicator (1=Put, 2=Call)",
+      "default": null
+    },
+    {
+      "name": "underlyingSecurityType",
+      "type": ["null", "string"],
+      "doc": "Underlying security type",
+      "default": null
+    },
+    {
+      "name": "ordType",
+      "type": ["null", "org.example.common.model.msg.OrdType"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "price",
+      "type": ["null", "double"],
+      "doc": "Order price",
+      "default": null
+    },
+    {
+      "name": "stopPx",
+      "type": ["null", "double"],
+      "doc": "Stop price",
+      "default": null
+    },
+    {
+      "name": "securityId",
+      "type": ["null", "string"],
+      "doc": "Security identifier",
+      "default": null
+    },
+    {
+      "name": "side",
+      "type": ["null", "org.example.common.model.msg.Side"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "symbol",
+      "type": ["null", "string"],
+      "doc": "Trading symbol",
+      "default": null
+    },
+    {
+      "name": "timeInForce",
+      "type": ["null", "org.example.common.model.msg.TimeInForce"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "exDestination",
+      "type": ["null", "string"],
+      "doc": "Execution destination",
+      "default": null
+    },
+    {
+      "name": "settlCurrency",
+      "type": ["null", "string"],
+      "doc": "Settlement currency",
+      "default": null
+    },
+    {
+      "name": "expireTime",
+      "type": ["null", "string"],
+      "doc": "Order expiration time",
+      "default": null
+    },
+    {
+      "name": "securityExchange",
+      "type": ["null", "string"],
+      "doc": "Security exchange",
+      "default": null
+    },
+    {
+      "name": "text",
+      "type": ["null", "string"],
+      "doc": "Free form text",
+      "default": null
+    }
+  ]
+
+}

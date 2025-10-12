@@ -1,0 +1,26 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "ExecutionCreateCmd",
+  "fields": [
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Command type discriminator"
+    },
+    {
+      "name": "version",
+      "type": ["null", "string"],
+      "doc": "Command API version",
+      "default": null
+    },
+    {
+      "name": "execution",
+      "type": ["null", "org.example.common.model.msg.Execution"],
+      "doc": "",
+      "default": null
+    }
+  ]
+
+}

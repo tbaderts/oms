@@ -1,0 +1,170 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openapi.generator' version '7.15.0'
+	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
+	id 'com.diffplug.spotless' version '8.0.0'
+}
+
+group = 'org.example.oms'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	gradlePluginPortal()
+	maven {url = uri("https://packages.confluent.io/maven/")}
+}
+
+ext {
+	set('springCloudVersion', "2024.0.1")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.kafka:spring-kafka'
+	implementation'io.confluent:kafka-avro-serializer:7.9.2'
+	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
+	implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
+	implementation 'io.github.jaspeen:ulid-java:0.2.0'
+	implementation 'org.openapitools:jackson-databind-nullable:0.2.7'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.38'
+	implementation 'org.mapstruct:mapstruct:1.6.3'
+	compileOnly 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+	annotationProcessor 'org.projectlombok:lombok'
+	annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+configurations {
+    avroTools {
+        transitive = false
+    }
+}
+
+openApiGenerate {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
+    outputDir = "$buildDir/generated".toString()
+    apiPackage = "org.example.common.api"
+    modelPackage = "org.example.common.model.cmd"
+    configOptions = [
+        interfaceOnly: "true",
+        useSpringBoot3: "true",
+        skipDefaultInterface: "true",
+		enumPropertyNaming: "original",
+        modelNameSuffix: "",
+		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
+    ]
+}
+
+task openApiGenerateAvro(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "avro-schema"
+    inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
+    outputDir = "$buildDir/generated-avro".toString()
+    configOptions = [
+        packageName: "org.example.common.model.msg"
+    ]
+}
+
+// https://medium.com/@jonassilveira_18601/how-to-configure-avro-with-gradle-a-practical-guide-eb1ab15815a4
+def avroGeneratedDir = layout.buildDirectory.dir("buildDir/")
+
+tasks.register("avroGenerate", JavaExec) {
+    classpath(configurations.avroTools)
+    args(
+        "compile",
+        "schema",
+        "$buildDir/generated-avro/*.avsc",
+        avroGeneratedDir.get().asFile.canonicalPath
+    )
+} 
+
+tasks.named("avroGenerate") {
+    dependsOn tasks.named("openApiGenerateAvro")
+}
+
+tasks.named("compileJava") {
+    dependsOn tasks.named("openApiGenerate")
+    dependsOn tasks.named("openApiGenerateAvro")
+    dependsOn tasks.named("spotlessJava")
+	//dependsOn tasks.named("avroGenerate")
+}
+
+// Add the generated sources to the source set
+sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
+
+// Spotless code formatting configuration
+spotless {
+    java {
+        // Apply formatting to all Java files including generated ones
+        target 'src/**/*.java', 'build/generated/**/*.java', 'build/generated-main-avro-java/**/*.java'
+        
+        // Use Google Java Format
+        googleJavaFormat('1.19.2').aosp().reflowLongStrings()
+        
+        // Remove unused imports
+        removeUnusedImports()
+        
+        // Format imports
+        importOrder('java', 'javax', 'org', 'com', '')
+        
+        // Ensure files end with newline
+        endWithNewline()
+        
+        // Trim trailing whitespace
+        trimTrailingWhitespace()
+        
+        // Don't format certain generated files that might break
+        targetExclude 'build/generated/**/ApiUtil.java'
+    }
+}
+
+// Ensure proper task dependencies for Spotless
+tasks.named("spotlessJava").configure {
+    dependsOn tasks.named("openApiGenerate")
+    dependsOn tasks.named("openApiGenerateAvro")
+    if (tasks.findByName("generateAvroJava")) {
+        dependsOn tasks.named("generateAvroJava")
+    }
+}
+
+// Format generated code after generation
+tasks.named("openApiGenerate").configure {
+    finalizedBy tasks.named("spotlessApply")
+}
+
+if (tasks.findByName("generateAvroJava")) {
+    tasks.named("generateAvroJava").configure {
+        finalizedBy tasks.named("spotlessApply")
+    }
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

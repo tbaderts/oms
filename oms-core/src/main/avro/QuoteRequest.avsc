@@ -1,0 +1,27 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "QuoteRequest",
+  "fields": [
+    {
+      "name": "symbol",
+      "type": ["null", "string"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "quantity",
+      "type": ["null", "double"],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "currency",
+      "type": ["null", "string"],
+      "doc": "",
+      "default": null
+    }
+  ]
+
+}

@@ -1,0 +1,21 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "Quote",
+  "fields": [
+    {
+      "name": "quoteRequestId",
+      "type": ["null", "string"],
+      "doc": "ID of the associated quote request",
+      "default": null
+    },
+    {
+      "name": "price",
+      "type": ["null", "double"],
+      "doc": "Price of the quote",
+      "default": null
+    }
+  ]
+
+}

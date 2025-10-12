@@ -1,0 +1,219 @@
+{
+  "type": "record",
+  "name": "OrderMessage",
+  "namespace": "org.example.common.model.msg",
+  "fields": [
+    {
+      "name": "account",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "cancelState",
+      "type": [ "null", "org.example.common.model.msg.CancelState" ]
+    },
+    {
+      "name": "cashOrderQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "clOrdId",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "exDestination",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "execInst",
+      "type": [ "null", "org.example.common.model.msg.ExecInst" ]
+    },
+    {
+      "name": "expireTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    },
+    {
+      "name": "handlInst",
+      "type": [ "null", "org.example.common.model.msg.HandlInst" ]
+    },
+    {
+      "name": "maturityMonthYear",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "ordType",
+      "type": [ "null", "org.example.common.model.msg.OrdType" ]
+    },
+    {
+      "name": "orderId",
+      "type": "string"
+    },
+    {
+      "name": "orderQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "origClOrdId",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "parentOrderId",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "positionEffect",
+      "type": [ "null", "org.example.common.model.msg.PositionEffect" ]
+    },
+    {
+      "name": "price",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "priceType",
+      "type": [ "null", "org.example.common.model.msg.PriceType" ]
+    },
+    {
+      "name": "putOrCall",
+      "type": [ "null", "int" ]
+    },
+    {
+      "name": "rootOrderId",
+      "type": "string"
+    },
+    {
+      "name": "securityDesc",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "securityExchange",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "securityIDSource",
+      "type": [ "null", "org.example.common.model.msg.SecurityIDSource" ]
+    },
+    {
+      "name": "securityId",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "sendingTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    },
+    {
+      "name": "sessionId",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "settlCurrency",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "side",
+      "type": [ "null", "org.example.common.model.msg.Side" ]
+    },
+    {
+      "name": "state",
+      "type": [ "null", "org.example.common.model.msg.State" ]
+    },
+    {
+      "name": "stopPx",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "strikePrice",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 2
+        }
+      ]
+    },
+    {
+      "name": "symbol",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "text",
+      "type": [ "null", "string" ]
+    },
+    {
+      "name": "tifTimestamp",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    },
+    {
+      "name": "timeInForce",
+      "type": [ "null", "org.example.common.model.msg.TimeInForce" ]
+    },
+    {
+      "name": "transactTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ]
+    },
+    {
+      "name": "eventId",
+      "type": [ "null", "long" ]
+    },
+    {
+      "name": "underlyingSecurityType",
+      "type": [ "null", "string" ]
+    }
+  ]
+}

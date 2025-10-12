@@ -1,0 +1,11 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Execution instructions",
+  "name": "ExecInst",
+  "symbols": [
+    "NO_CROSS",
+    "OK_TO_CROSS",
+    "MID_PEG"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "",
+  "name": "ExecutionBustCmd",
+  "fields": [
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Command type discriminator"
+    },
+    {
+      "name": "version",
+      "type": ["null", "string"],
+      "doc": "Command API version",
+      "default": null
+    },
+    {
+      "name": "executionId",
+      "type": ["null", "string"],
+      "doc": "",
+      "default": null
+    }
+  ]
+
+}

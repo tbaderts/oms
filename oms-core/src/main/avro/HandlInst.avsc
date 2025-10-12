@@ -1,0 +1,11 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Handling instructions",
+  "name": "HandlInst",
+  "symbols": [
+    "AUTO",
+    "BROKER_INTERVENTION_OK",
+    "MANUAL"
+  ]
+}

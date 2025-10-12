@@ -1,0 +1,10 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Position effect (OPEN/CLOSE)",
+  "name": "PositionEffect",
+  "symbols": [
+    "OPEN",
+    "CLOSE"
+  ]
+}

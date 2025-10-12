@@ -1,0 +1,25 @@
+{
+  // VS Code MCP server configuration for GitHub Copilot Chat
+  // Requires a recent version of the Copilot Chat extension that supports local MCP servers.
+  "mcpServers": {
+    "spring-ai": {
+      "command": "bash",
+      "args": ["-c", "./spring-ai/run-mcp.sh"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        // Example: "JAVA_OPTS": "-Xmx512m"
+      }
+    }
+  },
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "chat.mcp.serverSampling": {
+    "oms/.vscode/mcp.json: oms-mcp": {
+      "allowedModels": [
+        "copilot/gpt-4.1",
+        "copilot/claude-sonnet-4.5",
+        "copilot/gpt-5-mini"
+      ]
+    }
+  }
+}

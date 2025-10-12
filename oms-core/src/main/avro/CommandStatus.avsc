@@ -1,0 +1,10 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Command status",
+  "name": "CommandStatus",
+  "symbols": [
+    "OK",
+    "FAILED"
+  ]
+}

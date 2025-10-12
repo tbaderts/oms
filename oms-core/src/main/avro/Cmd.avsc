@@ -1,0 +1,14 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Command type",
+  "name": "Cmd",
+  "symbols": [
+    "OCRE",
+    "OCXL",
+    "OREJ",
+    "ECRE",
+    "EWHK",
+    "EBST"
+  ]
+}

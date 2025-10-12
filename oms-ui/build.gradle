@@ -1,0 +1,72 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.github.node-gradle.node' version '7.1.0'
+}
+
+group = 'org.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '21'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Node.js configuration for building React app
+node {
+    version = '22.20.0'
+    npmVersion = '10.9.3'
+    download = true
+    workDir = file("${project.buildDir}/nodejs")
+    npmWorkDir = file("${project.buildDir}/npm")
+    nodeProjectDir = file("${project.projectDir}/frontend")
+}
+
+// Task to build React app (uses plugin's built-in npmInstall)
+task buildReact(type: com.github.gradle.node.npm.task.NpmTask, dependsOn: npmInstall) {
+    description = 'Builds the React application'
+    workingDir = file("${project.projectDir}/frontend")
+    args = ['run', 'build']
+}
+
+// Task to copy React build output to Spring Boot static resources
+task copyReactBuild(type: Copy, dependsOn: buildReact) {
+    description = 'Copies the React build output to Spring Boot static resources'
+    from "${project.projectDir}/frontend/build"
+    into "${project.buildDir}/resources/main/static"
+}
+
+// Task to clean React build
+task cleanReact(type: Delete) {
+    description = 'Cleans the React build directory'
+    delete "${project.projectDir}/frontend/build"
+    delete "${project.projectDir}/frontend/node_modules"
+}
+
+// Make processResources depend on copyReactBuild
+processResources.dependsOn copyReactBuild
+
+// Make clean also clean React build
+clean.dependsOn cleanReact

@@ -1,0 +1,363 @@
+openapi: 3.0.3
+info:
+  title: Digital Assets OMS Command API
+  version: 1.0.0
+  description: Command API for submitting commands to oms
+
+paths:
+  /execute:
+    post:
+      summary: Execute an oms command
+      operationId: executeCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Command'
+            example:
+              type: "OrderCreateCmd"
+              order:
+                id: "20250531-test-001"
+                quantity: 100
+      responses:
+        '200':
+          description: Command executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
+        '400':
+          description: Invalid command
+
+components:
+  schemas:
+    Command:
+      type: object
+      discriminator:
+        propertyName: type
+        mapping:
+          QuoteRequestCreateCmd: '#/components/schemas/QuoteRequestCreateCmd'
+          QuoteCreateCmd: '#/components/schemas/QuoteCreateCmd'
+          OrderCreateCmd: '#/components/schemas/OrderCreateCmd'
+          OrderAcceptCmd: '#/components/schemas/OrderAcceptCmd'
+          ExecutionCreateCmd: '#/components/schemas/ExecutionCreateCmd'
+          ExecutionWhackCmd: '#/components/schemas/ExecutionWhackCmd'
+          ExecutionBustCmd: '#/components/schemas/ExecutionBustCmd'
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          description: Command type discriminator
+        version:
+          type: string
+          description: Command API version
+
+    QuoteRequestCreateCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            quoteRequest:
+              $ref: '#/components/schemas/QuoteRequest'
+
+    QuoteCreateCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            quote:
+              $ref: '#/components/schemas/Quote'
+
+    OrderCreateCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            order:
+              $ref: '#/components/schemas/Order'
+
+    OrderAcceptCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            orderId:
+              type: string
+
+    ExecutionCreateCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            execution:
+              $ref: '#/components/schemas/Execution'
+
+    ExecutionWhackCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            executionId:
+              type: string
+
+    ExecutionBustCmd:
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          properties:
+            executionId:
+              type: string
+
+    Quote:
+      type: object
+      properties:
+        quoteRequestId:
+          type: string
+          description: ID of the associated quote request
+        price:
+          type: number
+          description: Price of the quote
+
+    QuoteRequest:
+      type: object
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: number
+        currency:
+          type: string
+
+    Order:
+      type: object
+      properties:
+        orderId:
+          type: string
+          description: Business order identifier
+        parentOrderId:
+          type: string
+          description: Parent order identifier for child orders
+        rootOrderId:
+          type: string
+          description: Root order identifier in order hierarchy
+        sessionId:
+          type: string
+          description: Trading session identifier
+        clOrdId:
+          type: string
+          description: Client order identifier
+        sendingTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: Time when order was sent
+        account:
+          type: string
+          description: Trading account
+        origClOrdId:
+          type: string
+          description: Original client order identifier for amendments/cancels
+        execInst:
+          $ref: '#/components/schemas/ExecInst'
+          description: Execution instructions
+        handlInst:
+          $ref: '#/components/schemas/HandlInst'
+          description: Handling instructions
+        securityIdSource:
+          $ref: '#/components/schemas/SecurityIdSource'
+          description: Source of security identifier
+        orderQty:
+          type: number
+          description: Order quantity
+        cashOrderQty:
+          type: number
+          description: Cash order quantity
+        positionEffect:
+          $ref: '#/components/schemas/PositionEffect'
+          description: Position effect (OPEN/CLOSE)
+        securityDesc:
+          type: string
+          description: Security description
+        securityType:
+          type: string
+          description: Type of security
+        maturityMonthYear:
+          type: string
+          description: Maturity month and year for derivatives
+        strikePrice:
+          type: number
+          description: Strike price for options
+        priceType:
+          $ref: '#/components/schemas/PriceType'
+          description: Price type
+        putOrCall:
+          type: integer
+          description: Put or Call indicator (1=Put, 2=Call)
+        underlyingSecurityType:
+          type: string
+          description: Underlying security type
+        ordType:
+          $ref: '#/components/schemas/OrdType'
+          description: Order type (MARKET, LIMIT, etc.)
+        price:
+          type: number
+          description: Order price
+        stopPx:
+          type: number
+          description: Stop price
+        securityId:
+          type: string
+          description: Security identifier
+        side:
+          $ref: '#/components/schemas/Side'
+          description: Order side
+        symbol:
+          type: string
+          description: Trading symbol
+        timeInForce:
+          $ref: '#/components/schemas/TimeInForce'
+          description: Time in force
+        exDestination:
+          type: string
+          description: Execution destination
+        settlCurrency:
+          type: string
+          description: Settlement currency
+        expireTime:
+          type: string
+          format: date-time
+          description: Order expiration time
+        securityExchange:
+          type: string
+          description: Security exchange
+        text:
+          type: string
+          description: Free form text
+
+    Execution:
+      type: object
+      properties:
+        execId:
+          type: string
+        orderId:
+          type: string
+
+    CommandResult:
+      type: object
+      properties:
+        id:
+          type: string
+          description: unique identifier for object created by the command
+        status:
+          $ref: '#/components/schemas/CommandStatus'
+        message:
+          type: string
+          description: human-readable description of the command result
+
+    State:
+      type: string
+      description: Order state
+      enum:
+        - NEW
+        - UNACK
+        - LIVE
+        - FILLED
+        - CXL
+        - REJ
+        - CLOSED
+        - EXP
+    CancelState:
+      type: string
+      description: Cancel state
+      enum:
+        - CXL
+        - PCXL
+        - PMOD
+        - REJ
+    Side:
+      type: string
+      description: Order side
+      enum:
+        - BUY
+        - SELL
+        - SELL_SHORT
+        - SUBSCRIBE
+        - REDEEM
+    TimeInForce:
+      type: string
+      description: Time in force
+      enum:
+        - DAY
+        - GOOD_TILL_CANCEL
+        - AT_THE_OPENING
+        - IMMEDIATE_OR_CANCEL
+        - FILL_OR_KILL
+        - GOOD_TILL_CROSSING
+        - GOOD_TILL_DATE
+        - AT_THE_CLOSE
+    Cmd:
+      type: string
+      description: Command type
+      enum:
+        - OCRE
+        - OCXL
+        - OREJ
+        - ECRE
+        - EWHK
+        - EBST
+    CommandStatus:
+      type: string
+      description: Command status
+      enum:
+        - OK
+        - FAILED
+    ExecInst:
+      type: string
+      description: Execution instructions
+      enum:
+        - NO_CROSS
+        - OK_TO_CROSS
+        - MID_PEG
+    HandlInst:
+      type: string
+      description: Handling instructions
+      enum:
+        - AUTO
+        - BROKER_INTERVENTION_OK
+        - MANUAL
+    SecurityIdSource:
+      type: string
+      description: Source of security identifier
+      enum:
+        - ISIN
+        - RIC
+        - EXCHANGE_SYMBOL
+        - BLOOMBERG_SYMBOL
+    PositionEffect:
+      type: string
+      description: Position effect (OPEN/CLOSE)
+      enum:
+        - OPEN
+        - CLOSE
+    PriceType:
+      type: string
+      description: Price type
+      enum:
+        - PERCENTAGE
+        - PER_UNIT
+        - FIXED_AMOUNT
+        - DISCOUNT
+        - PREMIUM
+        - SPREAD
+        - YIELD
+    OrdType:
+      type: string
+      description: Order type
+      enum:
+        - MARKET
+        - LIMIT
+        - STOP
+        - STOP_LIMIT
+        - MARKET_ON_CLOSE

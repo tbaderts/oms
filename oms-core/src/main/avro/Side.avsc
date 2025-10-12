@@ -1,0 +1,10 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Order side",
+  "name": "Side",
+  "symbols": [
+    "BUY",
+    "SELL"
+  ]
+}

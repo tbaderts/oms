@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: oms
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      minimum-idle: 8
+      maximum-pool-size: 32
+  threads:
+    virtual:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+  kafka:
+    properties:
+      auto.register.schemas: true
+    bootstrap-servers: localhost:9092
+    consumer:
+      properties:
+        specific.avro.reader: true
+        spring.deserializer:
+          key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+          value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
+        schema.registry:
+          url: http://localhost:8081
+      group-id: orders-group
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      auto-offset-reset: earliest
+    producer:
+      acks: all
+      retries: 3
+      properties:
+        retry.backoff.ms: 250
+        schema.registry:
+          url: http://localhost:8081
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+
+kafka:
+  enabled: false
+  order-topic: orders
+  command-topic: commands
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  tracing:
+    sampling:
+      probability: 1.0
+
+springdoc:
+  show-actuator: false
+  swagger-ui:
+    use-root-path: true
+
+tracing:
+  url: ${TRACING_URL}
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    org.springframework.transaction: INFO
+
+server:
+  port: ${SERVER_PORT}

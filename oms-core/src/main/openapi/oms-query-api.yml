@@ -1,0 +1,329 @@
+openapi: 3.0.3
+info:
+  title: Digital Assets OMS Query API
+  version: 1.0.0
+  description: |
+    Query (read-only) API for searching Orders with dynamic filtering, pagination and sorting.
+    
+    Filtering rules:
+      * Basic equality: `field=value` (alias for `field__eq=value`)
+      * Like (substring, case-insensitive): `field__like=text` (string fields only)
+      * Numeric / date comparisons: `field__gt=`, `field__gte=`, `field__lt=`, `field__lte=`
+      * Range (inclusive): `field__between=a,b` (either side may be blank to express open range, e.g. `price__between=100,` means >= 100)
+      * Date-time values must be ISO-8601 local date-times (e.g. `2025-08-29T12:34:56`).
+      * Enum fields only support equality (no like / range): side, ordType, state, cancelState.
+      * Unknown / malformed filters are ignored silently.
+    
+    Supported filterable fields by type:
+      * String: orderId, rootOrderId, parentOrderId, clOrdId, account, symbol, securityId
+      * Numeric (BigDecimal): price, orderQty, cashOrderQty
+      * DateTime (LocalDateTime): sendingTime, transactTime, expireTime
+      * Enum: side, ordType, state, cancelState
+    
+    Sorting:
+      * `sort` query parameter supports multiple segments separated by `;`.
+      * Each segment: `field[,ASC|DESC]` (direction defaults to ASC if omitted).
+      * Example: `sort=price,DESC;orderQty,ASC`.
+      * If absent or empty, defaults to `id,DESC` (internal id).
+    
+    Pagination:
+      * `page` (0-based) default 0.
+      * `size` default 50, max 500.
+    
+    HAL / HATEOAS:
+      * Responses use Spring HATEOAS page structure with `_embedded`, `_links` and `page` metadata.
+paths:
+  /api/query/orders:
+    get:
+      operationId: searchOrders
+      summary: Dynamic search for Orders
+      description: Search orders with dynamic filters, pagination, and sorting.
+      tags:
+        - Orders
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+          description: 0-based page index (default 0)
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+          description: Page size (default 50, max 500)
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Semicolon-separated list of sort instructions. Each instruction is `field[,ASC|DESC]`.
+        - name: orderId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Equals filter on orderId (alias for orderId__eq)
+        - name: orderId__like
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Substring (case-insensitive) match for orderId
+        - name: rootOrderId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: parentOrderId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: clOrdId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: account
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: symbol__like
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Substring (case-insensitive) match for symbol
+        - name: securityId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: price
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Equals filter on price (BigDecimal). Use price__gt / __lt etc for comparisons.
+        - name: price__gt
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: price__gte
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: price__lt
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: price__lte
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: price__between
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Inclusive range. Example: price__between=100,150 or price__between=100, (>=100)"
+        - name: orderQty__between
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: orderQty__gt
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: orderQty__lt
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cashOrderQty__between
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: sendingTime__between
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: "Inclusive range. Example: sendingTime__between=2025-08-01T00:00:00,2025-08-31T23:59:59"
+        - name: transactTime__between
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: expireTime__between
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: side
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Side'
+        - name: ordType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/OrdType'
+        - name: state
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/State'
+        - name: cancelState
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/CancelState'
+      responses:
+        '200':
+          description: Paged list of matching orders
+          content:
+            application/hal+json:
+              schema:
+                $ref: '#/components/schemas/PagedOrderDto'
+              examples:
+                basic:
+                  summary: Simple symbol filter
+                  value:
+                    _embedded:
+                      orders:
+                        - orderId: "20250531-test-001"
+                          rootOrderId: "20250531-test-001"
+                          parentOrderId: null
+                          symbol: "BTCUSD"
+                          side: "BUY"
+                          state: "NEW"
+                          ordType: "LIMIT"
+                          price: 45000.00
+                          orderQty: 0.5
+                          transactTime: "2025-05-31T12:34:56"
+                    _links:
+                      self: { href: "/api/query/orders?symbol=BTCUSD&page=0&size=50" }
+                      first: { href: "/api/query/orders?symbol=BTCUSD&page=0&size=50" }
+                      last: { href: "/api/query/orders?symbol=BTCUSD&page=0&size=50" }
+                    page:
+                      size: 50
+                      totalElements: 1
+                      totalPages: 1
+                      number: 0
+        '400':
+          description: Bad request (invalid parameter format)
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    OrderDto:
+      type: object
+      description: Summary Order representation used in query responses.
+      properties:
+        orderId:
+          type: string
+        rootOrderId:
+          type: string
+        parentOrderId:
+          type: string
+        symbol:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        state:
+          $ref: '#/components/schemas/State'
+        ordType:
+          $ref: '#/components/schemas/OrdType'
+        price:
+          type: number
+          format: double
+        orderQty:
+          type: number
+          format: double
+        transactTime:
+          type: string
+          format: date-time
+    PagedOrderDto:
+      type: object
+      description: HAL paged collection of OrderDto
+      properties:
+        _embedded:
+          type: object
+          properties:
+            orders:
+              type: array
+              items:
+                $ref: '#/components/schemas/OrderDto'
+          description: Embedded collection of orders (rel name may vary by link-relation provider)
+        _links:
+          $ref: '#/components/schemas/Links'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+    Links:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/Link'
+    Link:
+      type: object
+      properties:
+        href:
+          type: string
+        templated:
+          type: boolean
+        type:
+          type: string
+        deprecation:
+          type: string
+        profile:
+          type: string
+        title:
+          type: string
+        hreflang:
+          type: string
+    PageMetadata:
+      type: object
+      properties:
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        number:
+          type: integer
+    Side:
+      type: string
+      enum: [BUY, SELL, SELL_SHORT, SUBSCRIBE, REDEEM]
+    OrdType:
+      type: string
+      enum: [MARKET, LIMIT, STOP, STOP_LIMIT, MARKET_ON_CLOSE]
+    State:
+      type: string
+      enum: [NEW, UNACK, LIVE, FILLED, CXL, REJ, CLOSED, EXP]
+    CancelState:
+      type: string
+      enum: [CXL, PCXL, PMOD, REJ]

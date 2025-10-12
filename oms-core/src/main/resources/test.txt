@@ -1,0 +1,33 @@
+{
+  "type": "newOrderTx",
+  "sessionId": "test-session",
+  "clOrdId": "20250322-test-001",
+  "sendingTime": "2024-03-22T10:00:00",
+  "account": "account-01",
+  "execInst": "NO_CROSS",
+  "handlInst": "BROKER_INTERVENTION_OK",
+  "securityIDSource": "RIC",
+  "orderQty": 100,
+  "priceType": "PER_UNIT",
+  "ordType": "LIMIT",
+  "price": 23.50,
+  "securityId": "INTC.OQ",
+  "side": "BUY",
+  "symbol": "INTC",
+  "timeInForce": "DAY",
+  "transactTime": "2024-03-09T10:01:00",
+  "exDestination": "XNAS",
+  "settlCurrency": "USD",
+  "securityExchange": "XNAS",
+  "text": "Sample order"
+}
+
+{
+  "type": "acceptOrderTx",
+  "orderId": "01JNXYA9R82V3XEK4AT88YP290"
+}
+
+{
+  "type": "rejectOrderTx",
+  "orderId": "01JNXYA9R82V3XEK4AT88YP290"
+}

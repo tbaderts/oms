@@ -1,0 +1,86 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.6'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openapi.generator' version '7.15.0'
+}
+
+group = 'org.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+// Retain parameter names for reflective tool invocation mapping
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ["-parameters"]
+}
+
+repositories {
+	mavenCentral()
+}
+
+ext {
+	set('springAiVersion', "1.0.3")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.ai:spring-ai-starter-mcp-server'
+	implementation 'org.openapitools:jackson-databind-nullable:0.2.7'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.38'
+	
+	// Vector store and embeddings for semantic search
+	implementation 'org.springframework.ai:spring-ai-starter-vector-store-qdrant'
+	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
+	
+	// gRPC dependencies for Qdrant client
+	implementation 'io.grpc:grpc-netty-shaded:1.69.0'
+	implementation 'io.grpc:grpc-protobuf:1.69.0'
+	implementation 'io.grpc:grpc-stub:1.69.0'
+	
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+	}
+}
+
+// Add the generated sources to the source set
+sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
+
+openApiGenerate {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-query-api.yml".toString()
+    outputDir = "$buildDir/generated".toString()
+    apiPackage = "org.example.common.api"
+    modelPackage = "org.example.common.model.query"
+    configOptions = [
+        interfaceOnly: "true",
+        useSpringBoot3: "true",
+        skipDefaultInterface: "true",
+		enumPropertyNaming: "original",
+        modelNameSuffix: "",
+		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
+    ]
+}
+
+tasks.named("compileJava") {
+    dependsOn tasks.named("openApiGenerate")
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

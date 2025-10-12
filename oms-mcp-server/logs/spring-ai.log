@@ -1,0 +1,154 @@
+2025-10-12 12:43:49.093 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.3.Final
+2025-10-12 12:43:49.135 [main] INFO  o.e.spring_ai.SpringAiApplication - Starting SpringAiApplication v0.0.1-SNAPSHOT using Java 25 with PID 37364 (C:\data\workspace\oms\oms-mcp-server\build\libs\oms-mcp-server-0.0.1-SNAPSHOT.jar started by tbade in C:\data\workspace\oms\oms-mcp-server)
+2025-10-12 12:43:49.135 [main] DEBUG o.e.spring_ai.SpringAiApplication - Running with Spring Boot v3.5.6, Spring v6.2.11
+2025-10-12 12:43:49.135 [main] INFO  o.e.spring_ai.SpringAiApplication - The following 1 profile is active: "mcp"
+2025-10-12 12:43:49.962 [main] INFO  o.e.spring_ai.docs.DomainDocsTools - [MCP] DomainDocsTools scanning baseDirs=[C:\data\workspace\oms\oms-knowledge-base]
+2025-10-12 12:43:50.215 [main] DEBUG o.e.s.oms.OrderSearchMcpTools - [MCP] OrderSearchMcpTools initialized
+2025-10-12 12:43:50.224 [main] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Configuring Qdrant client: http://localhost:6333
+2025-10-12 12:43:50.619 [main] WARN  io.qdrant.client.QdrantGrpcClient - Qdrant client version 1.13.0 is incompatible with server version 1.15.5. Major versions should match and minor version difference must not exceed 1. Set checkCompatibility=false to skip version check.
+2025-10-12 12:43:50.808 [main] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Configuring Qdrant vector store with collection: domain-docs
+2025-10-12 12:43:50.808 [main] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Using embedding model: OllamaEmbeddingModel
+2025-10-12 12:43:50.926 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] DocumentIndexer configured:
+2025-10-12 12:43:50.927 [main] INFO  o.e.s.vector.DocumentIndexerService -   - Base dirs: [C:\data\workspace\oms\oms-knowledge-base]
+2025-10-12 12:43:50.927 [main] INFO  o.e.s.vector.DocumentIndexerService -   - Chunk size: 1000
+2025-10-12 12:43:50.927 [main] INFO  o.e.s.vector.DocumentIndexerService -   - Chunk overlap: 200
+2025-10-12 12:43:50.927 [main] INFO  o.e.s.vector.DocumentIndexerService -   - Auto-index on startup: true
+2025-10-12 12:43:50.929 [main] INFO  o.e.s.vector.SemanticSearchTools - [MCP] SemanticSearchTools initialized with vector store
+2025-10-12 12:43:51.188 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable tools capabilities, notification: true
+2025-10-12 12:43:51.266 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Registered tools: 10
+2025-10-12 12:43:51.266 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable resources capabilities, notification: true
+2025-10-12 12:43:51.267 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable prompts capabilities, notification: true
+2025-10-12 12:43:51.267 [main] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable completions capabilities
+2025-10-12 12:43:51.353 [pool-3-thread-1] INFO  i.m.server.McpAsyncServer - Client initialize request - Protocol: 2025-06-18, Capabilities: ClientCapabilities[experimental=null, roots=RootCapabilities[listChanged=true], sampling=Sampling[]], Info: Implementation[name=Visual Studio Code, version=1.105.0]
+2025-10-12 12:43:51.356 [pool-3-thread-1] WARN  i.m.server.McpAsyncServer - Client requested unsupported protocol version: 2025-06-18, so the server will suggest the 2024-11-05 version instead
+2025-10-12 12:43:51.486 [main] INFO  o.e.spring_ai.SpringAiApplication - Started SpringAiApplication in 2.924 seconds (process running for 3.386)
+2025-10-12 12:43:51.489 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Auto-indexing enabled, starting document indexing...
+2025-10-12 12:43:51.489 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Starting document indexing...
+2025-10-12 12:43:51.491 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Found 15 documents in C:\data\workspace\oms\oms-knowledge-base
+2025-10-12 12:43:51.492 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\illustrations\order_allocation_diagrams.md
+2025-10-12 12:43:51.585 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 4 chunks.
+2025-10-12 12:43:51.585 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order_allocation_diagrams.md: 4 chunks
+2025-10-12 12:43:51.586 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\illustrations\task-orchestration-diagrams.md
+2025-10-12 12:43:51.642 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 12:43:51.642 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed task-orchestration-diagrams.md: 3 chunks
+2025-10-12 12:43:51.642 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\future-considerations.md
+2025-10-12 12:43:51.697 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 5 chunks.
+2025-10-12 12:43:51.698 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed future-considerations.md: 5 chunks
+2025-10-12 12:43:51.698 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-grouping.md
+2025-10-12 12:43:51.758 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 10 chunks.
+2025-10-12 12:43:51.758 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-grouping.md: 10 chunks
+2025-10-12 12:43:51.758 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-quantity-calculations.md
+2025-10-12 12:43:51.812 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 7 chunks.
+2025-10-12 12:43:51.813 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-quantity-calculations.md: 7 chunks
+2025-10-12 12:43:51.813 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-replace.md
+2025-10-12 12:43:51.874 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 11 chunks.
+2025-10-12 12:43:51.875 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-replace.md: 11 chunks
+2025-10-12 12:43:51.875 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\streaming-architecture.md
+2025-10-12 12:43:51.925 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 12:43:51.925 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed streaming-architecture.md: 3 chunks
+2025-10-12 12:43:51.925 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\domain-model_spec.md
+2025-10-12 12:43:51.967 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed domain-model_spec.md: 1 chunks
+2025-10-12 12:43:51.967 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\oms-state-store.md
+2025-10-12 12:43:52.008 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 12:43:52.008 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed oms-state-store.md: 3 chunks
+2025-10-12 12:43:52.008 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\state-machine-framework_spec.md
+2025-10-12 12:43:52.057 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 6 chunks.
+2025-10-12 12:43:52.058 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed state-machine-framework_spec.md: 6 chunks
+2025-10-12 12:43:52.058 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\state-query-store_spec.md
+2025-10-12 12:43:52.104 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 12:43:52.105 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed state-query-store_spec.md: 3 chunks
+2025-10-12 12:43:52.105 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\task-orchestration-framework_spec.md
+2025-10-12 12:43:52.150 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 5 chunks.
+2025-10-12 12:43:52.151 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed task-orchestration-framework_spec.md: 5 chunks
+2025-10-12 12:43:52.151 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\manifesto.md
+2025-10-12 12:43:52.201 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 2 chunks.
+2025-10-12 12:43:52.201 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed manifesto.md: 2 chunks
+2025-10-12 12:43:52.201 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\skill-profiles.md
+2025-10-12 12:43:52.249 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 12:43:52.250 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed skill-profiles.md: 3 chunks
+2025-10-12 12:43:52.250 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\software-architecture-methodology.md
+2025-10-12 12:43:52.292 [main] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 2 chunks.
+2025-10-12 12:43:52.292 [main] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed software-architecture-methodology.md: 2 chunks
+2025-10-12 12:43:52.293 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Adding 68 chunks from 15 files to vector store...
+2025-10-12 12:43:55.579 [main] INFO  o.e.s.vector.DocumentIndexerService - [Vector] ✅ Successfully indexed 15 documents (68 chunks)
+2025-10-12 12:44:36.064 [boundedElastic-1] INFO  o.e.s.vector.SemanticSearchTools - [MCP] getVectorStoreInfo called
+2025-10-12 12:44:36.102 [boundedElastic-1] INFO  o.e.s.vector.SemanticSearchTools - [MCP] Vector store stats: points=340, vectors=0, segments=8, status=Green
+2025-10-12 12:45:31.706 [boundedElastic-1] INFO  o.e.s.oms.OrderSearchMcpTools - [MCP] searchOrders called with filters=OrderSearchFilters[orderId=null, orderIdLike=null, rootOrderId=null, parentOrderId=null, clOrdId=null, account=null, symbol=null, symbolLike=null, securityId=null, price=null, priceGt=null, priceGte=null, priceLt=null, priceLte=null, priceBetween=null, orderQtyBetween=null, orderQtyGt=null, orderQtyLt=null, cashOrderQtyBetween=null, sendingTimeBetween=null, transactTimeBetween=null, expireTimeBetween=null, side=null, ordType=null, state=null, cancelState=null], page=1, size=1, sort=null
+2025-10-12 12:45:31.719 [boundedElastic-1] INFO  o.e.spring_ai.oms.OrderQueryClient - OMS Order Search Request - URI: /api/query/orders?size=1&page=1
+2025-10-12 12:45:31.722 [boundedElastic-1] INFO  o.e.spring_ai.oms.LoggingInterceptor - Request: GET http://localhost:8090/api/query/orders?size=1&page=1
+2025-10-12 12:45:31.722 [boundedElastic-1] DEBUG o.e.spring_ai.oms.LoggingInterceptor - Request headers: [Accept:"application/json", Content-Length:"0"]
+2025-10-12 12:45:31.761 [boundedElastic-1] INFO  o.e.spring_ai.oms.LoggingInterceptor - Response: 200 OK OK
+2025-10-12 12:45:31.762 [boundedElastic-1] DEBUG o.e.spring_ai.oms.LoggingInterceptor - Response headers: [content-type:"application/json", date:"Sun, 12 Oct 2025 10:45:31 GMT", transfer-encoding:"chunked"]
+2025-10-12 12:45:31.762 [boundedElastic-1] INFO  o.e.spring_ai.oms.OrderQueryClient - OMS Order Search Response - Body: {"content":[{"orderId":"ORD-bf0a1ec4-c31c-42e9-a29a-ab309d760bfa","symbol":"INTC","side":"BUY","state":"UNACK","ordType":"LIMIT","price":23.15,"orderQty":200.00,"transactTime":"2025-10-12T12:08:32.366263"}],"page":{"size":1,"number":1,"totalElements":3,"totalPages":3}}
+2025-10-12 12:45:31.764 [boundedElastic-1] INFO  o.e.s.oms.OrderSearchMcpTools - Received paged response: PageResponse{pageNumber=1, pageSize=1, totalElements=3, totalPages=3, contentSize=1}
+2025-10-12 22:27:23.528 [background-preinit] INFO  o.h.validator.internal.util.Version - HV000001: Hibernate Validator 8.0.3.Final
+2025-10-12 22:27:23.580 [Test worker] INFO  o.e.s.SpringAiApplicationTests - Starting SpringAiApplicationTests using Java 21.0.3 with PID 48472 (started by tbade in C:\data\workspace\oms\oms-mcp-server)
+2025-10-12 22:27:23.580 [Test worker] DEBUG o.e.s.SpringAiApplicationTests - Running with Spring Boot v3.5.6, Spring v6.2.11
+2025-10-12 22:27:23.580 [Test worker] INFO  o.e.s.SpringAiApplicationTests - No active profile set, falling back to 1 default profile: "default"
+2025-10-12 22:27:24.540 [Test worker] INFO  o.e.spring_ai.docs.DomainDocsTools - [MCP] DomainDocsTools scanning baseDirs=[C:\data\workspace\oms\oms-knowledge-base]
+2025-10-12 22:27:24.838 [Test worker] DEBUG o.e.s.oms.OrderSearchMcpTools - [MCP] OrderSearchMcpTools initialized
+2025-10-12 22:27:24.845 [Test worker] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Configuring Qdrant client: http://localhost:6333
+2025-10-12 22:27:25.321 [Test worker] WARN  io.qdrant.client.QdrantGrpcClient - Qdrant client version 1.13.0 is incompatible with server version 1.15.5. Major versions should match and minor version difference must not exceed 1. Set checkCompatibility=false to skip version check.
+2025-10-12 22:27:25.535 [Test worker] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Configuring Qdrant vector store with collection: domain-docs
+2025-10-12 22:27:25.535 [Test worker] INFO  o.e.s.vector.VectorStoreConfig - [Vector] Using embedding model: OllamaEmbeddingModel
+2025-10-12 22:27:25.672 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] DocumentIndexer configured:
+2025-10-12 22:27:25.673 [Test worker] INFO  o.e.s.vector.DocumentIndexerService -   - Base dirs: [C:\data\workspace\oms\oms-knowledge-base]
+2025-10-12 22:27:25.673 [Test worker] INFO  o.e.s.vector.DocumentIndexerService -   - Chunk size: 1000
+2025-10-12 22:27:25.673 [Test worker] INFO  o.e.s.vector.DocumentIndexerService -   - Chunk overlap: 200
+2025-10-12 22:27:25.673 [Test worker] INFO  o.e.s.vector.DocumentIndexerService -   - Auto-index on startup: true
+2025-10-12 22:27:25.675 [Test worker] INFO  o.e.s.vector.SemanticSearchTools - [MCP] SemanticSearchTools initialized with vector store
+2025-10-12 22:27:25.917 [Test worker] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable tools capabilities, notification: true
+2025-10-12 22:27:25.995 [Test worker] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Registered tools: 10
+2025-10-12 22:27:25.995 [Test worker] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable resources capabilities, notification: true
+2025-10-12 22:27:25.996 [Test worker] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable prompts capabilities, notification: true
+2025-10-12 22:27:25.996 [Test worker] INFO  o.s.a.m.s.a.McpServerAutoConfiguration - Enable completions capabilities
+2025-10-12 22:27:26.215 [Test worker] INFO  o.e.s.SpringAiApplicationTests - Started SpringAiApplicationTests in 3.126 seconds (process running for 4.455)
+2025-10-12 22:27:26.219 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Auto-indexing enabled, starting document indexing...
+2025-10-12 22:27:26.219 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Starting document indexing...
+2025-10-12 22:27:26.221 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Found 15 documents in C:\data\workspace\oms\oms-knowledge-base
+2025-10-12 22:27:26.221 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\illustrations\order_allocation_diagrams.md
+2025-10-12 22:27:26.329 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 4 chunks.
+2025-10-12 22:27:26.331 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order_allocation_diagrams.md: 4 chunks
+2025-10-12 22:27:26.331 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\illustrations\task-orchestration-diagrams.md
+2025-10-12 22:27:26.404 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 22:27:26.405 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed task-orchestration-diagrams.md: 3 chunks
+2025-10-12 22:27:26.405 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\future-considerations.md
+2025-10-12 22:27:26.515 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 5 chunks.
+2025-10-12 22:27:26.515 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed future-considerations.md: 5 chunks
+2025-10-12 22:27:26.515 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-grouping.md
+2025-10-12 22:27:26.602 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 10 chunks.
+2025-10-12 22:27:26.603 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-grouping.md: 10 chunks
+2025-10-12 22:27:26.604 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-quantity-calculations.md
+2025-10-12 22:27:26.683 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 7 chunks.
+2025-10-12 22:27:26.684 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-quantity-calculations.md: 7 chunks
+2025-10-12 22:27:26.684 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\order-replace.md
+2025-10-12 22:27:26.744 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 11 chunks.
+2025-10-12 22:27:26.745 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed order-replace.md: 11 chunks
+2025-10-12 22:27:26.745 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-concepts\streaming-architecture.md
+2025-10-12 22:27:26.832 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 22:27:26.832 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed streaming-architecture.md: 3 chunks
+2025-10-12 22:27:26.832 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\domain-model_spec.md
+2025-10-12 22:27:26.887 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed domain-model_spec.md: 1 chunks
+2025-10-12 22:27:26.887 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\oms-state-store.md
+2025-10-12 22:27:26.949 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 22:27:26.949 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed oms-state-store.md: 3 chunks
+2025-10-12 22:27:26.949 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\state-machine-framework_spec.md
+2025-10-12 22:27:27.007 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 6 chunks.
+2025-10-12 22:27:27.007 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed state-machine-framework_spec.md: 6 chunks
+2025-10-12 22:27:27.007 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\state-query-store_spec.md
+2025-10-12 22:27:27.077 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 22:27:27.077 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed state-query-store_spec.md: 3 chunks
+2025-10-12 22:27:27.077 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-framework\task-orchestration-framework_spec.md
+2025-10-12 22:27:27.152 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 5 chunks.
+2025-10-12 22:27:27.152 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed task-orchestration-framework_spec.md: 5 chunks
+2025-10-12 22:27:27.152 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\manifesto.md
+2025-10-12 22:27:27.213 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 2 chunks.
+2025-10-12 22:27:27.214 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed manifesto.md: 2 chunks
+2025-10-12 22:27:27.214 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\skill-profiles.md
+2025-10-12 22:27:27.260 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 3 chunks.
+2025-10-12 22:27:27.260 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed skill-profiles.md: 3 chunks
+2025-10-12 22:27:27.260 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexing document: C:\data\workspace\oms\oms-knowledge-base\oms-methodolgy\software-architecture-methodology.md
+2025-10-12 22:27:27.321 [Test worker] INFO  o.s.a.t.splitter.TextSplitter - Splitting up document into 2 chunks.
+2025-10-12 22:27:27.323 [Test worker] DEBUG o.e.s.vector.DocumentIndexerService - [Vector] Indexed software-architecture-methodology.md: 2 chunks
+2025-10-12 22:27:27.323 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] Adding 68 chunks from 15 files to vector store...
+2025-10-12 22:27:40.313 [Test worker] INFO  o.e.s.vector.DocumentIndexerService - [Vector] ✅ Successfully indexed 15 documents (68 chunks)

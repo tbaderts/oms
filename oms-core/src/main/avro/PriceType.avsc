@@ -1,0 +1,15 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Price type",
+  "name": "PriceType",
+  "symbols": [
+    "PERCENTAGE",
+    "PER_UNIT",
+    "FIXED_AMOUNT",
+    "DISCOUNT",
+    "PREMIUM",
+    "SPREAD",
+    "YIELD"
+  ]
+}

@@ -1,0 +1,17 @@
+spring:
+  main:
+    # Override to enable web server for local development
+    web-application-type: servlet
+    banner-mode: console
+
+server:
+  port: 8091
+
+vector:
+  store:
+    enabled: true
+
+logging:
+  level:
+    org.springframework.ai.mcp: DEBUG
+    org.example: DEBUG

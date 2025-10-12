@@ -1,0 +1,13 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "enum",
+  "doc": "Order type",
+  "name": "OrdType",
+  "symbols": [
+    "MARKET",
+    "LIMIT",
+    "STOP",
+    "STOP_LIMIT",
+    "MARKET_ON_CLOSE"
+  ]
+}

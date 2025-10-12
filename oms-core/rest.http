@@ -1,0 +1,46 @@
+
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCreateCmd",
+  "order": {
+    "sessionId": "test-session",
+    "clOrdId": "20251012-test-003",
+    "sendingTime": "2025-10-12T10:44:00+02:00",
+    "account": "account-01",
+    "execInst": "NO_CROSS",
+    "handlInst": "BROKER_INTERVENTION_OK",
+    "securityIdSource": "RIC",
+    "orderQty": 300,
+    "priceType": "PER_UNIT",
+    "ordType": "LIMIT",
+    "price": 24.05,
+    "securityId": "INTC.OQ",
+    "securityDesc": "Intel Corporation",
+    "side": "SELL",
+    "symbol": "INTC",
+    "timeInForce": "DAY",
+    "transactTime": "2025-10-12T10:01:00+02:00",
+    "exDestination": "XNAS",
+    "settlCurrency": "USD",
+    "securityExchange": "XNAS",
+    "text": "Sample order"
+  }
+}
+
+###
+GET http://localhost:8090/api/query/orders?symbol=INTC&side=BUY HTTP/1.1
+content-type: application/json
+
+###
+GET http://localhost:8090/api/query/orders?price__between=20,40 HTTP/1.1
+content-type: application/json
+
+###
+GET http://localhost:8090/api/query/orders?sendingTime__between=2025-10-01T00:00:00,2025-10-04T23:59:59 HTTP/1.1
+content-type: application/json
+
+###
+GET http://localhost:8090/api/query/orders?side=BUY&page=0&sort=transactTime,desc&size=20 HTTP/1.1
+content-type: application/json
