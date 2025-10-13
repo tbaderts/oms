@@ -1,4 +1,4 @@
-package org.example.spring_ai.vector;
+package org.example.mcp.vector;
 
 import java.util.HashMap;
 import java.util.List;

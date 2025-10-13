@@ -1,4 +1,4 @@
-package org.example.spring_ai.docs;
+package org.example.mcp.docs;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

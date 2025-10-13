@@ -1,4 +1,4 @@
-package org.example.spring_ai.vector;
+package org.example.mcp.vector;
 
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;

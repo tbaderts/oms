@@ -1,4 +1,4 @@
-package org.example.spring_ai;
+package org.example.mcp;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,4 +1,4 @@
-package org.example.spring_ai.oms;
+package org.example.mcp.oms;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -44,7 +44,7 @@ public class OrderQueryClient {
      */
     @SuppressWarnings({ "unchecked" })
     public PageResponse<Map<String, Object>> search(Map<String, ?> params, Integer page, Integer size, String sort) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/api/query/orders");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/api/query/search");
 
         Map<String, Object> merged = new HashMap<>();
         if (params != null)

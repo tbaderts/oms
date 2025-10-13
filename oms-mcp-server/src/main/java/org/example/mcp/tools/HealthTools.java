@@ -1,4 +1,4 @@
-package org.example.spring_ai.tools;
+package org.example.mcp.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;

@@ -1,4 +1,4 @@
-package org.example.spring_ai.oms;
+package org.example.mcp.oms;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

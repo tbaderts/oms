@@ -1,11 +1,11 @@
-package org.example.spring_ai.oms;
+package org.example.mcp.oms;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.example.spring_ai.docs.DomainDocsTools;
-import org.example.spring_ai.tools.HealthTools;
-import org.example.spring_ai.vector.SemanticSearchTools;
+import org.example.mcp.docs.DomainDocsTools;
+import org.example.mcp.tools.HealthTools;
+import org.example.mcp.vector.SemanticSearchTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
