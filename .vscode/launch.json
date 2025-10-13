@@ -2,29 +2,6 @@
     "configurations": [
         {
             "type": "java",
-            "name": "oms-core",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "mainClass": "org.example.oms.OmsApplication",
-            "projectName": "oms",
-            "args": "",
-            "envFile": "${workspaceFolder}/.env",
-            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=37599 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms"
-        },
-        {
-            "type": "java",
-            "name": "Spring Boot - Local Profile",
-            "request": "launch",
-            "mainClass": "org.example.spring_ai.SpringAiApplication",
-            "projectName": "mcp-server-lib",
-            "args": "--spring.profiles.active=local",
-            "env": {
-                "SPRING_PROFILES_ACTIVE": "local"
-            },
-            "console": "integratedTerminal"
-        },
-        {
-            "type": "java",
             "name": "Spring Boot-OmsApplication<oms-core>",
             "request": "launch",
             "cwd": "${workspaceFolder}",
@@ -32,6 +9,16 @@
             "projectName": "oms-core",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-OmsApplication<oms-mcp-server>",
+            "request": "launch",
+            "mainClass": "org.example.spring_ai.SpringAiApplication",
+            "projectName": "oms-mcp-server",
+            "args": "",
+            "console": "integratedTerminal",
+            "vmArgs": "-Dspring.profiles.active=local"
         }
     ]
 }

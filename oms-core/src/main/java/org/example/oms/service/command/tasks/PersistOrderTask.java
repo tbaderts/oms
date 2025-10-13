@@ -1,5 +1,7 @@
 package org.example.oms.service.command.tasks;
 
+import java.util.function.Predicate;
+
 import org.example.common.model.Order;
 import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
@@ -9,8 +11,6 @@ import org.example.oms.service.infra.repository.OrderRepository;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Predicate;
 
 /**
  * Task that persists the order to the database. Only executes if validation has passed and the
@@ -44,8 +44,7 @@ public class PersistOrderTask implements ConditionalTask<OrderTaskContext> {
             // Store database ID in context
             context.put("databaseId", savedOrder.getId());
 
-            return TaskResult.success(
-                    getName(), "Order persisted with ID: " + savedOrder.getId());
+            return TaskResult.success(getName(), "Order persisted with ID: " + savedOrder.getId());
 
         } catch (Exception e) {
             log.error("Failed to persist order: {}", e.getMessage(), e);

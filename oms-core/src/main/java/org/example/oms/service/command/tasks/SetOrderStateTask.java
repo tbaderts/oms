@@ -47,10 +47,7 @@ public class SetOrderStateTask implements Task<OrderTaskContext> {
         context.setOrder(updatedOrder);
         context.setTargetState(State.UNACK);
 
-        log.info(
-                "Set order state to UNACK for order: {} at {}",
-                order.getClOrdId(),
-                now);
+        log.info("Set order state to UNACK for order: {} at {}", order.getClOrdId(), now);
 
         return TaskResult.success(getName(), "Order state set to UNACK");
     }

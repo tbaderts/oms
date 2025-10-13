@@ -1,6 +1,7 @@
 package org.example.oms.service.command.tasks;
 
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import org.example.common.model.Order;
 import org.example.common.orchestration.ConditionalTask;
@@ -9,8 +10,6 @@ import org.example.oms.model.OrderTaskContext;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Predicate;
 
 /**
  * Task that assigns a unique order ID to the order if not already present. This task only executes

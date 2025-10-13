@@ -1,5 +1,7 @@
 package org.example.oms.service.command.tasks;
 
+import java.util.function.Predicate;
+
 import org.example.common.model.Order;
 import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
@@ -12,8 +14,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Predicate;
 
 /**
  * Task that publishes the order creation event to the outbox for downstream processing. This task
@@ -29,8 +29,7 @@ public class PublishOrderEventTask implements ConditionalTask<OrderTaskContext> 
     private final ApplicationEventPublisher eventPublisher;
 
     public PublishOrderEventTask(
-            OrderOutboxRepository orderOutboxRepository,
-            ApplicationEventPublisher eventPublisher) {
+            OrderOutboxRepository orderOutboxRepository, ApplicationEventPublisher eventPublisher) {
         this.orderOutboxRepository = orderOutboxRepository;
         this.eventPublisher = eventPublisher;
     }

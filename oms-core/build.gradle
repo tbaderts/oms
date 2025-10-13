@@ -29,7 +29,7 @@ repositories {
 }
 
 ext {
-	set('springCloudVersion', "2024.0.1")
+	set('springCloudVersion', "2025.0.0")
 }
 
 dependencies {
@@ -67,12 +67,28 @@ configurations {
     }
 }
 
-openApiGenerate {
+task openApiGenerateCmd(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
     generatorName = "spring"
     inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
     outputDir = "$buildDir/generated".toString()
     apiPackage = "org.example.common.api"
     modelPackage = "org.example.common.model.cmd"
+    configOptions = [
+        interfaceOnly: "true",
+        useSpringBoot3: "true",
+        skipDefaultInterface: "true",
+		enumPropertyNaming: "original",
+        modelNameSuffix: "",
+		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
+    ]
+}
+
+task openApiGenerateQuery(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-query-api.yml".toString()
+    outputDir = "$buildDir/generated".toString()
+    apiPackage = "org.example.common.api"
+    modelPackage = "org.example.common.model.query"
     configOptions = [
         interfaceOnly: "true",
         useSpringBoot3: "true",
@@ -110,7 +126,8 @@ tasks.named("avroGenerate") {
 }
 
 tasks.named("compileJava") {
-    dependsOn tasks.named("openApiGenerate")
+    dependsOn tasks.named("openApiGenerateCmd")
+    dependsOn tasks.named("openApiGenerateQuery")
     dependsOn tasks.named("openApiGenerateAvro")
     dependsOn tasks.named("spotlessJava")
 	//dependsOn tasks.named("avroGenerate")
@@ -147,7 +164,8 @@ spotless {
 
 // Ensure proper task dependencies for Spotless
 tasks.named("spotlessJava").configure {
-    dependsOn tasks.named("openApiGenerate")
+    dependsOn tasks.named("openApiGenerateCmd")
+    dependsOn tasks.named("openApiGenerateQuery")
     dependsOn tasks.named("openApiGenerateAvro")
     if (tasks.findByName("generateAvroJava")) {
         dependsOn tasks.named("generateAvroJava")

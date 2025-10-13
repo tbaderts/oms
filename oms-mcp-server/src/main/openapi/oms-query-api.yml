@@ -30,8 +30,8 @@ info:
       * `page` (0-based) default 0.
       * `size` default 50, max 500.
     
-    Response Format:
-      * Responses use HAL-inspired page structure with `_embedded`, `_links` and `page` metadata.
+    HAL / HATEOAS:
+      * Responses use Spring HATEOAS page structure with `_embedded`, `_links` and `page` metadata.
 paths:
   /api/query/orders:
     get:
