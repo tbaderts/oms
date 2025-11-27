@@ -9,6 +9,13 @@ server:
     mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
     min-response-size: 1024
 
+# OMS UI Configuration
+oms:
+  ui:
+    app-name: OMS Admin Tool
+  api:
+    base-url: http://localhost:8090
+
 management:
   endpoints:
     web:
@@ -17,10 +24,6 @@ management:
   endpoint:
     health:
       show-details: always
-  metrics:
-    export:
-      prometheus:
-        enabled: true
 
 logging:
   level:

@@ -135,29 +135,120 @@ components:
       type: object
       description: Summary Order representation used in query responses.
       properties:
+        id:
+          type: integer
+          format: int64
         orderId:
-          type: string
-        rootOrderId:
           type: string
         parentOrderId:
           type: string
-        symbol:
+        rootOrderId:
           type: string
-        side:
-          $ref: '#/components/schemas/Side'
-        state:
-          $ref: '#/components/schemas/State'
+        tx:
+          type: string
+          description: Command type (Cmd enum)
+        txNr:
+          type: integer
+          format: int64
+        sessionId:
+          type: string
+        clOrdId:
+          type: string
+        sendingTime:
+          type: string
+          format: date-time
+        account:
+          type: string
+        origClOrdId:
+          type: string
+        execInst:
+          type: string
+          description: ExecInst enum
+        handlInst:
+          type: string
+          description: HandlInst enum
+        securityIdSource:
+          type: string
+          description: SecurityIdSource enum
+        leg:
+          type: string
+          description: Leg enum
+        orderQty:
+          type: number
+          description: BigDecimal represented as number
+        cashOrderQty:
+          type: number
+          description: BigDecimal represented as number
+        placeQty:
+          type: number
+          description: How much of the order quantity is placed in the market
+        cumQty:
+          type: number
+          description: Currently executed quantity for chain of orders
+        leavesQty:
+          type: number
+          description: Quantity open for further execution
+        allocQty:
+          type: number
+          description: Quantity allocated to client
+        positionEffect:
+          type: string
+          description: PositionEffect enum
+        securityDesc:
+          type: string
+        securityType:
+          type: string
+          description: SecurityType enum
+        maturityMonthYear:
+          type: string
+        strikePrice:
+          type: number
+          description: BigDecimal represented as number
+        priceType:
+          type: string
+          description: PriceType enum
+        putOrCall:
+          type: integer
+        underlyingSecurityType:
+          type: string
         ordType:
           $ref: '#/components/schemas/OrdType'
         price:
           type: number
           description: BigDecimal represented as number
-        orderQty:
+        stopPx:
           type: number
           description: BigDecimal represented as number
+        securityId:
+          type: string
+        side:
+          $ref: '#/components/schemas/Side'
+        symbol:
+          type: string
+        timeInForce:
+          type: string
+          description: TimeInForce enum
         transactTime:
           type: string
           format: date-time
+        exDestination:
+          type: string
+        settlCurrency:
+          type: string
+        expireTime:
+          type: string
+          format: date-time
+        securityExchange:
+          type: string
+        text:
+          type: string
+        tifTimestamp:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/State'
+        cancelState:
+          $ref: '#/components/schemas/CancelState'
     PagedOrderDto:
       type: object
       description: Paged collection of OrderDto

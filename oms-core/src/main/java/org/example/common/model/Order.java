@@ -66,8 +66,15 @@ public class Order implements Serializable {
     @Enumerated(EnumType.STRING)
     private SecurityIdSource securityIdSource;
 
+    @Enumerated(EnumType.STRING)
+    private Leg leg;
+
     private BigDecimal orderQty;
     private BigDecimal cashOrderQty;
+    private BigDecimal placeQty;    // How much of the order quantity is placed in the market
+    private BigDecimal cumQty;      // Currently executed quantity for chain of orders
+    private BigDecimal leavesQty;   // Quantity open for further execution
+    private BigDecimal allocQty;    // Quantity allocated to client
 
     @Enumerated(EnumType.STRING)
     private PositionEffect positionEffect;

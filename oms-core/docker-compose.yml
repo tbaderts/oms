@@ -1,14 +1,15 @@
 services:
 
-  oms:
-    image: 'oms:latest'
-    container_name: oms
+  oms-core:
+    image: 'oms-core:latest'
+    container_name: oms-core
     build:
       context: .
     depends_on:
       - postgres
     environment:
       DB_URL: $DB_URL
+      READYSET_URL: jdbc:postgresql://readyset:5433/postgres
       DB_USER: $DB_USER
       DB_PASSWORD: $DB_PASSWORD
       KAFKA_BROKERS: $KAFKA_BROKERS
@@ -93,6 +94,7 @@ services:
   postgres:
     image: postgres
     container_name: postgres
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
@@ -101,6 +103,20 @@ services:
        - postgres:/data/postgres
     ports:
       - "5432:5432"
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  readyset:
+    image: readysettech/readyset:latest
+    container_name: readyset
+    depends_on:
+      - postgres
+    environment:
+      UPSTREAM_DB_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/postgres
+      LISTEN_ADDRESS: 0.0.0.0:5433
+    ports:
+      - "5433:5433"
     networks:
       - app-net
     restart: unless-stopped

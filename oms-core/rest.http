@@ -6,8 +6,8 @@ content-type: application/json
   "type": "OrderCreateCmd",
   "order": {
     "sessionId": "test-session",
-    "clOrdId": "20251012-test-001",
-    "sendingTime": "2025-10-12T10:44:00+02:00",
+    "clOrdId": "20251127-test-001",
+    "sendingTime": "2025-11-27T10:44:00+02:00",
     "account": "account-01",
     "execInst": "NO_CROSS",
     "handlInst": "BROKER_INTERVENTION_OK",
@@ -21,7 +21,7 @@ content-type: application/json
     "side": "BUY",
     "symbol": "INTC",
     "timeInForce": "DAY",
-    "transactTime": "2025-10-12T10:01:00+02:00",
+    "transactTime": "2025-11-27T10:01:00+02:00",
     "exDestination": "XNAS",
     "settlCurrency": "USD",
     "securityExchange": "XNAS",
@@ -43,4 +43,35 @@ content-type: application/json
 
 ###
 GET http://localhost:8090/api/query/search?side=BUY&page=0&sort=transactTime,desc&size=20 HTTP/1.1
+content-type: application/json
+
+###
+GET http://localhost:8090/api/query/search?page=0&size=100 HTTP/1.1
+content-type: application/json
+
+###
+# Metamodel API endpoints
+
+# Get all metamodel metadata
+GET http://localhost:8090/api/v1/metamodel HTTP/1.1
+content-type: application/json
+
+###
+# Get Order metamodel metadata
+GET http://localhost:8090/api/v1/metamodel/Order HTTP/1.1
+content-type: application/json
+
+###
+# Get Execution metamodel metadata
+GET http://localhost:8090/api/v1/metamodel/Execution HTTP/1.1
+content-type: application/json
+
+###
+# List all available entities
+GET http://localhost:8090/api/v1/metamodel/entities HTTP/1.1
+content-type: application/json
+
+###
+# Metamodel health check
+GET http://localhost:8090/api/v1/metamodel/health HTTP/1.1
 content-type: application/json

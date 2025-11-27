@@ -1,0 +1,59 @@
+// AuthorizeModal.scss - VS Code Dark Theme
+.authorize-modal {
+  background: var(--vscode-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 0;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--vscode-border);
+  animation: slideDown 0.2s ease-out;
+
+  h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: var(--vscode-text-bright);
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin-bottom: 1.5rem;
+    color: var(--vscode-text-secondary);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--vscode-text-primary);
+    font-size: 0.8125rem;
+  }
+
+  .token-input {
+    width: 100%;
+    padding: 0.5rem 0.625rem;
+    background: var(--vscode-input-bg);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    font-size: 0.8125rem;
+    font-family: 'Consolas', monospace;
+    color: var(--vscode-text-primary);
+    transition: border-color 0.1s;
+
+    &:focus {
+      outline: none;
+      border-color: var(--vscode-accent-blue);
+    }
+    
+    &::placeholder {
+      color: var(--vscode-text-secondary);
+    }
+  }
+}

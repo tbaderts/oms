@@ -1,7 +1,4 @@
-FROM alpine/java:21-jre
-
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
+FROM eclipse-temurin:25
 
 ARG JAR_FILE=build/libs/*-SNAPSHOT.jar
 COPY ${JAR_FILE} application.jar

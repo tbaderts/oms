@@ -25,16 +25,10 @@ import org.springframework.data.domain.Page;
 public interface QueryOrderDtoMapper {
 
     /** Maps a domain Order entity to the generated OrderDto for query responses. */
-    @Mapping(target = "orderId", source = "orderId")
-    @Mapping(target = "rootOrderId", source = "rootOrderId")
-    @Mapping(target = "parentOrderId", source = "parentOrderId")
-    @Mapping(target = "symbol", source = "symbol")
-    @Mapping(target = "side", source = "side")
-    @Mapping(target = "state", source = "state")
-    @Mapping(target = "ordType", source = "ordType")
-    @Mapping(target = "price", source = "price")
-    @Mapping(target = "orderQty", source = "orderQty")
     @Mapping(target = "transactTime", source = "transactTime", qualifiedByName = "toOffsetDateTime")
+    @Mapping(target = "expireTime", source = "expireTime", qualifiedByName = "toOffsetDateTime")
+    @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "toOffsetDateTime")
+    @Mapping(target = "tifTimestamp", source = "tifTimestamp", qualifiedByName = "toOffsetDateTime")
     OrderDto toOrderDto(Order order);
 
     /** Converts LocalDateTime to OffsetDateTime using system default zone. */
@@ -44,6 +38,11 @@ public interface QueryOrderDtoMapper {
             return null;
         }
         return localDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+    }
+
+    /** MapStruct auto-conversion method for LocalDateTime to OffsetDateTime. */
+    default OffsetDateTime map(LocalDateTime localDateTime) {
+        return toOffsetDateTime(localDateTime);
     }
 
     /** Maps a list of Order entities to OrderDto list. */

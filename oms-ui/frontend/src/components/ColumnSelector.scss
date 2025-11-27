@@ -1,0 +1,113 @@
+// ColumnSelector.scss - VS Code Dark Theme
+.column-selector-modal {
+  background: var(--vscode-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 0;
+  width: 90%;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--vscode-border);
+  animation: slideDown 0.2s ease-out;
+
+  h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    color: var(--vscode-text-bright);
+    font-size: 1.3rem;
+    font-weight: 600;
+  }
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+
+  button {
+    padding: 0.4rem 0.875rem;
+    background: var(--vscode-accent-blue);
+    color: white;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    transition: background-color 0.1s;
+
+    &:hover {
+      background: var(--vscode-accent-blue-hover);
+    }
+  }
+}
+
+.column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--vscode-bg-primary);
+  border: 1px solid var(--vscode-border);
+  border-radius: 0;
+  padding: 0;
+  
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: var(--vscode-bg-secondary);
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #424242;
+    
+    &:hover {
+      background: #4e4e4e;
+    }
+  }
+}
+
+.column-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background-color 0.1s;
+  border-bottom: 1px solid var(--vscode-border);
+
+  &:hover {
+    background: var(--vscode-hover-bg);
+  }
+
+  input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+  }
+
+  .field-name {
+    flex: 1;
+    font-weight: normal;
+    color: var(--vscode-text-primary);
+    font-size: 0.8125rem;
+  }
+
+  .field-type {
+    color: var(--vscode-text-secondary);
+    font-size: 0.75rem;
+  }
+
+  .complex-badge {
+    padding: 0.2rem 0.5rem;
+    background: var(--vscode-warning);
+    color: var(--vscode-bg-primary);
+    border-radius: 2px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+}

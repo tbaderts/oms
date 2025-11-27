@@ -1,10 +1,9 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.5.6'
+	id 'org.springframework.boot' version '3.5.7'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.openapi.generator' version '7.15.0'
 	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
-	id 'com.diffplug.spotless' version '8.0.0'
 }
 
 group = 'org.example.oms'
@@ -12,7 +11,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
@@ -108,80 +107,14 @@ task openApiGenerateAvro(type: org.openapitools.generator.gradle.plugin.tasks.Ge
     ]
 }
 
-// https://medium.com/@jonassilveira_18601/how-to-configure-avro-with-gradle-a-practical-guide-eb1ab15815a4
-def avroGeneratedDir = layout.buildDirectory.dir("buildDir/")
-
-tasks.register("avroGenerate", JavaExec) {
-    classpath(configurations.avroTools)
-    args(
-        "compile",
-        "schema",
-        "$buildDir/generated-avro/*.avsc",
-        avroGeneratedDir.get().asFile.canonicalPath
-    )
-} 
-
-tasks.named("avroGenerate") {
-    dependsOn tasks.named("openApiGenerateAvro")
-}
-
 tasks.named("compileJava") {
     dependsOn tasks.named("openApiGenerateCmd")
     dependsOn tasks.named("openApiGenerateQuery")
     dependsOn tasks.named("openApiGenerateAvro")
-    dependsOn tasks.named("spotlessJava")
-	//dependsOn tasks.named("avroGenerate")
 }
 
 // Add the generated sources to the source set
 sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
-
-// Spotless code formatting configuration
-spotless {
-    java {
-        // Apply formatting to all Java files including generated ones
-        target 'src/**/*.java', 'build/generated/**/*.java', 'build/generated-main-avro-java/**/*.java'
-        
-        // Use Google Java Format
-        googleJavaFormat('1.19.2').aosp().reflowLongStrings()
-        
-        // Remove unused imports
-        removeUnusedImports()
-        
-        // Format imports
-        importOrder('java', 'javax', 'org', 'com', '')
-        
-        // Ensure files end with newline
-        endWithNewline()
-        
-        // Trim trailing whitespace
-        trimTrailingWhitespace()
-        
-        // Don't format certain generated files that might break
-        targetExclude 'build/generated/**/ApiUtil.java'
-    }
-}
-
-// Ensure proper task dependencies for Spotless
-tasks.named("spotlessJava").configure {
-    dependsOn tasks.named("openApiGenerateCmd")
-    dependsOn tasks.named("openApiGenerateQuery")
-    dependsOn tasks.named("openApiGenerateAvro")
-    if (tasks.findByName("generateAvroJava")) {
-        dependsOn tasks.named("generateAvroJava")
-    }
-}
-
-// Format generated code after generation
-tasks.named("openApiGenerate").configure {
-    finalizedBy tasks.named("spotlessApply")
-}
-
-if (tasks.findByName("generateAvroJava")) {
-    tasks.named("generateAvroJava").configure {
-        finalizedBy tasks.named("spotlessApply")
-    }
-}
 
 tasks.named('test') {
 	useJUnitPlatform()

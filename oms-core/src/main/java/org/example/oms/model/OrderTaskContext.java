@@ -1,5 +1,6 @@
 package org.example.oms.model;
 
+import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.orchestration.TaskContext;
@@ -20,6 +21,9 @@ public class OrderTaskContext extends TaskContext {
 
     /** The order being processed. */
     private Order order;
+
+    /** The execution being processed (for execution reports). */
+    private Execution execution;
 
     /** The target state for the order (e.g., UNACK, LIVE). */
     private State targetState;
@@ -69,5 +73,23 @@ public class OrderTaskContext extends TaskContext {
      */
     public boolean isValid() {
         return validationPassed && errorMessage == null;
+    }
+
+    /**
+     * Checks if an order is present in the context.
+     *
+     * @return true if order is not null
+     */
+    public boolean hasOrder() {
+        return order != null;
+    }
+
+    /**
+     * Checks if an execution is present in the context.
+     *
+     * @return true if execution is not null
+     */
+    public boolean hasExecution() {
+        return execution != null;
     }
 }

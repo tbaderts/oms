@@ -7,6 +7,7 @@ import org.example.common.api.SearchApi;
 import org.example.common.model.Order;
 import org.example.common.model.query.PagedOrderDto;
 import org.example.oms.api.mapper.QueryOrderDtoMapper;
+import org.example.oms.config.UseReadReplica;
 import org.example.oms.service.infra.query.OrderQueryService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/query")
 @Transactional(readOnly = true)
+@UseReadReplica
 public class QueryController implements SearchApi {
 
     private final OrderQueryService service;
@@ -36,16 +38,14 @@ public class QueryController implements SearchApi {
             @Nullable Map<String, String> allParams) {
 
         // Remove control params so they are not interpreted as filters
-        Map<String, String> filterParams =
-                allParams == null
-                        ? Map.of()
-                        : allParams.entrySet().stream()
-                                .filter(
-                                        e ->
-                                                !e.getKey().equals("page")
-                                                        && !e.getKey().equals("size")
-                                                        && !e.getKey().equals("sort"))
-                                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, String> filterParams = allParams == null
+                ? Map.of()
+                : allParams.entrySet().stream()
+                        .filter(
+                                e -> !e.getKey().equals("page")
+                                        && !e.getKey().equals("size")
+                                        && !e.getKey().equals("sort"))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         Page<Order> result = service.search(filterParams, page, size, sort);
         PagedOrderDto pagedDto = mapper.toPagedOrderDto(result);
