@@ -1,7 +1,7 @@
 package org.example.oms.service.infra.query;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -152,14 +152,14 @@ public final class OrderSpecifications {
                         boolean hasRight = !rightRaw.isEmpty();
                         try {
                             if (hasLeft && hasRight) {
-                                LocalDateTime a = LocalDateTime.parse(leftRaw);
-                                LocalDateTime b = LocalDateTime.parse(rightRaw);
+                                Instant a = Instant.parse(leftRaw);
+                                Instant b = Instant.parse(rightRaw);
                                 return cb.between(root.get(field), a, b);
                             } else if (hasLeft) {
-                                LocalDateTime a = LocalDateTime.parse(leftRaw);
+                                Instant a = Instant.parse(leftRaw);
                                 return cb.greaterThanOrEqualTo(root.get(field), a);
                             } else if (hasRight) {
-                                LocalDateTime b = LocalDateTime.parse(rightRaw);
+                                Instant b = Instant.parse(rightRaw);
                                 return cb.lessThanOrEqualTo(root.get(field), b);
                             } else {
                                 return cb.conjunction();
@@ -169,16 +169,16 @@ public final class OrderSpecifications {
                         }
                     }
                 case "gt":
-                    return cb.greaterThan(root.get(field), LocalDateTime.parse(value));
+                    return cb.greaterThan(root.get(field), Instant.parse(value));
                 case "gte":
-                    return cb.greaterThanOrEqualTo(root.get(field), LocalDateTime.parse(value));
+                    return cb.greaterThanOrEqualTo(root.get(field), Instant.parse(value));
                 case "lt":
-                    return cb.lessThan(root.get(field), LocalDateTime.parse(value));
+                    return cb.lessThan(root.get(field), Instant.parse(value));
                 case "lte":
-                    return cb.lessThanOrEqualTo(root.get(field), LocalDateTime.parse(value));
+                    return cb.lessThanOrEqualTo(root.get(field), Instant.parse(value));
                 case "eq":
                 default:
-                    return cb.equal(root.get(field), LocalDateTime.parse(value));
+                    return cb.equal(root.get(field), Instant.parse(value));
             }
         };
     }

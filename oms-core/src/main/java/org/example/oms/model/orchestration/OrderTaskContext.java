@@ -2,7 +2,6 @@ package org.example.oms.model.orchestration;
 
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
-import org.example.common.model.Quote;
 import org.example.common.model.State;
 import org.example.common.model.cmd.Command;
 import org.example.common.orchestration.TaskContext;
@@ -23,7 +22,6 @@ public class OrderTaskContext extends TaskContext {
     private Command command;
     private Order order;
     private Execution execution;
-    private Quote quote;
     private Event event;
     private OrderEvent orderEvent;
     private State newState;
@@ -58,14 +56,5 @@ public class OrderTaskContext extends TaskContext {
      */
     public boolean hasExecution() {
         return execution != null;
-    }
-
-    /**
-     * Checks if a quote is present in the context.
-     *
-     * @return true if quote is not null
-     */
-    public boolean hasQuote() {
-        return quote != null;
     }
 }

@@ -1,7 +1,7 @@
 package org.example.common.model;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -42,14 +42,14 @@ public class Execution {
     private String lastMkt;
     private BigDecimal lastPx;
     private BigDecimal lastQty;
-    private LocalDateTime transactTime;
+    private Instant transactTime;
     private String execType;
     private BigDecimal leavesQty;
     private BigDecimal dayOrderQty;
     private BigDecimal dayCumQty;
     private BigDecimal dayAvgPx;
     private String secondaryExecID;
-    private LocalDateTime creationDate;
+    private Instant creationDate;
 
     @Override
     public String toString() {

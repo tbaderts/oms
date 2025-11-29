@@ -48,32 +48,46 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="column-selector-modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Select Columns</h2>
-
-        <div className="bulk-actions">
-          <button onClick={selectAll}>Select All</button>
-          <button onClick={selectNone}>Select None</button>
-          <button onClick={selectDefault}>Default Columns</button>
+        <div className="modal-header">
+          <h2><span className="modal-icon">📊</span> Select Columns</h2>
+          <button className="close-button" onClick={onClose}>&times;</button>
         </div>
 
-        <div className="column-list">
-          {metadata.fields.map(field => (
-            <label key={field.name} className="column-item">
-              <input
-                type="checkbox"
-                checked={selectedColumns.includes(field.name)}
-                onChange={() => toggleColumn(field.name)}
-              />
-              <span className="field-name">{field.displayName}</span>
-              <span className="field-type">({field.type})</span>
-              {field.isComplexObject && <span className="complex-badge">Complex</span>}
-            </label>
-          ))}
+        <div className="modal-body">
+          <div className="bulk-actions">
+            <button onClick={selectAll}>Select All</button>
+            <button onClick={selectNone}>Select None</button>
+            <button onClick={selectDefault}>Default</button>
+            <span className="selected-count">
+              <span className="count">{selectedColumns.length}</span> of {metadata.fields.length} selected
+            </span>
+          </div>
+
+          <div className="column-list">
+            {metadata.fields.map(field => (
+              <label 
+                key={field.name} 
+                className={`column-item ${selectedColumns.includes(field.name) ? 'selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedColumns.includes(field.name)}
+                  onChange={() => toggleColumn(field.name)}
+                />
+                <span className="field-name">{field.displayName}</span>
+                <span className="field-type">{field.type}</span>
+                {field.isComplexObject && <span className="complex-badge">Complex</span>}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="modal-actions">
-          <button onClick={onClose} className="secondary-button">Cancel</button>
-          <button onClick={handleApply} className="primary-button">Apply</button>
+          <div className="left-actions"></div>
+          <div className="right-actions">
+            <button onClick={onClose} className="secondary-button">Cancel</button>
+            <button onClick={handleApply} className="primary-button">Apply</button>
+          </div>
         </div>
       </div>
     </div>

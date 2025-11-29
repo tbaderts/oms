@@ -1,0 +1,104 @@
+/* EnumCellRenderer.scss - Consistent badge styles for enum values */
+
+.enum-cell {
+  padding: 0.25rem 0.5rem;
+  border-radius: 2px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  min-width: 50px;
+  text-align: center;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+
+/* Side Colors - BUY/SELL */
+.enum-buy {
+  background-color: rgba(75, 191, 107, 0.2);
+  color: var(--vscode-success, #4ade80);
+}
+
+.enum-sell, .enum-sell-short {
+  background-color: rgba(244, 71, 71, 0.2);
+  color: var(--vscode-error, #f87171);
+}
+
+/* State Colors */
+.enum-new {
+  background-color: rgba(0, 122, 204, 0.2);
+  color: var(--vscode-accent-blue, #60a5fa);
+}
+
+.enum-unack {
+  background-color: rgba(204, 163, 0, 0.2);
+  color: #cca300;
+}
+
+.enum-live {
+  background-color: rgba(0, 122, 204, 0.2);
+  color: var(--vscode-accent-blue, #60a5fa);
+}
+
+.enum-filled {
+  background-color: rgba(75, 191, 107, 0.2);
+  color: var(--vscode-success, #4ade80);
+}
+
+.enum-partially-filled {
+  background-color: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+}
+
+.enum-cxl, .enum-exp, .enum-closed {
+  background-color: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+}
+
+.enum-rej {
+  background-color: rgba(244, 71, 71, 0.2);
+  color: var(--vscode-error, #f87171);
+}
+
+/* Order Type Colors */
+.enum-market {
+  background-color: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+
+.enum-limit {
+  background-color: rgba(0, 122, 204, 0.2);
+  color: var(--vscode-accent-blue, #60a5fa);
+}
+
+.enum-stop, .enum-stop-limit {
+  background-color: rgba(249, 115, 22, 0.2);
+  color: #fb923c;
+}
+
+/* Execution Instructions */
+.enum-no-cross, .enum-ok-to-cross, .enum-mid-peg {
+  background-color: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+}
+
+/* Handling Instructions */
+.enum-auto, .enum-broker-intervention-ok, .enum-manual {
+  background-color: rgba(20, 184, 166, 0.2);
+  color: #2dd4bf;
+}
+
+/* Time In Force */
+.enum-day, .enum-good-till-cancel, .enum-immediate-or-cancel, .enum-fill-or-kill {
+  background-color: rgba(217, 70, 239, 0.2);
+  color: #e879f9;
+}
+
+/* Default/Unknown */
+.enum-default {
+  background-color: rgba(107, 114, 128, 0.2);
+  color: #9ca3af;
+}

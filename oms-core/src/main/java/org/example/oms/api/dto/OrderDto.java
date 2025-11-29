@@ -1,7 +1,7 @@
 package org.example.oms.api.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
@@ -16,4 +16,4 @@ public record OrderDto(
         String ordType,
         BigDecimal price,
         BigDecimal orderQty,
-        LocalDateTime transactTime) {}
+        Instant transactTime) {}

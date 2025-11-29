@@ -1,4 +1,4 @@
-// Blotter.scss - VS Code Dark Theme
+// Blotter.scss - VS Code Dark Theme with consistent panel styling
 .blotter-container {
   display: flex;
   flex-direction: column;
@@ -12,29 +12,40 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: var(--vscode-bg-secondary);
+  background: var(--vscode-bg-tertiary);
   border: 1px solid var(--vscode-border);
   border-radius: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
+  border-bottom: none;
 
   .toolbar-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
+
+    .toolbar-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
 
     h2 {
       margin: 0;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 600;
       color: var(--vscode-text-bright);
     }
 
     .record-count {
-      color: var(--vscode-text-secondary);
-      font-size: 0.8125rem;
-      padding: 0.25rem 0.5rem;
-      background: var(--vscode-bg-tertiary);
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
       border-radius: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      background: rgba(0, 122, 204, 0.2);
+      color: var(--vscode-accent-blue);
     }
   }
 
@@ -45,20 +56,59 @@
 
     button {
       padding: 0.4rem 0.875rem;
-      background: var(--vscode-accent-blue);
-      color: white;
-      border: none;
+      background: var(--vscode-bg-secondary);
+      color: var(--vscode-text-primary);
+      border: 1px solid var(--vscode-border);
       border-radius: 2px;
       cursor: pointer;
       font-size: 0.8125rem;
-      transition: background-color 0.1s;
+      transition: all 0.1s;
 
       &:hover {
-        background: var(--vscode-accent-blue-hover);
+        background: var(--vscode-accent-blue);
+        color: white;
+        border-color: var(--vscode-accent-blue);
       }
 
       &:active {
         background: var(--vscode-active-bg);
+      }
+
+      &.primary {
+        background: var(--vscode-accent-blue);
+        color: white;
+        border-color: var(--vscode-accent-blue);
+
+        &:hover {
+          background: var(--vscode-accent-blue-hover);
+        }
+      }
+
+      &.filter-active {
+        background: rgba(0, 122, 204, 0.15);
+        border-color: var(--vscode-accent-blue);
+        color: var(--vscode-accent-blue);
+        position: relative;
+
+        &:hover {
+          background: var(--vscode-accent-blue);
+          color: white;
+        }
+      }
+
+      .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        margin-left: 4px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        background: var(--vscode-accent-blue);
+        color: white;
+        border-radius: 9px;
       }
     }
 
@@ -69,32 +119,53 @@
       margin-left: 0.5rem;
       font-size: 0.8125rem;
       color: var(--vscode-text-primary);
+      padding: 0.4rem 0.75rem;
+      background: var(--vscode-bg-secondary);
+      border: 1px solid var(--vscode-border);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.1s;
+
+      &:hover {
+        border-color: var(--vscode-accent-blue);
+      }
 
       input[type="checkbox"] {
         cursor: pointer;
         width: 14px;
         height: 14px;
+        accent-color: var(--vscode-accent-blue);
       }
     }
   }
 }
 
 .error-message {
-  padding: 1rem;
-  background: var(--vscode-bg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: rgba(244, 71, 71, 0.1);
   color: var(--vscode-error);
   border-radius: 0;
-  margin-bottom: 1rem;
+  margin: 0;
   border: 1px solid var(--vscode-border);
   border-left: 3px solid var(--vscode-error);
+  font-size: 0.875rem;
+
+  &::before {
+    content: '⚠️';
+    font-size: 1rem;
+  }
 }
 
 .blotter-grid {
   flex: 1;
   min-height: 400px;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   position: relative;
   border: 1px solid var(--vscode-border);
+  border-top: none;
 }
 
 .loading-overlay {
@@ -105,45 +176,75 @@
   bottom: 0;
   background: rgba(30, 30, 30, 0.9);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  gap: 0.75rem;
+  font-size: 0.875rem;
   color: var(--vscode-text-primary);
   z-index: 1000;
+
+  &::before {
+    content: '';
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--vscode-border);
+    border-top-color: var(--vscode-accent-blue);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .blotter-pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: var(--vscode-bg-secondary);
+  padding: 0.625rem 1rem;
+  background: var(--vscode-bg-tertiary);
   border: 1px solid var(--vscode-border);
+  border-top: none;
+
+  .pagination-info {
+    font-size: 0.8125rem;
+    color: var(--vscode-text-secondary);
+
+    .current-page {
+      color: var(--vscode-text-bright);
+      font-weight: 600;
+    }
+  }
 
   .pagination-controls {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.375rem;
 
     button {
-      padding: 0.4rem 0.875rem;
-      background: var(--vscode-accent-blue);
-      color: white;
-      border: none;
+      padding: 0.375rem 0.75rem;
+      background: var(--vscode-bg-secondary);
+      color: var(--vscode-text-primary);
+      border: 1px solid var(--vscode-border);
       border-radius: 2px;
       cursor: pointer;
       font-size: 0.8125rem;
-      transition: background-color 0.1s;
+      transition: all 0.1s;
 
       &:disabled {
-        background: var(--vscode-bg-tertiary);
+        background: var(--vscode-bg-primary);
         color: var(--vscode-text-secondary);
         cursor: not-allowed;
-        opacity: 0.6;
+        opacity: 0.5;
+        border-color: var(--vscode-border);
       }
 
       &:not(:disabled):hover {
-        background: var(--vscode-accent-blue-hover);
+        background: var(--vscode-accent-blue);
+        color: white;
+        border-color: var(--vscode-accent-blue);
       }
 
       &:active {
@@ -151,10 +252,15 @@
       }
     }
 
-    span {
-      padding: 0 0.75rem;
+    .page-indicator {
+      padding: 0.375rem 0.75rem;
       font-size: 0.8125rem;
-      color: var(--vscode-text-primary);
+      color: var(--vscode-text-bright);
+      background: var(--vscode-bg-primary);
+      border: 1px solid var(--vscode-border);
+      border-radius: 2px;
+      min-width: 40px;
+      text-align: center;
     }
   }
 }
@@ -168,6 +274,8 @@
   --ag-odd-row-background-color: var(--vscode-bg-secondary);
   --ag-row-hover-color: var(--vscode-hover-bg);
   --ag-selected-row-background-color: var(--vscode-selection-bg);
+  --ag-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --ag-font-size: 13px;
   
   .ag-details-row {
     background: var(--vscode-bg-secondary);
@@ -199,11 +307,154 @@
   .ag-header-cell {
     font-weight: 600;
     color: var(--vscode-text-bright);
-    font-size: 0.8125rem;
+    font-family: var(--ag-font-family);
+    font-size: var(--ag-font-size);
   }
   
   .ag-cell {
     border-color: var(--vscode-border);
-    font-size: 0.8125rem;
+    font-family: var(--ag-font-family);
+    font-size: var(--ag-font-size);
+    line-height: 28px;
+    display: flex;
+    align-items: center;
+    padding-top: 0;
+    padding-bottom: 0;
   }
+
+  // Ensure all cell content uses consistent styling
+  .ag-cell-value,
+  .ag-cell-wrapper {
+    font-family: var(--ag-font-family);
+    font-size: var(--ag-font-size);
+    display: flex;
+    align-items: center;
+  }
+
+  // Flash animation for cell updates
+  .ag-cell-data-changed {
+    background-color: rgba(0, 122, 204, 0.3) !important;
+    transition: background-color 0.5s ease-out;
+  }
+}
+
+// Streaming Blotter Specific Styles
+.streaming-blotter {
+  .streaming-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 2px;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    margin-left: 0.5rem;
+
+    &.status-connected {
+      background: rgba(40, 167, 69, 0.2);
+      color: #28a745;
+    }
+
+    &.status-connecting,
+    &.status-reconnecting {
+      background: rgba(255, 193, 7, 0.2);
+      color: #ffc107;
+    }
+
+    &.status-error {
+      background: rgba(244, 71, 71, 0.2);
+      color: var(--vscode-error);
+    }
+
+    &.status-disconnected {
+      background: rgba(108, 117, 125, 0.2);
+      color: #6c757d;
+    }
+  }
+
+  .streaming-info-bar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--vscode-bg-secondary);
+    border: 1px solid var(--vscode-border);
+    border-top: none;
+    font-size: 0.8125rem;
+    color: var(--vscode-text-secondary);
+
+    .event-count {
+      font-weight: 600;
+      color: var(--vscode-text-primary);
+    }
+
+    .last-event {
+      color: var(--vscode-text-secondary);
+    }
+
+    .loading-indicator {
+      color: var(--vscode-accent-blue);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+  }
+
+  .disconnect-button {
+    background: rgba(244, 71, 71, 0.1) !important;
+    color: var(--vscode-error) !important;
+    border-color: var(--vscode-error) !important;
+
+    &:hover {
+      background: var(--vscode-error) !important;
+      color: white !important;
+    }
+  }
+
+  .connect-button {
+    background: rgba(40, 167, 69, 0.1) !important;
+    color: #28a745 !important;
+    border-color: #28a745 !important;
+
+    &:hover {
+      background: #28a745 !important;
+      color: white !important;
+    }
+  }
+
+  .mode-switch-button {
+    background: rgba(108, 117, 125, 0.1) !important;
+    color: #6c757d !important;
+    border-color: #6c757d !important;
+
+    &:hover {
+      background: #6c757d !important;
+      color: white !important;
+    }
+  }
+
+  .snapshot-toggle {
+    margin-left: 0.25rem !important;
+  }
+
+  .error-message {
+    .retry-button {
+      margin-left: auto;
+      padding: 0.25rem 0.75rem;
+      background: var(--vscode-error);
+      color: white;
+      border: none;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: 0.8125rem;
+
+      &:hover {
+        background: darken(#f44747, 10%);
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

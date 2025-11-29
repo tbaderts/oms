@@ -12,18 +12,22 @@
     "ag-grid-community": "^31.0.0",
     "ag-grid-react": "^31.0.0",
     "axios": "^1.6.2",
+    "buffer": "^6.0.3",
     "react": "^18.2.0",
+    "react-app-rewired": "^2.2.1",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
     "react-scripts": "5.0.1",
+    "rsocket-core": "^0.0.29-alpha.0",
+    "rsocket-websocket-client": "^0.0.29-alpha.0",
     "sass": "^1.69.5",
     "typescript": "^5.3.3",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -44,5 +48,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:8080"
+  "proxy": "http://localhost:8090"
 }

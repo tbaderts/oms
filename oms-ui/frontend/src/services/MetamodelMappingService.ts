@@ -53,6 +53,7 @@ export class MetamodelMappingService {
       timestamp: 'date',
       date: 'date',
       datetime: 'date',
+      instant: 'date',  // java.time.Instant maps to date
       boolean: 'boolean',
       enum: 'enum',
       object: 'object',

@@ -6,8 +6,8 @@ content-type: application/json
   "type": "OrderCreateCmd",
   "order": {
     "sessionId": "test-session",
-    "clOrdId": "20251127-test-001",
-    "sendingTime": "2025-11-27T10:44:00+02:00",
+    "clOrdId": "20251129-test-001",
+    "sendingTime": "2025-11-29T08:44:00Z",
     "account": "account-01",
     "execInst": "NO_CROSS",
     "handlInst": "BROKER_INTERVENTION_OK",
@@ -21,7 +21,7 @@ content-type: application/json
     "side": "BUY",
     "symbol": "INTC",
     "timeInForce": "DAY",
-    "transactTime": "2025-11-27T10:01:00+02:00",
+    "transactTime": "2025-11-29T08:01:00Z",
     "exDestination": "XNAS",
     "settlCurrency": "USD",
     "securityExchange": "XNAS",
@@ -38,7 +38,7 @@ GET http://localhost:8090/api/query/search?price__between=20,40 HTTP/1.1
 content-type: application/json
 
 ###
-GET http://localhost:8090/api/query/search?sendingTime__between=2025-10-01T00:00:00,2025-10-13T23:59:59 HTTP/1.1
+GET http://localhost:8090/api/query/search?sendingTime__between=2025-10-01T00:00:00Z,2025-10-13T23:59:59Z HTTP/1.1
 content-type: application/json
 
 ###

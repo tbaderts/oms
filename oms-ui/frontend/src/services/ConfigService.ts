@@ -3,6 +3,7 @@
 export interface AppConfig {
   appName: string;
   apiBaseUrl: string;
+  streamingUrl?: string; // WebSocket URL for RSocket streaming
 }
 
 export class ConfigService {
@@ -39,10 +40,12 @@ export class ConfigService {
       return config;
     } catch (error) {
       console.warn('Failed to fetch config from backend, using defaults:', error);
-      // Fallback to development defaults
+      // Fallback to development defaults - use empty base URL to go through React dev proxy
+      // In production, the config endpoint will provide the correct URL
       return {
         appName: 'OMS Admin Tool',
-        apiBaseUrl: 'http://localhost:8090',
+        apiBaseUrl: '',  // Empty = use relative URLs via proxy in dev
+        streamingUrl: 'ws://localhost:7000/rsocket',
       };
     }
   }

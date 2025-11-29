@@ -2,7 +2,7 @@ package org.example.common.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -53,7 +53,7 @@ public class Order implements Serializable {
     @Setter private long txNr;
     private String sessionId;
     private String clOrdId;
-    private LocalDateTime sendingTime;
+    private Instant sendingTime;
     private String account;
     private String origClOrdId;
 
@@ -105,13 +105,13 @@ public class Order implements Serializable {
     @Enumerated(EnumType.STRING)
     private TimeInForce timeInForce;
 
-    private LocalDateTime transactTime;
+    private Instant transactTime;
     private String exDestination;
     private String settlCurrency;
-    private LocalDateTime expireTime;
+    private Instant expireTime;
     private String securityExchange;
     private String text;
-    private LocalDateTime tifTimestamp;
+    private Instant tifTimestamp;
     @Setter private State state;
     @Setter private CancelState cancelState;
 

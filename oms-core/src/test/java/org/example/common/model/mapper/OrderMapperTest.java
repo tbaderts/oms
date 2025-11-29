@@ -26,13 +26,13 @@ class OrderMapperTest {
         Order order = mapper.toOrder(cmdOrder);
         assertEquals(cmdOrder.getOrderId(), order.getOrderId());
         assertEquals(cmdOrder.getOrderQty(), order.getOrderQty());
-        assertNotNull(order.getSendingTime());
-        assertNotNull(order.getExpireTime());
+        assertNotNull(order.getSendingTime()); // Now Instant
+        assertNotNull(order.getExpireTime());  // Now Instant
 
         org.example.common.model.cmd.Order mappedBack = mapper.toCmdOrder(order);
         assertEquals(order.getOrderId(), mappedBack.getOrderId());
         assertEquals(order.getOrderQty(), mappedBack.getOrderQty());
-        assertNotNull(mappedBack.getSendingTime());
-        assertNotNull(mappedBack.getExpireTime());
+        assertNotNull(mappedBack.getSendingTime()); // Still OffsetDateTime (from OpenAPI)
+        assertNotNull(mappedBack.getExpireTime());  // Still OffsetDateTime (from OpenAPI)
     }
 }

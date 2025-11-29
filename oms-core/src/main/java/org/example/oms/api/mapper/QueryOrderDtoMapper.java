@@ -1,8 +1,8 @@
 package org.example.oms.api.mapper;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -31,18 +31,18 @@ public interface QueryOrderDtoMapper {
     @Mapping(target = "tifTimestamp", source = "tifTimestamp", qualifiedByName = "toOffsetDateTime")
     OrderDto toOrderDto(Order order);
 
-    /** Converts LocalDateTime to OffsetDateTime using system default zone. */
+    /** Converts Instant to OffsetDateTime using UTC. */
     @Named("toOffsetDateTime")
-    default OffsetDateTime toOffsetDateTime(LocalDateTime localDateTime) {
-        if (localDateTime == null) {
+    default OffsetDateTime toOffsetDateTime(Instant instant) {
+        if (instant == null) {
             return null;
         }
-        return localDateTime.atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        return instant.atOffset(ZoneOffset.UTC);
     }
 
-    /** MapStruct auto-conversion method for LocalDateTime to OffsetDateTime. */
-    default OffsetDateTime map(LocalDateTime localDateTime) {
-        return toOffsetDateTime(localDateTime);
+    /** MapStruct auto-conversion method for Instant to OffsetDateTime. */
+    default OffsetDateTime map(Instant instant) {
+        return toOffsetDateTime(instant);
     }
 
     /** Maps a list of Order entities to OrderDto list. */

@@ -5,16 +5,23 @@ import { FilterCondition, PageResponse, Order, Execution } from '../types/types'
 
 export class OMSApiService {
   private static instance: OMSApiService | null = null;
+  private static initPromise: Promise<OMSApiService> | null = null;
   private apiClient: ApiClient | null = null;
 
   private constructor() {}
 
   public static async getInstance(): Promise<OMSApiService> {
-    if (!OMSApiService.instance) {
-      OMSApiService.instance = new OMSApiService();
-      await OMSApiService.instance.initialize();
+    // Use a single initialization promise to prevent race conditions
+    if (!OMSApiService.initPromise) {
+      OMSApiService.initPromise = (async () => {
+        if (!OMSApiService.instance) {
+          OMSApiService.instance = new OMSApiService();
+          await OMSApiService.instance.initialize();
+        }
+        return OMSApiService.instance;
+      })();
     }
-    return OMSApiService.instance;
+    return OMSApiService.initPromise;
   }
 
   private async initialize(): Promise<void> {

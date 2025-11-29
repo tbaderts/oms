@@ -57,7 +57,7 @@ spring:
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
 
 kafka:
-  enabled: false
+  enabled: true
   order-topic: orders
   command-topic: commands
 

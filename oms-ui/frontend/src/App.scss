@@ -43,6 +43,43 @@
     gap: 1rem;
   }
 
+  .mode-toggle {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--vscode-border);
+    border-radius: 2px;
+    overflow: hidden;
+
+    .mode-button {
+      padding: 0.35rem 0.75rem;
+      background: var(--vscode-bg-primary);
+      color: var(--vscode-text-secondary);
+      border: none;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 400;
+      transition: all 0.15s;
+
+      &:not(:last-child) {
+        border-right: 1px solid var(--vscode-border);
+      }
+
+      &:hover {
+        background: var(--vscode-hover-bg);
+        color: var(--vscode-text-primary);
+      }
+
+      &.active {
+        background: var(--vscode-accent-blue);
+        color: white;
+
+        &:hover {
+          background: var(--vscode-accent-blue-hover);
+        }
+      }
+    }
+  }
+
   .authorize-button {
     padding: 0.4rem 1rem;
     background: var(--vscode-accent-blue);

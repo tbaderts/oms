@@ -228,6 +228,7 @@ components:
         expireTime:
           type: string
           format: date-time
+          x-java-type: java.time.Instant
           description: Order expiration time
         securityExchange:
           type: string

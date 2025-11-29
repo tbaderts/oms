@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: oms-streaming-service
+  
+  # RSocket over WebSocket configuration
+  rsocket:
+    server:
+      port: 7000
+      transport: websocket
+      mapping-path: /trade-blotter/stream
+
+  # Kafka consumer configuration with Avro + Schema Registry
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: ${CONSUMER_GROUP:streaming-service-group}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+    properties:
+      schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
+      specific.avro.reader: true
+
+  # Jackson configuration for JSON serialization
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Streaming service configuration
+streaming:
+  kafka:
+    topics:
+      orders: ${ORDER_TOPIC:orders}
+      executions: ${EXECUTION_TOPIC:executions}
+    enabled: ${KAFKA_ENABLED:true}
+  
+  # OMS Core Query API configuration for initial snapshot
+  oms:
+    base-url: ${OMS_CORE_URL:http://localhost:8090}
+    connect-timeout-ms: 5000
+    read-timeout-ms: 30000
+  
+  # Buffer settings for backpressure handling
+  buffer:
+    max-size: 1000
+    timeout-seconds: 30
+
+# Server configuration
+server:
+  port: ${SERVER_PORT:8092}
+
+# Actuator endpoints
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+# Logging
+logging:
+  level:
+    org.example.streaming: DEBUG
+    org.springframework.messaging.rsocket: INFO
+    org.apache.kafka: WARN

@@ -2,8 +2,8 @@ package org.example.oms.service.infra.metamodel;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -113,16 +113,18 @@ public class MetamodelService {
                 .fields(fields)
                 .defaultColumns(
                         List.of(
-                                "id",
                                 "orderId",
                                 "clOrdId",
-                                "symbol",
                                 "side",
                                 "orderQty",
                                 "ordType",
                                 "price",
-                                "state"))
-                .defaultSort("sendingTime,DESC")
+                                "symbol",
+                                "state",
+                                "timeInForce",
+                                "securityId",
+                                "transactTime"))
+                .defaultSort("transactTime,DESC")
                 .build();
     }
 
@@ -258,7 +260,7 @@ public class MetamodelService {
                 || fieldType.equals(double.class)) {
             return "number";
         }
-        if (fieldType.equals(LocalDateTime.class) || fieldType.equals(LocalDate.class)) {
+        if (fieldType.equals(Instant.class) || fieldType.equals(LocalDate.class)) {
             return "date";
         }
         if (fieldType.equals(Boolean.class) || fieldType.equals(boolean.class)) {

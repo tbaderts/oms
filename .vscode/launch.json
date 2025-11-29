@@ -8,7 +8,8 @@
             "mainClass": "org.example.oms.OmsApplication",
             "projectName": "oms-core",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/.env",
+            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=57412 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms-core"
         },
         {
             "type": "java",
@@ -19,6 +20,16 @@
             "args": "",
             "console": "integratedTerminal",
             "vmArgs": "-Dspring.profiles.active=local"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-StreamingServiceApplication<oms-streaming-service>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "org.example.streaming.StreamingServiceApplication",
+            "projectName": "oms-streaming-service",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }

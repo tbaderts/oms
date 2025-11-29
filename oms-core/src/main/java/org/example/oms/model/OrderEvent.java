@@ -1,6 +1,6 @@
 package org.example.oms.model;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -47,7 +47,7 @@ public class OrderEvent {
     @Column(columnDefinition = "jsonb")
     private Command transaction;
 
-    private LocalDateTime timeStamp;
+    private Instant timeStamp;
 
     @Override
     public String toString() {

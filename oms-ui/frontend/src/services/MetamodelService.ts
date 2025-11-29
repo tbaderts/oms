@@ -1,9 +1,8 @@
-// MetamodelService.ts - Main metamodel service with caching and fallback
+// MetamodelService.ts - Main metamodel service with caching
 import { DomainObjectType, DomainObjectMetadata, FieldMetadata } from '../types/types';
 import { BackendMetamodelApiService } from './BackendMetamodelApiService';
 import { MetamodelMappingService } from './MetamodelMappingService';
 import { MetamodelCacheService } from './MetamodelCacheService';
-import { StaticMetamodel } from './StaticMetamodel';
 
 export class MetamodelService {
   private static instance: MetamodelService;
@@ -20,7 +19,7 @@ export class MetamodelService {
     return MetamodelService.instance;
   }
 
-  // Synchronous method - uses cached or static fallback
+  // Synchronous method - uses cached metadata (must be preloaded via getMetamodelAsync)
   public getMetamodel(domainObject: DomainObjectType): DomainObjectMetadata {
     const cacheKey = `${domainObject}-metadata`;
     const cached = this.cacheService.get<DomainObjectMetadata>(cacheKey);
@@ -29,13 +28,7 @@ export class MetamodelService {
       return cached;
     }
 
-    // Fallback to static metamodel
-    const staticMetadata = StaticMetamodel.getMetadata(domainObject);
-    if (staticMetadata) {
-      return staticMetadata;
-    }
-
-    throw new Error(`Metamodel not found for ${domainObject}`);
+    throw new Error(`Metamodel not found for ${domainObject}. Ensure getMetamodelAsync() was called first.`);
   }
 
   // Asynchronous method - fetches from backend
@@ -47,23 +40,12 @@ export class MetamodelService {
       return cached;
     }
 
-    try {
-      const backendService = await BackendMetamodelApiService.getInstance();
-      const backendMetadata = await backendService.getEntityMetadata(domainObject);
-      const metadata = MetamodelMappingService.mapBackendMetadataToFrontend(backendMetadata);
-      
-      this.cacheService.set(cacheKey, metadata);
-      return metadata;
-    } catch (error) {
-      console.warn(`Failed to fetch metamodel from backend for ${domainObject}, using static fallback:`, error);
-      
-      const staticMetadata = StaticMetamodel.getMetadata(domainObject);
-      if (staticMetadata) {
-        return staticMetadata;
-      }
-      
-      throw new Error(`Metamodel not found for ${domainObject}`);
-    }
+    const backendService = await BackendMetamodelApiService.getInstance();
+    const backendMetadata = await backendService.getEntityMetadata(domainObject);
+    const metadata = MetamodelMappingService.mapBackendMetadataToFrontend(backendMetadata);
+    
+    this.cacheService.set(cacheKey, metadata);
+    return metadata;
   }
 
   public getField(domainObject: DomainObjectType, fieldName: string): FieldMetadata | null {

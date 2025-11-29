@@ -1,6 +1,6 @@
 package org.example.oms.service.command.tasks;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import org.example.common.model.Order;
 import org.example.common.model.State;
@@ -30,7 +30,7 @@ public class SetOrderStateTask implements Task<OrderTaskContext> {
         Order order = context.getOrder();
 
         // Set current timestamp
-        LocalDateTime now = LocalDateTime.now();
+        Instant now = Instant.now();
 
         // Build updated order with state and timestamps
         Order.OrderBuilder<?, ?> builder =

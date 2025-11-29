@@ -1,7 +1,7 @@
 // Blotter.tsx - Core data grid component with AG Grid integration
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent } from 'ag-grid-community';
+import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent, RowDoubleClickedEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import { DomainObjectType, FilterCondition } from '../types/types';
@@ -11,7 +11,7 @@ import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
-import DetailPanel from './DetailPanel';
+import DetailModal from './DetailModal';
 import './Blotter.scss';
 
 interface BlotterProps {
@@ -31,6 +31,9 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
   const [showFilterBuilder, setShowFilterBuilder] = useState(false);
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
@@ -62,9 +65,8 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
           console.log('[Blotter] initializeBlotter - Using default columns:', metadata.defaultColumns);
           setVisibleColumns(metadata.defaultColumns);
         }
-
-        // Load initial data
-        await loadData();
+        // Mark as initialized - data loading useEffect will trigger
+        setInitialized(true);
       } catch (err: any) {
         setError(err.message);
       }
@@ -94,6 +96,13 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
 
     return () => clearInterval(interval);
   }, [autoRefresh, filters, sortModel, currentPage]);
+
+  // Reload data when filters, sort, or page changes (only after initialization)
+  useEffect(() => {
+    if (initialized) {
+      loadData();
+    }
+  }, [initialized, filters, sortModel, currentPage]);
 
   const loadData = useCallback(async () => {
     console.log('[Blotter] loadData - Starting load for:', domainObject);
@@ -150,6 +159,8 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
 
   const onGridReady = (params: GridReadyEvent) => {
     gridApiRef.current = params.api;
+    // Auto-size columns to fit content
+    params.api.autoSizeAllColumns();
   };
 
   const onFilterChanged = (event: FilterChangedEvent) => {
@@ -175,11 +186,16 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
     setSortModel(sortModel);
   };
 
+  const onRowDoubleClicked = (event: RowDoubleClickedEvent) => {
+    setSelectedItem(event.data);
+    setShowDetailModal(true);
+  };
+
   const handleApplyFilters = (newFilters: FilterCondition[]) => {
     setFilters(newFilters);
-    setCurrentPage(1);
+    setCurrentPage(1); // Reset to first page
     setShowFilterBuilder(false);
-    loadData();
+    // loadData will be triggered by useEffect when filters state updates
   };
 
   const handleApplyColumns = (newColumns: string[]) => {
@@ -192,7 +208,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
   };
 
   const handleAutoSize = () => {
-    gridApiRef.current?.sizeColumnsToFit();
+    gridApiRef.current?.autoSizeAllColumns();
   };
 
   const convertFiltersToState = (filters: FilterCondition[]): { [key: string]: any } => {
@@ -214,6 +230,15 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
     });
   };
 
+  // Don't render until metadata is loaded
+  if (!initialized) {
+    return (
+      <div className="blotter-container">
+        <div className="loading-overlay">Loading metadata...</div>
+      </div>
+    );
+  }
+
   const columnDefs = columnConfigService.getColumnConfig(domainObject, visibleColumns);
   const metadata = metamodelService.getMetamodel(domainObject);
 
@@ -223,24 +248,25 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
   console.log('[Blotter] Current data length:', data.length);
   console.log('[Blotter] Current data:', data);
 
-  // Detail cell renderer for master-detail pattern
-  const detailCellRenderer = useCallback((params: any) => {
-    return <DetailPanel data={params.data} />;
-  }, []);
-
   return (
     <div className="blotter-container">
       {/* Toolbar */}
       <div className="blotter-toolbar">
         <div className="toolbar-left">
+          <span className="toolbar-icon">📋</span>
           <h2>{metadata.displayName}</h2>
           <span className="record-count">{totalCount} records</span>
         </div>
         <div className="toolbar-right">
-          <button onClick={() => setShowFilterBuilder(true)}>Filters</button>
-          <button onClick={() => setShowColumnSelector(true)}>Columns</button>
-          <button onClick={handleRefresh}>Refresh</button>
-          <button onClick={handleAutoSize}>Auto-Size</button>
+          <button 
+            onClick={() => setShowFilterBuilder(true)}
+            className={filters.length > 0 ? 'filter-active' : ''}
+          >
+            🔍 Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
+          </button>
+          <button onClick={() => setShowColumnSelector(true)}>📊 Columns</button>
+          <button onClick={handleRefresh}>🔄 Refresh</button>
+          <button onClick={handleAutoSize}>↔️ Auto-Size</button>
           <label>
             <input
               type="checkbox"
@@ -267,40 +293,40 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
             filter: true,
             resizable: true,
           }}
+          rowHeight={28}
+          headerHeight={32}
           pagination={false}
-          masterDetail={true}
-          detailCellRenderer={detailCellRenderer}
-          detailRowAutoHeight={true}
           onGridReady={onGridReady}
           onFilterChanged={onFilterChanged}
           onSortChanged={onSortChanged}
+          onRowDoubleClicked={onRowDoubleClicked}
         />
       </div>
 
       {/* Pagination */}
       <div className="blotter-pagination">
-        <span>
-          Page {currentPage} of {Math.ceil(totalCount / pageSize)} ({totalCount} records)
+        <span className="pagination-info">
+          Page <span className="current-page">{currentPage}</span> of {Math.ceil(totalCount / pageSize)} ({totalCount} records)
         </span>
         <div className="pagination-controls">
           <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
-            First
+            ⏮ First
           </button>
           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
-            Previous
+            ◀ Prev
           </button>
-          <span>{currentPage}</span>
+          <span className="page-indicator">{currentPage}</span>
           <button
             onClick={() => setCurrentPage(p => p + 1)}
             disabled={currentPage >= Math.ceil(totalCount / pageSize)}
           >
-            Next
+            Next ▶
           </button>
           <button
             onClick={() => setCurrentPage(Math.ceil(totalCount / pageSize))}
             disabled={currentPage >= Math.ceil(totalCount / pageSize)}
           >
-            Last
+            Last ⏭
           </button>
         </div>
       </div>
@@ -321,6 +347,14 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
           currentColumns={visibleColumns}
           onApply={handleApplyColumns}
           onClose={() => setShowColumnSelector(false)}
+        />
+      )}
+
+      {showDetailModal && selectedItem && (
+        <DetailModal
+          data={selectedItem}
+          title={metadata.displayName}
+          onClose={() => setShowDetailModal(false)}
         />
       )}
     </div>

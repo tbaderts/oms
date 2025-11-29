@@ -2,6 +2,8 @@
 import { ColDef } from 'ag-grid-community';
 import { DomainObjectType, FieldMetadata } from '../types/types';
 import { MetamodelService } from './MetamodelService';
+import { dateTimeService } from './DateTimeService';
+import EnumCellRenderer from '../components/EnumCellRenderer';
 
 export class ColumnConfigService {
   private static instance: ColumnConfigService;
@@ -55,9 +57,9 @@ export class ColumnConfigService {
 
     // Type-specific renderers
     if (field.type === 'date') {
+      // Use DateTimeService for locale-aware formatting of ISO-8601 instant strings
       colDef.valueFormatter = (params: any) => {
-        if (!params.value) return '';
-        return new Date(params.value).toLocaleString();
+        return dateTimeService.formatForDisplay(params.value);
       };
     } else if (field.type === 'number') {
       colDef.valueFormatter = (params: any) => {
@@ -73,6 +75,7 @@ export class ColumnConfigService {
       colDef.valueFormatter = (params: any) => {
         return enumMap.get(params.value) || params.value;
       };
+      colDef.cellRenderer = EnumCellRenderer;
     }
 
     return colDef;

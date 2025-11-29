@@ -10,14 +10,14 @@ info:
       * Like (substring, case-insensitive): `field__like=text` (string fields only)
       * Numeric / date comparisons: `field__gt=`, `field__gte=`, `field__lt=`, `field__lte=`
       * Range (inclusive): `field__between=a,b` (either side may be blank to express open range, e.g. `price__between=100,` means >= 100)
-      * Date-time values must be ISO-8601 local date-times (e.g. `2025-08-29T12:34:56`).
+      * Date-time values must be ISO-8601 instants (e.g. `2025-08-29T12:34:56Z`).
       * Enum fields only support equality (no like / range): side, ordType, state, cancelState.
       * Unknown / malformed filters are ignored silently.
     
     Supported filterable fields by type:
       * String: orderId, rootOrderId, parentOrderId, clOrdId, account, symbol, securityId
       * Numeric (BigDecimal): price, orderQty, cashOrderQty
-      * DateTime (LocalDateTime): sendingTime, transactTime, expireTime
+      * DateTime (Instant): sendingTime, transactTime, expireTime
       * Enum: side, ordType, state, cancelState
     
     Sorting:
@@ -267,6 +267,7 @@ components:
         transactTime:
           type: string
           format: date-time
+          x-java-type: java.time.Instant
     PagedOrderDto:
       type: object
       description: HAL paged collection of OrderDto
