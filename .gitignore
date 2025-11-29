@@ -42,6 +42,8 @@ out/
 
 ### Logs ###
 **/logs/
+oms-mcp-server/logs/spring-ai.log
 
 ### JAR Files ###
 tools/*.jar
+
