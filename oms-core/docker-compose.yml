@@ -115,8 +115,14 @@ services:
     environment:
       UPSTREAM_DB_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/postgres
       LISTEN_ADDRESS: 0.0.0.0:5433
+      # Query caching modes: explicit (default), async, inrequestpath
+      # - explicit: manual CREATE CACHE required
+      # - async: auto-cache supported queries in background
+      # - inrequestpath: auto-cache on first request (slight latency on first hit)
+      QUERY_CACHING: async
     ports:
       - "5433:5433"
+      - "6034:6034"   # Prometheus metrics endpoint
     networks:
       - app-net
     restart: unless-stopped
