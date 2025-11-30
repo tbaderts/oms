@@ -2,6 +2,7 @@ package org.example.oms.service.execution.tasks;
 
 import java.math.BigDecimal;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import org.example.common.model.Order;
 import org.example.common.model.State;
@@ -9,12 +10,10 @@ import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
-import org.example.oms.service.infra.repository.OrderRepository;
+import org.example.oms.repository.OrderRepository;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Predicate;
 
 /**
  * Task that updates the order entity with new quantities and state based on execution.

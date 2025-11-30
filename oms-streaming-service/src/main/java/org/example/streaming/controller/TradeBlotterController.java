@@ -66,12 +66,18 @@ public class TradeBlotterController {
      */
     @MessageMapping("orders.stream")
     public Flux<OrderEvent> streamOrders(@Payload(required = false) StreamFilter filter) {
-        log.info("Client subscribed to orders stream with filter: {}", filter);
+        log.info("Client subscribed to orders stream with filter: {}, isEmpty: {}, includeSnapshot: {}", 
+                filter, 
+                filter != null ? filter.isEmpty() : "null",
+                filter != null ? filter.isIncludeSnapshot() : "null");
         
         // Use filter with snapshot by default if none provided
         StreamFilter effectiveFilter = filter != null 
                 ? filter 
                 : StreamFilter.withSnapshot();
+        
+        log.info("Using effective filter: {}, isEmpty: {}, includeSnapshot: {}", 
+                effectiveFilter, effectiveFilter.isEmpty(), effectiveFilter.isIncludeSnapshot());
         
         return eventStreamProvider.getOrderEventStream(effectiveFilter)
                 .doOnSubscribe(sub -> log.debug("Orders stream subscription started"))

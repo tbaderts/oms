@@ -1,4 +1,4 @@
-package org.example.common.model.mapper;
+package org.example.oms.mapper;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -12,12 +12,16 @@ public interface OrderMapper {
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "offsetToInstant")
     @Mapping(target = "expireTime", source = "expireTime", qualifiedByName = "offsetToInstant")
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "tx", ignore = true)
-    @Mapping(target = "txNr", ignore = true)
     @Mapping(target = "transactTime", ignore = true)
     @Mapping(target = "tifTimestamp", ignore = true)
     @Mapping(target = "state", ignore = true)
     @Mapping(target = "cancelState", ignore = true)
+    @Mapping(target = "allocQty", ignore = true)
+    @Mapping(target = "cumQty", ignore = true)
+    @Mapping(target = "leavesQty", ignore = true)
+    @Mapping(target = "leg", ignore = true)
+    @Mapping(target = "placeQty", ignore = true)
+    @Mapping(target = "txNr", ignore = true)
     Order toOrder(org.example.common.model.cmd.Order cmdOrder);
 
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "instantToOffset")

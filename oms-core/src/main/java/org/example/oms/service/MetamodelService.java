@@ -1,17 +1,22 @@
-package org.example.oms.service.infra.metamodel;
+package org.example.oms.service;
 
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
-import org.example.oms.api.dto.metamodel.EntityMetadataDto;
-import org.example.oms.api.dto.metamodel.EnumValueDto;
-import org.example.oms.api.dto.metamodel.FieldMetadataDto;
+import org.example.oms.api.metamodel.EntityMetadataDto;
+import org.example.oms.api.metamodel.EnumValueDto;
+import org.example.oms.api.metamodel.FieldMetadataDto;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;

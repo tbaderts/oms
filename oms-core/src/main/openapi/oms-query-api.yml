@@ -213,7 +213,7 @@ components:
         underlyingSecurityType:
           type: string
         ordType:
-          $ref: '#/components/schemas/OrdType'
+          $ref: 'schema.yml#/components/schemas/OrdType'
         price:
           type: number
           description: BigDecimal represented as number
@@ -223,12 +223,11 @@ components:
         securityId:
           type: string
         side:
-          $ref: '#/components/schemas/Side'
+          $ref: 'schema.yml#/components/schemas/Side'
         symbol:
           type: string
         timeInForce:
-          type: string
-          description: TimeInForce enum
+          $ref: 'schema.yml#/components/schemas/TimeInForce'
         transactTime:
           type: string
           format: date-time
@@ -250,9 +249,9 @@ components:
           format: date-time
           x-java-type: java.time.Instant
         state:
-          $ref: '#/components/schemas/State'
+          $ref: 'schema.yml#/components/schemas/State'
         cancelState:
-          $ref: '#/components/schemas/CancelState'
+          $ref: 'schema.yml#/components/schemas/CancelState'
     PagedOrderDto:
       type: object
       description: Paged collection of OrderDto
@@ -275,15 +274,3 @@ components:
           type: integer
         number:
           type: integer
-    Side:
-      type: string
-      enum: [BUY, SELL, SELL_SHORT, SUBSCRIBE, REDEEM]
-    OrdType:
-      type: string
-      enum: [MARKET, LIMIT, STOP, STOP_LIMIT, MARKET_ON_CLOSE]
-    State:
-      type: string
-      enum: [NEW, UNACK, LIVE, FILLED, CXL, REJ, CLOSED, EXP]
-    CancelState:
-      type: string
-      enum: [CXL, PCXL, PMOD, REJ]

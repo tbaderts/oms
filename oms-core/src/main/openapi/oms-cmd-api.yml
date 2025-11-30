@@ -160,13 +160,16 @@ components:
           type: string
           description: Original client order identifier for amendments/cancels
         execInst:
-          $ref: '#/components/schemas/ExecInst'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/ExecInst'
           description: Execution instructions
         handlInst:
-          $ref: '#/components/schemas/HandlInst'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/HandlInst'
           description: Handling instructions
         securityIdSource:
-          $ref: '#/components/schemas/SecurityIdSource'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/SecurityIdSource'
           description: Source of security identifier
         orderQty:
           type: number
@@ -175,7 +178,8 @@ components:
           type: number
           description: Cash order quantity
         positionEffect:
-          $ref: '#/components/schemas/PositionEffect'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/PositionEffect'
           description: Position effect (OPEN/CLOSE)
         securityDesc:
           type: string
@@ -190,7 +194,8 @@ components:
           type: number
           description: Strike price for options
         priceType:
-          $ref: '#/components/schemas/PriceType'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/PriceType'
           description: Price type
         putOrCall:
           type: integer
@@ -199,7 +204,8 @@ components:
           type: string
           description: Underlying security type
         ordType:
-          $ref: '#/components/schemas/OrdType'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/OrdType'
           description: Order type (MARKET, LIMIT, etc.)
         price:
           type: number
@@ -211,13 +217,15 @@ components:
           type: string
           description: Security identifier
         side:
-          $ref: '#/components/schemas/Side'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/Side'
           description: Order side
         symbol:
           type: string
           description: Trading symbol
         timeInForce:
-          $ref: '#/components/schemas/TimeInForce'
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/TimeInForce'
           description: Time in force
         exDestination:
           type: string
@@ -252,113 +260,7 @@ components:
           type: string
           description: unique identifier for object created by the command
         status:
-          $ref: '#/components/schemas/CommandStatus'
+          $ref: 'schema.yml#/components/schemas/CommandStatus'
         message:
           type: string
           description: human-readable description of the command result
-
-    State:
-      type: string
-      description: Order state
-      enum:
-        - NEW
-        - UNACK
-        - LIVE
-        - FILLED
-        - CXL
-        - REJ
-        - CLOSED
-        - EXP
-    CancelState:
-      type: string
-      description: Cancel state
-      enum:
-        - CXL
-        - PCXL
-        - PMOD
-        - REJ
-    Side:
-      type: string
-      description: Order side
-      enum:
-        - BUY
-        - SELL
-        - SELL_SHORT
-        - SUBSCRIBE
-        - REDEEM
-    TimeInForce:
-      type: string
-      description: Time in force
-      enum:
-        - DAY
-        - GOOD_TILL_CANCEL
-        - AT_THE_OPENING
-        - IMMEDIATE_OR_CANCEL
-        - FILL_OR_KILL
-        - GOOD_TILL_CROSSING
-        - GOOD_TILL_DATE
-        - AT_THE_CLOSE
-    Cmd:
-      type: string
-      description: Command type
-      enum:
-        - OCRE
-        - OCXL
-        - OREJ
-        - ECRE
-        - EWHK
-        - EBST
-    CommandStatus:
-      type: string
-      description: Command status
-      enum:
-        - OK
-        - FAILED
-    ExecInst:
-      type: string
-      description: Execution instructions
-      enum:
-        - NO_CROSS
-        - OK_TO_CROSS
-        - MID_PEG
-    HandlInst:
-      type: string
-      description: Handling instructions
-      enum:
-        - AUTO
-        - BROKER_INTERVENTION_OK
-        - MANUAL
-    SecurityIdSource:
-      type: string
-      description: Source of security identifier
-      enum:
-        - ISIN
-        - RIC
-        - EXCHANGE_SYMBOL
-        - BLOOMBERG_SYMBOL
-    PositionEffect:
-      type: string
-      description: Position effect (OPEN/CLOSE)
-      enum:
-        - OPEN
-        - CLOSE
-    PriceType:
-      type: string
-      description: Price type
-      enum:
-        - PERCENTAGE
-        - PER_UNIT
-        - FIXED_AMOUNT
-        - DISCOUNT
-        - PREMIUM
-        - SPREAD
-        - YIELD
-    OrdType:
-      type: string
-      description: Order type
-      enum:
-        - MARKET
-        - LIMIT
-        - STOP
-        - STOP_LIMIT
-        - MARKET_ON_CLOSE

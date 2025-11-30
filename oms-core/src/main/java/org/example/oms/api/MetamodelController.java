@@ -3,8 +3,8 @@ package org.example.oms.api;
 import java.util.List;
 import java.util.Map;
 
-import org.example.oms.api.dto.metamodel.EntityMetadataDto;
-import org.example.oms.service.infra.metamodel.MetamodelService;
+import org.example.oms.api.metamodel.EntityMetadataDto;
+import org.example.oms.service.MetamodelService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

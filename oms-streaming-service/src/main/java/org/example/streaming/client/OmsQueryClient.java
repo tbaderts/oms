@@ -55,15 +55,24 @@ public class OmsQueryClient {
 
     @Value("${streaming.oms.read-timeout-ms:30000}")
     private int readTimeoutMs;
+    
+    @Value("${streaming.oms.max-buffer-size-mb:16}")
+    private int maxBufferSizeMb;
 
     private WebClient webClient;
 
     @PostConstruct
     public void init() {
+        // Increase buffer size to handle large API responses (default 256KB is too small)
+        int maxBufferSize = maxBufferSizeMb * 1024 * 1024;
+        
         this.webClient = WebClient.builder()
                 .baseUrl(baseUrl)
+                .codecs(configurer -> configurer
+                        .defaultCodecs()
+                        .maxInMemorySize(maxBufferSize))
                 .build();
-        log.info("OMS Query Client initialized with baseUrl: {}", baseUrl);
+        log.info("OMS Query Client initialized with baseUrl: {}, maxBufferSize: {}MB", baseUrl, maxBufferSizeMb);
     }
 
     /**
@@ -90,8 +99,14 @@ public class OmsQueryClient {
     public Flux<OrderDto> fetchOrdersWithFilter(StreamFilter filter) {
         Map<String, String> filterParams = filter != null ? filter.toQueryParams() : Map.of();
         
+        log.info("fetchOrdersWithFilter called with filter: {}, params: {}", filter, filterParams);
+        
         return fetchOrdersPage(0, 500, filterParams)
                 .expand(pagedResult -> {
+                    log.info("Expanding page: currentPage={}, totalPages={}, contentSize={}", 
+                            pagedResult.getPage() != null ? pagedResult.getPage().getNumber() : "null",
+                            pagedResult.getPage() != null ? pagedResult.getPage().getTotalPages() : "null",
+                            pagedResult.getContent() != null ? pagedResult.getContent().size() : 0);
                     if (pagedResult.getPage() != null && 
                         pagedResult.getPage().getNumber() < pagedResult.getPage().getTotalPages() - 1) {
                         return fetchOrdersPage(pagedResult.getPage().getNumber() + 1, 500, filterParams);

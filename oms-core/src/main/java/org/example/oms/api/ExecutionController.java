@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.example.common.model.Execution;
-import org.example.oms.service.infra.repository.ExecutionRepository;
+import org.example.oms.repository.ExecutionRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;

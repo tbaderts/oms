@@ -6,7 +6,6 @@ import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import org.example.common.model.cmd.Cmd;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -45,11 +44,6 @@ public class Order implements Serializable {
     private String orderId;
     private String parentOrderId;
     private String rootOrderId;
-
-    @Enumerated(EnumType.STRING)
-    @Setter
-    private Cmd tx;
-
     @Setter private long txNr;
     private String sessionId;
     private String clOrdId;

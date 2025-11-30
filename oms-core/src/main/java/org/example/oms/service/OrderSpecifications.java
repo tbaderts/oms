@@ -1,4 +1,4 @@
-package org.example.oms.service.infra.query;
+package org.example.oms.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;

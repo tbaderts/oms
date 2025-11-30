@@ -125,7 +125,8 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
 
     @Override
     public Flux<OrderEvent> getOrderEventStream(StreamFilter filter) {
-        log.info("Creating order event stream with filter: {}", filter);
+        log.info("Creating order event stream with filter: {}, isEmpty: {}, includeSnapshot: {}", 
+                filter, filter != null ? filter.isEmpty() : "null", filter != null ? filter.isIncludeSnapshot() : "null");
         
         // Create predicate from filter (if any) for filtering live stream
         Predicate<OrderEvent> filterPredicate = filter != null && !filter.isEmpty() 

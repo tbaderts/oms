@@ -1,10 +1,10 @@
-package org.example.oms.service.infra;
+package org.example.oms.service;
 
 import org.example.common.model.Order;
-import org.example.common.model.mapper.OrderMessageMapper;
 import org.example.common.model.msg.OrderMessage;
+import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.ProcessingEvent;
-import org.example.oms.service.infra.repository.OrderOutboxRepository;
+import org.example.oms.repository.OrderOutboxRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;

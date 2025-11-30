@@ -1,9 +1,9 @@
-package org.example.oms.service.infra.query;
+package org.example.oms.service;
 
 import java.util.Map;
 
 import org.example.common.model.Order;
-import org.example.oms.service.infra.repository.OrderRepository;
+import org.example.oms.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

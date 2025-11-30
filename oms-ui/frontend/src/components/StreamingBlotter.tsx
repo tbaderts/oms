@@ -120,11 +120,15 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         
         // Try to restore saved state from base domain object state
         const savedState = stateService.getState(domainObject);
+        console.log('[StreamingBlotter] initializeBlotter - savedState:', savedState);
         
         if (savedState && savedState.visibleColumns && savedState.visibleColumns.length > 0) {
-          setFilters(convertFiltersFromState(savedState.filters || {}));
+          const restoredFilters = convertFiltersFromState(savedState.filters || {});
+          console.log('[StreamingBlotter] initializeBlotter - restoring filters:', restoredFilters);
+          setFilters(restoredFilters);
           setVisibleColumns(savedState.visibleColumns);
         } else {
+          console.log('[StreamingBlotter] initializeBlotter - using default columns, no filters');
           setVisibleColumns(metadata.defaultColumns);
         }
         
@@ -176,7 +180,9 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         // Create filter from UI filters
         const streamFilter: StreamFilter = service.convertToStreamFilter(filters, includeSnapshot);
         
-        console.log('[StreamingBlotter] Subscribing with filter:', streamFilter);
+        console.log('[StreamingBlotter] Subscribing with filter:', JSON.stringify(streamFilter));
+        console.log('[StreamingBlotter] Current filters state:', filters);
+        console.log('[StreamingBlotter] includeSnapshot:', includeSnapshot);
 
         // Subscribe to order events
         if (domainObject === 'Order') {

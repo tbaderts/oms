@@ -5,6 +5,9 @@
   "name": "Side",
   "symbols": [
     "BUY",
-    "SELL"
+    "SELL",
+    "SELL_SHORT",
+    "SUBSCRIBE",
+    "REDEEM"
   ]
 }

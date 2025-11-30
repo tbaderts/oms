@@ -1,4 +1,4 @@
-package org.example.oms.service.infra.repository;
+package org.example.oms.repository;
 
 import org.example.oms.model.OrderOutbox;
 import org.springframework.data.jpa.repository.JpaRepository;

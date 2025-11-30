@@ -1,4 +1,4 @@
-package org.example.oms.service.infra.repository;
+package org.example.oms.repository;
 
 import java.util.Optional;
 

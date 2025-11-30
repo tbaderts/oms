@@ -1,16 +1,16 @@
 package org.example.oms.service.execution.tasks;
 
+import java.util.function.Predicate;
+
 import org.example.common.model.Execution;
 import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
-import org.example.oms.service.infra.repository.ExecutionRepository;
+import org.example.oms.repository.ExecutionRepository;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.function.Predicate;
 
 /**
  * Task that persists the execution report to the database.

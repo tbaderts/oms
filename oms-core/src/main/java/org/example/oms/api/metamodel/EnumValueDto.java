@@ -1,4 +1,4 @@
-package org.example.oms.api.dto.metamodel;
+package org.example.oms.api.metamodel;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

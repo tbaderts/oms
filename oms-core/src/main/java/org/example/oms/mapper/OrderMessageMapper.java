@@ -1,4 +1,4 @@
-package org.example.common.model.mapper;
+package org.example.oms.mapper;
 
 import org.example.common.model.Order;
 import org.example.common.model.msg.CancelState;

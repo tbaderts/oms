@@ -7,7 +7,7 @@ import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
-import org.example.oms.service.infra.repository.OrderRepository;
+import org.example.oms.repository.OrderRepository;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;

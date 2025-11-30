@@ -5,11 +5,12 @@
   "name": "TimeInForce",
   "symbols": [
     "DAY",
-    "GTC",
-    "IOC",
-    "FOK",
-    "GTD",
-    "AT_THE_OPEN",
+    "GOOD_TILL_CANCEL",
+    "AT_THE_OPENING",
+    "IMMEDIATE_OR_CANCEL",
+    "FILL_OR_KILL",
+    "GOOD_TILL_CROSSING",
+    "GOOD_TILL_DATE",
     "AT_THE_CLOSE"
   ]
 }

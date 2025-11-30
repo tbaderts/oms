@@ -6,13 +6,13 @@ import org.example.common.orchestration.TaskOrchestrator;
 import org.example.common.orchestration.TaskOrchestrator.PipelineResult;
 import org.example.common.orchestration.TaskPipeline;
 import org.example.oms.model.OrderTaskContext;
+import org.example.oms.repository.OrderRepository;
 import org.example.oms.service.execution.tasks.CalculateOrderQuantitiesTask;
 import org.example.oms.service.execution.tasks.DetermineOrderStateTask;
 import org.example.oms.service.execution.tasks.PersistExecutionTask;
 import org.example.oms.service.execution.tasks.PublishExecutionEventTask;
 import org.example.oms.service.execution.tasks.UpdateOrderTask;
 import org.example.oms.service.execution.tasks.ValidateExecutionTask;
-import org.example.oms.service.infra.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

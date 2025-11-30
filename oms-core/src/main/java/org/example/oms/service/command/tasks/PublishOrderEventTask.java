@@ -9,7 +9,7 @@ import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderOutbox;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.model.ProcessingEvent;
-import org.example.oms.service.infra.repository.OrderOutboxRepository;
+import org.example.oms.repository.OrderOutboxRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 

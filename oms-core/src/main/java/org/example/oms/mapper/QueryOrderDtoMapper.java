@@ -1,4 +1,4 @@
-package org.example.oms.api.mapper;
+package org.example.oms.mapper;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
