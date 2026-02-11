@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -25,9 +26,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class OrderQueryClient {
 
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
-    public OrderQueryClient(RestClient omsRestClient) {
+    public OrderQueryClient(RestClient omsRestClient, ObjectMapper objectMapper) {
         this.restClient = omsRestClient;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -44,7 +47,7 @@ public class OrderQueryClient {
      */
     @SuppressWarnings({ "unchecked" })
     public PageResponse<Map<String, Object>> search(Map<String, ?> params, Integer page, Integer size, String sort) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/api/query/search");
+        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/api/query/orders");
 
         Map<String, Object> merged = new HashMap<>();
         if (params != null)
@@ -76,8 +79,7 @@ public class OrderQueryClient {
         log.info("OMS Order Search Response - Body: {}", raw);
 
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(raw);
+            JsonNode root = objectMapper.readTree(raw);
             
             // Extract content from different possible formats
             List<Map<String, Object>> content = new ArrayList<>();
@@ -86,7 +88,7 @@ public class OrderQueryClient {
             JsonNode contentNode = root.path("content");
             if (contentNode.isArray()) {
                 for (JsonNode node : contentNode) {
-                    content.add(mapper.convertValue(node, Map.class));
+                    content.add(objectMapper.convertValue(node, Map.class));
                 }
             } 
             // Check for HAL format (_embedded.orders)
@@ -96,13 +98,13 @@ public class OrderQueryClient {
                 
                 if (orders.isArray()) {
                     for (JsonNode node : orders) {
-                        content.add(mapper.convertValue(node, Map.class));
+                        content.add(objectMapper.convertValue(node, Map.class));
                     }
                 } 
                 // Check if root itself is an array
                 else if (root.isArray()) {
                     for (JsonNode node : root) {
-                        content.add(mapper.convertValue(node, Map.class));
+                        content.add(objectMapper.convertValue(node, Map.class));
                     }
                 }
             }
@@ -115,8 +117,17 @@ public class OrderQueryClient {
             long totalPages = pageNode.path("totalPages").asLong(1);
             
             return new PageResponse<>(content, pageNumber, pageSize, totalElements, totalPages);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse orders from response", e);
+        } catch (JsonProcessingException e) {
+            throw new OrderQueryException("Failed to parse orders from response", e);
+        }
+    }
+
+    /**
+     * Exception for order query failures.
+     */
+    public static class OrderQueryException extends RuntimeException {
+        public OrderQueryException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

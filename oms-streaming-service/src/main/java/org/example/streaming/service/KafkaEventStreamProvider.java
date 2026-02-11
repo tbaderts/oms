@@ -2,6 +2,7 @@ package org.example.streaming.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,12 +18,14 @@ import org.example.streaming.model.ExecutionEvent;
 import org.example.streaming.model.OrderDto;
 import org.example.streaming.model.OrderEvent;
 import org.example.streaming.model.StreamFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.kafka.receiver.KafkaReceiver;
@@ -38,29 +41,49 @@ import reactor.kafka.receiver.KafkaReceiver;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "streaming.kafka", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaEventStreamProvider implements EventStreamProvider {
+
+    private static final String[] TERMINAL_STATES = {"FILLED", "CXL", "REJ", "CLOSED", "EXP"};
 
     private final KafkaReceiver<String, OrderMessage> orderMessageReceiver;
     private final KafkaReceiver<String, Execution> executionReceiver;
     private final OmsQueryClient omsQueryClient;
     private final OrderMessageMapper orderMessageMapper;
     private final FilterService filterService;
-    
+
+    @Value("${streaming.buffer.max-size:10000}")
+    private int maxCacheSize;
+
     // Hot stream sinks for broadcasting events to multiple subscribers
-    // Using replay().limit() to buffer recent events for subscribers joining during snapshot fetch
     private final Sinks.Many<OrderEvent> orderEventSink = Sinks.many()
             .replay()
-            .limit(100);  // Buffer last 100 events for late subscribers
-    
+            .limit(100);
+
     private final Sinks.Many<ExecutionEvent> executionEventSink = Sinks.many()
             .replay()
             .limit(100);
-    
-    // In-memory state caches (updated from both REST snapshot and Kafka stream)
+
+    // Bounded in-memory state caches (updated from both REST snapshot and Kafka stream)
     private final ConcurrentHashMap<String, OrderDto> orderCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ExecutionDto> executionCache = new ConcurrentHashMap<>();
+
+    // Disposables for graceful shutdown
+    private volatile Disposable orderConsumerDisposable;
+    private volatile Disposable executionConsumerDisposable;
+
+    public KafkaEventStreamProvider(
+            KafkaReceiver<String, OrderMessage> orderMessageReceiver,
+            KafkaReceiver<String, Execution> executionReceiver,
+            OmsQueryClient omsQueryClient,
+            OrderMessageMapper orderMessageMapper,
+            FilterService filterService) {
+        this.orderMessageReceiver = orderMessageReceiver;
+        this.executionReceiver = executionReceiver;
+        this.omsQueryClient = omsQueryClient;
+        this.orderMessageMapper = orderMessageMapper;
+        this.filterService = filterService;
+    }
 
     @PostConstruct
     public void startConsuming() {
@@ -69,43 +92,62 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         startExecutionConsumer();
     }
 
+    @PreDestroy
+    public void shutdown() {
+        log.info("Shutting down Kafka event consumers");
+        if (orderConsumerDisposable != null && !orderConsumerDisposable.isDisposed()) {
+            orderConsumerDisposable.dispose();
+        }
+        if (executionConsumerDisposable != null && !executionConsumerDisposable.isDisposed()) {
+            executionConsumerDisposable.dispose();
+        }
+        orderEventSink.tryEmitComplete();
+        executionEventSink.tryEmitComplete();
+    }
+
     private void startOrderMessageConsumer() {
-        orderMessageReceiver.receive()
+        orderConsumerDisposable = orderMessageReceiver.receive()
                 .doOnNext(record -> {
                     OrderMessage msg = record.value();
-                    log.info("Received OrderMessage from Kafka: orderId={}, state={}", 
+                    log.debug("Received OrderMessage from Kafka: orderId={}, state={}",
                             msg.getOrderId(), msg.getState());
-                    
+
                     // Convert Avro to streaming DTO
                     OrderDto orderDto = orderMessageMapper.toOrderDto(msg);
                     orderCache.put(msg.getOrderId(), orderDto);
-                    
+                    evictTerminalOrders();
+
                     // Create and emit order event
                     OrderEvent event = orderMessageMapper.toOrderEvent(msg, "UPDATE");
                     Sinks.EmitResult result = orderEventSink.tryEmitNext(event);
-                    log.info("Emitted order event to sink: orderId={}, result={}, subscribers={}", 
+                    log.debug("Emitted order event to sink: orderId={}, result={}, subscribers={}",
                             event.getOrderId(), result, orderEventSink.currentSubscriberCount());
-                    
+
                     record.receiverOffset().acknowledge();
                 })
                 .doOnError(error -> log.error("Error consuming order messages", error))
-                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofSeconds(1)))
+                .retryWhen(reactor.util.retry.Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
+                        .maxBackoff(Duration.ofMinutes(5))
+                        .jitter(0.5)
+                        .doBeforeRetry(signal -> log.warn("Retrying order consumer after error (attempt {}): {}",
+                                signal.totalRetries() + 1, signal.failure().getMessage())))
                 .subscribe();
     }
 
     private void startExecutionConsumer() {
-        executionReceiver.receive()
+        executionConsumerDisposable = executionReceiver.receive()
                 .doOnNext(record -> {
                     Execution exec = record.value();
-                    log.debug("Received Execution from Kafka: execId={}, orderId={}", 
+                    log.debug("Received Execution from Kafka: execId={}, orderId={}",
                             exec.getExecId(), exec.getOrderId());
-                    
+
                     // Convert Avro Execution to streaming DTO
                     ExecutionDto execDto = toExecutionDto(exec);
                     if (exec.getExecId() != null) {
                         executionCache.put(exec.getExecId().toString(), execDto);
+                        evictOldExecutions();
                     }
-                    
+
                     // Create and emit execution event
                     ExecutionEvent event = ExecutionEvent.builder()
                             .eventType("NEW")
@@ -114,13 +156,70 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                             .execution(execDto)
                             .timestamp(Instant.now())
                             .build();
-                    
+
                     executionEventSink.tryEmitNext(event);
                     record.receiverOffset().acknowledge();
                 })
                 .doOnError(error -> log.error("Error consuming execution messages", error))
-                .retryWhen(reactor.util.retry.Retry.backoff(3, Duration.ofSeconds(1)))
+                .retryWhen(reactor.util.retry.Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
+                        .maxBackoff(Duration.ofMinutes(5))
+                        .jitter(0.5)
+                        .doBeforeRetry(signal -> log.warn("Retrying execution consumer after error (attempt {}): {}",
+                                signal.totalRetries() + 1, signal.failure().getMessage())))
                 .subscribe();
+    }
+
+    /**
+     * Evict orders in terminal states when cache exceeds max size.
+     */
+    private void evictTerminalOrders() {
+        if (orderCache.size() > maxCacheSize) {
+            List<String> terminalKeys = orderCache.entrySet().stream()
+                    .filter(e -> isTerminalState(e.getValue().getState()))
+                    .map(ConcurrentHashMap.Entry::getKey)
+                    .toList();
+            int evicted = 0;
+            for (String key : terminalKeys) {
+                orderCache.remove(key);
+                evicted++;
+                if (orderCache.size() <= maxCacheSize * 0.8) break;
+            }
+            if (evicted > 0) {
+                log.info("Evicted {} terminal-state orders from cache, size now: {}", evicted, orderCache.size());
+            }
+        }
+    }
+
+    /**
+     * Evict oldest executions when cache exceeds max size.
+     */
+    private void evictOldExecutions() {
+        if (executionCache.size() > maxCacheSize) {
+            List<String> oldestKeys = executionCache.entrySet().stream()
+                    .sorted((a, b) -> {
+                        Instant aTime = a.getValue().getEventTime();
+                        Instant bTime = b.getValue().getEventTime();
+                        if (aTime == null && bTime == null) return 0;
+                        if (aTime == null) return -1;
+                        if (bTime == null) return 1;
+                        return aTime.compareTo(bTime);
+                    })
+                    .limit(executionCache.size() - (int)(maxCacheSize * 0.8))
+                    .map(ConcurrentHashMap.Entry::getKey)
+                    .toList();
+            for (String key : oldestKeys) {
+                executionCache.remove(key);
+            }
+            log.info("Evicted {} old executions from cache, size now: {}", oldestKeys.size(), executionCache.size());
+        }
+    }
+
+    private boolean isTerminalState(String state) {
+        if (state == null) return false;
+        for (String terminal : TERMINAL_STATES) {
+            if (terminal.equals(state)) return true;
+        }
+        return false;
     }
 
     @Override
@@ -168,15 +267,15 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                         return Flux.fromIterable(orderCache.values())
                                 .filter(order -> filterPredicate.test(OrderEvent.fromOrder(order, "CACHE")))
                                 .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"));
-                    });
+                    })
+                    .cache(); // FIX: cache the cold Flux to prevent double subscription
             
             // Filtered live stream from Kafka with deduplication
-            // Buffer events during snapshot, then emit after snapshot completes
             Flux<OrderEvent> liveStream = orderEventSink.asFlux()
                     .doOnNext(event -> {
                         boolean matches = filterPredicate.test(event);
-                        log.info("Live stream event: orderId={}, side={}, matches filter={}", 
-                                event.getOrderId(), 
+                        log.trace("Live stream event: orderId={}, side={}, matches filter={}",
+                                event.getOrderId(),
                                 event.getOrder() != null ? event.getOrder().getSide() : "null",
                                 matches);
                     })
@@ -190,26 +289,23 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                         }
                         return true;
                     });
-            
-            // Use merge to subscribe to both immediately, but delay live events until snapshot done
-            // Snapshot events go first, then live events continue
-            return Flux.merge(
-                    snapshotStream,
-                    liveStream.delaySubscription(snapshotStream.then())
-            );
+
+            // FIX: Use concatWith instead of Flux.merge + delaySubscription to avoid double
+            // subscription on the cold snapshot flux. The snapshot is cached above.
+            return snapshotStream.concatWith(liveStream);
         }
-        
+
         // No snapshot - just return filtered live stream
         Flux<OrderEvent> liveStream = orderEventSink.asFlux()
                 .doOnNext(event -> {
                     boolean matches = filterPredicate.test(event);
-                    log.info("Live stream event: orderId={}, side={}, matches filter={}", 
-                            event.getOrderId(), 
+                    log.trace("Live stream event: orderId={}, side={}, matches filter={}",
+                            event.getOrderId(),
                             event.getOrder() != null ? event.getOrder().getSide() : "null",
                             matches);
                 })
                 .filter(filterPredicate);
-        
+
         return liveStream;
     }
 

@@ -1,8 +1,11 @@
 package org.example.oms.model;
 
+import java.math.BigDecimal;
+
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.State;
+import org.example.common.model.cmd.Command;
 import org.example.common.orchestration.TaskContext;
 
 import lombok.Getter;
@@ -29,7 +32,7 @@ public class OrderTaskContext extends TaskContext {
     private State targetState;
 
     /** The command that triggered this processing. */
-    private Object command;
+    private Command command;
 
     /** Error message if validation or processing fails. */
     private String errorMessage;
@@ -40,9 +43,18 @@ public class OrderTaskContext extends TaskContext {
     /** The generated order ID (before persistence). */
     private String generatedOrderId;
 
+    /** Calculated cumulative quantity from execution processing. */
+    private BigDecimal calculatedCumQty;
+
+    /** Calculated leaves quantity from execution processing. */
+    private BigDecimal calculatedLeavesQty;
+
+    /** The new order state determined by execution processing. */
+    private State newOrderState;
+
     public OrderTaskContext() {
         super();
-        this.validationPassed = true; // Default to true
+        this.validationPassed = true;
     }
 
     /**

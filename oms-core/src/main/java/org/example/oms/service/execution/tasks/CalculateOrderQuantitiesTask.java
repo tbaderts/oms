@@ -15,17 +15,15 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Task that calculates order quantities based on execution data.
- * 
+ *
  * <p>Calculations performed:
- * 
+ *
  * <ul>
  *   <li>cumQty = previous cumQty + execution.lastQty
  *   <li>leavesQty = orderQty - cumQty
  * </ul>
- * 
- * <p>Note: avgPx is calculated and stored on the Execution entity, not the Order.
- * 
- * <p>The calculated values are stored in the context for subsequent tasks to use.
+ *
+ * <p>The calculated values are stored in the typed context fields for subsequent tasks to use.
  */
 @Component
 @Slf4j
@@ -40,18 +38,13 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
         Order order = context.getOrder();
         Execution execution = context.getExecution();
 
-        // Get current values
         BigDecimal previousCumQty =
                 order.getCumQty() != null ? order.getCumQty() : BigDecimal.ZERO;
         BigDecimal orderQty = order.getOrderQty();
-
-        // Get execution values
         BigDecimal lastQty = execution.getLastQty();
 
-        // Calculate new cumQty
         BigDecimal newCumQty = previousCumQty.add(lastQty);
 
-        // Validate cumQty doesn't exceed orderQty
         if (newCumQty.compareTo(orderQty) > 0) {
             return TaskResult.failed(
                     getName(),
@@ -60,13 +53,10 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
                             newCumQty, orderQty));
         }
 
-        // Calculate new leavesQty
         BigDecimal newLeavesQty = orderQty.subtract(newCumQty);
 
-        // Store calculated values in context for subsequent tasks
-        context.put("calculatedCumQty", newCumQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
-        context.put(
-                "calculatedLeavesQty", newLeavesQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
+        context.setCalculatedCumQty(newCumQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
+        context.setCalculatedLeavesQty(newLeavesQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
 
         log.info(
                 "Quantity calculations completed - orderId={}, previousCumQty={}, lastQty={}, "
@@ -82,6 +72,6 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
 
     @Override
     public int getOrder() {
-        return 200; // Execute after validation
+        return 200;
     }
 }

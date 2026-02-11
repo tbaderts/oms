@@ -1,5 +1,6 @@
 package org.example.common.model;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 
@@ -20,10 +21,12 @@ import lombok.experimental.SuperBuilder;
 @Entity
 @Table(name = "executions")
 @SuperBuilder
-@EqualsAndHashCode
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
-public class Execution {
+public class Execution implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "execution_sequence")
@@ -31,6 +34,7 @@ public class Execution {
             name = "execution_sequence",
             sequenceName = "execution_seq",
             allocationSize = 1)
+    @EqualsAndHashCode.Include
     private Long id;
 
     private String orderId;

@@ -41,6 +41,16 @@
             "projectName": "oms-ui",
             "args": "",
             "envFile": "${workspaceFolder}/.env"
+        },
+        {
+            "type": "java",
+            "name": "Spring Boot-SpringAiApplication<oms-mcp-server>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "org.example.mcp.SpringAiApplication",
+            "projectName": "oms-mcp-server",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
         }
     ]
 }

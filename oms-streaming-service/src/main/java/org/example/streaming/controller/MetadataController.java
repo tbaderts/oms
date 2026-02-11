@@ -3,6 +3,7 @@ package org.example.streaming.controller;
 import java.util.List;
 
 import org.example.streaming.model.ObjectMetadata;
+import org.example.streaming.model.ServiceStatus;
 import org.example.streaming.service.EventStreamProvider;
 import org.example.streaming.service.MetadataService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,14 +69,5 @@ public class MetadataController {
                 .ordersInCache(eventStreamProvider.getOrderCacheSize())
                 .executionsInCache(eventStreamProvider.getExecutionCacheSize())
                 .build());
-    }
-
-    @lombok.Data
-    @lombok.Builder
-    @lombok.AllArgsConstructor
-    public static class ServiceStatus {
-        private String status;
-        private int ordersInCache;
-        private int executionsInCache;
     }
 }

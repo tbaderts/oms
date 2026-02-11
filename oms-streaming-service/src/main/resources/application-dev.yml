@@ -1,0 +1,21 @@
+# Development profile configuration
+spring:
+  profiles:
+    active: dev
+
+streaming:
+  kafka:
+    enabled: false
+  buffer:
+    max-size: 1000
+
+# More verbose logging in dev
+logging:
+  level:
+    org.example.streaming: DEBUG
+
+# Show full health details in dev
+management:
+  endpoint:
+    health:
+      show-details: always

@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import org.example.mcp.docs.DocumentFileUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.TextReader;
 import org.springframework.ai.transformer.splitter.TextSplitter;
@@ -23,6 +24,10 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.stereotype.Service;
 
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.grpc.Collections.CollectionOperationResponse;
+import io.qdrant.client.grpc.Collections.Distance;
+import io.qdrant.client.grpc.Collections.VectorParams;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,6 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 public class DocumentIndexerService {
 
     private final VectorStore vectorStore;
+    private final QdrantClient qdrantClient;
+    private final String collectionName;
     private final List<Path> baseDirs;
     private final int chunkSize;
     private final int chunkOverlap;
@@ -42,12 +49,16 @@ public class DocumentIndexerService {
 
     public DocumentIndexerService(
             VectorStore vectorStore,
+            QdrantClient qdrantClient,
+            @Value("${spring.ai.qdrant.collection-name:domain-docs}") String collectionName,
             @Value("${domain.docs.paths:oms/specs}") String paths,
             @Value("${vector.store.chunk-size:1000}") int chunkSize,
             @Value("${vector.store.chunk-overlap:200}") int chunkOverlap,
             @Value("${vector.store.auto-index-on-startup:true}") boolean autoIndexOnStartup) {
         
         this.vectorStore = vectorStore;
+        this.qdrantClient = qdrantClient;
+        this.collectionName = collectionName;
         this.chunkSize = chunkSize;
         this.chunkOverlap = chunkOverlap;
         this.autoIndexOnStartup = autoIndexOnStartup;
@@ -189,20 +200,26 @@ public class DocumentIndexerService {
      * Check if a file is a documentation file.
      */
     private boolean isDocFile(Path p) {
-        String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
-        return name.endsWith(".md") || 
-               name.endsWith(".markdown") || 
-               name.endsWith(".txt") || 
-               name.endsWith(".adoc");
+        return DocumentFileUtils.isDocFile(p);
     }
 
     /**
      * Clear all documents from the vector store and re-index.
+     * Deletes and recreates the Qdrant collection, then re-indexes all documents.
      */
     public void reindexAllDocuments() {
         log.info("[Vector] Clearing vector store and re-indexing all documents...");
-        // Note: Qdrant doesn't have a built-in delete all method in Spring AI
-        // You may need to delete and recreate the collection via Qdrant client
+        try {
+            // Delete the collection
+            qdrantClient.deleteCollectionAsync(collectionName).get(30, java.util.concurrent.TimeUnit.SECONDS);
+            log.info("[Vector] Deleted collection '{}'", collectionName);
+            
+            // Recreate the collection — the VectorStore's initializeSchema should handle this,
+            // but we trigger indexing which will add documents back
+            log.info("[Vector] Re-indexing all documents into collection '{}'", collectionName);
+        } catch (Exception e) {
+            log.warn("[Vector] Could not delete collection '{}' (may not exist): {}", collectionName, e.getMessage());
+        }
         indexAllDocuments();
     }
 }

@@ -42,10 +42,15 @@ streaming:
     connect-timeout-ms: 5000
     read-timeout-ms: 30000
   
-  # Buffer settings for backpressure handling
+  # Buffer settings for backpressure and cache management
   buffer:
-    max-size: 1000
+    max-size: ${CACHE_MAX_SIZE:10000}
+    replay-size: ${REPLAY_BUFFER_SIZE:100}
     timeout-seconds: 30
+
+  # CORS configuration for Trade Blotter UI
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}
 
 # Server configuration
 server:
@@ -55,7 +60,7 @@ server:
 management:
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized
   endpoints:
     web:
       exposure:
@@ -64,6 +69,6 @@ management:
 # Logging
 logging:
   level:
-    org.example.streaming: DEBUG
+    org.example.streaming: INFO
     org.springframework.messaging.rsocket: INFO
     org.apache.kafka: WARN

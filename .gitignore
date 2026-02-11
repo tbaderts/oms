@@ -36,6 +36,11 @@ out/
 ### VS Code ###
 .vscode/
 
+### Environment variables ###
+.env
+.env.local
+.env.*.local
+
 ### Avro Generated ###
 **/src/main/avro-generated/
 **/src/main/avro/

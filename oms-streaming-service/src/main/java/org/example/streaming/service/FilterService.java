@@ -1,11 +1,12 @@
 package org.example.streaming.service;
 
-import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.example.streaming.model.FilterCondition;
@@ -36,6 +37,55 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 public class FilterService {
+
+    // Static accessor maps — compile-time safe field resolution, no reflection needed
+    private static final Map<String, Function<OrderDto, Object>> ORDER_ACCESSORS = Map.ofEntries(
+            Map.entry("eventId", o -> o.getEventId()),
+            Map.entry("orderId", o -> o.getOrderId()),
+            Map.entry("parentOrderId", o -> o.getParentOrderId()),
+            Map.entry("rootOrderId", o -> o.getRootOrderId()),
+            Map.entry("clOrdId", o -> o.getClOrdId()),
+            Map.entry("account", o -> o.getAccount()),
+            Map.entry("symbol", o -> o.getSymbol()),
+            Map.entry("side", o -> o.getSide()),
+            Map.entry("ordType", o -> o.getOrdType()),
+            Map.entry("state", o -> o.getState()),
+            Map.entry("cancelState", o -> o.getCancelState()),
+            Map.entry("orderQty", o -> o.getOrderQty()),
+            Map.entry("cumQty", o -> o.getCumQty()),
+            Map.entry("leavesQty", o -> o.getLeavesQty()),
+            Map.entry("price", o -> o.getPrice()),
+            Map.entry("avgPx", o -> o.getAvgPx()),
+            Map.entry("stopPx", o -> o.getStopPx()),
+            Map.entry("timeInForce", o -> o.getTimeInForce()),
+            Map.entry("securityId", o -> o.getSecurityId()),
+            Map.entry("securityType", o -> o.getSecurityType()),
+            Map.entry("exDestination", o -> o.getExDestination()),
+            Map.entry("text", o -> o.getText()),
+            Map.entry("sendingTime", o -> o.getSendingTime()),
+            Map.entry("transactTime", o -> o.getTransactTime()),
+            Map.entry("expireTime", o -> o.getExpireTime()),
+            Map.entry("sequenceNumber", o -> o.getSequenceNumber()),
+            Map.entry("eventTime", o -> o.getEventTime())
+    );
+
+    private static final Map<String, Function<ExecutionDto, Object>> EXECUTION_ACCESSORS = Map.ofEntries(
+            Map.entry("execId", e -> e.getExecId()),
+            Map.entry("orderId", e -> e.getOrderId()),
+            Map.entry("executionId", e -> e.getExecutionId()),
+            Map.entry("lastQty", e -> e.getLastQty()),
+            Map.entry("lastPx", e -> e.getLastPx()),
+            Map.entry("cumQty", e -> e.getCumQty()),
+            Map.entry("avgPx", e -> e.getAvgPx()),
+            Map.entry("leavesQty", e -> e.getLeavesQty()),
+            Map.entry("execType", e -> e.getExecType()),
+            Map.entry("lastMkt", e -> e.getLastMkt()),
+            Map.entry("lastCapacity", e -> e.getLastCapacity()),
+            Map.entry("transactTime", e -> e.getTransactTime()),
+            Map.entry("creationDate", e -> e.getCreationDate()),
+            Map.entry("sequenceNumber", e -> e.getSequenceNumber()),
+            Map.entry("eventTime", e -> e.getEventTime())
+    );
 
     /**
      * Creates a predicate for filtering OrderEvents based on StreamFilter criteria.
@@ -92,11 +142,22 @@ public class FilterService {
     }
 
     /**
-     * Checks if an object matches the given filter criteria.
+     * Checks if an object matches the given filter criteria using static accessor maps.
      */
-    private boolean matchesFilter(Object obj, StreamFilter filter) {
+    @SuppressWarnings("unchecked")
+    private <T> boolean matchesFilter(T obj, StreamFilter filter) {
         List<FilterCondition> conditions = filter.getFilters();
         if (conditions == null || conditions.isEmpty()) {
+            return true;
+        }
+
+        Map<String, Function<T, Object>> accessors;
+        if (obj instanceof OrderDto) {
+            accessors = (Map<String, Function<T, Object>>) (Map<String, ?>) ORDER_ACCESSORS;
+        } else if (obj instanceof ExecutionDto) {
+            accessors = (Map<String, Function<T, Object>>) (Map<String, ?>) EXECUTION_ACCESSORS;
+        } else {
+            log.warn("Unsupported object type for filtering: {}", obj.getClass().getSimpleName());
             return true;
         }
 
@@ -106,33 +167,38 @@ public class FilterService {
         }
 
         if (logicalOp == StreamFilter.LogicalOperator.AND) {
-            return conditions.stream().allMatch(cond -> matchesCondition(obj, cond));
+            return conditions.stream().allMatch(cond -> matchesCondition(obj, cond, accessors));
         } else {
-            return conditions.stream().anyMatch(cond -> matchesCondition(obj, cond));
+            return conditions.stream().anyMatch(cond -> matchesCondition(obj, cond, accessors));
         }
     }
 
     /**
-     * Checks if an object matches a single filter condition.
+     * Checks if an object matches a single filter condition using typed accessors.
      */
-    private boolean matchesCondition(Object obj, FilterCondition condition) {
+    private <T> boolean matchesCondition(T obj, FilterCondition condition, Map<String, Function<T, Object>> accessors) {
         try {
             String fieldName = sanitizeFieldName(condition.getField());
-            Object fieldValue = getFieldValue(obj, fieldName);
-            
+            Function<T, Object> accessor = accessors.get(fieldName);
+            if (accessor == null) {
+                log.warn("Unknown filter field '{}'. Valid fields: {}", fieldName, accessors.keySet());
+                return false;
+            }
+            Object fieldValue = accessor.apply(obj);
+
             if (fieldValue == null) {
                 // Null field only matches EQ with null/empty value
-                return condition.getOperator() == Operator.EQ 
+                return condition.getOperator() == Operator.EQ
                        && (condition.getValue() == null || condition.getValue().isEmpty());
             }
 
             String filterValue = condition.getValue();
             Operator operator = condition.getOperator() != null ? condition.getOperator() : Operator.EQ;
-            
+
             return evaluateOperator(fieldValue, filterValue, condition.getValue2(), operator);
-            
+
         } catch (Exception e) {
-            log.warn("Error evaluating filter condition: field={}, error={}", 
+            log.warn("Error evaluating filter condition: field={}, error={}",
                     condition.getField(), e.getMessage());
             return false;
         }
@@ -245,16 +311,6 @@ public class FilterService {
             // Try with offset
             return OffsetDateTime.parse(value).toInstant();
         }
-    }
-
-    /**
-     * Gets field value from object using reflection.
-     */
-    private Object getFieldValue(Object obj, String fieldName) throws Exception {
-        Class<?> clazz = obj.getClass();
-        Field field = clazz.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        return field.get(obj);
     }
 
     /**

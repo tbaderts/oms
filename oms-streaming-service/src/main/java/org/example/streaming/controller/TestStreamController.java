@@ -5,6 +5,7 @@ import java.time.Duration;
 import org.example.streaming.model.OrderDto;
 import org.example.streaming.model.OrderEvent;
 import org.example.streaming.service.EventStreamProvider;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +21,7 @@ import reactor.core.publisher.Flux;
  */
 @RestController
 @RequestMapping("/api/test")
+@Profile("dev")
 @Slf4j
 @RequiredArgsConstructor
 public class TestStreamController {

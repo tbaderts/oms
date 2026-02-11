@@ -21,7 +21,7 @@ import lombok.experimental.SuperBuilder;
 @Entity
 @Table(name = "order_messages")
 @SuperBuilder
-@EqualsAndHashCode
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
 public class OrderOutbox {
@@ -32,6 +32,7 @@ public class OrderOutbox {
             name = "order_outbox_sequence",
             sequenceName = "order_outbox_seq",
             allocationSize = 1)
+    @EqualsAndHashCode.Include
     private Long id;
 
     @JdbcTypeCode(SqlTypes.JSON)

@@ -4,10 +4,11 @@
   "chat.mcp.serverSampling": {
     "oms/.vscode/mcp.json: oms-mcp": {
       "allowedModels": [
-        "copilot/gpt-4.1",
         "copilot/claude-sonnet-4.5",
-        "copilot/gpt-5-mini"
+        "copilot/claude-haiku-4.5",
+        "copilot/claude-opus-4.6"
       ]
     }
-  }
+  },
+  "java.dependency.syncWithFolderExplorer": false
 }

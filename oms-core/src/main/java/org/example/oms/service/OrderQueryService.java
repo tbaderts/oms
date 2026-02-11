@@ -12,18 +12,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Transactional(readOnly = true)
 @Slf4j
+@RequiredArgsConstructor
 public class OrderQueryService {
 
     private final OrderRepository repository;
-
-    public OrderQueryService(OrderRepository repository) {
-        this.repository = repository;
-    }
 
     public Page<Order> search(Map<String, String> params, Integer page, Integer size, String sort) {
         log.info(
@@ -43,7 +41,6 @@ public class OrderQueryService {
         if (sort == null || sort.isBlank()) {
             return PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "id"));
         }
-        // format: field[,ASC|DESC];field2[,DESC]
         String[] parts = sort.split(";");
         Sort finalSort = Sort.unsorted();
         for (String part : parts) {

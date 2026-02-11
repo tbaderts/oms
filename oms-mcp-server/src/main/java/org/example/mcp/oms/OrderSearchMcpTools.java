@@ -8,21 +8,23 @@ import java.util.Map;
 import org.example.common.model.query.CancelState;
 import org.example.common.model.query.OrdType;
 import org.example.common.model.query.Side;
-import org.example.common.model.query.State; // Spring AI tool annotation
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.example.common.model.query.State;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * MCP Tools exposing OMS order query search functionality.
  */
+@Slf4j
 @Component
 public class OrderSearchMcpTools {
 
-    private static final Logger log = LoggerFactory.getLogger(OrderSearchMcpTools.class);
+    private static final int MAX_PAGE_SIZE = 500;
+    private static final int DEFAULT_PAGE_SIZE = 20;
 
     private final OrderQueryClient orderQueryClient;
 
@@ -44,20 +46,24 @@ public class OrderSearchMcpTools {
      */
     @Tool(name = "searchOrders", description = "Search OMS orders with typed filters, pagination and sorting.")
     public OrderSearchResponse searchOrders(@Nullable OrderSearchFilters filters, @Nullable Integer page, @Nullable Integer size, @Nullable String sort) {
+        // Validate and clamp pagination parameters
+        int safePage = (page == null || page < 0) ? 0 : page;
+        int safeSize = (size == null || size <= 0) ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+
         log.info("[MCP] searchOrders called with filters={}, page={}, size={}, sort={}",
-            filters, page, size, sort);
+            filters, safePage, safeSize, sort);
         Map<String,Object> queryParams = buildQueryParams(filters);
-        PageResponse<Map<String, Object>> paged = orderQueryClient.search(queryParams, page, size, sort);
+        PageResponse<Map<String, Object>> paged = orderQueryClient.search(queryParams, safePage, safeSize, sort);
         log.info("Received paged response: {}", paged);
 
         // Content is already a list of maps
-        List<Map<String, Object>> content = new ArrayList<>(paged.getContent());
+        List<Map<String, Object>> content = new ArrayList<>(paged.content());
 
         return new OrderSearchResponse(
-            paged.getPageNumber(),
-            paged.getPageSize(),
-            paged.getTotalElements(),
-            paged.getTotalPages(),
+            paged.pageNumber(),
+            paged.pageSize(),
+            paged.totalElements(),
+            paged.totalPages(),
             content);
     }
 

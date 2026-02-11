@@ -9,13 +9,13 @@ import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHa
 import org.springframework.util.MimeTypeUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 /**
  * RSocket configuration for bidirectional streaming over WebSocket.
  * 
  * <p>Configures RSocket server to handle Trade Blotter streaming requests
- * with JSON serialization support.
+ * with JSON serialization support. Uses Spring Boot's auto-configured ObjectMapper
+ * to inherit spring.jackson.* settings.
  */
 @Configuration
 public class RSocketConfig {
@@ -25,13 +25,6 @@ public class RSocketConfig {
         RSocketMessageHandler handler = new RSocketMessageHandler();
         handler.setRSocketStrategies(strategies);
         return handler;
-    }
-
-    @Bean
-    public ObjectMapper objectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        return mapper;
     }
 
     @Bean

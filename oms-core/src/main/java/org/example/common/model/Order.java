@@ -8,7 +8,6 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -28,17 +27,19 @@ import lombok.extern.jackson.Jacksonized;
 @Entity
 @Table(name = "orders")
 @SuperBuilder(toBuilder = true)
-@EqualsAndHashCode
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
 @Jacksonized
 @JsonIgnoreProperties(ignoreUnknown = true)
-@JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@type")
 public class Order implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_sequence")
     @SequenceGenerator(name = "order_sequence", sequenceName = "order_seq", allocationSize = 1)
+    @EqualsAndHashCode.Include
     private Long id;
 
     private String orderId;
@@ -80,7 +81,10 @@ public class Order implements Serializable {
 
     private String maturityMonthYear;
     private BigDecimal strikePrice;
+
+    @Enumerated(EnumType.STRING)
     private PriceType priceType;
+
     private Integer putOrCall;
     private String underlyingSecurityType;
 

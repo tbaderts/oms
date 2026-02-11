@@ -10,13 +10,24 @@ services:
       KAFKA_ENABLED: "true"
       CONSUMER_GROUP: streaming-service-group
       SERVER_PORT: 8092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      OMS_CORE_URL: http://oms-core:8090
     ports:
       - "8092:8092"   # HTTP
       - "7000:7000"   # RSocket WebSocket
     networks:
       - oms-net
     depends_on:
-      - broker
+      broker:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8092/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Use shared Kafka from oms-core, or define here for standalone testing
   broker:
@@ -41,6 +52,29 @@ services:
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     networks:
       - oms-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Schema Registry - required for Avro deserialization
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.3
+    hostname: schema-registry
+    container_name: streaming-schema-registry
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - oms-net
+    depends_on:
+      broker:
+        condition: service_healthy
 
 networks:
   oms-net:

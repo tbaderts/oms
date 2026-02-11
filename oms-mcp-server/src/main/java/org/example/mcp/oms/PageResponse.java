@@ -5,51 +5,58 @@ import java.util.List;
 /**
  * Simple pagination response wrapper.
  *
- * @param <T> the type of elements in the page
+ * @param content       the page content
+ * @param pageNumber    current page number (0-based)
+ * @param pageSize      number of items per page
+ * @param totalElements total number of matching elements
+ * @param totalPages    total number of pages
+ * @param <T>           the type of elements in the page
  */
-public class PageResponse<T> {
-    private final List<T> content;
-    private final int pageNumber;
-    private final int pageSize;
-    private final long totalElements;
-    private final long totalPages;
+public record PageResponse<T>(
+        List<T> content,
+        int pageNumber,
+        int pageSize,
+        long totalElements,
+        long totalPages
+) {
 
-    public PageResponse(List<T> content, int pageNumber, int pageSize, long totalElements, long totalPages) {
-        this.content = content;
-        this.pageNumber = pageNumber;
-        this.pageSize = pageSize;
-        this.totalElements = totalElements;
-        this.totalPages = totalPages;
-    }
-
+    /**
+     * @deprecated Use {@link #content()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public List<T> getContent() {
         return content;
     }
 
+    /**
+     * @deprecated Use {@link #pageNumber()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public int getPageNumber() {
         return pageNumber;
     }
 
+    /**
+     * @deprecated Use {@link #pageSize()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public int getPageSize() {
         return pageSize;
     }
 
+    /**
+     * @deprecated Use {@link #totalElements()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public long getTotalElements() {
         return totalElements;
     }
 
+    /**
+     * @deprecated Use {@link #totalPages()} instead.
+     */
+    @Deprecated(forRemoval = true)
     public long getTotalPages() {
         return totalPages;
-    }
-
-    @Override
-    public String toString() {
-        return "PageResponse{" +
-                "pageNumber=" + pageNumber +
-                ", pageSize=" + pageSize +
-                ", totalElements=" + totalElements +
-                ", totalPages=" + totalPages +
-                ", contentSize=" + (content != null ? content.size() : 0) +
-                '}';
     }
 }

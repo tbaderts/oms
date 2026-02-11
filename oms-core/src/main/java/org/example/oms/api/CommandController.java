@@ -4,12 +4,15 @@ import org.example.common.api.ExecuteApi;
 import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.CommandResult;
 import org.example.common.model.cmd.CommandStatus;
+import org.example.common.model.cmd.ExecutionCreateCmd;
 import org.example.common.model.cmd.OrderCreateCmd;
+import org.example.oms.mapper.OrderMapper;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.example.oms.service.command.OrderCreateCommandProcessor.OrderCreateResult;
+import org.example.oms.service.execution.ExecutionCommandProcessor;
+import org.example.oms.service.execution.ExecutionCommandProcessor.ExecutionProcessingResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,12 +26,13 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 @RestController
 @RequestMapping("/api/command")
 public class CommandController implements ExecuteApi {
 
     private final OrderCreateCommandProcessor orderCreateCommandProcessor;
+    private final ExecutionCommandProcessor executionCommandProcessor;
+    private final OrderMapper orderMapper;
 
     @Override
     @Operation(
@@ -44,7 +48,7 @@ public class CommandController implements ExecuteApi {
                                                         summary = "Order create command",
                                                         value =
                                                                 "{\"type\":\"OrderCreateCmd\",\"version\":\"1.0.0\",\"order\":{\"orderId\":null,\"parentOrderId\":null,\"rootOrderId\":null,\"sessionId\":\"test-session\",\"clOrdId\":\"20250621-test-001\",\"sendingTime\":null,\"account\":\"test-account\",\"origClOrdId\":null,\"execInst\":\"NO_CROSS\",\"handlInst\":\"AUTO\",\"securityIdSource\":\"ISIN\",\"orderQty\":100.00,\"cashOrderQty\":null,\"positionEffect\":null,\"securityDesc\":\"desc\",\"securityType\":null,\"maturityMonthYear\":null,\"strikePrice\":null,\"priceType\":\"PER_UNIT\",\"putOrCall\":null,\"underlyingSecurityType\":null,\"ordType\":\"LIMIT\",\"price\":172.06,\"stopPx\":null,\"securityId\":\"US0378331005\",\"side\":\"BUY\",\"symbol\":\"AAPL\",\"timeInForce\":\"DAY\",\"exDestination\":\"XNAS\",\"settlCurrency\":\"USD\",\"expireTime\":null,\"securityExchange\":\"XNAS\",\"text\":\"Test"
-                                                                    + " order\"}}"),
+                                                                        + " order\"}}"),
                                                 @ExampleObject(
                                                         name = "OrderAcceptCmd",
                                                         summary = "Order accept command",
@@ -55,7 +59,6 @@ public class CommandController implements ExecuteApi {
         log.info("Received command: {}", command);
 
         if (command instanceof OrderCreateCmd orderCreateCmd) {
-            // Process order creation using the task orchestration framework
             OrderCreateResult result = orderCreateCommandProcessor.process(orderCreateCmd);
 
             if (result.isSuccess()) {
@@ -64,7 +67,7 @@ public class CommandController implements ExecuteApi {
                         result.getOrderId(),
                         result.getExecutionTimeMs());
 
-                return ResponseEntity.status(HttpStatus.OK)
+                return ResponseEntity.status(HttpStatus.CREATED)
                         .body(
                                 CommandResult.builder()
                                         .id(result.getOrderId())
@@ -88,7 +91,36 @@ public class CommandController implements ExecuteApi {
             }
         }
 
-        // Handle other command types (to be implemented)
+        if (command instanceof ExecutionCreateCmd executionCreateCmd) {
+            var execution = orderMapper.toExecution(executionCreateCmd.getExecution());
+            ExecutionProcessingResult result = executionCommandProcessor.process(execution);
+
+            if (result.isSuccess()) {
+                log.info(
+                        "Execution processed successfully: orderId={}, executionTime={}ms",
+                        result.getOrder().getOrderId(),
+                        result.getExecutionTime().toMillis());
+
+                return ResponseEntity.status(HttpStatus.CREATED)
+                        .body(
+                                CommandResult.builder()
+                                        .id(result.getExecution().getExecID())
+                                        .status(CommandStatus.OK)
+                                        .message("Execution processed successfully")
+                                        .build());
+            } else {
+                log.error("Execution processing failed");
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(
+                                CommandResult.builder()
+                                        .id("")
+                                        .status(CommandStatus.FAILED)
+                                        .message("Execution processing failed")
+                                        .build());
+            }
+        }
+
         log.warn("Unsupported command type: {}", command.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
                 .body(

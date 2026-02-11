@@ -3,6 +3,7 @@ package org.example.mcp.vector;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.ai.document.Document;
@@ -121,7 +122,7 @@ public class SemanticSearchTools {
         
         try {
             // Get collection info from Qdrant
-            var collectionInfo = qdrantClient.getCollectionInfoAsync(collectionName).get();
+            var collectionInfo = qdrantClient.getCollectionInfoAsync(collectionName).get(10, TimeUnit.SECONDS);
             
             // Extract statistics
             long pointsCount = collectionInfo.getPointsCount();

@@ -17,34 +17,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.micrometer.observation.annotation.Observed;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Command processor for handling execution reports. Assembles and executes a task pipeline to
  * process order fills and update order state accordingly.
- *
- * <p>Pipeline stages:
- *
- * <ol>
- *   <li>Validate execution fields and business rules
- *   <li>Calculate order quantities (cumQty, leavesQty, avgPx)
- *   <li>Determine new order state (LIVE or FILLED)
- *   <li>Persist execution to database
- *   <li>Update order with new quantities and state
- *   <li>Publish execution event for downstream consumers
- * </ol>
- *
- * <p>The pipeline uses the Task Orchestration Framework to ensure modularity, testability, and
- * observability.
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class ExecutionCommandProcessor {
 
     private final TaskOrchestrator orchestrator;
     private final OrderRepository orderRepository;
-
-    // Tasks (injected as Spring beans)
     private final ValidateExecutionTask validateExecutionTask;
     private final CalculateOrderQuantitiesTask calculateOrderQuantitiesTask;
     private final DetermineOrderStateTask determineOrderStateTask;
@@ -52,31 +38,6 @@ public class ExecutionCommandProcessor {
     private final UpdateOrderTask updateOrderTask;
     private final PublishExecutionEventTask publishExecutionEventTask;
 
-    public ExecutionCommandProcessor(
-            TaskOrchestrator orchestrator,
-            OrderRepository orderRepository,
-            ValidateExecutionTask validateExecutionTask,
-            CalculateOrderQuantitiesTask calculateOrderQuantitiesTask,
-            DetermineOrderStateTask determineOrderStateTask,
-            PersistExecutionTask persistExecutionTask,
-            UpdateOrderTask updateOrderTask,
-            PublishExecutionEventTask publishExecutionEventTask) {
-        this.orchestrator = orchestrator;
-        this.orderRepository = orderRepository;
-        this.validateExecutionTask = validateExecutionTask;
-        this.calculateOrderQuantitiesTask = calculateOrderQuantitiesTask;
-        this.determineOrderStateTask = determineOrderStateTask;
-        this.persistExecutionTask = persistExecutionTask;
-        this.updateOrderTask = updateOrderTask;
-        this.publishExecutionEventTask = publishExecutionEventTask;
-    }
-
-    /**
-     * Processes an execution report by executing the execution processing pipeline.
-     *
-     * @param execution the execution report
-     * @return the pipeline execution result
-     */
     @Transactional
     @Observed(name = "oms.execution-processor.process")
     public ExecutionProcessingResult process(Execution execution) {
@@ -87,32 +48,15 @@ public class ExecutionCommandProcessor {
                 execution.getLastQty(),
                 execution.getLastPx());
 
-        // Load the order from database
         Order order = loadOrder(execution.getOrderId());
-
-        // Create context
         OrderTaskContext context = createContext(order, execution);
-
-        // Build the task pipeline
         TaskPipeline<OrderTaskContext> pipeline = buildPipeline();
-
-        // Execute the pipeline
         PipelineResult result = orchestrator.execute(pipeline, context);
 
-        // Log pipeline results
         logPipelineResult(result);
-
-        // Return result with execution details
         return createResult(result, context);
     }
 
-    /**
-     * Loads the order from the database by orderId.
-     *
-     * @param orderId the order ID
-     * @return the order entity
-     * @throws IllegalArgumentException if order not found
-     */
     private Order loadOrder(String orderId) {
         return orderRepository
                 .findByOrderId(orderId)
@@ -122,30 +66,15 @@ public class ExecutionCommandProcessor {
                                         "Order not found for orderId: " + orderId));
     }
 
-    /**
-     * Creates the task context from the order and execution.
-     *
-     * @param order the order being filled
-     * @param execution the execution report
-     * @return the initialized context
-     */
     private OrderTaskContext createContext(Order order, Execution execution) {
         OrderTaskContext context = new OrderTaskContext(order);
         context.setExecution(execution);
-
-        // Add metadata
         context.putMetadata("processorType", "ExecutionCommandProcessor");
         context.putMetadata("orderId", order.getOrderId());
         context.putMetadata("execId", execution.getExecID());
-
         return context;
     }
 
-    /**
-     * Builds the execution processing task pipeline.
-     *
-     * @return the configured pipeline
-     */
     private TaskPipeline<OrderTaskContext> buildPipeline() {
         return TaskPipeline.<OrderTaskContext>builder("ExecutionProcessingPipeline")
                 .addTask(validateExecutionTask)
@@ -154,16 +83,11 @@ public class ExecutionCommandProcessor {
                 .addTask(persistExecutionTask)
                 .addTask(updateOrderTask)
                 .addTask(publishExecutionEventTask)
-                .sortByOrder(true) // Execute tasks in order based on getOrder()
-                .stopOnFailure(true) // Stop on first failure
+                .sortByOrder(true)
+                .stopOnFailure(true)
                 .build();
     }
 
-    /**
-     * Logs the pipeline execution results.
-     *
-     * @param result the pipeline result
-     */
     private void logPipelineResult(PipelineResult result) {
         log.info(
                 "Pipeline execution completed - Success: {}, Duration: {}ms, Tasks: {}, "
@@ -175,7 +99,6 @@ public class ExecutionCommandProcessor {
                 result.getFailedCount(),
                 result.getSkippedCount());
 
-        // Log individual task results for debugging
         if (!result.isSuccess()) {
             result.getTaskResults()
                     .forEach(
@@ -190,13 +113,6 @@ public class ExecutionCommandProcessor {
         }
     }
 
-    /**
-     * Creates the result object from the pipeline result and context.
-     *
-     * @param result the pipeline result
-     * @param context the task context
-     * @return the execution processing result
-     */
     private ExecutionProcessingResult createResult(
             PipelineResult result, OrderTaskContext context) {
         return ExecutionProcessingResult.builder()
@@ -208,9 +124,6 @@ public class ExecutionCommandProcessor {
                 .build();
     }
 
-    /**
-     * Result object for execution processing operation.
-     */
     @lombok.Builder
     @lombok.Getter
     public static class ExecutionProcessingResult {

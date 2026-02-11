@@ -25,7 +25,7 @@ import lombok.experimental.SuperBuilder;
 @Entity
 @Table(name = "order_events")
 @SuperBuilder
-@EqualsAndHashCode
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
 public class OrderEvent {
@@ -36,6 +36,7 @@ public class OrderEvent {
             name = "order_event_sequence",
             sequenceName = "order_event_seq",
             allocationSize = 1)
+    @EqualsAndHashCode.Include
     private Long id;
 
     private String orderId;

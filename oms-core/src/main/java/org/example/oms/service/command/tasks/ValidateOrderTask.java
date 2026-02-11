@@ -2,6 +2,7 @@ package org.example.oms.service.command.tasks;
 
 import java.math.BigDecimal;
 
+import org.example.common.model.OrdType;
 import org.example.common.model.Order;
 import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskExecutionException;
@@ -71,13 +72,14 @@ public class ValidateOrderTask implements Task<OrderTaskContext> {
         }
 
         // Validate limit order has price
-        if ("LIMIT".equals(order.getOrdType().name()) && order.getPrice() == null) {
+        if (OrdType.LIMIT == order.getOrdType() && order.getPrice() == null) {
             context.markValidationFailed("Limit orders must have a price");
             return TaskResult.failed(getName(), "Limit orders must have a price");
         }
 
         // Validate stop orders have stop price
-        if (order.getOrdType().name().contains("STOP") && order.getStopPx() == null) {
+        if ((OrdType.STOP == order.getOrdType() || OrdType.STOP_LIMIT == order.getOrdType())
+                && order.getStopPx() == null) {
             context.markValidationFailed("Stop orders must have a stop price");
             return TaskResult.failed(getName(), "Stop orders must have a stop price");
         }

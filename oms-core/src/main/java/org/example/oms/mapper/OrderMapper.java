@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.mapstruct.*;
 
@@ -27,6 +28,10 @@ public interface OrderMapper {
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "instantToOffset")
     @Mapping(target = "expireTime", source = "expireTime", qualifiedByName = "instantToOffset")
     org.example.common.model.cmd.Order toCmdOrder(Order order);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "creationDate", ignore = true)
+    Execution toExecution(org.example.common.model.cmd.Execution cmdExecution);
 
     @Named("offsetToInstant")
     public static Instant offsetToInstant(OffsetDateTime odt) {

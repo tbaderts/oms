@@ -1,0 +1,16 @@
+# Test profile configuration
+spring:
+  profiles:
+    active: test
+
+streaming:
+  kafka:
+    enabled: false
+  oms:
+    base-url: http://localhost:8090
+  buffer:
+    max-size: 100
+
+logging:
+  level:
+    org.example.streaming: DEBUG

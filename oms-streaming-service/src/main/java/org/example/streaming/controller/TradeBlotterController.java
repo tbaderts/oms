@@ -132,7 +132,6 @@ public class TradeBlotterController {
                         .filter(filterService.createOrderEventPredicate(filter));
                 yield Flux.merge(orders, executions);
             }
-            default -> eventStreamProvider.getOrderEventStream(filter);
         };
     }
 

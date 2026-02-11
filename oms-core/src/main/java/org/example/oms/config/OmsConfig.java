@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 public class OmsConfig {
 
     @Bean
-    public OtlpGrpcSpanExporter otlpHttpSpanExporter(@Value("${tracing.url}") String url) {
+    public OtlpGrpcSpanExporter otlpGrpcSpanExporter(@Value("${tracing.url}") String url) {
         return OtlpGrpcSpanExporter.builder().setEndpoint(url).build();
     }
 }

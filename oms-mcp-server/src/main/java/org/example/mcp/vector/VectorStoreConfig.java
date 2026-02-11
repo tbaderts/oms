@@ -1,5 +1,7 @@
 package org.example.mcp.vector;
 
+import java.net.URI;
+
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
@@ -40,6 +42,9 @@ public class VectorStoreConfig {
     @Value("${spring.ai.qdrant.initialize-schema:true}")
     private boolean initializeSchema;
 
+    @Value("${spring.ai.qdrant.grpc-port:6334}")
+    private int grpcPort;
+
     /**
      * Qdrant client for vector database operations.
      */
@@ -47,12 +52,22 @@ public class VectorStoreConfig {
     public QdrantClient qdrantClient() {
         log.info("[Vector] Configuring Qdrant client: {}", qdrantUrl);
         
-        // Extract host and port from URL
-        String host = qdrantUrl.replace("http://", "").replace("https://", "").split(":")[0];
-        int port = 6334; // gRPC port
+        // Parse host from URL properly using java.net.URI
+        String host;
+        try {
+            URI uri = URI.create(qdrantUrl);
+            host = uri.getHost();
+            if (host == null) {
+                throw new IllegalArgumentException("No host found in URL: " + qdrantUrl);
+            }
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid Qdrant base URL: " + qdrantUrl, e);
+        }
+        
+        log.info("[Vector] Qdrant gRPC connection: {}:{}", host, grpcPort);
         
         return new QdrantClient(
-                QdrantGrpcClient.newBuilder(host, port, false)
+                QdrantGrpcClient.newBuilder(host, grpcPort, false)
                         .build()
         );
     }

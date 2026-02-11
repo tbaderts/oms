@@ -2,16 +2,16 @@ package org.example.mcp.oms;
 
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.lang.NonNull;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class LoggingInterceptor implements ClientHttpRequestInterceptor {
-    private static final Logger log = LoggerFactory.getLogger(LoggingInterceptor.class);
 
     @Override
     public @NonNull ClientHttpResponse intercept(@NonNull HttpRequest request, @NonNull byte[] body, @NonNull ClientHttpRequestExecution execution) throws IOException {

@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: oms-mcp-server-test
+  main:
+    web-application-type: none
+    banner-mode: off
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        options:
+          model: nomic-embed-text
+
+oms:
+  base-url: http://localhost:8090
+
+# Disable vector store in tests (no Qdrant/Ollama needed)
+vector:
+  store:
+    enabled: false
+
+# Use a temp directory; tests will override via @TestPropertySource or create their own
+domain:
+  docs:
+    paths: ${java.io.tmpdir}/oms-test-docs

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
 
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -47,26 +46,22 @@ import reactor.core.publisher.Mono;
 @Slf4j
 public class OmsQueryClient {
 
-    @Value("${streaming.oms.base-url}")
-    private String baseUrl;
+    private static final int DEFAULT_PAGE_SIZE = 500;
+
+    private final WebClient webClient;
+
+    @Value("${streaming.oms.read-timeout-ms:30000}")
+    private int readTimeoutMs;
 
     @Value("${streaming.oms.connect-timeout-ms:5000}")
     private int connectTimeoutMs;
 
-    @Value("${streaming.oms.read-timeout-ms:30000}")
-    private int readTimeoutMs;
-    
-    @Value("${streaming.oms.max-buffer-size-mb:16}")
-    private int maxBufferSizeMb;
-
-    private WebClient webClient;
-
-    @PostConstruct
-    public void init() {
-        // Increase buffer size to handle large API responses (default 256KB is too small)
+    public OmsQueryClient(
+            WebClient.Builder webClientBuilder,
+            @Value("${streaming.oms.base-url}") String baseUrl,
+            @Value("${streaming.oms.max-buffer-size-mb:16}") int maxBufferSizeMb) {
         int maxBufferSize = maxBufferSizeMb * 1024 * 1024;
-        
-        this.webClient = WebClient.builder()
+        this.webClient = webClientBuilder
                 .baseUrl(baseUrl)
                 .codecs(configurer -> configurer
                         .defaultCodecs()
@@ -101,7 +96,7 @@ public class OmsQueryClient {
         
         log.info("fetchOrdersWithFilter called with filter: {}, params: {}", filter, filterParams);
         
-        return fetchOrdersPage(0, 500, filterParams)
+        return fetchOrdersPage(0, DEFAULT_PAGE_SIZE, filterParams)
                 .expand(pagedResult -> {
                     log.info("Expanding page: currentPage={}, totalPages={}, contentSize={}", 
                             pagedResult.getPage() != null ? pagedResult.getPage().getNumber() : "null",
@@ -109,7 +104,7 @@ public class OmsQueryClient {
                             pagedResult.getContent() != null ? pagedResult.getContent().size() : 0);
                     if (pagedResult.getPage() != null && 
                         pagedResult.getPage().getNumber() < pagedResult.getPage().getTotalPages() - 1) {
-                        return fetchOrdersPage(pagedResult.getPage().getNumber() + 1, 500, filterParams);
+                        return fetchOrdersPage(pagedResult.getPage().getNumber() + 1, DEFAULT_PAGE_SIZE, filterParams);
                     }
                     return Mono.empty();
                 })
@@ -139,11 +134,11 @@ public class OmsQueryClient {
             filterParams.put("state", state);
         }
         
-        return fetchOrdersPage(0, 500, filterParams)
+        return fetchOrdersPage(0, DEFAULT_PAGE_SIZE, filterParams)
                 .expand(pagedResult -> {
                     if (pagedResult.getPage() != null && 
                         pagedResult.getPage().getNumber() < pagedResult.getPage().getTotalPages() - 1) {
-                        return fetchOrdersPage(pagedResult.getPage().getNumber() + 1, 500, filterParams);
+                        return fetchOrdersPage(pagedResult.getPage().getNumber() + 1, DEFAULT_PAGE_SIZE, filterParams);
                     }
                     return Mono.empty();
                 })
@@ -173,10 +168,7 @@ public class OmsQueryClient {
                 .timeout(Duration.ofMillis(readTimeoutMs))
                 .doOnNext(result -> log.debug("Fetched page {} with {} orders (filters: {})", 
                         page, result.getContent() != null ? result.getContent().size() : 0, filterParams))
-                .onErrorResume(e -> {
-                    log.error("Error fetching orders page {}: {}", page, e.getMessage());
-                    return Mono.empty();
-                });
+                .doOnError(e -> log.error("Error fetching orders page {}: {}", page, e.getMessage()));
     }
 
     /**

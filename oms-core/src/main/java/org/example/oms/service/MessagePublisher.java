@@ -23,31 +23,28 @@ public class MessagePublisher {
     private final OrderOutboxRepository orderOutboxRepository;
     private final KafkaTemplate<String, OrderMessage> kafkaTemplate;
     private final OrderMessageMapper orderMessageMapper;
-
-    @Value("${kafka.order-topic:orders}")
-    private String orderTopic;
-
-    @Value("${kafka.enabled:false}")
-    private boolean kafkaEnabled;
+    private final String orderTopic;
+    private final boolean kafkaEnabled;
 
     public MessagePublisher(
             OrderOutboxRepository orderOutboxRepository,
             KafkaTemplate<String, OrderMessage> kafkaTemplate,
-            OrderMessageMapper orderMessageMapper) {
+            OrderMessageMapper orderMessageMapper,
+            @Value("${kafka.order-topic:orders}") String orderTopic,
+            @Value("${kafka.enabled:false}") boolean kafkaEnabled) {
         this.orderOutboxRepository = orderOutboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.orderMessageMapper = orderMessageMapper;
+        this.orderTopic = orderTopic;
+        this.kafkaEnabled = kafkaEnabled;
     }
 
-    /**
-     * This event listener will only be triggered after the transaction in EventProducerImpl has
-     * successfully committed.
-     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Observed(name = "oms.message-publisher.handle-order-event")
     public void handleOrderEvent(ProcessingEvent event) {
         log.info("Processing order event after transaction commit: {}", event);
+        Long outboxId = event.getOrderOutbox().getId();
 
         try {
             Order order = event.getOrderOutbox().getOrder();
@@ -58,34 +55,30 @@ public class MessagePublisher {
             } else {
                 log.debug("Kafka is disabled, skipping message publish for order: {}", order.getOrderId());
             }
+
+            orderOutboxRepository.deleteById(outboxId);
+            log.debug("Deleted outbox entry: {}", outboxId);
         } catch (Exception e) {
-            log.error("Error processing order event: {}", e.getMessage(), e);
+            log.error("Error processing order event for outbox {}: {}", outboxId, e.getMessage(), e);
         }
     }
 
-    /**
-     * Publishes the order to Kafka as an Avro OrderMessage.
-     */
     private void publishToKafka(Order order) {
-        try {
-            OrderMessage message = orderMessageMapper.toOrderMessage(order);
-            String key = order.getOrderId();
+        OrderMessage message = orderMessageMapper.toOrderMessage(order);
+        String key = order.getOrderId();
 
-            kafkaTemplate.send(orderTopic, key, message)
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.error("Failed to publish order {} to Kafka: {}", 
-                                    order.getOrderId(), ex.getMessage(), ex);
-                        } else {
-                            log.info("Published order {} to topic {} partition {} offset {}",
-                                    order.getOrderId(),
-                                    result.getRecordMetadata().topic(),
-                                    result.getRecordMetadata().partition(),
-                                    result.getRecordMetadata().offset());
-                        }
-                    });
-        } catch (Exception e) {
-            log.error("Error publishing order {} to Kafka: {}", order.getOrderId(), e.getMessage(), e);
-        }
+        kafkaTemplate.send(orderTopic, key, message)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish order {} to Kafka: {}",
+                                order.getOrderId(), ex.getMessage(), ex);
+                    } else {
+                        log.info("Published order {} to topic {} partition {} offset {}",
+                                order.getOrderId(),
+                                result.getRecordMetadata().topic(),
+                                result.getRecordMetadata().partition(),
+                                result.getRecordMetadata().offset());
+                    }
+                });
     }
 }

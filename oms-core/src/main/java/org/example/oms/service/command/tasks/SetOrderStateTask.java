@@ -6,39 +6,43 @@ import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskResult;
+import org.example.common.state.OrderStateMachineConfig;
+import org.example.common.state.StateMachine;
 import org.example.oms.model.OrderTaskContext;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Task that sets the initial order state and timestamps for a new order. This task prepares the
- * order for persistence by setting:
- *
- * <ul>
- *   <li>State to UNACK (unacknowledged)
- *   <li>Transaction time to current time
- *   <li>Sending time if not already set
- * </ul>
+ * Task that sets the initial order state and timestamps for a new order. Uses the state machine
+ * to validate the transition from NEW to UNACK.
  */
 @Component
 @Slf4j
 public class SetOrderStateTask implements Task<OrderTaskContext> {
 
+    private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
+
     @Override
     public TaskResult execute(OrderTaskContext context) {
         Order order = context.getOrder();
 
-        // Set current timestamp
+        State currentState = order.getState() != null ? order.getState() : State.NEW;
+
+        if (!stateMachine.isValidTransition(currentState, State.UNACK)) {
+            context.markValidationFailed(
+                    String.format("Invalid state transition from %s to UNACK", currentState));
+            return TaskResult.failed(getName(),
+                    String.format("Invalid state transition from %s to UNACK", currentState));
+        }
+
         Instant now = Instant.now();
 
-        // Build updated order with state and timestamps
         Order.OrderBuilder<?, ?> builder =
                 order.toBuilder()
-                        .state(State.UNACK) // Set initial state to unacknowledged
+                        .state(State.UNACK)
                         .transactTime(now);
 
-        // Set sending time if not already present
         if (order.getSendingTime() == null) {
             builder.sendingTime(now);
         }
@@ -54,6 +58,6 @@ public class SetOrderStateTask implements Task<OrderTaskContext> {
 
     @Override
     public int getOrder() {
-        return 300; // Execute after ID assignment
+        return 300;
     }
 }

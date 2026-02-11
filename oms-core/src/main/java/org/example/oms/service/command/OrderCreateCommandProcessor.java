@@ -16,109 +16,48 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.micrometer.observation.annotation.Observed;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Command processor for handling OrderCreateCmd. Assembles and executes a task pipeline to process
  * new order creation requests.
- *
- * <p>Pipeline stages:
- *
- * <ol>
- *   <li>Validate order fields and business rules
- *   <li>Assign unique order ID
- *   <li>Set initial order state (UNACK) and timestamps
- *   <li>Persist order to database
- *   <li>Publish order creation event
- * </ol>
- *
- * <p>The pipeline uses the Task Orchestration Framework to ensure modularity, testability, and
- * observability.
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class OrderCreateCommandProcessor {
 
     private final TaskOrchestrator orchestrator;
     private final OrderMapper orderMapper;
-
-    // Tasks (injected as Spring beans)
     private final ValidateOrderTask validateOrderTask;
     private final AssignOrderIdTask assignOrderIdTask;
     private final SetOrderStateTask setOrderStateTask;
     private final PersistOrderTask persistOrderTask;
     private final PublishOrderEventTask publishOrderEventTask;
 
-    public OrderCreateCommandProcessor(
-            TaskOrchestrator orchestrator,
-            OrderMapper orderMapper,
-            ValidateOrderTask validateOrderTask,
-            AssignOrderIdTask assignOrderIdTask,
-            SetOrderStateTask setOrderStateTask,
-            PersistOrderTask persistOrderTask,
-            PublishOrderEventTask publishOrderEventTask) {
-        this.orchestrator = orchestrator;
-        this.orderMapper = orderMapper;
-        this.validateOrderTask = validateOrderTask;
-        this.assignOrderIdTask = assignOrderIdTask;
-        this.setOrderStateTask = setOrderStateTask;
-        this.persistOrderTask = persistOrderTask;
-        this.publishOrderEventTask = publishOrderEventTask;
-    }
-
-    /**
-     * Processes an OrderCreateCmd by executing the order creation pipeline.
-     *
-     * @param command the order creation command
-     * @return the pipeline execution result
-     */
     @Transactional
     @Observed(name = "oms.order-create-processor.process")
     public OrderCreateResult process(OrderCreateCmd command) {
         log.info("Processing OrderCreateCmd: {}", command.getOrder().getClOrdId());
 
-        // Create context and map command to domain order
         OrderTaskContext context = createContext(command);
-
-        // Build the task pipeline
         TaskPipeline<OrderTaskContext> pipeline = buildPipeline();
-
-        // Execute the pipeline
         PipelineResult result = orchestrator.execute(pipeline, context);
 
-        // Log pipeline results
         logPipelineResult(result);
-
-        // Return result with order details
         return createResult(result, context);
     }
 
-    /**
-     * Creates the task context from the command.
-     *
-     * @param command the order creation command
-     * @return the initialized context
-     */
     private OrderTaskContext createContext(OrderCreateCmd command) {
-        // Map command order to domain order
         Order order = orderMapper.toOrder(command.getOrder());
-
-        // Create context
         OrderTaskContext context = new OrderTaskContext(order);
         context.setCommand(command);
-
-        // Add metadata
         context.putMetadata("commandType", "OrderCreateCmd");
         context.putMetadata("commandVersion", command.getVersion());
-
         return context;
     }
 
-    /**
-     * Builds the order creation task pipeline.
-     *
-     * @return the configured pipeline
-     */
     private TaskPipeline<OrderTaskContext> buildPipeline() {
         return TaskPipeline.<OrderTaskContext>builder("OrderCreationPipeline")
                 .addTask(validateOrderTask)
@@ -126,16 +65,11 @@ public class OrderCreateCommandProcessor {
                 .addTask(setOrderStateTask)
                 .addTask(persistOrderTask)
                 .addTask(publishOrderEventTask)
-                .sortByOrder(true) // Execute tasks in order based on getOrder()
-                .stopOnFailure(true) // Stop on first failure
+                .sortByOrder(true)
+                .stopOnFailure(true)
                 .build();
     }
 
-    /**
-     * Logs the pipeline execution results.
-     *
-     * @param result the pipeline result
-     */
     private void logPipelineResult(PipelineResult result) {
         log.info(
                 "Pipeline execution completed - Success: {}, Duration: {}ms, Tasks: {}, "
@@ -147,7 +81,6 @@ public class OrderCreateCommandProcessor {
                 result.getFailedCount(),
                 result.getSkippedCount());
 
-        // Log individual task results for debugging
         result.getTaskResults()
                 .forEach(
                         taskResult ->
@@ -158,13 +91,6 @@ public class OrderCreateCommandProcessor {
                                         taskResult.getMessage()));
     }
 
-    /**
-     * Creates the command processing result.
-     *
-     * @param pipelineResult the pipeline execution result
-     * @param context the task context
-     * @return the order creation result
-     */
     private OrderCreateResult createResult(
             PipelineResult pipelineResult, OrderTaskContext context) {
         return OrderCreateResult.builder()
@@ -180,7 +106,6 @@ public class OrderCreateCommandProcessor {
                 .build();
     }
 
-    /** Result of order creation processing. */
     @lombok.Builder
     @lombok.Getter
     public static class OrderCreateResult {

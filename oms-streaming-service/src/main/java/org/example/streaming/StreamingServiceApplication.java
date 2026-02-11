@@ -18,7 +18,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * </ul>
  * 
  * @see org.example.streaming.controller.TradeBlotterController
- * @see org.example.streaming.service.OrderEventService
+ * @see org.example.streaming.service.EventStreamProvider
  */
 @SpringBootApplication
 public class StreamingServiceApplication {
