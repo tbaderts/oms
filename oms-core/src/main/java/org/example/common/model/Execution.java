@@ -6,6 +6,7 @@ import java.time.Instant;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.Hibernate;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -13,7 +14,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -21,7 +21,6 @@ import lombok.experimental.SuperBuilder;
 @Entity
 @Table(name = "executions")
 @SuperBuilder
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
 public class Execution implements Serializable {
@@ -34,7 +33,6 @@ public class Execution implements Serializable {
             name = "execution_sequence",
             sequenceName = "execution_seq",
             allocationSize = 1)
-    @EqualsAndHashCode.Include
     private Long id;
 
     private String orderId;
@@ -54,6 +52,23 @@ public class Execution implements Serializable {
     private BigDecimal dayAvgPx;
     private String secondaryExecID;
     private Instant creationDate;
+
+    @Override
+    public final boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) {
+            return false;
+        }
+        Execution that = (Execution) other;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public final int hashCode() {
+        return Hibernate.getClass(this).hashCode();
+    }
 
     @Override
     public String toString() {

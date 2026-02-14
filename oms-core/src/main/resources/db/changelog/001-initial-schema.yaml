@@ -1,0 +1,166 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-sequences
+      author: copilot
+      changes:
+        - createSequence:
+            sequenceName: order_seq
+            incrementBy: 1
+            startValue: 1
+        - createSequence:
+            sequenceName: execution_seq
+            incrementBy: 1
+            startValue: 1
+        - createSequence:
+            sequenceName: order_outbox_seq
+            incrementBy: 1
+            startValue: 1
+        - createSequence:
+            sequenceName: order_event_seq
+            incrementBy: 1
+            startValue: 1
+
+  - changeSet:
+      id: 002-create-orders-table
+      author: copilot
+      changes:
+        - createTable:
+            tableName: orders
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_orders
+                    nullable: false
+              - column: { name: order_id, type: VARCHAR(255) }
+              - column: { name: parent_order_id, type: VARCHAR(255) }
+              - column: { name: root_order_id, type: VARCHAR(255) }
+              - column: { name: tx_nr, type: BIGINT }
+              - column: { name: session_id, type: VARCHAR(255) }
+              - column: { name: cl_ord_id, type: VARCHAR(255) }
+              - column: { name: sending_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: account, type: VARCHAR(255) }
+              - column: { name: orig_cl_ord_id, type: VARCHAR(255) }
+              - column: { name: exec_inst, type: VARCHAR(255) }
+              - column: { name: handl_inst, type: VARCHAR(255) }
+              - column: { name: security_id_source, type: VARCHAR(255) }
+              - column: { name: leg, type: VARCHAR(255) }
+              - column: { name: order_qty, type: NUMERIC }
+              - column: { name: cash_order_qty, type: NUMERIC }
+              - column: { name: place_qty, type: NUMERIC }
+              - column: { name: cum_qty, type: NUMERIC }
+              - column: { name: leaves_qty, type: NUMERIC }
+              - column: { name: alloc_qty, type: NUMERIC }
+              - column: { name: position_effect, type: VARCHAR(255) }
+              - column: { name: security_desc, type: VARCHAR(255) }
+              - column: { name: security_type, type: VARCHAR(255) }
+              - column: { name: maturity_month_year, type: VARCHAR(255) }
+              - column: { name: strike_price, type: NUMERIC }
+              - column: { name: price_type, type: VARCHAR(255) }
+              - column: { name: put_or_call, type: INTEGER }
+              - column: { name: underlying_security_type, type: VARCHAR(255) }
+              - column: { name: ord_type, type: VARCHAR(255) }
+              - column: { name: price, type: NUMERIC }
+              - column: { name: stop_px, type: NUMERIC }
+              - column: { name: security_id, type: VARCHAR(255) }
+              - column: { name: side, type: VARCHAR(255) }
+              - column: { name: symbol, type: VARCHAR(255) }
+              - column: { name: time_in_force, type: VARCHAR(255) }
+              - column: { name: transact_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: ex_destination, type: VARCHAR(255) }
+              - column: { name: settl_currency, type: VARCHAR(255) }
+              - column: { name: expire_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: security_exchange, type: VARCHAR(255) }
+              - column: { name: text, type: VARCHAR(255) }
+              - column: { name: tif_timestamp, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: state, type: SMALLINT }
+              - column: { name: cancel_state, type: SMALLINT }
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_order_id
+            columns:
+              - column:
+                  name: order_id
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_root_order_id
+            columns:
+              - column:
+                  name: root_order_id
+
+  - changeSet:
+      id: 003-create-executions-table
+      author: copilot
+      changes:
+        - createTable:
+            tableName: executions
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_executions
+                    nullable: false
+              - column: { name: order_id, type: VARCHAR(255) }
+              - column: { name: execution_id, type: VARCHAR(255) }
+              - column: { name: avg_px, type: NUMERIC }
+              - column: { name: cum_qty, type: NUMERIC }
+              - column: { name: execid, type: VARCHAR(255) }
+              - column: { name: last_capacity, type: VARCHAR(255) }
+              - column: { name: last_mkt, type: VARCHAR(255) }
+              - column: { name: last_px, type: NUMERIC }
+              - column: { name: last_qty, type: NUMERIC }
+              - column: { name: transact_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: exec_type, type: VARCHAR(255) }
+              - column: { name: leaves_qty, type: NUMERIC }
+              - column: { name: day_order_qty, type: NUMERIC }
+              - column: { name: day_cum_qty, type: NUMERIC }
+              - column: { name: day_avg_px, type: NUMERIC }
+              - column: { name: secondary_execid, type: VARCHAR(255) }
+              - column: { name: creation_date, type: TIMESTAMP WITH TIME ZONE }
+
+  - changeSet:
+      id: 004-create-order-messages-table
+      author: copilot
+      changes:
+        - createTable:
+            tableName: order_messages
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_order_messages
+                    nullable: false
+              - column:
+                  name: outbound_order
+                  type: JSONB
+
+  - changeSet:
+      id: 005-create-order-events-table
+      author: copilot
+      changes:
+        - createTable:
+            tableName: order_events
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_order_events
+                    nullable: false
+              - column: { name: order_id, type: VARCHAR(255) }
+              - column: { name: event, type: VARCHAR(255) }
+              - column: { name: transaction, type: JSONB }
+              - column: { name: time_stamp, type: TIMESTAMP WITH TIME ZONE }
+        - createIndex:
+            tableName: order_events
+            indexName: idx_order_events_order_id
+            columns:
+              - column:
+                  name: order_id

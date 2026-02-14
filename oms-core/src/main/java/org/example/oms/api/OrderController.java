@@ -1,7 +1,7 @@
 package org.example.oms.api;
 
 import org.example.common.model.Order;
-import org.example.oms.repository.OrderRepository;
+import org.example.oms.service.OrderReadService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -21,19 +21,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderRepository orderRepository;
+    private final OrderReadService orderReadService;
 
     @GetMapping
     @Hidden
     public Page<Order> getAllOrders(
             @PageableDefault(size = 50, sort = "id") Pageable pageable) {
-        return orderRepository.findAll(pageable);
+        return orderReadService.findAll(pageable);
     }
 
     @GetMapping("/{id}")
     @Hidden
     public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
-        return orderRepository.findById(id)
+        return orderReadService.findById(id)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -41,7 +41,7 @@ public class OrderController {
     @GetMapping("/orderId/{orderId}")
     @Hidden
     public ResponseEntity<Order> getOrderByOrderId(@PathVariable String orderId) {
-        return orderRepository.findByOrderId(orderId)
+        return orderReadService.findByOrderId(orderId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

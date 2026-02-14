@@ -1,0 +1,16 @@
+spring:
+  config:
+    import: "optional:file:.env[.properties],optional:file:oms-core/.env[.properties]"
+  liquibase:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  tracing:
+    sampling:
+      probability: 1.0

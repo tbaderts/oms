@@ -5,17 +5,17 @@ spring:
     import: optional:file:.env[.properties]
   datasource:
     write:
-      url: ${DB_URL}
-      username: ${DB_USER}
-      password: ${DB_PASSWORD}
+      url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+      username: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
       driver-class-name: org.postgresql.Driver
       hikari:
         minimum-idle: 8
         maximum-pool-size: 32
     read:
-      url: ${READYSET_URL}
-      username: ${DB_USER}
-      password: ${DB_PASSWORD}
+      url: ${READYSET_URL:jdbc:postgresql://localhost:5433/postgres}
+      username: ${DB_USER:postgres}
+      password: ${DB_PASSWORD:changeme}
       driver-class-name: org.postgresql.Driver
       hikari:
         minimum-idle: 8
@@ -25,7 +25,7 @@ spring:
       enabled: false
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -33,7 +33,7 @@ spring:
   kafka:
     properties:
       auto.register.schemas: true
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
     consumer:
       properties:
         specific.avro.reader: true
@@ -57,21 +57,21 @@ spring:
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
 
 kafka:
-  enabled: true
-  order-topic: orders
-  command-topic: commands
+  enabled: ${KAFKA_ENABLED:false}
+  order-topic: ${ORDER_TOPIC:orders}
+  command-topic: ${COMMAND_TOPIC:commands}
 
 management:
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
   tracing:
     sampling:
-      probability: 1.0
+      probability: 0.1
 
 springdoc:
   show-actuator: false
@@ -79,7 +79,8 @@ springdoc:
     use-root-path: true
 
 tracing:
-  url: ${TRACING_URL}
+  enabled: ${TRACING_ENABLED:false}
+  url: ${TRACING_URL:http://localhost:4317}
 
 logging:
   level:
@@ -87,4 +88,4 @@ logging:
     org.springframework.transaction: INFO
 
 server:
-  port: ${SERVER_PORT}
+  port: ${SERVER_PORT:8090}

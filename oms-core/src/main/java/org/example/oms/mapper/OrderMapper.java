@@ -31,6 +31,21 @@ public interface OrderMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "creationDate", ignore = true)
+    @Mapping(target = "executionId", ignore = true)
+    @Mapping(target = "avgPx", ignore = true)
+    @Mapping(target = "cumQty", ignore = true)
+    @Mapping(target = "execID", ignore = true)
+    @Mapping(target = "lastCapacity", ignore = true)
+    @Mapping(target = "lastMkt", ignore = true)
+    @Mapping(target = "lastPx", ignore = true)
+    @Mapping(target = "lastQty", ignore = true)
+    @Mapping(target = "transactTime", ignore = true)
+    @Mapping(target = "execType", ignore = true)
+    @Mapping(target = "leavesQty", ignore = true)
+    @Mapping(target = "dayOrderQty", ignore = true)
+    @Mapping(target = "dayCumQty", ignore = true)
+    @Mapping(target = "dayAvgPx", ignore = true)
+    @Mapping(target = "secondaryExecID", ignore = true)
     Execution toExecution(org.example.common.model.cmd.Execution cmdExecution);
 
     @Named("offsetToInstant")

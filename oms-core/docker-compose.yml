@@ -13,11 +13,14 @@ services:
       DB_USER: $DB_USER
       DB_PASSWORD: $DB_PASSWORD
       KAFKA_BROKERS: $KAFKA_BROKERS
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-true}
       ORDER_TOPIC: $ORDER_TOPIC
+      COMMAND_TOPIC: ${COMMAND_TOPIC:-commands}
       CONSUMER_GROUP: $CONSUMER_GROUP
       REGISTRY_URL: $REGISTRY_URL
       TX_ID_PREFIX: $TX_ID_PREFIX
       DEAD_LETTER_TOPIC: $DEAD_LETTER_TOPIC
+      TRACING_ENABLED: ${TRACING_ENABLED:-true}
       TRACING_URL: $TRACING_URL
       SERVER_PORT: $SERVER_PORT
     ports:
@@ -172,7 +175,7 @@ services:
     networks:
       - app-net
     volumes:
-      - grafana-storage:/var/lib/grafana"
+      - grafana-storage:/var/lib/grafana
 
   loki:
     image: grafana/loki:latest

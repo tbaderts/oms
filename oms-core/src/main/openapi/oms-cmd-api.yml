@@ -27,6 +27,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommandResult'
+        '201':
+          description: Command created resource successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandResult'
         '400':
           description: Invalid command
 
@@ -37,13 +43,9 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          QuoteRequestCreateCmd: '#/components/schemas/QuoteRequestCreateCmd'
-          QuoteCreateCmd: '#/components/schemas/QuoteCreateCmd'
           OrderCreateCmd: '#/components/schemas/OrderCreateCmd'
           OrderAcceptCmd: '#/components/schemas/OrderAcceptCmd'
           ExecutionCreateCmd: '#/components/schemas/ExecutionCreateCmd'
-          ExecutionWhackCmd: '#/components/schemas/ExecutionWhackCmd'
-          ExecutionBustCmd: '#/components/schemas/ExecutionBustCmd'
       required:
         - type
       properties:
@@ -54,26 +56,12 @@ components:
           type: string
           description: Command API version
 
-    QuoteRequestCreateCmd:
-      allOf:
-        - $ref: '#/components/schemas/Command'
-        - type: object
-          properties:
-            quoteRequest:
-              $ref: '#/components/schemas/QuoteRequest'
-
-    QuoteCreateCmd:
-      allOf:
-        - $ref: '#/components/schemas/Command'
-        - type: object
-          properties:
-            quote:
-              $ref: '#/components/schemas/Quote'
-
     OrderCreateCmd:
       allOf:
         - $ref: '#/components/schemas/Command'
         - type: object
+          required:
+            - order
           properties:
             order:
               $ref: '#/components/schemas/Order'
@@ -82,56 +70,32 @@ components:
       allOf:
         - $ref: '#/components/schemas/Command'
         - type: object
+          required:
+            - orderId
           properties:
             orderId:
               type: string
+              minLength: 1
 
     ExecutionCreateCmd:
       allOf:
         - $ref: '#/components/schemas/Command'
         - type: object
+          required:
+            - execution
           properties:
             execution:
               $ref: '#/components/schemas/Execution'
 
-    ExecutionWhackCmd:
-      allOf:
-        - $ref: '#/components/schemas/Command'
-        - type: object
-          properties:
-            executionId:
-              type: string
-
-    ExecutionBustCmd:
-      allOf:
-        - $ref: '#/components/schemas/Command'
-        - type: object
-          properties:
-            executionId:
-              type: string
-
-    Quote:
-      type: object
-      properties:
-        quoteRequestId:
-          type: string
-          description: ID of the associated quote request
-        price:
-          type: number
-          description: Price of the quote
-
-    QuoteRequest:
-      type: object
-      properties:
-        symbol:
-          type: string
-        quantity:
-          type: number
-        currency:
-          type: string
-
     Order:
       type: object
+      required:
+        - clOrdId
+        - account
+        - ordType
+        - side
+        - symbol
+        - orderQty
       properties:
         orderId:
           type: string
@@ -148,6 +112,7 @@ components:
         clOrdId:
           type: string
           description: Client order identifier
+          minLength: 1
         sendingTime:
           type: string
           format: date-time
@@ -156,6 +121,7 @@ components:
         account:
           type: string
           description: Trading account
+          minLength: 1
         origClOrdId:
           type: string
           description: Original client order identifier for amendments/cancels
@@ -174,6 +140,7 @@ components:
         orderQty:
           type: number
           description: Order quantity
+          exclusiveMinimum: 0
         cashOrderQty:
           type: number
           description: Cash order quantity
@@ -223,6 +190,7 @@ components:
         symbol:
           type: string
           description: Trading symbol
+          minLength: 1
         timeInForce:
           allOf:
             - $ref: 'schema.yml#/components/schemas/TimeInForce'
@@ -247,11 +215,16 @@ components:
 
     Execution:
       type: object
+      required:
+        - execId
+        - orderId
       properties:
         execId:
           type: string
+          minLength: 1
         orderId:
           type: string
+          minLength: 1
 
     CommandResult:
       type: object

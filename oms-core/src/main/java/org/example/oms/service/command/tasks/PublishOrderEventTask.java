@@ -1,14 +1,18 @@
 package org.example.oms.service.command.tasks;
 
+import java.time.Instant;
 import java.util.function.Predicate;
 
 import org.example.common.model.Order;
 import org.example.common.orchestration.ConditionalTask;
+import org.example.oms.model.Event;
+import org.example.oms.model.OrderEvent;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderOutbox;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.model.ProcessingEvent;
+import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OrderOutboxRepository;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -26,11 +30,15 @@ import lombok.extern.slf4j.Slf4j;
 public class PublishOrderEventTask implements ConditionalTask<OrderTaskContext> {
 
     private final OrderOutboxRepository orderOutboxRepository;
+    private final OrderEventRepository orderEventRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     public PublishOrderEventTask(
-            OrderOutboxRepository orderOutboxRepository, ApplicationEventPublisher eventPublisher) {
+            OrderOutboxRepository orderOutboxRepository,
+            OrderEventRepository orderEventRepository,
+            ApplicationEventPublisher eventPublisher) {
         this.orderOutboxRepository = orderOutboxRepository;
+        this.orderEventRepository = orderEventRepository;
         this.eventPublisher = eventPublisher;
     }
 
@@ -38,6 +46,15 @@ public class PublishOrderEventTask implements ConditionalTask<OrderTaskContext> 
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
         try {
             Order order = context.getOrder();
+
+            OrderEvent orderEvent =
+                    OrderEvent.builder()
+                            .orderId(order.getOrderId())
+                            .event(Event.NEW_ORDER)
+                            .transaction(context.getCommand())
+                            .timeStamp(Instant.now())
+                            .build();
+            orderEventRepository.save(orderEvent);
 
             // Create outbox entry
             OrderOutbox outbox = OrderOutbox.builder().order(order).build();

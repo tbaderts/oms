@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.example.common.model.cmd.Command;
+import org.hibernate.Hibernate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -17,7 +18,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -25,7 +25,6 @@ import lombok.experimental.SuperBuilder;
 @Entity
 @Table(name = "order_events")
 @SuperBuilder
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @NoArgsConstructor
 @Getter
 public class OrderEvent {
@@ -36,7 +35,6 @@ public class OrderEvent {
             name = "order_event_sequence",
             sequenceName = "order_event_seq",
             allocationSize = 1)
-    @EqualsAndHashCode.Include
     private Long id;
 
     private String orderId;
@@ -49,6 +47,23 @@ public class OrderEvent {
     private Command transaction;
 
     private Instant timeStamp;
+
+    @Override
+    public final boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) {
+            return false;
+        }
+        OrderEvent that = (OrderEvent) other;
+        return id != null && id.equals(that.id);
+    }
+
+    @Override
+    public final int hashCode() {
+        return Hibernate.getClass(this).hashCode();
+    }
 
     @Override
     public String toString() {

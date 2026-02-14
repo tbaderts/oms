@@ -16,6 +16,10 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import io.micrometer.observation.annotation.Observed;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 @Component
 @Slf4j
 public class MessagePublisher {
@@ -31,7 +35,7 @@ public class MessagePublisher {
             KafkaTemplate<String, OrderMessage> kafkaTemplate,
             OrderMessageMapper orderMessageMapper,
             @Value("${kafka.order-topic:orders}") String orderTopic,
-            @Value("${kafka.enabled:false}") boolean kafkaEnabled) {
+            @Value("${kafka.enabled:true}") boolean kafkaEnabled) {
         this.orderOutboxRepository = orderOutboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.orderMessageMapper = orderMessageMapper;
@@ -52,33 +56,32 @@ public class MessagePublisher {
 
             if (kafkaEnabled) {
                 publishToKafka(order);
+                orderOutboxRepository.deleteById(outboxId);
+                log.debug("Deleted outbox entry: {}", outboxId);
             } else {
-                log.debug("Kafka is disabled, skipping message publish for order: {}", order.getOrderId());
+                log.warn(
+                        "Kafka is disabled, keeping outbox entry {} for order {}",
+                        outboxId,
+                        order.getOrderId());
             }
-
-            orderOutboxRepository.deleteById(outboxId);
-            log.debug("Deleted outbox entry: {}", outboxId);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Interrupted while processing order event for outbox {}", outboxId, e);
         } catch (Exception e) {
             log.error("Error processing order event for outbox {}: {}", outboxId, e.getMessage(), e);
         }
     }
 
-    private void publishToKafka(Order order) {
+    private void publishToKafka(Order order)
+            throws InterruptedException, ExecutionException, TimeoutException {
         OrderMessage message = orderMessageMapper.toOrderMessage(order);
         String key = order.getOrderId();
 
-        kafkaTemplate.send(orderTopic, key, message)
-                .whenComplete((result, ex) -> {
-                    if (ex != null) {
-                        log.error("Failed to publish order {} to Kafka: {}",
-                                order.getOrderId(), ex.getMessage(), ex);
-                    } else {
-                        log.info("Published order {} to topic {} partition {} offset {}",
-                                order.getOrderId(),
-                                result.getRecordMetadata().topic(),
-                                result.getRecordMetadata().partition(),
-                                result.getRecordMetadata().offset());
-                    }
-                });
+        var result = kafkaTemplate.send(orderTopic, key, message).get(10, TimeUnit.SECONDS);
+        log.info("Published order {} to topic {} partition {} offset {}",
+                order.getOrderId(),
+                result.getRecordMetadata().topic(),
+                result.getRecordMetadata().partition(),
+                result.getRecordMetadata().offset());
     }
 }

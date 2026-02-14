@@ -8,18 +8,8 @@
             "mainClass": "org.example.oms.OmsApplication",
             "projectName": "oms-core",
             "args": "",
-            "envFile": "${workspaceFolder}/.env",
-            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=57412 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms-core"
-        },
-        {
-            "type": "java",
-            "name": "Spring Boot-OmsApplication<oms-mcp-server>",
-            "request": "launch",
-            "mainClass": "org.example.spring_ai.SpringAiApplication",
-            "projectName": "oms-mcp-server",
-            "args": "",
-            "console": "integratedTerminal",
-            "vmArgs": "-Dspring.profiles.active=local"
+            "envFile": "${workspaceFolder}/oms-core/.env",
+            "vmArgs": " -Dspring.profiles.active=dev -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=57412 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms-core"
         },
         {
             "type": "java",
@@ -29,8 +19,8 @@
             "mainClass": "org.example.streaming.StreamingServiceApplication",
             "projectName": "oms-streaming-service",
             "args": "",
-            "envFile": "${workspaceFolder}/.env",
-            "vmArgs": " -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=56755 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms-streaming-service"
+            "envFile": "${workspaceFolder}/oms-streaming-service/.env",
+            "vmArgs": " -Dspring.profiles.active=dev -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=56755 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dspring.jmx.enabled=true -Djava.rmi.server.hostname=localhost -Dspring.application.admin.enabled=true -Dspring.boot.project.name=oms-streaming-service"
         },
         {
             "type": "java",
@@ -40,7 +30,8 @@
             "mainClass": "org.example.omsui.OmsUiApplication",
             "projectName": "oms-ui",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/oms-ui/.env",
+            "vmArgs": "-Dspring.profiles.active=dev"
         },
         {
             "type": "java",
@@ -50,7 +41,8 @@
             "mainClass": "org.example.mcp.SpringAiApplication",
             "projectName": "oms-mcp-server",
             "args": "",
-            "envFile": "${workspaceFolder}/.env"
+            "envFile": "${workspaceFolder}/oms-mcp-server/.env",
+            "vmArgs": "-Dspring.profiles.active=dev"
         }
     ]
 }

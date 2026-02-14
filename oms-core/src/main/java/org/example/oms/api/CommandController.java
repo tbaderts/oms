@@ -5,8 +5,11 @@ import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.CommandResult;
 import org.example.common.model.cmd.CommandStatus;
 import org.example.common.model.cmd.ExecutionCreateCmd;
+import org.example.common.model.cmd.OrderAcceptCmd;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.oms.mapper.OrderMapper;
+import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.service.command.OrderAcceptCommandProcessor.OrderAcceptResult;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.example.oms.service.command.OrderCreateCommandProcessor.OrderCreateResult;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
@@ -31,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 public class CommandController implements ExecuteApi {
 
     private final OrderCreateCommandProcessor orderCreateCommandProcessor;
+        private final OrderAcceptCommandProcessor orderAcceptCommandProcessor;
     private final ExecutionCommandProcessor executionCommandProcessor;
     private final OrderMapper orderMapper;
 
@@ -119,6 +123,26 @@ public class CommandController implements ExecuteApi {
                                         .message("Execution processing failed")
                                         .build());
             }
+        }
+
+        if (command instanceof OrderAcceptCmd orderAcceptCmd) {
+            OrderAcceptResult result = orderAcceptCommandProcessor.process(orderAcceptCmd);
+
+            if (result.isSuccess()) {
+                return ResponseEntity.ok(
+                        CommandResult.builder()
+                                .id(result.getOrderId())
+                                .status(CommandStatus.OK)
+                                .message("Order accepted successfully: " + result.getOrderId())
+                                .build());
+            }
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(CommandResult.builder()
+                            .id(result.getOrderId() != null ? result.getOrderId() : "")
+                            .status(CommandStatus.FAILED)
+                            .message("Order acceptance failed: " + result.getErrorMessage())
+                            .build());
         }
 
         log.warn("Unsupported command type: {}", command.getClass().getSimpleName());

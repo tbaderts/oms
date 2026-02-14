@@ -1,11 +1,9 @@
 # Development profile configuration
 spring:
-  profiles:
-    active: dev
+  config:
+    import: "optional:file:.env[.properties]"
 
 streaming:
-  kafka:
-    enabled: false
   buffer:
     max-size: 1000
 

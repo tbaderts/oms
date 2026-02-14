@@ -7,13 +7,9 @@
     {
       "name": "command",
       "type": [
-        "org.example.common.model.msg.QuoteRequestCreateCmd",
-        "org.example.common.model.msg.QuoteCreateCmd",
         "org.example.common.model.msg.OrderCreateCmd",
         "org.example.common.model.msg.OrderAcceptCmd",
-        "org.example.common.model.msg.ExecutionCreateCmd",
-        "org.example.common.model.msg.ExecutionWhackCmd",
-        "org.example.common.model.msg.ExecutionBustCmd"
+        "org.example.common.model.msg.ExecutionCreateCmd"
       ],
       "doc": "Polymorphic command type, can be any supported command record"
     }
