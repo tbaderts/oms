@@ -21,13 +21,6 @@ spring:
       schema.registry.url: ${SCHEMA_REGISTRY_URL:http://localhost:8081}
       specific.avro.reader: true
 
-  # Jackson configuration for JSON serialization
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
-    deserialization:
-      fail-on-unknown-properties: false
-
 # Streaming service configuration
 streaming:
   kafka:

@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.5.10'
+    id 'org.springframework.boot' version '4.0.2'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'org.openapi.generator' version '7.15.0'
 	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
@@ -29,16 +29,16 @@ repositories {
 dependencies {
     // Spring WebFlux for reactive web
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-webclient'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    implementation 'org.openapitools:jackson-databind-nullable:0.2.7'
-    implementation 'io.swagger.core.v3:swagger-annotations:2.2.28'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.9'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.42'
     
     // RSocket for bidirectional streaming
     implementation 'org.springframework.boot:spring-boot-starter-rsocket'
     
     // Kafka for event consumption
-    implementation 'org.springframework.kafka:spring-kafka'
-    implementation 'io.projectreactor.kafka:reactor-kafka'
+    implementation 'io.projectreactor.kafka:reactor-kafka:1.3.25'
     
     // Confluent Avro serialization
     implementation 'io.confluent:kafka-avro-serializer:7.9.0'

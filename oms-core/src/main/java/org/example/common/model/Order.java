@@ -18,6 +18,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -25,7 +26,13 @@ import lombok.experimental.SuperBuilder;
 import lombok.extern.jackson.Jacksonized;
 
 @Entity
-@Table(name = "orders")
+@Table(
+    name = "orders",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uq_orders_session_cl_ord_id",
+            columnNames = {"session_id", "cl_ord_id"})
+    })
 @SuperBuilder(toBuilder = true)
 @NoArgsConstructor
 @Getter

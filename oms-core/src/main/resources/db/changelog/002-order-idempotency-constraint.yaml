@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-add-orders-session-clordid-unique-constraint
+      author: copilot
+      changes:
+        - addUniqueConstraint:
+            tableName: orders
+            columnNames: session_id, cl_ord_id
+            constraintName: uq_orders_session_cl_ord_id

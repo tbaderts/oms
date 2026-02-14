@@ -3,7 +3,6 @@ package org.example.oms.config;
 import java.util.Map;
 
 import org.example.common.model.msg.CommandMessage;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -17,16 +16,17 @@ public class KafkaConsumerConfig {
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, CommandMessage> kafkaListenerContainerFactory(
-            KafkaProperties kafkaProperties) {
+            ConsumerFactory<?, ?> consumerFactory) {
         ConcurrentKafkaListenerContainerFactory<String, CommandMessage> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(defaultConsumerFactory(kafkaProperties));
+        factory.setConsumerFactory(defaultConsumerFactory(consumerFactory));
         return factory;
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private ConsumerFactory<String, CommandMessage> defaultConsumerFactory(
-            KafkaProperties kafkaProperties) {
-        Map<String, Object> consumerProps = kafkaProperties.buildConsumerProperties(null);
+            ConsumerFactory<?, ?> consumerFactory) {
+        Map<String, Object> consumerProps = ((DefaultKafkaConsumerFactory<?, ?>) consumerFactory).getConfigurationProperties();
         return new DefaultKafkaConsumerFactory<>(consumerProps);
     }
 }

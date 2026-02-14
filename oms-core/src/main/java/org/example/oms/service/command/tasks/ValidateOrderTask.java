@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>Validation rules:
  *
  * <ul>
- *   <li>Required fields: symbol, side, orderQty, ordType, account, clOrdId
+ *   <li>Required fields: symbol, side, orderQty, ordType, account, sessionId, clOrdId
  *   <li>Order quantity must be positive
  *   <li>Limit orders must have a price
  *   <li>Symbol must not be empty
@@ -53,6 +53,11 @@ public class ValidateOrderTask implements Task<OrderTaskContext> {
         if (order.getAccount() == null || order.getAccount().isBlank()) {
             context.markValidationFailed("Account is required");
             return TaskResult.failed(getName(), "Account is required");
+        }
+
+        if (order.getSessionId() == null || order.getSessionId().isBlank()) {
+            context.markValidationFailed("SessionId is required");
+            return TaskResult.failed(getName(), "SessionId is required");
         }
 
         if (order.getClOrdId() == null || order.getClOrdId().isBlank()) {

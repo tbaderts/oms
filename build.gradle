@@ -1,0 +1,40 @@
+plugins {
+    id 'base'
+}
+
+def includedBuildNames = [
+    'oms-core',
+    'oms-streaming-service',
+    'oms-mcp-server',
+    'oms-ui'
+]
+
+def includedTaskRefs = { taskPath ->
+    includedBuildNames.collect { buildName ->
+        gradle.includedBuild(buildName).task(taskPath)
+    }
+}
+
+tasks.register('cleanAll') {
+    group = 'build'
+    description = 'Runs clean in all included builds.'
+    dependsOn includedTaskRefs(':clean')
+}
+
+tasks.register('buildAll') {
+    group = 'build'
+    description = 'Runs build in all included builds.'
+    dependsOn includedTaskRefs(':build')
+}
+
+tasks.register('testAll') {
+    group = 'verification'
+    description = 'Runs test in all included builds.'
+    dependsOn includedTaskRefs(':test')
+}
+
+tasks.register('bootJarAll') {
+    group = 'build'
+    description = 'Runs bootJar in all included builds.'
+    dependsOn includedTaskRefs(':bootJar')
+}

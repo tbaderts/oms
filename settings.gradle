@@ -1,0 +1,6 @@
+rootProject.name = 'oms'
+
+includeBuild('oms-core')
+includeBuild('oms-streaming-service')
+includeBuild('oms-mcp-server')
+includeBuild('oms-ui')

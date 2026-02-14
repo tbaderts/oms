@@ -1,11 +1,23 @@
 package org.example.streaming.client;
 
 import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.math.BigDecimal;
 
+import org.example.common.model.query.CancelState;
+import org.example.common.model.query.OrdType;
 import org.example.common.model.query.OrderDto;
+import org.example.common.model.query.PageMetadata;
 import org.example.common.model.query.PagedOrderDto;
+import org.example.common.model.query.Side;
+import org.example.common.model.query.State;
 import org.example.streaming.model.StreamFilter;
+import org.example.common.model.query.TimeInForce;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -15,6 +27,7 @@ import org.springframework.web.util.UriBuilder;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Reactive REST client for OMS Core Query API.
@@ -57,10 +70,11 @@ public class OmsQueryClient {
     private int connectTimeoutMs;
 
     public OmsQueryClient(
-            WebClient.Builder webClientBuilder,
+            ObjectProvider<WebClient.Builder> webClientBuilderProvider,
             @Value("${streaming.oms.base-url}") String baseUrl,
             @Value("${streaming.oms.max-buffer-size-mb:16}") int maxBufferSizeMb) {
         int maxBufferSize = maxBufferSizeMb * 1024 * 1024;
+        WebClient.Builder webClientBuilder = webClientBuilderProvider.getIfAvailable(WebClient::builder);
         this.webClient = webClientBuilder
                 .baseUrl(baseUrl)
                 .codecs(configurer -> configurer
@@ -164,11 +178,146 @@ public class OmsQueryClient {
                 })
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
-                .bodyToMono(PagedOrderDto.class)
+                .bodyToMono(JsonNode.class)
+                .map(this::toPagedOrderDto)
                 .timeout(Duration.ofMillis(readTimeoutMs))
                 .doOnNext(result -> log.debug("Fetched page {} with {} orders (filters: {})", 
                         page, result.getContent() != null ? result.getContent().size() : 0, filterParams))
                 .doOnError(e -> log.error("Error fetching orders page {}: {}", page, e.getMessage()));
+    }
+
+    private PagedOrderDto toPagedOrderDto(JsonNode root) {
+        List<OrderDto> content = new ArrayList<>();
+        JsonNode contentNode = root.path("content");
+        if (contentNode.isArray()) {
+            contentNode.forEach(orderNode -> content.add(toOrderDto(orderNode)));
+        }
+
+        JsonNode pageNode = root.path("page");
+        PageMetadata page = null;
+        if (pageNode != null && !pageNode.isMissingNode() && !pageNode.isNull()) {
+            page = PageMetadata.builder()
+                    .size(getInt(pageNode, "size"))
+                    .totalElements(getInt(pageNode, "totalElements"))
+                    .totalPages(getInt(pageNode, "totalPages"))
+                    .number(getInt(pageNode, "number"))
+                    .build();
+        }
+
+        return PagedOrderDto.builder()
+                .content(content)
+                .page(page)
+                .build();
+    }
+
+    private OrderDto toOrderDto(JsonNode node) {
+        return OrderDto.builder()
+                .id(getLong(node, "id"))
+                .orderId(getText(node, "orderId"))
+                .parentOrderId(getText(node, "parentOrderId"))
+                .rootOrderId(getText(node, "rootOrderId"))
+                .clOrdId(getText(node, "clOrdId"))
+                .account(getText(node, "account"))
+                .symbol(getText(node, "symbol"))
+                .side(parseEnum(Side::fromValue, getText(node, "side"), "side"))
+                .ordType(parseEnum(OrdType::fromValue, getText(node, "ordType"), "ordType"))
+                .state(parseEnum(State::fromValue, getText(node, "state"), "state"))
+                .cancelState(parseEnum(CancelState::fromValue, getText(node, "cancelState"), "cancelState"))
+                .orderQty(getBigDecimal(node, "orderQty"))
+                .cumQty(getBigDecimal(node, "cumQty"))
+                .leavesQty(getBigDecimal(node, "leavesQty"))
+                .price(getBigDecimal(node, "price"))
+                .stopPx(getBigDecimal(node, "stopPx"))
+                .timeInForce(parseEnum(TimeInForce::fromValue, getText(node, "timeInForce"), "timeInForce"))
+                .securityId(getText(node, "securityId"))
+                .securityType(getText(node, "securityType"))
+                .exDestination(getText(node, "exDestination"))
+                .text(getText(node, "text"))
+                .sendingTime(getOffsetDateTime(node, "sendingTime"))
+                .transactTime(getOffsetDateTime(node, "transactTime"))
+                .expireTime(getOffsetDateTime(node, "expireTime"))
+                .build();
+    }
+
+    private String getText(JsonNode node, String field) {
+        JsonNode valueNode = node.path(field);
+        if (valueNode.isMissingNode() || valueNode.isNull()) {
+            return null;
+        }
+        return valueNode.asText();
+    }
+
+    private Long getLong(JsonNode node, String field) {
+        JsonNode valueNode = node.path(field);
+        if (valueNode.isMissingNode() || valueNode.isNull()) {
+            return null;
+        }
+        if (valueNode.isNumber()) {
+            return valueNode.longValue();
+        }
+        try {
+            return Long.parseLong(valueNode.asText());
+        } catch (NumberFormatException e) {
+            log.debug("Invalid long value for field {}: {}", field, valueNode.asText());
+            return null;
+        }
+    }
+
+    private Integer getInt(JsonNode node, String field) {
+        JsonNode valueNode = node.path(field);
+        if (valueNode.isMissingNode() || valueNode.isNull()) {
+            return null;
+        }
+        if (valueNode.isNumber()) {
+            return valueNode.intValue();
+        }
+        try {
+            return Integer.parseInt(valueNode.asText());
+        } catch (NumberFormatException e) {
+            log.debug("Invalid integer value for field {}: {}", field, valueNode.asText());
+            return null;
+        }
+    }
+
+    private BigDecimal getBigDecimal(JsonNode node, String field) {
+        JsonNode valueNode = node.path(field);
+        if (valueNode.isMissingNode() || valueNode.isNull()) {
+            return null;
+        }
+        if (valueNode.isNumber()) {
+            return valueNode.decimalValue();
+        }
+        try {
+            return new BigDecimal(valueNode.asText());
+        } catch (NumberFormatException e) {
+            log.debug("Invalid decimal value for field {}: {}", field, valueNode.asText());
+            return null;
+        }
+    }
+
+    private OffsetDateTime getOffsetDateTime(JsonNode node, String field) {
+        String value = getText(node, field);
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (DateTimeParseException e) {
+            log.debug("Invalid datetime value for field {}: {}", field, value);
+            return null;
+        }
+    }
+
+    private <T> T parseEnum(java.util.function.Function<String, T> parser, String value, String field) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return parser.apply(value);
+        } catch (IllegalArgumentException e) {
+            log.debug("Invalid enum value for field {}: {}", field, value);
+            return null;
+        }
     }
 
     /**

@@ -10,7 +10,8 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    public RestClient omsRestClient(OmsClientProperties props, RestClient.Builder builder) {
+    public RestClient omsRestClient(OmsClientProperties props) {
+        RestClient.Builder builder = RestClient.builder();
         builder.baseUrl(props.baseUrl());
         builder.requestInterceptor(new LoggingInterceptor());
         return builder.build();

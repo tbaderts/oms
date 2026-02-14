@@ -28,9 +28,9 @@ public class OrderQueryClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
-    public OrderQueryClient(RestClient omsRestClient, ObjectMapper objectMapper) {
+    public OrderQueryClient(RestClient omsRestClient) {
         this.restClient = omsRestClient;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     /**

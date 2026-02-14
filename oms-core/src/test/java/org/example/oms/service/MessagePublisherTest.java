@@ -59,7 +59,7 @@ class MessagePublisherTest {
         when(orderMessageMapper.toOrderMessage(order)).thenReturn(null);
 
         RecordMetadata metadata =
-                new RecordMetadata(new TopicPartition("orders", 0), 0, 1, 0L, 0L, 0, 0);
+                new RecordMetadata(new TopicPartition("orders", 0), 0L, 1, 0L, 0, 0);
         SendResult<String, OrderMessage> sendResult =
                 new SendResult<>(new ProducerRecord<>("orders", "ORD-1", null), metadata);
 

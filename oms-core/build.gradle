@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.5.10'
+	id 'org.springframework.boot' version '4.0.2'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.openapi.generator' version '7.15.0'
 	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
@@ -29,20 +29,21 @@ repositories {
 
 ext {
 	set('springCloudVersion', "2025.0.0")
-	set('testcontainersVersion', "1.20.4")
+	set('testcontainersVersion', "1.21.3")
 }
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
 	implementation 'org.liquibase:liquibase-core'
-	implementation 'org.springframework.kafka:spring-kafka'
+	implementation 'org.springframework.boot:spring-boot-starter-kafka'
 	implementation'io.confluent:kafka-avro-serializer:7.9.2'
 	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
 	implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
 	implementation 'io.github.jaspeen:ulid-java:0.2.0'
 	implementation 'org.openapitools:jackson-databind-nullable:0.2.7'
     implementation 'io.swagger.core.v3:swagger-annotations:2.2.38'

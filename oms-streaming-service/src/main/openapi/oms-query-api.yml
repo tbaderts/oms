@@ -67,36 +67,6 @@ paths:
           schema:
             type: string
           description: Semicolon-separated list of sort instructions. Each instruction is `field[,ASC|DESC]`.
-        - name: allParams
-          in: query
-          required: false
-          schema:
-            type: object
-            additionalProperties:
-              type: string
-          style: form
-          explode: true
-          description: |
-            Dynamic filter parameters. All query parameters (except page, size, sort) are captured as filters.
-            
-            Supported filter operations:
-              - field=value (equality, alias for field__eq=value)
-              - field__like=text (substring match, case-insensitive)
-              - field__gt=value, field__gte=value, field__lt=value, field__lte=value (comparisons)
-              - field__between=a,b (inclusive range, either bound can be omitted for open range)
-            
-            Supported fields:
-              - String: orderId, rootOrderId, parentOrderId, clOrdId, account, symbol, securityId
-              - Numeric: price, orderQty, cashOrderQty
-              - DateTime: sendingTime, transactTime, expireTime (ISO-8601 format)
-              - Enum: side, ordType, state, cancelState (equality only)
-            
-            Examples:
-              - orderId=20250531-test-001
-              - symbol__like=BTC
-              - price__between=100,200
-              - side=BUY
-              - transactTime__between=2025-08-01T00:00:00,2025-08-31T23:59:59
       responses:
         '200':
           description: Paged list of matching orders
@@ -104,26 +74,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PagedOrderDto'
-              examples:
-                basic:
-                  summary: Simple symbol filter
-                  value:
-                    content:
-                      - orderId: "20250531-test-001"
-                        rootOrderId: "20250531-test-001"
-                        parentOrderId: null
-                        symbol: "BTCUSD"
-                        side: "BUY"
-                        state: "NEW"
-                        ordType: "LIMIT"
-                        price: 45000.00
-                        orderQty: 0.5
-                        transactTime: "2025-05-31T12:34:56"
-                    page:
-                      size: 50
-                      totalElements: 1
-                      totalPages: 1
-                      number: 0
         '400':
           description: Bad request (invalid parameter format)
         '500':
@@ -213,7 +163,7 @@ components:
         underlyingSecurityType:
           type: string
         ordType:
-          $ref: '#/components/schemas/OrdType'
+          $ref: 'schema.yml#/components/schemas/OrdType'
         price:
           type: number
           description: BigDecimal represented as number
@@ -223,12 +173,11 @@ components:
         securityId:
           type: string
         side:
-          $ref: '#/components/schemas/Side'
+          $ref: 'schema.yml#/components/schemas/Side'
         symbol:
           type: string
         timeInForce:
-          type: string
-          description: TimeInForce enum
+          $ref: 'schema.yml#/components/schemas/TimeInForce'
         transactTime:
           type: string
           format: date-time
@@ -250,15 +199,16 @@ components:
           format: date-time
           x-java-type: java.time.Instant
         state:
-          $ref: '#/components/schemas/State'
+          $ref: 'schema.yml#/components/schemas/State'
         cancelState:
-          $ref: '#/components/schemas/CancelState'
+          $ref: 'schema.yml#/components/schemas/CancelState'
     PagedOrderDto:
       type: object
       description: Paged collection of OrderDto
       properties:
         content:
           type: array
+          x-field-extra-annotation: "@lombok.Builder.Default"
           items:
             $ref: '#/components/schemas/OrderDto'
           description: List of orders in the current page
@@ -275,15 +225,3 @@ components:
           type: integer
         number:
           type: integer
-    Side:
-      type: string
-      enum: [BUY, SELL, SELL_SHORT, SUBSCRIBE, REDEEM]
-    OrdType:
-      type: string
-      enum: [MARKET, LIMIT, STOP, STOP_LIMIT, MARKET_ON_CLOSE]
-    State:
-      type: string
-      enum: [NEW, UNACK, LIVE, FILLED, CXL, REJ, CLOSED, EXP]
-    CancelState:
-      type: string
-      enum: [CXL, PCXL, PMOD, REJ]

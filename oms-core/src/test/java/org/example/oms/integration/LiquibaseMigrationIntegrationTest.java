@@ -48,6 +48,7 @@ class LiquibaseMigrationIntegrationTest {
         assertTableExists("executions");
         assertTableExists("order_messages");
         assertTableExists("order_events");
+        assertConstraintExists("uq_orders_session_cl_ord_id");
 
         Integer count = jdbcTemplate.queryForObject(
                 "select count(*) from databasechangelog where id = ?",
@@ -62,5 +63,13 @@ class LiquibaseMigrationIntegrationTest {
                 Integer.class,
                 tableName);
         assertEquals(1, exists, () -> "Expected table to exist: " + tableName);
+    }
+
+    private void assertConstraintExists(String constraintName) {
+        Integer exists = jdbcTemplate.queryForObject(
+                "select count(*) from pg_constraint where conname = ?",
+                Integer.class,
+                constraintName);
+        assertEquals(1, exists, () -> "Expected constraint to exist: " + constraintName);
     }
 }

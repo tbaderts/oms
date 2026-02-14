@@ -367,7 +367,7 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                 .leavesQty(queryDto.getLeavesQty())
                 .price(queryDto.getPrice())
                 .stopPx(queryDto.getStopPx())
-                .timeInForce(queryDto.getTimeInForce())
+                .timeInForce(queryDto.getTimeInForce() != null ? queryDto.getTimeInForce().getValue() : null)
                 .securityId(queryDto.getSecurityId())
                 .securityType(queryDto.getSecurityType())
                 .exDestination(queryDto.getExDestination())
