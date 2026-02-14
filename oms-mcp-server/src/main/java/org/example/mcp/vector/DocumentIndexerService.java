@@ -184,7 +184,13 @@ public class DocumentIndexerService {
         Document documentWithMetadata = new Document(doc.getText(), metadata);
         
         // Split into chunks
-        TextSplitter splitter = new TokenTextSplitter(chunkSize, chunkOverlap, 5, 10000, true);
+        TextSplitter splitter = new TokenTextSplitter(
+            chunkSize,
+            chunkOverlap,
+            5,
+            10000,
+            true,
+            List.of('.', ',', ';', ':', '!', '?'));
         List<Document> chunks = splitter.split(documentWithMetadata);
         
         // Add chunk metadata

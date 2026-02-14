@@ -1,3 +1,7 @@
 spring:
   config:
-    import: "optional:file:.env[.properties],optional:file:oms-mcp-server/.env[.properties],optional:file:oms-core/.env[.properties]"
+    import: "optional:file:.env[.properties]"
+  main:
+    # Override to enable web server for local development
+    web-application-type: reactive
+    banner-mode: console

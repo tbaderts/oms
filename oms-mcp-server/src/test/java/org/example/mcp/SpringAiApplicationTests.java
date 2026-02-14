@@ -8,7 +8,7 @@ import org.springframework.test.context.ActiveProfiles;
  * Smoke test that verifies the Spring context loads successfully
  * without requiring external services (Qdrant, Ollama, oms-core).
  */
-@SpringBootTest
+@SpringBootTest(properties = "spring.main.web-application-type=reactive")
 @ActiveProfiles("test")
 class SpringAiApplicationTests {
 
