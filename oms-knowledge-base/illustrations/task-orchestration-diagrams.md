@@ -465,3 +465,11 @@ mindmap
 - ◆ Diamond: Decision points
 - ⬜ Rectangle: Processes
 - 🗄️ Cylinder: Data stores
+
+---
+
+## Related Documents
+
+- [Task Orchestration Framework](../oms-framework/task-orchestration-framework_spec.md) — Complete framework specification that these diagrams visualize
+- [Domain Model](../oms-framework/domain-model_spec.md) — OrderTaskContext class hierarchy and entity definitions
+- [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — StateTransitionTask usage within pipelines

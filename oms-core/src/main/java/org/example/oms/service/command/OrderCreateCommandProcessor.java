@@ -22,6 +22,19 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Command processor for handling OrderCreateCmd. Assembles and executes a task pipeline to process
  * new order creation requests.
+ *
+ * <p>The order creation pipeline consists of 5 ordered tasks:
+ * <ol>
+ *   <li>ValidateOrderTask - Validates order fields and business rules</li>
+ *   <li>AssignOrderIdTask - Assigns unique orderId</li>
+ *   <li>SetOrderStateTask - Sets initial order state (NEW)</li>
+ *   <li>PersistOrderTask - Saves order to database</li>
+ *   <li>PublishOrderEventTask - Publishes event to outbox</li>
+ * </ol>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Machine</a>
+ * @see <a href="file:///oms-knowledge-base/oms-framework/validation-rules.md">Validation Rules - Order Validation</a>
+ * @see <a href="file:///oms-knowledge-base/oms-framework/openapi-contracts.md">OpenAPI Contracts - Command API</a>
  */
 @Service
 @Slf4j

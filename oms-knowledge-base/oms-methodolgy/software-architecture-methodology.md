@@ -157,3 +157,14 @@ Legend:
 
 The Layered Architecture Framework methodology provides a structured and effective approach to designing, developing, and operating complex software systems. By clearly defining the scope of each pillar and assigning responsibilities accordingly, this methodology can help to improve the quality, maintainability, and operability of the OMS and foster a culture of specialization and expertise within the development team.
 
+---
+
+## Related Documents
+
+- [Manifesto](manifesto.md) — Core values alignment with architecture methodology
+- [Skill Profiles](skill-profiles.md) — Team roles mapped to the four architecture pillars
+- [Domain Model](../oms-framework/domain-model_spec.md) — Execution Architecture core component
+- [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — Execution Architecture component
+- [Task Orchestration Framework](../oms-framework/task-orchestration-framework_spec.md) — Execution Architecture component
+- [OMS State Store](../oms-framework/oms-state-store.md) — Execution Architecture data component
+

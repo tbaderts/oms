@@ -8,6 +8,21 @@ import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.mapstruct.*;
 
+/**
+ * MapStruct mapper for converting between Order domain entities and command/query DTOs.
+ * Uses MapStruct annotation processor for compile-time type-safe mapping.
+ *
+ * <p>Mapping features:
+ * <ul>
+ *   <li>Command API (cmd) to domain entity mapping with field ignoring</li>
+ *   <li>Domain entity to command API mapping</li>
+ *   <li>OffsetDateTime ↔ Instant conversion for timestamp fields</li>
+ *   <li>Ignores derived/calculated fields (cumQty, leavesQty, state)</li>
+ * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/openapi-contracts.md">OpenAPI Contracts - MapStruct Integration</a>
+ * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Order Entity Mapping</a>
+ */
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "offsetToInstant")

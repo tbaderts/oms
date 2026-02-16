@@ -366,3 +366,12 @@ graph TD
 - ✅ Partial allocation support
 - ⚠️ Delayed client updates
 - ⚠️ Requires execution desk resources
+
+---
+
+## Related Documents
+
+- [Order Quantity Calculations](../oms-concepts/order-quantity-calculations.md) — Detailed quantity calculation formulas and field semantics
+- [Order Grouping](../oms-concepts/order-grouping.md) — Pro-rata allocation patterns for grouped orders
+- [OMS State Store](../oms-framework/oms-state-store.md) — Event flow and persistence for allocation events
+- [OMS Admin UI](../ui/oms-admin-ui_spec.md) — How allocation flows appear in the execution desk UI

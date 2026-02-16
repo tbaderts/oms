@@ -15,6 +15,17 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Utility builder producing JPA Specifications for dynamic Order queries. Supports a minimal set of
  * operations (eq, like, gt, gte, lt, lte, between) and a few typed fields.
+ *
+ * <p>Supported query operations:
+ * <ul>
+ *   <li>String fields: eq, like</li>
+ *   <li>Numeric fields: eq, gt, gte, lt, lte, between</li>
+ *   <li>Date fields: eq, gt, gte, lt, lte, between</li>
+ *   <li>Enum fields: eq</li>
+ * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/state-query-store_spec.md">State Query Store - JPA Specification Implementation</a>
+ * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Queryable Fields</a>
  */
 @Slf4j
 public final class OrderSpecifications {

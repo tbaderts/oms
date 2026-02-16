@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(node_modules/.bin/tailwindcss init:*)",
+      "Bash(\"c:\\\\data\\\\workspace\\\\oms\\\\oms-kb-explorer\\\\README.md\":*)"
+    ]
+  }
+}

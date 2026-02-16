@@ -57,6 +57,42 @@
 - Always generate tests for substantive code changes and flag DB migration scripts for human review.
 - Make small, focused changes per PR; include a short summary linking changed OpenAPI spec (if applicable) and tests run locally.
 
----
+## Knowledge Base Quick Reference
 
-If you want, I can merge more lines from `oms-core/.github/agent_draft.md` (it contains richer templates) — tell me which sections to include.
+When working on these areas, consult these spec files in `oms-knowledge-base/`:
+
+### Domain & Business Logic
+
+| Task | Spec Files |
+|------|-----------|
+| **Order entity fields & mappings** | `oms-framework/domain-model_spec.md` (📄 713 lines - complete field specs) |
+| **Order create/accept/grouping** | `oms-concepts/order-grouping.md`, `oms-framework/domain-model_spec.md` |
+| **Cancel/replace operations** | `oms-concepts/order-replace.md` (1,237 lines - comprehensive FIX workflows) |
+| **Execution reporting & quantities** | `oms-concepts/order-quantity-calculations.md` (FIX tags, PlacedQty, CumQty, AllocQty) |
+
+### Framework & Architecture
+
+| Task | Spec Files |
+|------|-----------|
+| **State transitions (NEW→FILLED)** | `oms-framework/state-machine-framework_spec.md` (state machine patterns) |
+| **Task pipelines & orchestration** | `oms-framework/task-orchestration-framework_spec.md` (ConditionalTask, TaskResult) |
+| **Event sourcing & persistence** | `oms-framework/oms-state-store.md` (event log, Kafka integration) |
+| **Query APIs (CQRS read model)** | `oms-framework/state-query-store_spec.md` (ReadySet, logical replication) |
+
+### Integration & UI
+
+| Task | Spec Files |
+|------|-----------|
+| **WebSocket streaming** | `oms-concepts/streaming-architecture.md` (RSocket, real-time updates) |
+| **Admin UI (React/AG Grid)** | `ui/oms-admin-ui_spec.md` (blotter, filters, state indicators) |
+| **Order state visual indicators** | `illustrations/order-state-indicator-spec.md` (4-bar indicator spec) |
+
+### Development Process
+
+| Task | Spec Files |
+|------|-----------|
+| **AI-augmented development** | `oms-methodolgy/ai-augmented-development.md` (MCP, Copilot agents, @oms) |
+| **Team manifesto & values** | `oms-methodolgy/manifesto.md` (spec-driven dev, TDD, event sourcing) |
+| **Architecture methodology** | `oms-methodolgy/software-architecture-methodology.md` (4-pillar framework) |
+
+**Note:** All specs now have "Related Documents" sections for cross-referencing. Use these to navigate between related concepts.

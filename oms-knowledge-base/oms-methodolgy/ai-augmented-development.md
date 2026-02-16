@@ -582,4 +582,13 @@ If you want to replicate this pattern for another project:
 
 ---
 
+## Related Documents
+
+- [Manifesto](manifesto.md) — Foundation principle of "embrace generative AI"
+- [OMS Knowledge Base Strategy](../oms-knowledge-base-strategy.md) — Knowledge base optimization for AI access (filesystem vs MCP)
+- [Agent Profile](agent.md) — Java backend developer role using AI-augmented workflows
+- [All KB Specifications](../oms-framework/) — Specs exposed via MCP server to Copilot agents
+
+---
+
 *This document is part of the OMS methodology. See also: [agent.md](agent.md), [manifesto.md](manifesto.md), [skill-profiles.md](skill-profiles.md).*

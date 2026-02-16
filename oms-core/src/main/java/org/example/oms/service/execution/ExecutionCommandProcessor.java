@@ -23,6 +23,19 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Command processor for handling execution reports. Assembles and executes a task pipeline to
  * process order fills and update order state accordingly.
+ *
+ * <p>The execution pipeline consists of 6 ordered tasks:
+ * <ol>
+ *   <li>ValidateExecutionTask - Validates execution report fields</li>
+ *   <li>CalculateOrderQuantitiesTask - Calculates cumQty, leavesQty</li>
+ *   <li>DetermineOrderStateTask - Determines new order state</li>
+ *   <li>PersistExecutionTask - Saves execution to database</li>
+ *   <li>UpdateOrderTask - Updates order with new quantities and state</li>
+ *   <li>PublishExecutionEventTask - Publishes event to outbox</li>
+ * </ol>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - 6-Task Pipeline</a>
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Transitions</a>
  */
 @Service
 @Slf4j

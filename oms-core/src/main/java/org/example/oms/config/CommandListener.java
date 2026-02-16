@@ -63,7 +63,7 @@ public class CommandListener {
 
             if (command instanceof org.example.common.model.msg.ExecutionCreateCmd msgExecutionCreateCmd) {
                 ExecutionCreateCmd executionCreateCmd =
-                        objectMapper.convertValue(msgExecutionCreateCmd, ExecutionCreateCmd.class);
+                    objectMapper.convertValue(msgExecutionCreateCmd, ExecutionCreateCmd.class);
                 var execution = orderMapper.toExecution(executionCreateCmd.getExecution());
                 var result = executionCommandProcessor.process(execution);
                 if (result.isSuccess()) {
@@ -79,7 +79,7 @@ public class CommandListener {
 
             if (command instanceof org.example.common.model.msg.OrderAcceptCmd msgOrderAcceptCmd) {
                 OrderAcceptCmd orderAcceptCmd =
-                        objectMapper.convertValue(msgOrderAcceptCmd, OrderAcceptCmd.class);
+                        new OrderAcceptCmd(msgOrderAcceptCmd.getOrderId(), msgOrderAcceptCmd.getType());
                 var result = orderAcceptCommandProcessor.process(orderAcceptCmd);
                 if (result.isSuccess()) {
                     log.info("Processed OrderAcceptCmd from Kafka: orderId={}", result.getOrderId());

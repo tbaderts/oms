@@ -16,6 +16,16 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Task that sets the initial order state and timestamps for a new order. Uses the state machine
  * to validate the transition from NEW to UNACK.
+ *
+ * <p>This task:
+ * <ul>
+ *   <li>Sets order state to UNACK (pending acknowledgment)</li>
+ *   <li>Sets transactTime to current timestamp</li>
+ *   <li>Sets sendingTime if not already set</li>
+ *   <li>Validates state transition using StateMachine</li>
+ * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - Initial State Transition</a>
  */
 @Component
 @Slf4j

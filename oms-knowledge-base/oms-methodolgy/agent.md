@@ -74,3 +74,12 @@
 *   Experiment with new tools and techniques to improve development efficiency and code quality.
 *   Attend conferences, workshops, and online courses to expand knowledge and skills.
 *   Share knowledge and best practices with the team.
+
+---
+
+## Related Documents
+
+- [Manifesto](manifesto.md) — Developer manifesto and core values
+- [AI-Augmented Development](ai-augmented-development.md) — Specific AI tools and workflows for Java backend development
+- [Software Architecture Methodology](software-architecture-methodology.md) — Execution/Application architecture pillars
+- [Skill Profiles](skill-profiles.md) — Backend developer skills and profile within team quadrant

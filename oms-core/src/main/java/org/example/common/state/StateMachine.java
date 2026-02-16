@@ -12,7 +12,16 @@ import java.util.function.Function;
  * A generic state machine that validates state transitions based on a configuration. This class is
  * immutable and thread-safe.
  *
+ * <p>Key features:
+ * <ul>
+ *   <li>Validates individual state transitions via {@link #isValidTransition(Enum, Enum)}</li>
+ *   <li>Validates transition sequences via {@link #transitionSequence(Enum, Enum[])}</li>
+ *   <li>Provides functional transition operations via {@link #transitionFrom(Enum)}</li>
+ *   <li>Queries terminal and initial states</li>
+ * </ul>
+ *
  * @param <S> The state enum type
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Transition Validation</a>
  */
 public class StateMachine<S extends Enum<S>> {
 

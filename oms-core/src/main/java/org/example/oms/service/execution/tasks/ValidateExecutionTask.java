@@ -14,9 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Task that validates execution fields and business rules before processing an execution report.
- * 
+ *
  * <p>Validation rules:
- * 
+ *
  * <ul>
  *   <li>Execution must be present in context
  *   <li>Order must be present in context
@@ -25,6 +25,9 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>LastPx must be positive
  *   <li>Order must be in LIVE state
  * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/validation-rules.md">Validation Rules - Execution Validation Patterns</a>
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - Execution Pipeline</a>
  */
 @Component
 @Slf4j

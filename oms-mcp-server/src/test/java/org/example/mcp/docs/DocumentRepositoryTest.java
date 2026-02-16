@@ -31,7 +31,9 @@ class DocumentRepositoryTest {
         Files.writeString(tempDir.resolve("sub/guide.txt"), "Guide content here.");
         Files.writeString(tempDir.resolve("image.png"), "not a doc"); // should be excluded
 
-        repo = new DocumentRepository(tempDir.toAbsolutePath().toString());
+        // Create MarkdownParser instance for DocumentRepository
+        MarkdownParser markdownParser = new MarkdownParser();
+        repo = new DocumentRepository(tempDir.toAbsolutePath().toString(), markdownParser);
     }
 
     @Nested

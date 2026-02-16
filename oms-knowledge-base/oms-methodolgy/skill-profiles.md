@@ -187,3 +187,11 @@ Quadrant Descriptions:
 *   **Application Architecture:** Focuses on implementing business logic, integrating with external systems, mapping data, and building APIs. Individuals in this area are typically business-oriented and enjoy solving complex domain problems.
 *   **Development Architecture:** Focuses on the tools, processes, and standards used to develop and maintain the software. Individuals in this area are passionate about automation, code quality, and developer productivity.
 *   **Operations Architecture:** Focuses on monitoring, logging, incident management, capacity planning, and disaster recovery. Individuals in this area are reliability-focused and enjoy ensuring that the system runs smoothly in production.
+
+---
+
+## Related Documents
+
+- [Software Architecture Methodology](software-architecture-methodology.md) — Four-pillar architecture framework that these skills support
+- [Manifesto](manifesto.md) — General traits (communication, collaboration, problem-solving) aligned with manifesto values
+- [Agent Profile](agent.md) — Specific Java backend developer profile example

@@ -20,6 +20,21 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * Publishes order events to Kafka using the transactional outbox pattern. Listens for ProcessingEvent
+ * after transaction commit and publishes order messages to the configured Kafka topic.
+ *
+ * <p>Implementation details:
+ * <ul>
+ *   <li>Uses @TransactionalEventListener with AFTER_COMMIT phase for guaranteed delivery</li>
+ *   <li>Publishes OrderMessage (Avro) to Kafka with orderId as key</li>
+ *   <li>Deletes outbox entry after successful publish</li>
+ *   <li>Runs in REQUIRES_NEW transaction to avoid rollback issues</li>
+ * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/oms-state-store.md">State Store - Transactional Outbox Pattern</a>
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/streaming-architecture.md">Streaming Architecture - Event Publishing</a>
+ */
 @Component
 @Slf4j
 public class MessagePublisher {

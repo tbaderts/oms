@@ -24,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Limit orders must have a price
  *   <li>Symbol must not be empty
  * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/validation-rules.md">Validation Rules - Order Validation Patterns</a>
  */
 @Component
 @Slf4j

@@ -1,8 +1,12 @@
 package org.example.mcp.docs;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
@@ -13,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class MarkdownParser {
 
     public record DocSection(String title, int level, int lineNumber) {}
+    public record DocMetadata(String version, String status, String lastUpdated, String category) {}
 
     /**
      * Extract all heading-defined sections from Markdown content.
@@ -136,5 +141,54 @@ public class MarkdownParser {
             sb.append(lines[i]).append("\n");
         }
         return sb.toString();
+    }
+
+    /**
+     * Extract metadata from document header (Version, Status, Last Updated, Category).
+     * Looks for bold metadata fields in the first 20 lines of the document.
+     *
+     * @param content full document text
+     * @return metadata record with extracted values (nulls if not found)
+     */
+    public DocMetadata extractMetadata(String content) {
+        String[] lines = content.split("\n");
+        int searchLimit = Math.min(lines.length, 20);
+
+        Map<String, String> metadata = new HashMap<>();
+        Pattern versionPattern = Pattern.compile("^\\*\\*Version:\\*\\*\\s*(.+)$", Pattern.CASE_INSENSITIVE);
+        Pattern statusPattern = Pattern.compile("^\\*\\*Status:\\*\\*\\s*(.+)$", Pattern.CASE_INSENSITIVE);
+        Pattern lastUpdatedPattern = Pattern.compile("^\\*\\*Last Updated:\\*\\*\\s*(.+)$", Pattern.CASE_INSENSITIVE);
+        Pattern categoryPattern = Pattern.compile("^\\*\\*Category:\\*\\*\\s*(.+)$", Pattern.CASE_INSENSITIVE);
+
+        for (int i = 0; i < searchLimit; i++) {
+            String line = lines[i].trim();
+
+            Matcher versionMatcher = versionPattern.matcher(line);
+            if (versionMatcher.matches()) {
+                metadata.put("version", versionMatcher.group(1).trim());
+            }
+
+            Matcher statusMatcher = statusPattern.matcher(line);
+            if (statusMatcher.matches()) {
+                metadata.put("status", statusMatcher.group(1).trim());
+            }
+
+            Matcher lastUpdatedMatcher = lastUpdatedPattern.matcher(line);
+            if (lastUpdatedMatcher.matches()) {
+                metadata.put("lastUpdated", lastUpdatedMatcher.group(1).trim());
+            }
+
+            Matcher categoryMatcher = categoryPattern.matcher(line);
+            if (categoryMatcher.matches()) {
+                metadata.put("category", categoryMatcher.group(1).trim());
+            }
+        }
+
+        return new DocMetadata(
+            metadata.get("version"),
+            metadata.get("status"),
+            metadata.get("lastUpdated"),
+            metadata.get("category")
+        );
     }
 }

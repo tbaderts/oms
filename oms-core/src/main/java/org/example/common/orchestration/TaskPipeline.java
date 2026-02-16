@@ -13,6 +13,7 @@ import lombok.Getter;
  * Task#getOrder()}).
  *
  * @param <T> the type of TaskContext used by tasks in this pipeline
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - Task Pipeline Pattern</a>
  */
 @Getter
 public class TaskPipeline<T extends TaskContext> {

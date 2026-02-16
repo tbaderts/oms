@@ -1,0 +1,16 @@
+spring:
+  main:
+    # Enable web server for local development and KB Explorer
+    web-application-type: reactive
+    banner-mode: console
+  # Optional: import environment variables from .env file
+  config:
+    import: "optional:file:.env[.properties]"
+
+# Logging configuration for local development
+logging:
+  level:
+    root: INFO
+    org.example.mcp: DEBUG
+    org.springframework.ai.mcp: DEBUG
+    org.springframework.web: DEBUG

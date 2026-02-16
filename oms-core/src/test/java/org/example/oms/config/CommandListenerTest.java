@@ -23,7 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.support.MessageBuilder;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class CommandListenerTest {
@@ -62,15 +62,19 @@ class CommandListenerTest {
                 new org.example.common.model.msg.OrderAcceptCmd("OrderAcceptCmd", "1.0", "ORD-2");
         CommandMessage payload = new CommandMessage(incoming);
 
-        OrderAcceptCmd mapped = new OrderAcceptCmd("ORD-2", "OrderAcceptCmd");
         OrderAcceptResult result = OrderAcceptResult.builder().success(true).orderId("ORD-2").build();
 
-        when(objectMapper.convertValue(incoming, OrderAcceptCmd.class)).thenReturn(mapped);
-        when(orderAcceptCommandProcessor.process(mapped)).thenReturn(result);
+        when(orderAcceptCommandProcessor.process(org.mockito.ArgumentMatchers.any())).thenReturn(result);
 
         commandListener.consume(MessageBuilder.withPayload(payload).build());
 
-        verify(orderAcceptCommandProcessor).process(mapped);
+        verify(orderAcceptCommandProcessor)
+            .process(
+                org.mockito.ArgumentMatchers.argThat(
+                    cmd ->
+                        cmd instanceof OrderAcceptCmd
+                            && "ORD-2".equals(cmd.getOrderId())
+                            && "OrderAcceptCmd".equals(cmd.getType())));
         verify(orderCreateCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
         verify(executionCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
     }

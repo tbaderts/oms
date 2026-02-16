@@ -82,3 +82,12 @@ This manifesto is a living document and will be reviewed and adapted regularly t
 **Conclusion:**
 
 By embracing these core values and principles, we are confident that we can build a successful and impactful Order Management System that delivers value to our users and stakeholders. We commit to upholding these principles in our daily work and to fostering a culture of excellence within the OMS development team.
+
+---
+
+## Related Documents
+
+- [Software Architecture Methodology](software-architecture-methodology.md) — Architecture framework aligned with manifesto values (four pillars)
+- [AI-Augmented Development](ai-augmented-development.md) — Practical application of "embrace generative AI" principle
+- [Skill Profiles](skill-profiles.md) — Skill matrix reflects manifesto values (ownership, collaboration, learning)
+- [Agent Profile](agent.md) — Developer role implementing manifesto principles

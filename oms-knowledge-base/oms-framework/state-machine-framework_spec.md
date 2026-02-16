@@ -870,6 +870,16 @@ The State Machine Framework provides a robust, type-safe, and flexible foundatio
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 10, 2025  
+## Related Documents
+
+- [Domain Model](domain-model_spec.md) — Base entities (Order, Execution, Quote) that use state machines for lifecycle management
+- [Order Replace](../oms-concepts/order-replace.md) — Business workflows using state transitions for cancel/replace operations
+- [Order Grouping](../oms-concepts/order-grouping.md) — State transitions for grouped and member orders
+- [Task Orchestration Framework](task-orchestration-framework_spec.md) — StateTransitionTask usage within task pipelines
+- [OMS State Store](oms-state-store.md) — Event sourcing of state transition events
+
+---
+
+**Document Version:** 1.0
+**Last Updated:** October 10, 2025
 **Author:** State Machine Framework Team

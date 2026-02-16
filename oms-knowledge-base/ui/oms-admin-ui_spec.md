@@ -760,6 +760,16 @@ Header (Fixed, 60px)
 | Field      | Operator | Value                      |
 |------------+----------+----------------------------|
 | [symbol ▼] | [like ▼] | [BTC                    ] |
-| [side   ▼] | [=    ▼] | [BUY ▼      
+| [side   ▼] | [=    ▼] | [BUY ▼
 ...
 ```
+
+---
+
+## Related Documents
+
+- [Domain Model](../oms-framework/domain-model_spec.md) — Domain objects displayed (Order, Execution, Quote, QuoteRequest)
+- [State Query Store](../oms-framework/state-query-store_spec.md) — Query API consumed by UI for data retrieval
+- [Streaming Architecture](../oms-concepts/streaming-architecture.md) — Real-time UI updates via WebSocket/RSocket streaming
+- [Order State Indicator](../illustrations/order-state-indicator-spec.md) — Visual component for order status (4-bar indicator)
+- [Order Allocation Diagrams](../illustrations/order_allocation_diagrams.md) — Reference for order allocation visualization patterns

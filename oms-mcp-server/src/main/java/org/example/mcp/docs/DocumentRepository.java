@@ -26,8 +26,11 @@ import lombok.extern.slf4j.Slf4j;
 public class DocumentRepository {
 
     private final List<Path> baseDirs;
+    private final MarkdownParser markdownParser;
 
-    public DocumentRepository(@Value("${domain.docs.paths}") String paths) {
+    public DocumentRepository(@Value("${domain.docs.paths}") String paths,
+                              MarkdownParser markdownParser) {
+        this.markdownParser = markdownParser;
         this.baseDirs = new ArrayList<>();
         for (String part : paths.split(",")) {
             String trimmed = part.trim();
@@ -158,9 +161,16 @@ public class DocumentRepository {
             Instant modified = Files.getLastModifiedTime(file).toInstant();
             String baseName = base.getFileName() == null ? base.toString() : base.getFileName().toString();
             String path = (baseName + "/" + rel).replace('\\', '/');
-            return new DocMeta(path, file.getFileName().toString(), size, modified.toString());
+
+            // Extract metadata from document content
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+            MarkdownParser.DocMetadata metadata = markdownParser.extractMetadata(content);
+
+            return new DocMeta(path, file.getFileName().toString(), size, modified.toString(),
+                metadata.version(), metadata.status(), metadata.lastUpdated(), metadata.category());
         } catch (IOException e) {
-            return new DocMeta(file.toString(), file.getFileName().toString(), -1, "");
+            return new DocMeta(file.toString(), file.getFileName().toString(), -1, "",
+                null, null, null, null);
         }
     }
 
@@ -169,7 +179,8 @@ public class DocumentRepository {
     }
 
     // Structured types
-    public record DocMeta(String path, String name, long size, String lastModifiedIso) {}
+    public record DocMeta(String path, String name, long size, String lastModifiedIso,
+                          String version, String status, String lastUpdated, String category) {}
     public record DocContent(String path, String content, int totalLength, int from, int to) {}
 
     public static class DomainDocReadException extends RuntimeException {

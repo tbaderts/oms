@@ -15,6 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Service for querying orders using dynamic filters and pagination. Leverages Spring Data JPA
+ * Specification pattern for flexible query construction.
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-framework/state-query-store_spec.md">State Query Store - JPA Specification Pattern</a>
+ * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Order Entity</a>
+ */
 @Service
 @Transactional(readOnly = true)
 @Slf4j

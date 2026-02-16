@@ -290,3 +290,11 @@ graph TD
 - Animated transitions between states
 - Tooltip information on hover
 - Dark mode color variants
+
+---
+
+## Related Documents
+
+- [OMS Admin UI](../ui/oms-admin-ui_spec.md) — Component usage in Order blotter UI
+- [Domain Model](../oms-framework/domain-model_spec.md) — Order entity fields visualized (cumQty, placeQty, orderQty)
+- [Order Quantity Calculations](../oms-concepts/order-quantity-calculations.md) — Quantity field semantics for the 4 bars (PlacedQty, CumQty)

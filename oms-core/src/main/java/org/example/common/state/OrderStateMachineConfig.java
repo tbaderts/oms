@@ -5,6 +5,15 @@ import org.example.common.model.State;
 /**
  * Factory class for creating state machine configurations for orders. Provides predefined
  * configurations for common order lifecycle scenarios.
+ *
+ * <p>Provides three state machine configurations:
+ * <ul>
+ *   <li><strong>Standard</strong> - Full lifecycle with UNACK state (NEW → UNACK → LIVE → FILLED/CXL → CLOSED)</li>
+ *   <li><strong>Simplified</strong> - Direct transitions without UNACK (NEW → LIVE → FILLED/CXL → CLOSED)</li>
+ *   <li><strong>Extended</strong> - Includes EXP state for time-based expiration (LIVE → EXP → CLOSED)</li>
+ * </ul>
+ *
+ * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Machine Configurations</a>
  */
 public final class OrderStateMachineConfig {
 

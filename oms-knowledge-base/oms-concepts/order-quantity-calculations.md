@@ -905,6 +905,17 @@ Client AvgPx = (1,000 × 50.30 + 500 × 51.00) / 1,500
 
 ---
 
+## Related Documents
+
+- [Domain Model](../oms-framework/domain-model_spec.md) — Base Order entity quantity field definitions
+- [Order Grouping](order-grouping.md) — Pro-rata allocation calculations for member orders
+- [Order Replace](order-replace.md) — Quantity constraints (cumQty validation for reduce operations)
+- [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — State transitions triggered by quantity changes
+- [OMS State Store](../oms-framework/oms-state-store.md) — Event sourcing for execution and allocation events
+- [Order Allocation Diagrams](../illustrations/order_allocation_diagrams.md) — Visual workflows for STP vs manual allocation
+
+---
+
 ## Revision History
 
 | Version | Date | Author | Changes |

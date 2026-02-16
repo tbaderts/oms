@@ -1285,4 +1285,15 @@ COMMIT;
 
 ---
 
+## Related Documents
+
+- [Domain Model](../oms-framework/domain-model_spec.md) — Base Order entity that grouped orders extend with grouping fields
+- [Order Quantity Calculations](order-quantity-calculations.md) — Quantity field calculations for pro-rata allocation (PlacedQty, AllocatedQty, CumQty)
+- [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — State transitions for grouped and member orders
+- [Order Replace](order-replace.md) — Cancel/replace propagation rules for grouped orders
+- [OMS State Store](../oms-framework/oms-state-store.md) — Persistence of grouped order relationships and events
+- [Task Orchestration Framework](../oms-framework/task-orchestration-framework_spec.md) — Orchestration patterns for grouping workflows
+
+---
+
 **End of Specification**

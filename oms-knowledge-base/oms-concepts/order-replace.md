@@ -1,5 +1,12 @@
 # Order Lifecycle Management: Replace, Cancel, and Reject Operations
 
+**Version:** 1.0
+**Last Updated:** 2026-02-14
+**Author:** OMS Team
+**Status:** Active
+
+---
+
 ## 1. Introduction
 
 This specification defines the workflows and state management for order modification operations in the Order Management System (OMS). The OMS receives client orders from multiple sources including:
@@ -1406,6 +1413,17 @@ public class OrderLifecycleMetrics {
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 8, 2025  
+## Related Documents
+
+- [Domain Model](../oms-framework/domain-model_spec.md) — Base Order entity with clOrdID, origClOrdID attributes for replace semantics
+- [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — State transitions (NEW→PENDING_REPLACE→REPLACED, etc.)
+- [Order Quantity Calculations](order-quantity-calculations.md) — Quantity impact and validation for cancel/replace operations
+- [Order Grouping](order-grouping.md) — Cancel/replace propagation rules for grouped orders
+- [Task Orchestration Framework](../oms-framework/task-orchestration-framework_spec.md) — Command handler orchestration patterns for replace workflows
+- [OMS State Store](../oms-framework/oms-state-store.md) — Event storage for cancel/replace operations
+
+---
+
+**Document Version:** 1.0
+**Last Updated:** October 8, 2025
 **Status:** Draft for Review
