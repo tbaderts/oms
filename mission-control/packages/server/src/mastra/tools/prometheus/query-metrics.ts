@@ -25,7 +25,7 @@ export const queryMetrics = createTool({
       }),
     ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const baseUrl = config.adapters.prometheus.url
 

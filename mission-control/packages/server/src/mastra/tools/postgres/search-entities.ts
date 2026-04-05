@@ -25,7 +25,7 @@ export const searchEntities = createTool({
       }),
     ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const client = new pg.Client({ connectionString: config.adapters.postgresql.connectionString })
     try {

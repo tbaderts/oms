@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { loadConfig, saveConfig } from '../services/config.js'
+import { loadConfig, saveConfig, type MissionControlConfig } from '../services/config.js'
 
 export const configRouter = new Hono()
 
@@ -22,8 +22,8 @@ configRouter.get('/', (c) => {
 configRouter.put('/', async (c) => {
   const body = await c.req.json()
   const current = loadConfig()
-  const merged = deepMerge(current, body)
-  saveConfig(merged)
+  const merged = deepMerge(current as unknown as Record<string, unknown>, body as Record<string, unknown>)
+  saveConfig(merged as unknown as MissionControlConfig)
   return c.json({ success: true })
 })
 

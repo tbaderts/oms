@@ -34,7 +34,7 @@ export const queryRange = createTool({
       }),
     ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const baseUrl = config.adapters.prometheus.url
 

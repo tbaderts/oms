@@ -35,7 +35,7 @@ export const listDeployments = createTool({
         'Optional label selector to filter deployments (e.g. "app=my-service").',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -44,14 +44,10 @@ export const listDeployments = createTool({
     const namespace =
       input.namespace ?? config.adapters.kubernetes.defaultNamespace
 
-    const res = await appsApi.listNamespacedDeployment(
+    const res = await appsApi.listNamespacedDeployment({
       namespace,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      input.labelSelector,
-    )
+      labelSelector: input.labelSelector,
+    })
 
     const deployments = res.items.map((dep) => {
       const desired = dep.spec?.replicas ?? 0

@@ -35,7 +35,7 @@ export const listPods = createTool({
         'Optional label selector to filter pods (e.g. "app=my-service").',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -44,14 +44,10 @@ export const listPods = createTool({
     const namespace =
       input.namespace ?? config.adapters.kubernetes.defaultNamespace
 
-    const res = await coreApi.listNamespacedPod(
+    const res = await coreApi.listNamespacedPod({
       namespace,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      input.labelSelector,
-    )
+      labelSelector: input.labelSelector,
+    })
 
     const pods = res.items.map((pod) => {
       const containerStatuses = pod.status?.containerStatuses ?? []

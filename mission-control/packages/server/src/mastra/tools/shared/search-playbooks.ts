@@ -20,7 +20,7 @@ export const searchPlaybooks = createTool({
       .optional(),
     availablePlaybooks: z.array(z.string()),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const all = loadPlaybooks()
     const lowerSymptom = input.symptom.toLowerCase()
     const match = all

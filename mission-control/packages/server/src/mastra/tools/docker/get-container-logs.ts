@@ -23,7 +23,7 @@ export const getContainerLogs = createTool({
         'Unix timestamp; only return logs since this time. Useful for filtering recent activity.',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const docker = new Docker({ socketPath: config.adapters.docker.socketPath })
 

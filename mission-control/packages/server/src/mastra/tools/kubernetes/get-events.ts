@@ -26,7 +26,7 @@ export const getEvents = createTool({
       .default(50)
       .describe('Maximum number of events to return. Defaults to 50.'),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -40,15 +40,11 @@ export const getEvents = createTool({
       ? `involvedObject.name=${input.involvedObjectName}`
       : undefined
 
-    const res = await coreApi.listNamespacedEvent(
+    const res = await coreApi.listNamespacedEvent({
       namespace,
-      undefined,
-      undefined,
-      undefined,
       fieldSelector,
-      undefined,
       limit,
-    )
+    })
 
     const events = res.items
       .map((ev) => ({

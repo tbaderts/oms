@@ -20,7 +20,7 @@ export const stopContainer = createTool({
       ),
   }),
   requireApproval: true,
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const docker = new Docker({ socketPath: config.adapters.docker.socketPath })
 

@@ -16,7 +16,7 @@ export const getPodStatus = createTool({
         'Kubernetes namespace where the pod lives. Defaults to the configured default namespace.',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -25,7 +25,7 @@ export const getPodStatus = createTool({
     const namespace =
       input.namespace ?? config.adapters.kubernetes.defaultNamespace
 
-    const res = await coreApi.readNamespacedPod(input.name, namespace)
+    const res = await coreApi.readNamespacedPod({ name: input.name, namespace })
     const pod = res
 
     const conditions = (pod.status?.conditions ?? []).map((c) => ({

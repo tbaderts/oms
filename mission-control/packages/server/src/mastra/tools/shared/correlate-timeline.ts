@@ -33,7 +33,7 @@ export const correlateTimeline = createTool({
     ),
     summary: z.string(),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const sorted = [...input.events].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
     const sources = [...new Set(sorted.map((e) => e.source))]
     const errors = sorted.filter((e) => e.severity === 'error' || e.severity === 'critical')
@@ -44,6 +44,13 @@ export const correlateTimeline = createTool({
     if (sorted.length >= 2) {
       summary += ` Timespan: ${sorted[0].timestamp} to ${sorted[sorted.length - 1].timestamp}.`
     }
-    return { timeline: sorted, summary }
+    const timeline = sorted.map((e) => ({
+      timestamp: e.timestamp,
+      source: e.source,
+      event: e.event,
+      details: e.details,
+      severity: e.severity ?? 'info',
+    }))
+    return { timeline, summary }
   },
 })

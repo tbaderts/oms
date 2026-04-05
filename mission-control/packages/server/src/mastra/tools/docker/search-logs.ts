@@ -27,7 +27,7 @@ export const searchLogs = createTool({
         'Number of recent log lines to search per container. Defaults to 500.',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const docker = new Docker({ socketPath: config.adapters.docker.socketPath })
 

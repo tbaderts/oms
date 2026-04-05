@@ -13,7 +13,7 @@ export const startContainer = createTool({
       .describe('Container ID or name to start.'),
   }),
   requireApproval: true,
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const docker = new Docker({ socketPath: config.adapters.docker.socketPath })
 

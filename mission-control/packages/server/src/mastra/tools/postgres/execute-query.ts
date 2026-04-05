@@ -18,7 +18,7 @@ export const executeQuery = createTool({
     rowCount: z.number(),
     durationMs: z.number(),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const normalized = input.query.trim().toLowerCase()
     if (!normalized.startsWith('select') && !normalized.startsWith('with')) {
       throw new Error('Only SELECT and WITH queries are allowed.')

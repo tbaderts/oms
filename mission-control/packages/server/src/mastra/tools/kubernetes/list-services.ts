@@ -21,7 +21,7 @@ export const listServices = createTool({
         'Optional label selector to filter services (e.g. "app=my-service").',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -30,14 +30,10 @@ export const listServices = createTool({
     const namespace =
       input.namespace ?? config.adapters.kubernetes.defaultNamespace
 
-    const res = await coreApi.listNamespacedService(
+    const res = await coreApi.listNamespacedService({
       namespace,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      input.labelSelector,
-    )
+      labelSelector: input.labelSelector,
+    })
 
     const services = res.items.map((svc) => {
       const ports = (svc.spec?.ports ?? []).map((p) => ({

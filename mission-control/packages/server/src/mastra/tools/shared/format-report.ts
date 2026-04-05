@@ -24,7 +24,7 @@ export const formatReport = createTool({
     severity: z.enum(['low', 'medium', 'high', 'critical']),
   }),
   outputSchema: z.object({ report: z.string() }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const lines: string[] = [
       `# Investigation Report`,
       ``,

@@ -33,7 +33,7 @@ export const getPodLogs = createTool({
         'Return logs newer than this many seconds. Useful for recent activity only.',
       ),
   }),
-  execute: async ({ context: input }) => {
+  execute: async (input) => {
     const config = loadConfig()
     const kc = new k8s.KubeConfig()
     kc.loadFromFile(config.adapters.kubernetes.kubeconfig)
@@ -43,19 +43,13 @@ export const getPodLogs = createTool({
       input.namespace ?? config.adapters.kubernetes.defaultNamespace
     const tailLines = input.tailLines ?? 200
 
-    const res = await coreApi.readNamespacedPodLog(
-      input.name,
+    const res = await coreApi.readNamespacedPodLog({
+      name: input.name,
       namespace,
-      input.container,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      input.sinceSeconds,
+      container: input.container,
+      sinceSeconds: input.sinceSeconds,
       tailLines,
-      undefined,
-    )
+    })
 
     const logs = typeof res === 'string' ? res : String(res)
     const lineCount = logs ? logs.split('\n').filter(Boolean).length : 0
