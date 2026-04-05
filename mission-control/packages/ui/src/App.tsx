@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from './stores/app.js'
 import { Dashboard } from './views/dashboard.js'
+import { Investigations } from './views/investigations.js'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -84,7 +85,7 @@ export function App() {
       <main className="flex-1 overflow-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/investigations" element={<Placeholder title="Investigations" />} />
+          <Route path="/investigations" element={<Investigations />} />
           <Route path="/workflows" element={<Placeholder title="Workflow Builder" />} />
           <Route path="/agents" element={<Placeholder title="Agents" />} />
           <Route path="/runs" element={<Placeholder title="Run History" />} />
