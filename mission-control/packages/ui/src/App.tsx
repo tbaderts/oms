@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -8,6 +9,8 @@ import {
   BookOpen,
   Settings,
 } from 'lucide-react'
+import { useAppStore } from './stores/app.js'
+import { Dashboard } from './views/dashboard.js'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -23,6 +26,25 @@ function Placeholder({ title }: { title: string }) {
   return (
     <div className="flex items-center justify-center h-full text-zinc-400">
       <h2 className="text-2xl">{title}</h2>
+    </div>
+  )
+}
+
+function StatusBar() {
+  const { adapters, fetchAdapters } = useAppStore()
+
+  useEffect(() => {
+    fetchAdapters()
+  }, [fetchAdapters])
+
+  return (
+    <div className="p-3 border-t border-zinc-800 text-xs text-zinc-500 flex gap-2">
+      {adapters.map((a) => (
+        <span key={a.id} className={a.connected ? 'text-green-400' : a.enabled ? 'text-red-400' : 'text-zinc-600'}>
+          {a.name.slice(0, 3)}
+        </span>
+      ))}
+      {adapters.length === 0 && 'No adapters'}
     </div>
   )
 }
@@ -55,15 +77,13 @@ export function App() {
           ))}
         </div>
         {/* Status bar */}
-        <div className="p-3 border-t border-zinc-800 text-xs text-zinc-500">
-          Adapters: loading...
-        </div>
+        <StatusBar />
       </nav>
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <Routes>
-          <Route path="/" element={<Placeholder title="Dashboard" />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/investigations" element={<Placeholder title="Investigations" />} />
           <Route path="/workflows" element={<Placeholder title="Workflow Builder" />} />
           <Route path="/agents" element={<Placeholder title="Agents" />} />
