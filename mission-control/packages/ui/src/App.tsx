@@ -13,6 +13,7 @@ import { useAppStore } from './stores/app.js'
 import { Dashboard } from './views/dashboard.js'
 import { Investigations } from './views/investigations.js'
 import { WorkflowBuilder } from './views/workflow-builder.js'
+import { SettingsView } from './views/settings.js'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -91,7 +92,7 @@ export function App() {
           <Route path="/agents" element={<Placeholder title="Agents" />} />
           <Route path="/runs" element={<Placeholder title="Run History" />} />
           <Route path="/playbooks" element={<Placeholder title="Playbooks" />} />
-          <Route path="/settings" element={<Placeholder title="Settings" />} />
+          <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </main>
     </div>
