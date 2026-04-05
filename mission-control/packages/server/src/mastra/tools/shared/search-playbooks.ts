@@ -1,6 +1,6 @@
 import { createTool } from '@mastra/core/tools'
 import { z } from 'zod'
-import { matchPlaybook, loadPlaybooks } from '../../../services/playbooks.js'
+import { loadPlaybooks, matchPlaybook } from '../../../services/playbooks.js'
 
 export const searchPlaybooks = createTool({
   id: 'search-playbooks',
@@ -21,15 +21,20 @@ export const searchPlaybooks = createTool({
     availablePlaybooks: z.array(z.string()),
   }),
   execute: async ({ context: input }) => {
-    const match = matchPlaybook(input.symptom)
     const all = loadPlaybooks()
+    const lowerSymptom = input.symptom.toLowerCase()
+    const match = all
+      .filter((p) => p.triggers.some((t) => lowerSymptom.includes(t.toLowerCase())))
+      .sort((a, b) => b.priority - a.priority)[0]
+    const availablePlaybooks = all.map((p) => p.title)
+
     if (match) {
       return {
         found: true,
         playbook: { title: match.title, content: match.content, triggers: match.triggers },
-        availablePlaybooks: all.map((p) => p.title),
+        availablePlaybooks,
       }
     }
-    return { found: false, availablePlaybooks: all.map((p) => p.title) }
+    return { found: false, availablePlaybooks }
   },
 })
