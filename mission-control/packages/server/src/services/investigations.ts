@@ -25,6 +25,7 @@ export function saveInvestigation(investigation: Investigation): void {
 }
 
 export function loadInvestigation(id: string): Investigation | undefined {
+  if (!/^inv-[\d-]+-[a-f0-9]+$/.test(id)) return undefined
   const config = loadConfig()
   const filePath = join(config.investigations.path, `${id}.json`)
   if (!existsSync(filePath)) return undefined

@@ -45,14 +45,15 @@ export async function checkAdapterHealth(): Promise<AdapterStatus[]> {
 
   // PostgreSQL
   if (config.adapters.postgresql.enabled) {
+    const client = new pg.Client({ connectionString: config.adapters.postgresql.connectionString })
     try {
-      const client = new pg.Client({ connectionString: config.adapters.postgresql.connectionString })
       await client.connect()
       await client.query('SELECT 1')
-      await client.end()
       statuses.push({ id: 'postgresql', name: 'PostgreSQL', enabled: true, connected: true })
     } catch (e) {
       statuses.push({ id: 'postgresql', name: 'PostgreSQL', enabled: true, connected: false, error: String(e) })
+    } finally {
+      await client.end().catch(() => {})
     }
   } else {
     statuses.push({ id: 'postgresql', name: 'PostgreSQL', enabled: false, connected: false })

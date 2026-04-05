@@ -35,9 +35,13 @@ investigationsRouter.post('/', async (c) => {
     .then((result) => {
       investigation.status = 'completed'
       investigation.completedAt = new Date().toISOString()
+      if (result.text) {
+        investigation.report = { rootCause: result.text, evidence: [], timeline: [], recommendations: [] }
+      }
       saveInvestigation(investigation)
     })
     .catch((err) => {
+      console.error(`Investigation ${id} failed:`, err)
       investigation.status = 'failed'
       investigation.completedAt = new Date().toISOString()
       saveInvestigation(investigation)

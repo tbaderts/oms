@@ -22,7 +22,20 @@ configRouter.get('/', (c) => {
 configRouter.put('/', async (c) => {
   const body = await c.req.json()
   const current = loadConfig()
-  const merged = { ...current, ...body }
+  const merged = deepMerge(current, body)
   saveConfig(merged)
   return c.json({ success: true })
 })
+
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...target }
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])
+      && target[key] && typeof target[key] === 'object' && !Array.isArray(target[key])) {
+      result[key] = deepMerge(target[key] as Record<string, unknown>, source[key] as Record<string, unknown>)
+    } else {
+      result[key] = source[key]
+    }
+  }
+  return result
+}
