@@ -19,6 +19,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "mastra": "latest",
     "@types/dockerode": "^4.0.1",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",

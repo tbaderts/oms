@@ -35,7 +35,15 @@
       "Bash(git -C /c/data/workspace/oms status --short)",
       "Bash(find developer-cockpit:*)",
       "Bash(cd developer-cockpit:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "mcp__mastra__mastraDocs",
+      "Bash(pnpm install:*)",
+      "Bash(npm --version)",
+      "Bash(~/.local/bin/pnpm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
+      "Bash(pnpm add:*)"
     ]
   }
 }

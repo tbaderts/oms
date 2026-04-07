@@ -1,6 +1,5 @@
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
-import { mastra } from '../mastra/index.js'
 import { saveInvestigation, loadInvestigation, listInvestigations, type Investigation } from '../services/investigations.js'
 
 export const investigationsRouter = new Hono()
@@ -28,6 +27,8 @@ investigationsRouter.post('/', async (c) => {
   }
   saveInvestigation(investigation)
 
+  // Lazy import to avoid circular dependency (mastra/index.ts -> api/routes.ts -> here)
+  const { mastra } = await import('../mastra/index.js')
   const supervisor = mastra.getAgent('investigationSupervisor')
 
   // Run investigation asynchronously
