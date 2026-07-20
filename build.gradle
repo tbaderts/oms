@@ -38,3 +38,11 @@ tasks.register('bootJarAll') {
     description = 'Runs bootJar in all included builds.'
     dependsOn includedTaskRefs(':bootJar')
 }
+
+tasks.named('clean') {
+    dependsOn tasks.named('cleanAll')
+}
+
+tasks.named('build') {
+    dependsOn tasks.named('buildAll')
+}

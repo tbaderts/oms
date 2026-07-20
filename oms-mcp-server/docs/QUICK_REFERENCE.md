@@ -1,246 +1,67 @@
-# Quick Reference: MCP Server Tools for OMS Specs
+# Quick Reference — OMS MCP Knowledge Server
 
-## 🎯 Use This When You Need To...
-
-### Discover What's Available
-**"What specs do we have?"**
-```
-Tool: listDomainDocs()
-Returns: List of all .md/.txt files with metadata
-```
-
-### See Document Structure  
-**"What's in the OMS spec?"**
-```
-Tool: listDocSections(path="specs/oms_spec.md")
-Returns: Outline with all headings and levels
-```
-
-### Read Entire Document
-**"Show me the whole manifesto"**
-```
-Tool: readDomainDoc(path="specs/manifesto.md")
-Returns: Full document content
-```
-
-### Read Just One Section
-**"What does section 5 say about domain models?"**
-```
-Tool: readDocSection(path="specs/oms_spec.md", sectionTitle="Domain Model")
-Returns: Just that section and its subsections
-```
-
-### Find Documents by Keyword
-**"Which docs mention PostgreSQL?"**
-```
-Tool: searchDomainDocs(query="PostgreSQL", topK=5)
-Returns: Top 5 documents with snippets
-```
-
-### Find Sections by Keyword
-**"Where do specs discuss state machines?"**
-```
-Tool: searchDocSections(query="state machine", topK=5)
-Returns: Top 5 matching sections with titles and snippets
-```
-
-### Semantic Search (Optional - Requires Docker)
-**"Find documents about error handling concepts"**
-```
-Tool: semanticSearchDocs(query="how to handle failures", topK=5, similarityThreshold=0.5)
-Returns: Documents ranked by semantic similarity (not just keywords)
-```
-
-### Check Vector Database Status
-**"Is semantic search available?"**
-```
-Tool: getVectorStoreInfo()
-Returns: Vector DB status, document count, configuration
-```
+One-page cheat sheet. How it all works: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
-## 💡 Common Patterns
+## Tools
 
-### Pattern 1: Explore Unknown Territory
-```
-1. listDomainDocs() → see what files exist
-2. listDocSections(path=...) → see structure of interesting file
-3. readDocSection(path=..., sectionTitle=...) → read relevant section
-```
+### `getKnowledgeBaseOverview()`
+Index of all docs: metadata (version/status/category), one-line summaries, H2 section anchors, index stats. **Call once per session for orientation.**
 
-### Pattern 2: Answer Specific Question
-```
-1. searchDocSections(query="your topic", topK=5) → find relevant sections
-2. readDocSection(path=..., sectionTitle=...) → get full section content
-3. Synthesize answer from section(s)
-```
+### `searchKnowledgeBase(query, topK?, category?, status?)`
+Hybrid search (BM25 + semantic vectors, fused with Reciprocal Rank Fusion; BM25-only when Ollama is unavailable).
 
-### Pattern 3: Deep Dive
-```
-1. searchDomainDocs(query="broad topic") → find relevant documents
-2. listDocSections(path=...) → see document structure  
-3. readDocSection → read specific sections of interest
-```
+| Param | Default | Notes |
+|---|---|---|
+| `query` | — | natural language or keywords |
+| `topK` | 5 | max 20 |
+| `category` | — | e.g. `framework`, `concepts` |
+| `status` | — | e.g. `Complete`, `Draft` |
 
-### Pattern 4: Semantic Discovery (Requires Docker)
-```
-1. semanticSearchDocs(query="conceptual question") → find by meaning
-2. readDomainDoc(path=...) → read top matches
-3. Cross-reference with keyword search if needed
-```
+Returns markdown; each hit has a **citation** `path#anchor`, breadcrumb, line range, excerpt.
 
----
+### `readKnowledgeBase(path, anchor?, offset?, limit?)`
+| Call | Result |
+|---|---|
+| `readKnowledgeBase(path)` | whole doc + section outline |
+| `readKnowledgeBase(path, anchor)` | one section (anchor from a citation; a section title also works) |
+| `readKnowledgeBase(path, null, offset, limit)` | character-paginated slice |
 
-## 🚀 Example Copilot Queries
+### `searchOrders(filters?, page?, size?, sort?)`
+Query oms-core orders. Filters: `orderId`, `symbol`, `side`, `ordType`, `state`, price/qty/time ranges, `account`, …
 
-Try these in Copilot Chat:
-
-```
-@workspace What domain specs are available?
-
-@workspace List all sections in the OMS specification
-
-@workspace What does the OMS spec say about validation?
-
-@workspace Read the Technology Stack section from the OMS spec
-
-@workspace Find all sections that mention Kafka
-
-@workspace Show me the table of contents for the domain model spec
-
-@workspace What are the core domain objects according to the specs?
-
-@workspace Search specs for information about state machines
-
-@workspace Use semantic search to find how we handle transaction failures
-
-@workspace Is semantic search enabled? Check vector store status
-```
+### `ping()`
+Returns `pong`.
 
 ---
 
-## 📁 Your Spec Files
+## Resources & Prompts
 
-Located in: `/home/tbaderts/data/workspace/oms/specs/`
-
-- **oms_spec.md** - Main OMS State Store specification
-- **domain-model_spec.md** - Domain model organization & libraries
-- **state-query-store_spec.md** - State store design details
-- **streaming_spec.md** - Streaming architecture
-- **software-architecture-methodology_spec.md** - Development methodology
-- **manifesto.md** - Team manifesto
-- **skill_profiles.md** - Skill profiles
-- **oms_future_considerations.md** - Future enhancements
-- **todo.txt** - TODO items
+- **Resources:** every KB doc as `kb://oms-knowledge-base/<path>` (attachable in MCP clients)
+- **Prompts:** `implement-from-spec(spec, feature)` · `validate-against-spec(file, spec)`
 
 ---
 
-## ⚙️ Configuration
+## Typical Flow
 
-### Current Setup
-```yaml
-# application.yml
-domain:
-  docs:
-    paths: "oms/specs"  # Scans this directory
+```
+getKnowledgeBaseOverview()
+  → searchKnowledgeBase("execution bust workflow")
+  → readKnowledgeBase("oms-knowledge-base/oms-concepts/execution-reporting.md",
+                      "5-execution-bust-workflows")
+  → generate/validate code, citing path#anchor
 ```
 
-### Add More Directories
-```yaml
-domain:
-  docs:
-    paths: "oms/specs,simulator/specs,/abs/path/to/more/docs"
-```
+## Configuration Quick Hits (`application.yml`)
 
-Or via environment variable:
-```bash
-DOMAIN_DOCS_PATHS="oms/specs,other/docs"
-```
+| Setting | Default |
+|---|---|
+| `domain.docs.paths` | `../oms-knowledge-base` |
+| `knowledge.index.embeddings.enabled` | `true` (graceful BM25 fallback) |
+| `spring.ai.ollama.embedding.options.model` | `mxbai-embed-large` |
+| `knowledge.index.cache-dir` | `.kb-index` (embedding cache, gitignored) |
 
-### Enable Semantic Search (Optional)
-```bash
-# Start Qdrant + Ollama with Docker
-docker-compose up -d
+## Retrieval Eval
 
-# Index documents
-.\setup-semantic-search.ps1  # Windows
-./setup-semantic-search.sh   # Linux/macOS
-```
-
-See [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md) for details.
-
----
-
-## 🔧 Troubleshooting
-
-### Tool Not Found
-- Reload VS Code window
-- Check Copilot MCP config: `~/.config/github-copilot/mcp.json`
-- Verify MCP server is running
-
-### Document Not Found
-- Use `listDomainDocs()` to see available paths
-- Path should be relative: `specs/oms_spec.md` not `/full/path/...`
-
-### Section Not Found
-- Use `listDocSections()` first to see available section titles
-- Section matching is case-insensitive and fuzzy
-- Try just the main words: "Domain Model" instead of "5. Domain Model"
-
-### Semantic Search Not Available
-- Check Docker containers: `docker ps` (should see qdrant & ollama)
-- Run setup script: `.\setup-semantic-search.ps1`
-- Verify with: `getVectorStoreInfo()`
-- See [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md)
-
----
-
-## 📊 Cheat Sheet
-
-| What You Want | Tool to Use | Key Parameters |
-|---------------|-------------|----------------|
-| List all specs | `listDomainDocs` | none |
-| Full document | `readDomainDoc` | path |
-| Partial document | `readDomainDoc` | path, offset, limit |
-| Document outline | `listDocSections` | path |
-| One section | `readDocSection` | path, sectionTitle |
-| Find documents | `searchDomainDocs` | query, topK |
-| Find sections | `searchDocSections` | query, topK |
-| Semantic search | `semanticSearchDocs` | query, topK, similarityThreshold |
-| Vector DB status | `getVectorStoreInfo` | none |
-
----
-
-## 🎓 Pro Tips
-
-1. **Start with search** if you don't know which doc to read
-2. **List sections first** for unfamiliar documents
-3. **Read sections** instead of full docs to save tokens
-4. **Use section search** for more precise results than document search
-5. **Fuzzy matching** works for section titles - don't need exact match
-6. **Semantic search** finds by meaning, not just keywords - great for "how do we..." questions
-7. **Check vector store** with `getVectorStoreInfo()` before using semantic search
-
----
-
-## 🔍 Keyword vs Semantic Search
-
-### Use Keyword Search When:
-- Looking for specific terms: "PostgreSQL", "Kafka", "validation"
-- You know the exact terminology used in docs
-- Fast lookups needed
-
-### Use Semantic Search When:
-- Conceptual questions: "how do we handle errors?"
-- Don't know exact keywords
-- Looking for related concepts
-- Understanding patterns and approaches
-
-**Example:**
-- Keyword: `searchDomainDocs(query="PostgreSQL")` → finds "PostgreSQL" mentions
-- Semantic: `semanticSearchDocs(query="database technology")` → finds PostgreSQL, MySQL, etc.
-
----
-
-Made with ❤️ for efficient OMS spec navigation in GitHub Copilot
+`./gradlew test --tests RetrievalEvalTest` — 25 golden queries, recall@5 + MRR, fails below baseline (0.90). Update `golden-queries.yaml` when the KB grows.

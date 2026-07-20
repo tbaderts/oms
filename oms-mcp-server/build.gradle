@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.2'
+	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.openapi.generator' version '7.15.0'
 }
@@ -25,7 +25,8 @@ repositories {
 }
 
 ext {
-	set('springAiVersion', "2.0.0-M1")
+	set('springAiVersion', "2.0.0")
+	set('luceneVersion', "10.2.2")
 }
 
 dependencies {
@@ -35,16 +36,14 @@ dependencies {
 	implementation 'org.springframework.ai:spring-ai-starter-mcp-server'
 	implementation 'org.openapitools:jackson-databind-nullable:0.2.9'
     implementation 'io.swagger.core.v3:swagger-annotations:2.2.42'
-	
-	// Vector store and embeddings for semantic search
-	implementation 'org.springframework.ai:spring-ai-starter-vector-store-qdrant'
+
+	// Embedded Lucene knowledge index: BM25 keyword search + HNSW vector search
+	implementation "org.apache.lucene:lucene-core:${luceneVersion}"
+	implementation "org.apache.lucene:lucene-analysis-common:${luceneVersion}"
+
+	// Local embeddings via Ollama (indexing + query embedding only)
 	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
-	
-	// gRPC dependencies for Qdrant client
-	implementation 'io.grpc:grpc-netty-shaded:1.69.0'
-	implementation 'io.grpc:grpc-protobuf:1.69.0'
-	implementation 'io.grpc:grpc-stub:1.69.0'
-	
+
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testCompileOnly 'org.projectlombok:lombok'

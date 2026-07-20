@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '4.0.2'
+	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.openapi.generator' version '7.15.0'
 	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
@@ -67,6 +67,32 @@ dependencyManagement {
 	}
 }
 
+def runningOnWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+
+def sanitizeWindowsPath = { String pathValue ->
+	if (pathValue == null || !runningOnWindows) {
+		return pathValue
+	}
+
+	StringBuilder sanitized = new StringBuilder(pathValue.length() + 8)
+	for (int index = 0; index < pathValue.length(); index++) {
+		boolean looksLikeDrivePrefix = index > 0
+				&& Character.isLetter(pathValue.charAt(index))
+				&& index + 2 < pathValue.length()
+				&& pathValue.charAt(index + 1) == ':'
+				&& (pathValue.charAt(index + 2) == '\\' || pathValue.charAt(index + 2) == '/')
+				&& pathValue.charAt(index - 1) != ';'
+
+		if (looksLikeDrivePrefix) {
+			sanitized.append(';')
+		}
+
+		sanitized.append(pathValue.charAt(index))
+	}
+
+	return sanitized.toString()
+}
+
 configurations {
     avroTools {
         transitive = false
@@ -125,4 +151,10 @@ sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
 
 tasks.named('test') {
 	useJUnitPlatform()
+
+	if (runningOnWindows) {
+		String sanitizedPath = sanitizeWindowsPath(System.getenv('Path'))
+		environment 'Path', sanitizedPath
+		environment 'PATH', sanitizedPath
+	}
 }

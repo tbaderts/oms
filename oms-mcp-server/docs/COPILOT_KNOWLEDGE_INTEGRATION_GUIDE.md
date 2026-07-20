@@ -6,8 +6,9 @@ Make GitHub Copilot automatically leverage your OMS specifications when writing 
 ## ✅ What's Already Working
 
 Your MCP server is **fully operational** and exposes:
-- 9 OMS specification documents
-- 6 MCP tools for discovery, reading, and searching
+- The full OMS knowledge base (26 documents) with hybrid BM25 + semantic search
+- 3 knowledge tools (`getKnowledgeBaseOverview`, `searchKnowledgeBase`, `readKnowledgeBase`) returning cited sections (`path#anchor`)
+- Every spec as an MCP resource (`kb://...`) plus `implement-from-spec` / `validate-against-spec` prompts
 - Integration with GitHub Copilot via MCP protocol
 
 ## 🔧 How to Make Copilot Use Your Knowledge Base
@@ -105,18 +106,18 @@ Save these as snippets or keep them handy:
 **Your Prompt:**
 ```
 @workspace I need to create the Order entity class. Please:
-1. Read the "Domain Model" section from specs/oms_spec.md
-2. Read the domain-model_spec.md for details on entity structure
+1. Search the knowledge base for the Order entity specification
+2. Read the relevant domain-model_spec.md sections in full
 3. Generate the Java Order class following the spec
 4. Include all core attributes mentioned in the spec
 5. Add validation annotations based on spec requirements
 ```
 
 **What Copilot Will Do:**
-- Call `readDocSection(path="specs/oms_spec.md", sectionTitle="Domain Model")`
-- Call `readDomainDoc(path="specs/domain-model_spec.md")`
+- Call `searchKnowledgeBase("Order entity specification")`
+- Call `readKnowledgeBase("oms-knowledge-base/oms-framework/domain-model_spec.md", "3-order-entity-specification")`
 - Generate code based on spec content
-- Include comments referencing the spec
+- Include comments citing the spec (`path#anchor`)
 
 ---
 
@@ -136,7 +137,7 @@ Save these as snippets or keep them handy:
 ```java
 /**
  * Tests Order state transitions according to OMS State Machine specification
- * Reference: specs/domain-model_spec.md - State Machine Engine
+ * Reference: oms-knowledge-base/oms-framework/domain-model_spec.md - State Machine Engine
  */
 @Test
 public void testOrderStateTransition_NewToLive_ValidTransition() {
@@ -242,8 +243,8 @@ Add spec references in your code:
  * Order Management System - Order Entity
  * 
  * Specification References:
- * - specs/oms_spec.md § 5. Domain Model
- * - specs/domain-model_spec.md - Base Entity Model Structure
+ * - oms-knowledge-base/oms-framework/domain-model_spec.md § 5. Domain Model
+ * - oms-knowledge-base/oms-framework/domain-model_spec.md - Base Entity Model Structure
  * 
  * Key Requirements:
  * - Extends base Order from OMS Core Libraries
@@ -251,7 +252,7 @@ Add spec references in your code:
  * - Supports state machine lifecycle management
  * - Extensible via Java inheritance for asset classes
  * 
- * @see <a href="file:///home/tbaderts/data/workspace/oms/specs/oms_spec.md">OMS Spec</a>
+ * @see <a href="file:///home/tbaderts/data/workspace/oms/oms-knowledge-base/oms-framework/domain-model_spec.md">OMS Spec</a>
  */
 @Entity
 @Table(name = "orders")
@@ -278,7 +279,7 @@ the relevant spec sections and requirements
 2. Follows all spec requirements found
 3. Includes Javadoc with spec references
 4. Adds TODOs for any spec requirements not yet implemented
-5. Uses technology stack from specs (Java 21, Spring Boot, etc.)
+5. Uses technology stack from specs (Java 25, Spring Boot, etc.)
 ```
 
 #### Template: Spec-Driven Test Suite
@@ -317,7 +318,7 @@ the relevant spec sections and requirements
 | Task | Copilot Prompt |
 |------|----------------|
 | **Find Relevant Spec** | `@workspace Search specs for "[CONCEPT]"` |
-| **Read Spec Section** | `@workspace Read [SECTION] from specs/[FILE].md` |
+| **Read Spec Section** | `@workspace Read [SECTION] from [DOC].md` |
 | **Generate Code** | `@workspace Using the spec for [CONCEPT], generate [CODE]` |
 | **Generate Tests** | `@workspace Create tests for [CLASS] based on spec requirements` |
 | **Validate Code** | `@workspace Compare [FILE] against the OMS specifications` |
@@ -334,12 +335,12 @@ the relevant spec sections and requirements
 ```
 @workspace I need to implement the State Machine Engine. Please:
 
-1. Read specs/domain-model_spec.md section "State Machine Engine"
+1. Read oms-knowledge-base/oms-framework/domain-model_spec.md section "State Machine Engine"
 2. List all requirements from the spec
 3. Generate the StateMachine interface and base implementation
 4. Include validation of state transitions
 5. Add comprehensive tests covering all transition rules
-6. Use Java 21 features where appropriate per the tech stack spec
+6. Use Java 25 features where appropriate per the tech stack spec
 ```
 
 #### Example: Implementing CQRS Pattern
@@ -360,7 +361,7 @@ the relevant spec sections and requirements
 ```
 @workspace Create the validation engine for Orders:
 
-1. Read specs/domain-model_spec.md section "Validation Engine"
+1. Read oms-knowledge-base/oms-framework/domain-model_spec.md section "Validation Engine"
 2. The spec mentions "predicate-based" approach - implement that
 3. Generate OrderValidationRules using Java Predicates
 4. Make it extensible as spec requires
@@ -380,7 +381,7 @@ Create a checklist prompt:
 □ Read relevant spec sections for this component
 □ List all spec requirements that apply
 □ Verify each requirement is implemented
-□ Check technology stack matches (Java 21, Spring Boot, PostgreSQL)
+□ Check technology stack matches (Java 25, Spring Boot, PostgreSQL)
 □ Verify architectural patterns match spec (Event Sourcing, CQRS)
 □ Confirm naming follows FIX protocol where applicable
 □ Check that DTOs are decoupled from entities per spec

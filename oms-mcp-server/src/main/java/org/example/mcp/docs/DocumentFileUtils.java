@@ -4,9 +4,8 @@ import java.nio.file.Path;
 import java.util.Locale;
 
 /**
- * Shared utility for document file detection, used by both
- * {@link DomainDocsTools} and
- * {@link org.example.mcp.vector.DocumentIndexerService}.
+ * Shared utility for document file detection, used by the document repository
+ * and the knowledge index.
  */
 public final class DocumentFileUtils {
 

@@ -26,8 +26,9 @@ Complete guide for connecting the Spring AI MCP Server to GitHub Copilot and Cla
 - Tools can read files, search data, query APIs, etc.
 
 **This MCP server provides:**
-- Access to your OMS specification documents
-- Keyword and semantic search across documentation
+- Hybrid search (BM25 + semantic) over the OMS knowledge base with stable citations
+- Full-document and section-level reading
+- Every knowledge base doc as an MCP resource (`kb://...`), plus spec-driven prompts
 - OMS backend query capabilities
 - Health check utilities
 
@@ -35,19 +36,12 @@ Complete guide for connecting the Spring AI MCP Server to GitHub Copilot and Cla
 
 ## Available Tools
 
-The server exposes **10 MCP tools** across 4 categories:
+The server exposes **5 MCP tools**:
 
-### Domain Knowledge Tools (6)
-- **`listDomainDocs`** - List all available specification documents with metadata
-- **`readDomainDoc`** - Read full document content (with pagination support)
-- **`searchDomainDocs`** - Keyword search across all documents
-- **`listDocSections`** - Get document table of contents (all headings)
-- **`readDocSection`** - Read specific section by title
-- **`searchDocSections`** - Search within document sections for precision
-
-### Semantic Search Tools (2 - Optional)
-- **`semanticSearchDocs`** - Vector-based semantic search (requires Docker setup)
-- **`getVectorStoreInfo`** - Check vector database status
+### Knowledge Base Tools (3)
+- **`getKnowledgeBaseOverview`** - Index of all docs with metadata, summaries and section anchors
+- **`searchKnowledgeBase`** - Hybrid BM25 + semantic search with `path#anchor` citations
+- **`readKnowledgeBase`** - Read a whole doc (with outline) or one cited section
 
 ### OMS Query Tools (1)
 - **`searchOrders`** - Query OMS backend with filters, pagination, sorting
@@ -55,7 +49,11 @@ The server exposes **10 MCP tools** across 4 categories:
 ### Health Check (1)
 - **`ping`** - Verify server connectivity
 
-**See [TOOL_USAGE_EXAMPLES.md](TOOL_USAGE_EXAMPLES.md) for complete usage examples.**
+### MCP Resources & Prompts
+- Resources: every KB doc as `kb://oms-knowledge-base/<path>` (attachable in supporting clients)
+- Prompts: `implement-from-spec`, `validate-against-spec`
+
+**See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for the full tool signatures and [ARCHITECTURE.md](ARCHITECTURE.md) for how agents use them.**
 
 ---
 
@@ -97,7 +95,7 @@ In GitHub Copilot Chat:
 @workspace What MCP tools are available?
 ```
 
-You should see all 10 tools: `listDomainDocs`, `readDomainDoc`, `searchDomainDocs`, `listDocSections`, `readDocSection`, `searchDocSections`, `semanticSearchDocs`, `getVectorStoreInfo`, `searchOrders`, `ping`
+You should see all 5 tools: `getKnowledgeBaseOverview`, `searchKnowledgeBase`, `readKnowledgeBase`, `searchOrders`, `ping`
 
 ### Linux/macOS Setup
 
@@ -187,7 +185,24 @@ You should see all 10 tools: `listDomainDocs`, `readDomainDoc`, `searchDomainDoc
 **3. Verify in Claude:**
 - Open a new chat
 - "List available MCP tools"
-- You should see all 10 tools
+- You should see all 5 tools
+
+### Claude Code
+
+Add to `.mcp.json` in the repository root:
+
+```json
+{
+  "mcpServers": {
+    "oms-knowledge": {
+      "command": "powershell.exe",
+      "args": ["-ExecutionPolicy", "Bypass", "-File", "C:\\data\\workspace\\oms\\oms-mcp-server\\run-mcp.ps1"]
+    }
+  }
+}
+```
+
+Then `/mcp` in Claude Code shows the server, its tools, resources and prompts.
 
 ---
 
@@ -195,7 +210,7 @@ You should see all 10 tools: `listDomainDocs`, `readDomainDoc`, `searchDomainDoc
 
 ### Document Paths
 
-**Default:** The server scans `oms/specs` by default (configured in `application.yml`)
+**Default:** The server scans `../oms-knowledge-base` (configured in `application.yml`)
 
 **To add more directories:**
 
@@ -232,7 +247,13 @@ For large document sets, increase JVM memory:
 
 ### Semantic Search (Optional)
 
-To enable semantic search tools, see [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md) for Docker setup.
+Semantic search needs only a local Ollama install (no Docker):
+
+```bash
+ollama pull mxbai-embed-large
+```
+
+Without it, search automatically runs BM25-only — still fully functional.
 
 ---
 
@@ -242,30 +263,21 @@ To enable semantic search tools, see [README_SEMANTIC_SEARCH.md](README_SEMANTIC
 
 ```
 @workspace What MCP tools are available?
-@workspace List all domain documentation files
+@workspace Give me an overview of the OMS knowledge base
 ```
 
 ### Reading Documents
 
 ```
-@workspace Read the OMS specification
-@workspace Show me the table of contents for specs/oms_spec.md
-@workspace Read the "Domain Model" section from the OMS spec
+@workspace Read the order lifecycle spec
+@workspace Read section #4-state-transition-details of order-lifecycle.md
 ```
 
 ### Searching
 
-**Keyword Search:**
 ```
-@workspace Search specs for "state machine"
-@workspace Which documents mention "PostgreSQL"?
-@workspace Find sections about "validation rules"
-```
-
-**Semantic Search (if enabled):**
-```
-@workspace Use semantic search to find information about error handling
-@workspace How do we handle transaction failures? (semantic search)
+@workspace Search the knowledge base for "state machine guards"
+@workspace What do the specs say about validation rules? Cite sections.
 ```
 
 ### Querying OMS
@@ -277,7 +289,7 @@ To enable semantic search tools, see [README_SEMANTIC_SEARCH.md](README_SEMANTIC
 
 ### Complete Examples
 
-See [TOOL_USAGE_EXAMPLES.md](TOOL_USAGE_EXAMPLES.md) for comprehensive usage examples with all 10 tools.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the agent workflow (orient → search → read → cite) and [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for tool signatures.
 
 ---
 
@@ -310,7 +322,7 @@ MCP Transport: stdio
 ```powershell
 java -version
 ```
-Must be Java 21+
+Must be Java 25+ (the Gradle toolchain resolves it for the build)
 
 **Check Gradle:**
 ```powershell
@@ -360,22 +372,22 @@ Or use forward slashes:
 "args": ["C:/path/to/run-mcp.ps1"]
 ```
 
-### Semantic Search Not Working
+### Search Says "BM25 keyword only"
 
-**Symptoms:** `semanticSearchDocs` tool not available
+**Cause:** Ollama not reachable, or the embedding model is not pulled.
 
-**Cause:** Docker containers not running
+**Solution (optional — keyword search is fully functional):**
 
-**Solution:** See [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md) for setup:
-
-```powershell
-docker-compose up -d
-.\setup-semantic-search.ps1
+```bash
+ollama pull mxbai-embed-large
 ```
+
+Then restart the server. The startup log shows
+`vector search: enabled, 1024-dim mxbai-embed-large` when hybrid search is active.
 
 ### Document Not Found
 
-**Symptoms:** "Document not found: specs/my_spec.md"
+**Symptoms:** "Document not found: oms-knowledge-base/my_spec.md"
 
 **Check:**
 1. File exists in specified path
@@ -384,7 +396,7 @@ docker-compose up -d
 
 **Debug:**
 ```
-@workspace List all domain docs
+@workspace Get the knowledge base overview
 ```
 
 Should show all indexed documents with their paths.
@@ -403,16 +415,16 @@ In `src/main/resources/application.yml`:
 ```yaml
 logging:
   level:
-    org.example.spring_ai: DEBUG
+    org.example.mcp: DEBUG
 ```
 
 ---
 
 ## Next Steps
 
-1. **Explore Tools** - Try all 10 tools with [TOOL_USAGE_EXAMPLES.md](TOOL_USAGE_EXAMPLES.md)
+1. **Explore Tools** - Try the tools with the [Quick Start Guide](QUICK_START_GUIDE.md)
 2. **Add Your Docs** - Configure `DOMAIN_DOCS_PATHS` to include your specifications
-3. **Enable Semantic Search** - Follow [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md)
+3. **Enable Semantic Search** - `ollama pull mxbai-embed-large` (optional)
 4. **Query OMS** - Use `searchOrders` to explore backend data
 5. **Share Setup** - Export your config for team members
 
@@ -421,7 +433,6 @@ logging:
 ## Resources
 
 - [Main README](../README.md) - Project overview
-- [TOOL_USAGE_EXAMPLES.md](TOOL_USAGE_EXAMPLES.md) - Complete usage guide
-- [README_SEMANTIC_SEARCH.md](README_SEMANTIC_SEARCH.md) - Vector search setup
+- [ARCHITECTURE.md](ARCHITECTURE.md) - How it works and how agents use it
 - [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md) - 5-minute quickstart
 - [MCP Specification](https://spec.modelcontextprotocol.io/) - Official MCP docs

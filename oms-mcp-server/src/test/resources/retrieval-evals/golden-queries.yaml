@@ -1,0 +1,119 @@
+# Golden query set for retrieval evaluation (recall@5, MRR).
+#
+# Each query lists the knowledge base documents that a good retriever should
+# surface in its top results. A query counts as "recalled" if ANY expected
+# document appears in the top 5 hits (document-level, anchors not required).
+#
+# Keep queries phrased the way a coding agent would ask, not as exact title
+# matches — vocabulary mismatch is what we are measuring.
+
+queries:
+  - query: "order state transitions and lifecycle"
+    expected:
+      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+      - oms-knowledge-base/oms-framework/state-machine-framework_spec.md
+
+  - query: "how do I cancel an order"
+    expected:
+      - oms-knowledge-base/oms-concepts/order-replace.md
+      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+
+  - query: "replace an order that is partially filled"
+    expected:
+      - oms-knowledge-base/oms-concepts/order-replace.md
+
+  - query: "leavesQty cumQty calculation partial fill"
+    expected:
+      - oms-knowledge-base/oms-concepts/order-quantity-calculations.md
+      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+
+  - query: "execution bust workflow"
+    expected:
+      - oms-knowledge-base/oms-concepts/execution-reporting.md
+
+  - query: "trade correction handling"
+    expected:
+      - oms-knowledge-base/oms-concepts/execution-reporting.md
+
+  - query: "FIX execution report message processing"
+    expected:
+      - oms-knowledge-base/oms-concepts/execution-reporting.md
+
+  - query: "RFC 7807 problem details error responses"
+    expected:
+      - oms-knowledge-base/oms-framework/error-handling.md
+
+  - query: "retry with backoff and circuit breaker"
+    expected:
+      - oms-knowledge-base/oms-framework/error-handling.md
+
+  - query: "idempotency keys and error recovery"
+    expected:
+      - oms-knowledge-base/oms-framework/error-handling.md
+
+  - query: "which validations run when a new order is submitted"
+    expected:
+      - oms-knowledge-base/oms-framework/validation-rules.md
+
+  - query: "block order allocation to client accounts"
+    expected:
+      - oms-knowledge-base/oms-concepts/order-grouping.md
+      - oms-knowledge-base/illustrations/order_allocation_diagrams.md
+      - oms-knowledge-base/oms-concepts/order-quantity-calculations.md
+
+  - query: "kafka topics event streaming design"
+    expected:
+      - oms-knowledge-base/oms-concepts/streaming-architecture.md
+
+  - query: "event sourcing CQRS separate read model"
+    expected:
+      - oms-knowledge-base/oms-framework/state-query-store_spec.md
+      - oms-knowledge-base/oms-concepts/streaming-architecture.md
+      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+
+  - query: "MapStruct mapping between entities and DTOs"
+    expected:
+      - oms-knowledge-base/oms-framework/domain-model_spec.md
+
+  - query: "Order entity fields and sub-domain extension"
+    expected:
+      - oms-knowledge-base/oms-framework/domain-model_spec.md
+
+  - query: "generate code from OpenAPI specification gradle"
+    expected:
+      - oms-knowledge-base/oms-framework/openapi-contracts.md
+
+  - query: "Avro schema generation for events"
+    expected:
+      - oms-knowledge-base/oms-framework/openapi-contracts.md
+      - oms-knowledge-base/oms-concepts/streaming-architecture.md
+
+  - query: "task orchestration pipeline with context passing"
+    expected:
+      - oms-knowledge-base/oms-framework/task-orchestration-framework_spec.md
+
+  - query: "state machine guards and actions configuration"
+    expected:
+      - oms-knowledge-base/oms-framework/state-machine-framework_spec.md
+
+  - query: "integration testing with Testcontainers"
+    expected:
+      - oms-knowledge-base/oms-framework/testing-patterns.md
+
+  - query: "test data builder pattern"
+    expected:
+      - oms-knowledge-base/oms-framework/testing-patterns.md
+
+  - query: "JPA repository patterns for the state store"
+    expected:
+      - oms-knowledge-base/oms-framework/oms-state-store.md
+      - oms-knowledge-base/oms-framework/state-query-store_spec.md
+
+  - query: "team values and engineering principles"
+    expected:
+      - oms-knowledge-base/oms-methodolgy/manifesto.md
+
+  - query: "how should AI agents be used in development"
+    expected:
+      - oms-knowledge-base/oms-methodolgy/ai-augmented-development.md
+      - oms-knowledge-base/oms-methodolgy/agent.md

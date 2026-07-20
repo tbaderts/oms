@@ -9,7 +9,6 @@ spring:
       - org.springframework.ai.model.ollama.autoconfigure.OllamaApiAutoConfiguration
       - org.springframework.ai.model.ollama.autoconfigure.OllamaChatAutoConfiguration
       - org.springframework.ai.model.ollama.autoconfigure.OllamaEmbeddingAutoConfiguration
-      - org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration
   ai:
     ollama:
       base-url: http://localhost:11434
@@ -20,10 +19,11 @@ spring:
 oms:
   base-url: http://localhost:8090
 
-# Disable vector store in tests (no Qdrant/Ollama needed)
-vector:
-  store:
-    enabled: false
+# BM25-only in tests (no Ollama needed)
+knowledge:
+  index:
+    embeddings:
+      enabled: false
 
 # Use a temp directory; tests will override via @TestPropertySource or create their own
 domain:

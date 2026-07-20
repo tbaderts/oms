@@ -5,49 +5,48 @@ spring:
     # Keep reactive/web server disabled when acting purely as MCP over stdio.
     web-application-type: none
     banner-mode: off
-  # Ollama configuration for local embeddings
+  # Ollama provides local embeddings for the semantic half of hybrid search.
+  # Pull the model first: `ollama pull mxbai-embed-large`
   ai:
     ollama:
       base-url: http://localhost:11434
       embedding:
         options:
-          model: nomic-embed-text  # Fast, efficient embedding model
-          # Alternative models:
-          # - mxbai-embed-large (better quality, slower)
-          # - all-minilm (smaller, faster)
-    qdrant:
-      base-url: http://localhost:6333
-      collection-name: domain-docs
-      initialize-schema: true
-      grpc-port: 6334
+          model: mxbai-embed-large   # 1024-dim, strong retrieval quality
+          # Alternatives (adjust knowledge.index.embeddings prefixes to match!):
+          # - nomic-embed-text:      query-prefix "search_query: ", document-prefix "search_document: "
+          # - bge-m3:                no prefixes
+          # - snowflake-arctic-embed2: query-prefix "query: ", no document prefix
 
-# Example custom properties for downstream service access (kept from original snippet)
+# OMS backend for the searchOrders tool
 oms:
   base-url: http://localhost:8090
 
 server:
   port: 8091
 
-# Custom (non-standard) section to indicate MCP configuration. If the spring-ai mcp starter
-# expects different property names, adjust accordingly or rely purely on CLI args.
 mcp:
   transport: stdio
 
-# Domain documentation paths (comma-separated, relative to working directory or absolute)
+# Knowledge base locations (comma-separated, relative to working directory or absolute)
 domain:
   docs:
     paths: ${DOMAIN_DOCS_PATHS:../oms-knowledge-base}
 
-# Vector store configuration for semantic search
-vector:
-  store:
-    enabled: true
-    chunk-size: 1000
-    chunk-overlap: 200
-    auto-index-on-startup: true
+# Embedded Lucene knowledge index (BM25 + vector hybrid search with RRF fusion)
+knowledge:
+  index:
+    cache-dir: .kb-index          # persistent embedding cache (content-hash keyed)
+    min-section-chars: 200        # merge smaller sections with a neighbor
+    max-section-chars: 6000       # split larger sections at paragraph boundaries
+    embeddings:
+      enabled: true               # false = BM25-only (no Ollama needed)
+      # mxbai-embed-large was trained with this query instruction; documents take none.
+      query-prefix: "Represent this sentence for searching relevant passages: "
+      document-prefix: ""
+      batch-size: 16
 
 logging:
   level:
     org.springframework.ai.mcp: DEBUG
-    org.springframework.ai.vectorstore: DEBUG
-    org.springframework.ai.embedding: DEBUG
+    org.example.mcp.index: INFO

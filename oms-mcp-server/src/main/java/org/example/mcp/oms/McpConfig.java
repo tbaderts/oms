@@ -1,14 +1,9 @@
 package org.example.mcp.oms;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.example.mcp.docs.DomainDocsTools;
+import org.example.mcp.kb.KnowledgeBaseTools;
 import org.example.mcp.tools.HealthTools;
-import org.example.mcp.vector.SemanticSearchTools;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.method.MethodToolCallbackProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -17,23 +12,12 @@ public class McpConfig {
 
     @Bean
     public ToolCallbackProvider tools(
-            OrderSearchMcpTools orderTools, 
-            DomainDocsTools docsTools, 
-            HealthTools healthTools,
-            @Autowired(required = false) SemanticSearchTools semanticSearchTools) {
-        
-        List<Object> toolObjects = new ArrayList<>();
-        toolObjects.add(orderTools);
-        toolObjects.add(docsTools);
-        toolObjects.add(healthTools);
-        
-        // Add semantic search tools if vector store is enabled
-        if (semanticSearchTools != null) {
-            toolObjects.add(semanticSearchTools);
-        }
-        
+            OrderSearchMcpTools orderTools,
+            KnowledgeBaseTools knowledgeBaseTools,
+            HealthTools healthTools) {
+
         return MethodToolCallbackProvider.builder()
-                .toolObjects(toolObjects.toArray())
+                .toolObjects(orderTools, knowledgeBaseTools, healthTools)
                 .build();
     }
 }
