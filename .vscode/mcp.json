@@ -13,6 +13,14 @@
         "SPRING_PROFILES_ACTIVE": "mcp",
         "MCP_TRANSPORT": "stdio"
       }
+    },
+    "mastra": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mastra/mcp-docs-server@latest"
+      ],
+      "type": "stdio"
     }
   }
 }

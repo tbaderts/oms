@@ -1,0 +1,28 @@
+{
+  "name": "@mission-control/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "clean": "rm -rf dist .mastra"
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^1.4.0",
+    "@mastra/core": "latest",
+    "@mastra/libsql": "latest",
+    "@mastra/server": "latest",
+    "dockerode": "^4.0.10",
+    "hono": "^4.7.0",
+    "pg": "^8.20.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "mastra": "latest",
+    "@types/dockerode": "^4.0.1",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
+    "typescript": "^5.8.0"
+  }
+}
