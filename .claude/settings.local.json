@@ -35,7 +35,10 @@
       "Bash(git -C /c/data/workspace/oms status --short)",
       "Bash(find developer-cockpit:*)",
       "Bash(cd developer-cockpit:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "PowerShell(Set-Location C:\\\\data\\\\workspace\\\\oms\\\\oms-mcp-server; .\\\\gradlew.bat test --tests \"org.example.mcp.index.RetrievalEvalTest\" --rerun -i --console=plain 2>$null | Select-String -Pattern \"recall|MRR|MISS|Queries:\" | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\tbade\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--data-workspace-oms\\\\a9987ec2-b6b3-41b1-8e14-88ca21835ee3\\\\tasks\\\\bbfak6zmg.output\" -Pattern \"\\\\[Index\\\\]|Embedding|vector search\" | Select-Object -Last 6 | ForEach-Object { $_.Line.Trim\\(\\) })",
+      "Bash(./gradlew test *)"
     ]
   }
 }

@@ -1,6 +1,15 @@
 {
   "java.compile.nullAnalysis.mode": "automatic",
   "java.configuration.updateBuildConfiguration": "automatic",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-25",
+      "path": "C:\\Program Files\\Microsoft\\jdk-25.0.0.36-hotspot",
+      "default": true
+    }
+  ],
+  "java.import.gradle.java.home": "C:\\Program Files\\Microsoft\\jdk-25.0.0.36-hotspot",
+  "java.import.gradle.wrapper.enabled": true,
   "chat.mcp.serverSampling": {
     "oms/.vscode/mcp.json: oms-mcp": {
       "allowedModels": [
