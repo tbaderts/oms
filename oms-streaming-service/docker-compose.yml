@@ -31,7 +31,7 @@ services:
 
   # Use shared Kafka from oms-core, or define here for standalone testing
   broker:
-    image: confluentinc/cp-kafka:7.9.3
+    image: confluentinc/cp-kafka:7.9.9
     hostname: broker
     container_name: streaming-broker
     ports:
@@ -61,7 +61,7 @@ services:
 
   # Schema Registry - required for Avro deserialization
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.9.3
+    image: confluentinc/cp-schema-registry:7.9.9
     hostname: schema-registry
     container_name: streaming-schema-registry
     ports:

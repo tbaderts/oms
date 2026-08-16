@@ -62,6 +62,61 @@ class MarkdownParserTest {
             assertThat(sections).hasSize(1);
             assertThat(sections.get(0).title()).isEqualTo("Heading #");
         }
+
+        @Test
+        void shouldIgnoreHeadingsInsideFencedCodeBlocks() {
+            String md = """
+                    # Real Title
+                    Some text.
+
+                    ```md
+                    # Not A Real Heading
+                    ## Also Not Real
+                    ```
+
+                    ## Real Section
+                    """;
+
+            List<DocSection> sections = parser.extractSections(md);
+
+            assertThat(sections).hasSize(2);
+            assertThat(sections.get(0).title()).isEqualTo("Real Title");
+            assertThat(sections.get(1).title()).isEqualTo("Real Section");
+        }
+
+        @Test
+        void shouldIgnoreHeadingsInsideTildeFences() {
+            String md = """
+                    # Real Title
+
+                    ~~~
+                    # Phantom Heading
+                    ~~~
+
+                    ## Real Section
+                    """;
+
+            List<DocSection> sections = parser.extractSections(md);
+
+            assertThat(sections).hasSize(2);
+            assertThat(sections.get(1).title()).isEqualTo("Real Section");
+        }
+
+        @Test
+        void shouldResumeParsingAfterFenceCloses() {
+            String md = """
+                    # Before
+                    ```
+                    code # not a heading
+                    ```
+                    # After
+                    """;
+
+            List<DocSection> sections = parser.extractSections(md);
+
+            assertThat(sections).extracting(DocSection::title)
+                    .containsExactly("Before", "After");
+        }
     }
 
     @Nested
@@ -92,6 +147,27 @@ class MarkdownParserTest {
             assertThat(content).contains("Section B");
             assertThat(content).contains("Content of B.");
         }
+
+        @Test
+        void shouldNotStopAtHeadingsInsideFencedCode() {
+            String md = """
+                    ## Real Section
+                    Intro.
+
+                    ```md
+                    ## Phantom Same-Level Heading
+                    ```
+
+                    Trailing content.
+                    """;
+            String[] lines = md.split("\n");
+            DocSection section = parser.extractSections(md).get(0);
+
+            String content = parser.extractSectionContent(lines, section);
+
+            assertThat(content).contains("Real Section");
+            assertThat(content).contains("Trailing content.");
+        }
     }
 
     @Nested
@@ -120,6 +196,19 @@ class MarkdownParserTest {
         @Test
         void shouldThrowOnMissingSection() {
             assertThatThrownBy(() -> parser.readSection(SAMPLE_MD, "nonexistent"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Section not found");
+        }
+
+        @Test
+        void shouldNotMatchHeadingInsideFencedCode() {
+            String md = """
+                    # Doc
+                    ```md
+                    # Example Heading
+                    ```
+                    """;
+            assertThatThrownBy(() -> parser.readSection(md, "Example Heading"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Section not found");
         }

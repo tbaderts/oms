@@ -4,22 +4,13 @@ spring:
   config:
     import: optional:file:.env[.properties]
   datasource:
-    write:
-      url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
-      username: ${DB_USER:postgres}
-      password: ${DB_PASSWORD:changeme}
-      driver-class-name: org.postgresql.Driver
-      hikari:
-        minimum-idle: 8
-        maximum-pool-size: 32
-    read:
-      url: ${READYSET_URL:jdbc:postgresql://localhost:5433/postgres}
-      username: ${DB_USER:postgres}
-      password: ${DB_PASSWORD:changeme}
-      driver-class-name: org.postgresql.Driver
-      hikari:
-        minimum-idle: 8
-        maximum-pool-size: 32
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:changeme}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      minimum-idle: 8
+      maximum-pool-size: 32
   threads:
     virtual:
       enabled: false

@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 import org.example.common.api.SearchApi;
 import org.example.common.model.Order;
 import org.example.common.model.query.PagedOrderDto;
-import org.example.oms.config.UseReadReplica;
 import org.example.oms.mapper.QueryOrderDtoMapper;
 import org.example.oms.service.OrderQueryService;
 import org.springframework.data.domain.Page;
@@ -26,7 +25,6 @@ import lombok.extern.slf4j.Slf4j;
 @RestController
 @RequestMapping("/api/query")
 @Transactional(readOnly = true)
-@UseReadReplica
 public class QueryController implements SearchApi {
 
     private final OrderQueryService service;

@@ -43,6 +43,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class EmbeddingService {
 
+    /** How long embedding stays disabled after a failure before retrying. */
+    private static final long UNAVAILABLE_RETRY_NANOS = java.time.Duration.ofMinutes(5).toNanos();
+
     private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final KnowledgeIndexProperties properties;
     private final String modelName;
@@ -50,7 +53,7 @@ public class EmbeddingService {
 
     private final Map<String, float[]> cache = new HashMap<>();
     private boolean cacheDirty = false;
-    private volatile boolean unavailable = false;
+    private volatile long unavailableSinceNanos = -1;
 
     public EmbeddingService(ObjectProvider<EmbeddingModel> embeddingModelProvider,
                             KnowledgeIndexProperties properties,
@@ -61,9 +64,26 @@ public class EmbeddingService {
     }
 
     public boolean isEnabled() {
-        return properties.getEmbeddings().isEnabled()
-                && !unavailable
-                && embeddingModelProvider.getIfAvailable() != null;
+        if (!properties.getEmbeddings().isEnabled()
+                || embeddingModelProvider.getIfAvailable() == null) {
+            return false;
+        }
+        long since = unavailableSinceNanos;
+        if (since < 0) {
+            return true;
+        }
+        // Time-boxed latch: retry after the cooldown so a transient Ollama
+        // hiccup does not disable semantic search for the process lifetime.
+        if (System.nanoTime() - since >= UNAVAILABLE_RETRY_NANOS) {
+            unavailableSinceNanos = -1;
+            log.info("[Index] Retrying embeddings after cooldown.");
+            return true;
+        }
+        return false;
+    }
+
+    private void markUnavailable() {
+        unavailableSinceNanos = System.nanoTime();
     }
 
     public String getModelName() {
@@ -73,8 +93,12 @@ public class EmbeddingService {
     /**
      * Embed document chunks, serving unchanged chunks from the disk cache.
      *
-     * @return embeddings parallel to {@code texts}, or empty if embeddings are
-     *         disabled/unavailable
+     * Chunks whose embedding fails keep a {@code null} vector and are indexed
+     * for BM25 only — a single failed batch no longer poisons the whole
+     * index. Successfully embedded chunks are still cached.
+     *
+     * @return embeddings parallel to {@code texts} (may contain nulls), or
+     *         empty if embeddings are disabled/unavailable
      */
     public Optional<List<float[]>> embedDocuments(List<String> texts) {
         if (!isEnabled()) return Optional.empty();
@@ -99,14 +123,15 @@ public class EmbeddingService {
             log.info("[Index] Embedding {} new/changed chunks ({} from cache) with model '{}'",
                     missingIndexes.size(), texts.size() - missingIndexes.size(), modelName);
             int batchSize = Math.max(1, properties.getEmbeddings().getBatchSize());
-            try {
-                EmbeddingModel model = embeddingModelProvider.getObject();
-                for (int from = 0; from < missingIndexes.size(); from += batchSize) {
-                    int to = Math.min(from + batchSize, missingIndexes.size());
-                    List<String> batch = new ArrayList<>();
-                    for (int i = from; i < to; i++) {
-                        batch.add(prefix + texts.get(missingIndexes.get(i)));
-                    }
+            int failed = 0;
+            EmbeddingModel model = embeddingModelProvider.getObject();
+            for (int from = 0; from < missingIndexes.size(); from += batchSize) {
+                int to = Math.min(from + batchSize, missingIndexes.size());
+                List<String> batch = new ArrayList<>();
+                for (int i = from; i < to; i++) {
+                    batch.add(prefix + texts.get(missingIndexes.get(i)));
+                }
+                try {
                     List<float[]> embedded = model.embed(batch);
                     for (int i = from; i < to; i++) {
                         float[] vector = embedded.get(i - from);
@@ -114,12 +139,19 @@ public class EmbeddingService {
                         cache.put(missingKeys.get(i), vector);
                         cacheDirty = true;
                     }
+                } catch (Exception e) {
+                    failed += to - from;
+                    log.warn("[Index] Embedding batch failed ({}); {} chunk(s) will be BM25-only. "
+                            + "Is Ollama running with model '{}' pulled?",
+                            e.getMessage(), to - from, modelName);
+                    markUnavailable();
+                    // Keep going: later batches may succeed once the latch
+                    // cools down; chunks with null vectors are BM25-only.
                 }
-            } catch (Exception e) {
-                log.warn("[Index] Embedding failed ({}). Falling back to BM25-only search. "
-                        + "Is Ollama running with model '{}' pulled?", e.getMessage(), modelName);
-                unavailable = true;
-                return Optional.empty();
+            }
+            if (failed > 0) {
+                log.warn("[Index] {} of {} chunks have no embedding (BM25-only).",
+                        failed, texts.size());
             }
         }
         saveCacheIfDirty();
@@ -134,7 +166,7 @@ public class EmbeddingService {
             return Optional.of(model.embed(properties.getEmbeddings().getQueryPrefix() + query));
         } catch (Exception e) {
             log.warn("[Index] Query embedding failed ({}). Falling back to BM25-only.", e.getMessage());
-            unavailable = true;
+            markUnavailable();
             return Optional.empty();
         }
     }
@@ -155,6 +187,11 @@ public class EmbeddingService {
         try {
             Map<String, float[]> loaded = objectMapper.readValue(
                     Files.readAllBytes(file), new TypeReference<HashMap<String, float[]>>() {});
+            // Prune entries from other models/prefixes: keys carry the model
+            // name as a readable prefix, so stale entries (which can never
+            // hit) are dropped instead of growing the file unboundedly.
+            String modelPrefix = modelName + ":";
+            loaded.keySet().removeIf(k -> !k.startsWith(modelPrefix));
             cache.putAll(loaded);
             log.info("[Index] Loaded {} cached embeddings from {}", cache.size(), file);
         } catch (IOException e) {
@@ -184,7 +221,8 @@ public class EmbeddingService {
             digest.update(prefix.getBytes(StandardCharsets.UTF_8));
             digest.update((byte) 0);
             digest.update(text.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
+            // Readable model prefix lets us prune stale entries on load.
+            return modelName + ":" + HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }

@@ -39,13 +39,11 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
          |                                    |
          |  Data layer                        |
          |    JPA repositories                |
-         |    Write/Read datasource routing   |
-         +---------+--------------+-----------+
-                   |              |
-           +-------+---+    +----+-------+
-           | PostgreSQL |    |  ReadySet  |
-           |  (write)   |    |  (read)    |
-           +-------+---+    +------------+
+         +---------+--------------------------+
+                   |
+           +-------+---+
+           | PostgreSQL |
+           +-------+---+
                    |
            +-------+---+
            |   Kafka    |  (Avro msgs)
@@ -60,7 +58,6 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 | **Task Pipeline / Chain of Responsibility** | Custom `Task<T>` + `TaskPipeline<T>` + `TaskOrchestrator` | Good |
 | **Conditional Execution** | `ConditionalTask<T>` with `Predicate<T>` preconditions | Good |
 | **Outbox Pattern** | `OrderOutbox` entity + `TransactionalEventListener` for Kafka publish | Good |
-| **Read Replica Routing** | `@UseReadReplica` annotation + AOP aspect + `AbstractRoutingDataSource` | Good |
 | **API-First / Spec-Driven** | OpenAPI YAML specs generate interfaces and DTOs; controllers implement them | Good |
 | **State Machine** | Generic `StateMachine<S>` with immutable `StateMachineConfig` | Good (but unused in runtime) |
 
@@ -78,11 +75,9 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 
 3. **OpenAPI-first approach** ensures API contract consistency between services and avoids manual DTO drift.
 
-4. **Read replica routing** via custom annotation and AOP is a clean, transparent approach to offloading read traffic.
+4. **Observability** is well-integrated: Micrometer `@Observed` annotations on key methods, OpenTelemetry tracing, Prometheus metrics, structured logging.
 
-5. **Observability** is well-integrated: Micrometer `@Observed` annotations on key methods, OpenTelemetry tracing, Prometheus metrics, structured logging.
-
-6. **Outbox pattern** for Kafka publishing avoids the dual-write problem (database + message broker).
+5. **Outbox pattern** for Kafka publishing avoids the dual-write problem (database + message broker).
 
 ### 2.4 Architecture Concerns
 
@@ -119,7 +114,7 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 
 **`QueryController.java`**
 - Clean implementation. Properly separates control params from filter params.
-- Correctly uses `@UseReadReplica` and `@Transactional(readOnly = true)`.
+- Correctly uses `@Transactional(readOnly = true)`.
 
 ### 3.2 Service / Task Layer
 
@@ -178,14 +173,6 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 
 ### 3.4 Configuration
 
-**`DataSourceConfig.java`**
-- Clean implementation of `AbstractRoutingDataSource`.
-- Uses `HashMap` directly (line 60) rather than `Map.of()` for target data sources, which is fine since `AbstractRoutingDataSource` requires a `Map<Object, Object>`.
-
-**`DataSourceContextHolder.java`**
-- Uses `ThreadLocal<Boolean>` correctly with cleanup in `ReadReplicaAspect`.
-- Consider an `InheritableThreadLocal` if async/virtual thread usage is planned (virtual threads config is present but disabled).
-
 **`WebConfig.java`**
 - CORS configuration allows `*` for methods and headers from `localhost:3000`. This is development-appropriate but must be locked down for production. No profile-based CORS configuration exists.
 
@@ -193,7 +180,7 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 - **Critical**: `ddl-auto: create-drop` means the database schema is dropped and recreated on every application restart. This is a data-loss risk that should never reach production. No Liquibase/Flyway migrations are present.
 - `management.endpoints.web.exposure.include: "*"` exposes all actuator endpoints, including potentially sensitive ones (`/env`, `/configprops`, `/heapdump`). Should be restricted.
 - `management.tracing.sampling.probability: 1.0` means 100% of requests are traced. This is appropriate for development but creates significant overhead in production.
-- No default values for `DB_URL`, `READYSET_URL`, `TRACING_URL`, `SERVER_PORT` - application fails to start without these environment variables. Consider Spring profiles or sensible defaults.
+- No default values for `DB_URL`, `TRACING_URL`, `SERVER_PORT` - application fails to start without these environment variables. Consider Spring profiles or sensible defaults.
 - `kafka.enabled: true` in the default config but the Kafka infrastructure may not be running, causing startup failures.
 
 **`OmsConfig.java`**
@@ -236,7 +223,6 @@ OMS-Core is a Java 25 / Spring Boot 3.5.7 Order Management System implementing a
 | **OrderQueryService** | **None** | **Missing** |
 | **OrderMapper** | **None** | **Missing** |
 | **MessagePublisher** | **None** | **Missing** |
-| **DataSource routing** | **None** | **Missing** |
 | **Integration tests** | **None** | **Missing** |
 
 ### 4.2 Test Quality

@@ -148,7 +148,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
     setExpandedSections(newExpanded);
   };
 
-  const formatValue = (key: string, value: any): JSX.Element | string => {
+  const formatValue = (key: string, value: any): React.JSX.Element | string => {
     if (value === null || value === undefined) {
       return <span className="value-null">—</span>;
     }

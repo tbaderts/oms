@@ -65,18 +65,31 @@ public class OrderQueryClient {
             }
         });
 
-        URI uri = builder.build(true).toUri();
-        
+        // Encode query params: values like ISO datetimes with '+' offsets or
+        // comma-separated ranges must not be decoded incorrectly server-side.
+        URI uri = builder.build().encode().toUri();
+
         log.info("OMS Order Search Request - URI: {}", uri);
 
         // Get the response as raw string to parse manually
-        String raw = restClient.get()
-                .uri(uri)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(String.class);
-        
-        log.info("OMS Order Search Response - Body: {}", raw);
+        final String raw;
+        try {
+            raw = restClient.get()
+                    .uri(uri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(String.class);
+        } catch (org.springframework.web.client.RestClientException e) {
+            throw new OrderQueryException("OMS order search request failed: " + e.getMessage(), e);
+        }
+
+        // Full order pages contain sensitive account data — keep at DEBUG.
+        log.debug("OMS Order Search Response - Body: {}", raw);
+
+        if (raw == null || raw.isBlank()) {
+            return new PageResponse<>(List.of(), page == null ? 0 : page,
+                    size == null ? 0 : size, 0, 0);
+        }
 
         try {
             JsonNode root = objectMapper.readTree(raw);

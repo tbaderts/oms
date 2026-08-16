@@ -1175,7 +1175,7 @@ graph LR
 
 #### 8. **Caching Layer**
 - **Current**: Direct database queries
-- **Recommendation**: Redis/ReadySet for frequently accessed data
+- **Recommendation**: Redis or another cache for frequently accessed data (ReadySet was evaluated and removed — it only passes dynamic JPA queries through without caching them)
 - **Benefit**: Reduced latency, database load offloading
 
 #### 9. **Dead Letter Queue (DLQ)**

@@ -2,7 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
-	id 'org.openapi.generator' version '7.15.0'
+	id 'org.openapi.generator' version '7.24.0'
 }
 
 group = 'org.example'
@@ -26,16 +26,16 @@ repositories {
 
 ext {
 	set('springAiVersion', "2.0.0")
-	set('luceneVersion', "10.2.2")
+	set('luceneVersion', "10.5.1")
 }
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
-	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.1'
+	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.1.0'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.ai:spring-ai-starter-mcp-server'
-	implementation 'org.openapitools:jackson-databind-nullable:0.2.9'
-    implementation 'io.swagger.core.v3:swagger-annotations:2.2.42'
+	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.53'
 
 	// Embedded Lucene knowledge index: BM25 keyword search + HNSW vector search
 	implementation "org.apache.lucene:lucene-core:${luceneVersion}"

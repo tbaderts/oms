@@ -21,6 +21,7 @@ public class MarkdownParser {
 
     /**
      * Extract all heading-defined sections from Markdown content.
+     * Headings inside fenced code blocks (``` or ~~~) are ignored.
      *
      * @param content full markdown text
      * @return list of sections with title, heading level and 1-based line number
@@ -29,8 +30,16 @@ public class MarkdownParser {
         List<DocSection> sections = new ArrayList<>();
         String[] lines = content.split("\n");
 
+        boolean inFence = false;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
+            if (isFence(line)) {
+                inFence = !inFence;
+                continue;
+            }
+            if (inFence) {
+                continue;
+            }
             if (line.startsWith("#")) {
                 int level = 0;
                 while (level < line.length() && line.charAt(level) == '#') {
@@ -49,6 +58,11 @@ public class MarkdownParser {
         return sections;
     }
 
+    /** True if the (trimmed) line opens or closes a fenced code block. */
+    static boolean isFence(String trimmedLine) {
+        return trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~");
+    }
+
     /**
      * Extract the text belonging to a single section (from its heading line up
      * to the next heading of the same or higher level).
@@ -64,8 +78,16 @@ public class MarkdownParser {
         int sectionLevel = section.level();
         int endLine = lines.length;
 
+        boolean inFence = false;
         for (int i = startLine + 1; i < lines.length; i++) {
             String line = lines[i].trim();
+            if (isFence(line)) {
+                inFence = !inFence;
+                continue;
+            }
+            if (inFence) {
+                continue;
+            }
             if (line.startsWith("#")) {
                 int level = 0;
                 while (level < line.length() && line.charAt(level) == '#') {
@@ -101,8 +123,16 @@ public class MarkdownParser {
         int startLine = -1;
         int sectionLevel = -1;
 
+        boolean inFence = false;
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
+            if (isFence(line)) {
+                inFence = !inFence;
+                continue;
+            }
+            if (inFence) {
+                continue;
+            }
             if (line.startsWith("#")) {
                 int level = 0;
                 while (level < line.length() && line.charAt(level) == '#') {
@@ -122,8 +152,16 @@ public class MarkdownParser {
         }
 
         int endLine = lines.length;
+        inFence = false;
         for (int i = startLine + 1; i < lines.length; i++) {
             String line = lines[i].trim();
+            if (isFence(line)) {
+                inFence = !inFence;
+                continue;
+            }
+            if (inFence) {
+                continue;
+            }
             if (line.startsWith("#")) {
                 int level = 0;
                 while (level < line.length() && line.charAt(level) == '#') {

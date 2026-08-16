@@ -125,9 +125,14 @@ public class SectionChunker {
      * Split chunks longer than {@code maxSectionChars} at blank lines outside
      * fenced code blocks. All parts keep the section's anchor and breadcrumb
      * (a citation always points at the whole section).
+     *
+     * A hard cap of {@code 2 * maxSectionChars} applies even inside fenced
+     * code blocks: embedding models silently truncate very long inputs, so an
+     * unbounded single chunk would degrade vector quality without warning.
      */
     private List<SectionChunk> splitOversized(List<SectionChunk> chunks) {
         int max = properties.getMaxSectionChars();
+        int hardCap = max * 2;
         List<SectionChunk> result = new ArrayList<>();
         for (SectionChunk chunk : chunks) {
             if (chunk.text().length() <= max) {
@@ -146,7 +151,8 @@ public class SectionChunker {
                 }
                 partChars += lines[i].length() + 1;
                 boolean splittable = !inFence && trimmed.isEmpty();
-                if (partChars >= max && splittable && i > partStart) {
+                boolean hardSplit = partChars >= hardCap && i > partStart;
+                if ((partChars >= max && splittable && i > partStart) || hardSplit) {
                     result.add(part(chunk, lines, partStart, i, lineOffset));
                     partStart = i + 1;
                     partChars = 0;

@@ -123,7 +123,13 @@ public class KnowledgeIndexService {
 
         Optional<List<float[]>> vectors = embeddingService.embedDocuments(
                 chunks.stream().map(SectionChunk::text).toList());
-        int dims = vectors.filter(v -> !v.isEmpty()).map(v -> v.get(0).length).orElse(0);
+        // First non-null vector determines dims; a partial failure leaves
+        // nulls in the list (those chunks are BM25-only).
+        int dims = vectors.flatMap(v -> v.stream().filter(java.util.Objects::nonNull)
+                        .findFirst().map(vec -> vec.length))
+                .orElse(0);
+        boolean anyVectors = vectors.map(v -> v.stream().anyMatch(java.util.Objects::nonNull))
+                .orElse(false);
 
         try {
             Directory directory = new ByteBuffersDirectory();
@@ -139,8 +145,8 @@ public class KnowledgeIndexService {
             searcher.setSimilarity(new BM25Similarity());
 
             IndexStats stats = new IndexStats(files.size(), chunks.size(), totalBytes,
-                    Instant.now().toString(), vectors.isPresent(),
-                    vectors.isPresent() ? embeddingService.getModelName() : null, dims);
+                    Instant.now().toString(), anyVectors,
+                    anyVectors ? embeddingService.getModelName() : null, dims);
 
             Snapshot old = this.snapshot;
             this.snapshot = new Snapshot(directory, reader, searcher, stats);
@@ -148,8 +154,8 @@ public class KnowledgeIndexService {
 
             log.info("[Index] Indexed {} documents as {} section chunks in {} ms (vector search: {})",
                     files.size(), chunks.size(), (System.nanoTime() - startNanos) / 1_000_000,
-                    vectors.isPresent() ? "enabled, " + dims + "-dim " + embeddingService.getModelName()
-                                        : "disabled, BM25 only");
+                    anyVectors ? "enabled, " + dims + "-dim " + embeddingService.getModelName()
+                               : "disabled, BM25 only");
             return stats;
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to build Lucene index", e);
@@ -225,7 +231,11 @@ public class KnowledgeIndexService {
         if (hits.size() > topK) {
             hits = new ArrayList<>(hits.subList(0, topK));
         }
-        return new SearchResponse(hits, totalMatches, !vectorDocs.isEmpty());
+        // Report whether the vector retriever participated, not whether it
+        // happened to return hits for this particular query.
+        boolean vectorParticipated = mode != SearchMode.KEYWORD
+                && snap.stats().vectorSearchEnabled();
+        return new SearchResponse(hits, totalMatches, vectorParticipated);
     }
 
     // ----- internals -----

@@ -2,7 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
-	id 'org.openapi.generator' version '7.15.0'
+	id 'org.openapi.generator' version '7.24.0'
 	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
 }
 
@@ -28,8 +28,8 @@ repositories {
 }
 
 ext {
-	set('springCloudVersion', "2025.0.0")
-	set('testcontainersVersion', "1.21.3")
+	set('springCloudVersion', "2025.0.3")
+	set('testcontainersVersion', "1.21.4")
 }
 
 dependencies {
@@ -39,16 +39,18 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-liquibase'
 	implementation 'org.liquibase:liquibase-core'
 	implementation 'org.springframework.boot:spring-boot-starter-kafka'
-	implementation'io.confluent:kafka-avro-serializer:7.9.2'
+	implementation'io.confluent:kafka-avro-serializer:7.9.9'
 	implementation 'io.micrometer:micrometer-tracing-bridge-otel'
 	implementation 'io.opentelemetry:opentelemetry-exporter-otlp'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
-	implementation 'io.github.jaspeen:ulid-java:0.2.0'
-	implementation 'org.openapitools:jackson-databind-nullable:0.2.7'
-    implementation 'io.swagger.core.v3:swagger-annotations:2.2.38'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
+	implementation('io.github.jaspeen:ulid-java:0.2.0') {
+		exclude group: 'org.hibernate', module: 'hibernate-core'
+	}
+	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.53'
 	implementation 'org.mapstruct:mapstruct:1.6.3'
-	implementation 'org.apache.commons:commons-lang3:3.17.0'
+	implementation 'org.apache.commons:commons-lang3:3.20.0'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'

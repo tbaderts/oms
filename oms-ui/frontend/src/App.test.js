@@ -3,6 +3,6 @@ import App from './App';
 
 test('renders OMS UI navigation', () => {
   render(<App />);
-  const linkElement = screen.getByText(/OMS UI/i);
-  expect(linkElement).toBeInTheDocument();
+  const logoElement = screen.getByLabelText(/Acme Capital Logo/i);
+  expect(logoElement).toBeInTheDocument();
 });
