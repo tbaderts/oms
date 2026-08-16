@@ -7,6 +7,10 @@
         "@mastra/mcp-docs-server@latest"
       ],
       "type": "stdio"
+    },
+    "oms": {
+      "type": "http",
+      "url": "http://localhost:8091/mcp"
     }
   }
 }

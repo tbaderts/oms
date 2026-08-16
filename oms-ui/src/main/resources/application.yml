@@ -14,7 +14,9 @@ oms:
   ui:
     app-name: OMS Admin Tool
   api:
-    base-url: http://localhost:8090
+    base-url: ${OMS_API_BASE_URL:http://localhost:8090}
+  streaming:
+    url: ${OMS_STREAMING_URL:ws://localhost:7000/trade-blotter/stream}
 
 management:
   endpoints:

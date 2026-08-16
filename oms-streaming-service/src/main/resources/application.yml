@@ -1,7 +1,9 @@
 spring:
   application:
     name: oms-streaming-service
-  
+  config:
+    import: optional:file:.env[.properties]
+
   # RSocket over WebSocket configuration
   rsocket:
     server:
@@ -25,8 +27,8 @@ spring:
 streaming:
   kafka:
     topics:
-      orders: ${ORDER_TOPIC:orders}
-      executions: ${EXECUTION_TOPIC:executions}
+      orders: ${ORDER_TOPIC:oms_orders}
+      executions: ${EXECUTION_TOPIC:oms_executions}
     enabled: ${KAFKA_ENABLED:true}
   
   # OMS Core Query API configuration for initial snapshot

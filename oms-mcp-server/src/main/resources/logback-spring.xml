@@ -25,11 +25,11 @@
     <logger name="io.grpc" level="WARN"/>
     <logger name="io.netty" level="WARN"/>
 
-    <!-- Local profile uses BOTH console and file logging for development -->
-    <springProfile name="local">
+    <!-- Local/dev profiles use BOTH console and file logging for development -->
+    <springProfile name="local,dev">
         <logger name="org.springframework.ai.mcp" level="DEBUG"/>
         <logger name="org.example" level="DEBUG"/>
-        
+
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>

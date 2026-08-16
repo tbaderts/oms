@@ -1,8 +1,4 @@
 # Development profile configuration
-spring:
-  config:
-    import: "optional:file:.env[.properties]"
-
 streaming:
   buffer:
     max-size: 1000

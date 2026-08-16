@@ -10,7 +10,7 @@ const StreamingOrderBlotter: React.FC<StreamingOrderBlotterProps> = ({ onModeCha
   return (
     <StreamingBlotter 
       domainObject="Order" 
-      streamingUrl="ws://localhost:7000/rsocket"
+      streamingUrl="ws://localhost:7000/trade-blotter/stream"
       onModeChange={onModeChange}
     />
   );

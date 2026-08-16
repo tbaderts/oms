@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent, RowDoubleClickedEvent } from 'ag-grid-community';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-quartz.css';
+import { omsGridTheme } from '../theme/agGridTheme';
 import { DomainObjectType, FilterCondition } from '../types/types';
 import { OMSApiService } from '../services/OMSApiService';
 import { ColumnConfigService } from '../services/ColumnConfigService';
@@ -282,10 +281,11 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
       {error && <div className="error-message">{error}</div>}
 
       {/* AG Grid */}
-      <div className="ag-theme-quartz blotter-grid">
+      <div className="blotter-grid">
         {loading && <div className="loading-overlay">Loading...</div>}
         <AgGridReact
           ref={gridRef}
+          theme={omsGridTheme}
           rowData={data}
           columnDefs={columnDefs}
           defaultColDef={{

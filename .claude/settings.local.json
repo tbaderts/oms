@@ -45,5 +45,9 @@
       "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
       "Bash(pnpm add:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "mastra",
+    "oms"
+  ]
 }

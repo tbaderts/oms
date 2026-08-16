@@ -45,7 +45,7 @@ export class ConfigService {
       return {
         appName: 'OMS Admin Tool',
         apiBaseUrl: '',  // Empty = use relative URLs via proxy in dev
-        streamingUrl: 'ws://localhost:7000/rsocket',
+        streamingUrl: 'ws://localhost:7000/trade-blotter/stream',
       };
     }
   }

@@ -21,18 +21,22 @@ public class ConfigController {
     @Value("${oms.api.base-url:http://localhost:8090}")
     private String apiBaseUrl;
 
+    @Value("${oms.streaming.url:ws://localhost:7000/trade-blotter/stream}")
+    private String streamingUrl;
+
     /**
      * Get application configuration.
      * This endpoint provides dynamic configuration to the React application,
      * allowing it to adapt to different deployment environments.
      *
-     * @return configuration map with appName and apiBaseUrl
+     * @return configuration map with appName, apiBaseUrl and streamingUrl
      */
     @GetMapping
     public Map<String, String> getConfig() {
         Map<String, String> config = new HashMap<>();
         config.put("appName", appName);
         config.put("apiBaseUrl", apiBaseUrl);
+        config.put("streamingUrl", streamingUrl);
         return config;
     }
 }

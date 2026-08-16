@@ -10,7 +10,7 @@ const StreamingExecutionBlotter: React.FC<StreamingExecutionBlotterProps> = ({ o
   return (
     <StreamingBlotter 
       domainObject="Execution" 
-      streamingUrl="ws://localhost:7000/rsocket"
+      streamingUrl="ws://localhost:7000/trade-blotter/stream"
       onModeChange={onModeChange}
     />
   );

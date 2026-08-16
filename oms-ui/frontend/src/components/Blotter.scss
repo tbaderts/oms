@@ -265,18 +265,8 @@
   }
 }
 
-// AG Grid VS Code Dark Theme
-.ag-theme-quartz {
-  --ag-background-color: var(--vscode-bg-primary);
-  --ag-foreground-color: var(--vscode-text-primary);
-  --ag-border-color: var(--vscode-border);
-  --ag-header-background-color: var(--vscode-bg-secondary);
-  --ag-odd-row-background-color: var(--vscode-bg-secondary);
-  --ag-row-hover-color: var(--vscode-hover-bg);
-  --ag-selected-row-background-color: var(--vscode-selection-bg);
-  --ag-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --ag-font-size: 13px;
-  
+// AG Grid structural overrides (colors/spacing come from theme/agGridTheme.ts via the Theming API)
+.blotter-grid {
   .ag-details-row {
     background: var(--vscode-bg-secondary);
     padding: 0;
@@ -298,37 +288,6 @@
 
   .ag-group-expanded .ag-icon {
     transform: rotate(90deg);
-  }
-
-  .ag-row-hover {
-    background: var(--vscode-hover-bg) !important;
-  }
-  
-  .ag-header-cell {
-    font-weight: 600;
-    color: var(--vscode-text-bright);
-    font-family: var(--ag-font-family);
-    font-size: var(--ag-font-size);
-  }
-  
-  .ag-cell {
-    border-color: var(--vscode-border);
-    font-family: var(--ag-font-family);
-    font-size: var(--ag-font-size);
-    line-height: 28px;
-    display: flex;
-    align-items: center;
-    padding-top: 0;
-    padding-bottom: 0;
-  }
-
-  // Ensure all cell content uses consistent styling
-  .ag-cell-value,
-  .ag-cell-wrapper {
-    font-family: var(--ag-font-family);
-    font-size: var(--ag-font-size);
-    display: flex;
-    align-items: center;
   }
 
   // Flash animation for cell updates

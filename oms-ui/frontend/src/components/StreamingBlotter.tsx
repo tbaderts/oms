@@ -2,8 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { GridApi, GridReadyEvent, RowDoubleClickedEvent, GetRowIdParams } from 'ag-grid-community';
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-quartz.css';
+import { omsGridTheme } from '../theme/agGridTheme';
 import { DomainObjectType, FilterCondition } from '../types/types';
 import {
   StreamFilter,
@@ -31,7 +30,7 @@ interface StreamingBlotterProps {
 
 const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   domainObject,
-  streamingUrl = 'ws://localhost:7000/rsocket',
+  streamingUrl = 'ws://localhost:7000/trade-blotter/stream',
   onModeChange,
 }) => {
   // Data state - use Map for efficient updates by orderId
@@ -75,7 +74,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     const initService = async () => {
       // Get streaming URL from config if not provided as prop
       let wsUrl = streamingUrl;
-      if (!wsUrl || wsUrl === 'ws://localhost:7000/rsocket') {
+      if (!wsUrl || wsUrl === 'ws://localhost:7000/trade-blotter/stream') {
         try {
           const config = await ConfigService.getConfig();
           if (config.streamingUrl) {
@@ -445,9 +444,10 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
       )}
 
       {/* AG Grid */}
-      <div className="ag-theme-quartz blotter-grid">
+      <div className="blotter-grid">
         <AgGridReact
           ref={gridRef}
+          theme={omsGridTheme}
           rowData={data}
           columnDefs={columnDefs}
           getRowId={getRowId}

@@ -8,6 +8,9 @@ spring:
   # Ollama provides local embeddings for the semantic half of hybrid search.
   # Pull the model first: `ollama pull mxbai-embed-large`
   ai:
+    mcp:
+      server:
+        protocol: STREAMABLE
     ollama:
       base-url: http://localhost:11434
       embedding:

@@ -12,6 +12,8 @@ services:
       SERVER_PORT: 8092
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
       OMS_CORE_URL: http://oms-core:8090
+      ORDER_TOPIC: ${ORDER_TOPIC:-oms_orders}
+      EXECUTION_TOPIC: ${EXECUTION_TOPIC:-oms_executions}
     ports:
       - "8092:8092"   # HTTP
       - "7000:7000"   # RSocket WebSocket

@@ -49,7 +49,7 @@ spring:
 
 kafka:
   enabled: ${KAFKA_ENABLED:false}
-  order-topic: ${ORDER_TOPIC:orders}
+  order-topic: ${ORDER_TOPIC:oms_orders}
   command-topic: ${COMMAND_TOPIC:commands}
 
 management:

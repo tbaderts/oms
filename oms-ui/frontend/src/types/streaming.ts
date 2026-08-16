@@ -150,7 +150,7 @@ export interface StreamingConfig {
  * Default streaming configuration
  */
 export const DEFAULT_STREAMING_CONFIG: StreamingConfig = {
-  wsUrl: 'ws://localhost:7000/rsocket',
+  wsUrl: 'ws://localhost:7000/trade-blotter/stream',
   reconnectDelayMs: 3000,
   maxReconnectAttempts: 10,
   heartbeatIntervalMs: 30000,
