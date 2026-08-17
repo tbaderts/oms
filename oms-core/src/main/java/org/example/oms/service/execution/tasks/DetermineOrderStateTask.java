@@ -56,7 +56,11 @@ public class DetermineOrderStateTask implements Task<OrderTaskContext> {
             newState = State.LIVE;
         }
 
-        if (!stateMachine.isValidTransition(currentState, newState)) {
+        // A partial fill leaves the order LIVE. That is not a transition, so there is nothing for
+        // the state machine to validate — and asking it anyway fails, because LIVE -> LIVE is
+        // correctly absent from the lifecycle model. This is why partial fills previously failed at
+        // this task and were dropped without ever reaching persistence.
+        if (newState != currentState && !stateMachine.isValidTransition(currentState, newState)) {
             throw new TaskExecutionException(
                     getName(),
                     String.format("Invalid state transition from %s to %s", currentState, newState));

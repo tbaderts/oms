@@ -20,7 +20,7 @@ import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "executions")
-@SuperBuilder
+@SuperBuilder(toBuilder = true)
 @NoArgsConstructor
 @Getter
 public class Execution implements Serializable {

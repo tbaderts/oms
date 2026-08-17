@@ -16,7 +16,8 @@ public class OrderEventReadService {
 
     private final OrderEventRepository orderEventRepository;
 
+    /** An order's history in the sequence it actually happened. */
     public List<OrderEvent> findByOrderId(String orderId) {
-        return orderEventRepository.findByOrderId(orderId);
+        return orderEventRepository.findByOrderIdOrderByVersionAsc(orderId);
     }
 }

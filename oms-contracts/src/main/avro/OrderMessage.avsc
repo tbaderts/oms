@@ -74,6 +74,34 @@
       ]
     },
     {
+      "name": "cumQty",
+      "doc": "Cumulative executed quantity. Scale 4 to match the OMS quantity scale, so no rounding is ever needed on the wire.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "leavesQty",
+      "doc": "Quantity still open for execution.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
       "name": "origClOrdId",
       "type": [ "null", "string" ]
     },

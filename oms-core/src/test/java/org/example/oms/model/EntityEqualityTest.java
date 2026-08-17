@@ -31,17 +31,17 @@ class EntityEqualityTest {
     }
 
     @Test
-    void orderOutbox_transientInstancesAreNotEqual() {
-        OrderOutbox left = OrderOutbox.builder().build();
-        OrderOutbox right = OrderOutbox.builder().build();
+    void outboxMessage_transientInstancesAreNotEqual() {
+        OutboxMessage left = OutboxMessage.builder().build();
+        OutboxMessage right = OutboxMessage.builder().build();
 
         assertNotEquals(left, right);
     }
 
     @Test
-    void orderOutbox_sameNonNullIdIsEqual() throws Exception {
-        OrderOutbox left = OrderOutbox.builder().build();
-        OrderOutbox right = OrderOutbox.builder().build();
+    void outboxMessage_sameNonNullIdIsEqual() throws Exception {
+        OutboxMessage left = OutboxMessage.builder().build();
+        OutboxMessage right = OutboxMessage.builder().build();
 
         setId(left, 20L);
         setId(right, 20L);

@@ -14,6 +14,7 @@ import org.example.oms.service.command.tasks.SetOrderStateTask;
 import org.example.oms.service.command.tasks.ValidateOrderTask;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +60,18 @@ public class OrderCreateCommandProcessor {
         PipelineResult result = orchestrator.execute(pipeline, context);
 
         logPipelineResult(result);
+
+        // The orchestrator converts every task failure into a result rather than an exception, so
+        // without this the transaction would commit whatever the earlier tasks already wrote and
+        // still report failure to the caller. A rejected command must leave no trace.
+        if (!result.isSuccess()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            log.warn(
+                    "OrderCreationPipeline failed for clOrdId={}, rolling back: {}",
+                    command.getOrder().getClOrdId(),
+                    context.getErrorMessage());
+        }
+
         return createResult(result, context);
     }
 

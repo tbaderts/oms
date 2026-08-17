@@ -40,6 +40,11 @@ public class OrderMessageMapper {
                 .state(msg.getState() != null ? msg.getState().name() : null)
                 .cancelState(msg.getCancelState() != null ? msg.getCancelState().name() : null)
                 .orderQty(toBigDecimal(msg.getOrderQty()))
+                // Fill progress. These were absent from the schema, so every live update used to
+                // overwrite the snapshot's quantities with nulls — the blotter blanked out the
+                // columns precisely when a fill made them interesting.
+                .cumQty(toBigDecimal(msg.getCumQty()))
+                .leavesQty(toBigDecimal(msg.getLeavesQty()))
                 .price(toBigDecimal(msg.getPrice()))
                 .stopPx(toBigDecimal(msg.getStopPx()))
                 .timeInForce(msg.getTimeInForce() != null ? msg.getTimeInForce().name() : null)

@@ -8,21 +8,27 @@ OMS (Order Management System) is a Java-based financial application for managing
 
 This is a multi-module project consisting of:
 
+- **oms-contracts** - Shared OpenAPI specs, Avro schemas, and the models generated from them
 - **oms-core** - Main Java/Spring Boot application for order management
 - **oms-streaming-service** - Kafka-based streaming service
 - **oms-ui** - React-based frontend application
 - **oms-mcp-server** - Model Context Protocol server for AI-assisted development
 - **oms-knowledge-base** - Project documentation and specifications
 
+The Gradle build is a **composite**: each module is an independent build, and the service modules
+include `oms-contracts` so they still build standalone.
+
 ## Technology Stack
 
 ### Backend (oms-core, oms-streaming-service)
 - **Java 25** (using Java toolchain)
-- **Spring Boot 3.5.10**
-- **Spring Cloud 2025.0.0**
+- **Spring Boot 4.1.0**
+- **Spring Cloud 2025.0.3**
+- **Jackson 3** (`tools.jackson.databind`, not `com.fasterxml.jackson`)
 - **Spring Kafka** - Event streaming
 - **Spring Data JPA** - Data persistence
 - **PostgreSQL** - Database
+- **Liquibase** - Schema migrations (`ddl-auto: validate`)
 - **Apache Avro** - Schema serialization
 - **OpenAPI/Swagger** - API documentation
 - **Lombok** - Boilerplate reduction
@@ -59,9 +65,12 @@ The team follows these principles (from `oms-knowledge-base/oms-methodolgy/manif
 - All code must adhere to specifications
 
 ### 2. Event Sourcing & CQRS
-- Model state changes as events in an event log
-- Separate read and write operations (CQRS pattern)
-- Enables auditability, replayability, and scalability
+- Every state change is appended to `order_events` with a per-order `version`, alongside the
+  resulting state and a snapshot of the order — see `OrderEventAppender` and `OrderReplayService`
+- Commands and queries have separate APIs and models, but currently share the `orders` table; there
+  is no separate materialized read store
+- Events reach Kafka through a transactional outbox drained by `OutboxRelay`, never by publishing
+  directly from the command path
 
 ### 3. Test-Driven Development (TDD)
 - Write tests before code
@@ -82,34 +91,49 @@ The team follows these principles (from `oms-knowledge-base/oms-methodolgy/manif
 
 The project uses code generation extensively:
 
-### OpenAPI Generation
+**All contracts live in `oms-contracts/` and nowhere else.** A service module must never have its
+own `src/main/openapi/` or `src/main/avro/` — `./gradlew check` in oms-contracts fails the build if
+one reappears.
+
+### Contract sources
+
+- OpenAPI: `oms-contracts/src/main/openapi/{oms-cmd-api,oms-query-api,schema}.yml`
+- Avro: `oms-contracts/src/main/avro/*.avsc`
+
+### Generated models (published by oms-contracts, consumed as a jar)
+
+- `org.example.common.model.cmd` — command API models
+- `org.example.common.model.query` — query API models
+- `org.example.common.model.msg` — Avro classes
+
 ```bash
-# Located in build.gradle
-./gradlew openApiGenerateCmd     # Generate command API
-./gradlew openApiGenerateQuery   # Generate query API
-./gradlew openApiGenerateAvro    # Generate Avro schemas
+cd oms-contracts && ./gradlew build   # regenerate everything, all consumers pick it up
 ```
 
-Generated code locations:
-- Command API: `build/generated/src/main/java/org/example/common/model/cmd`
-- Query API: `build/generated/src/main/java/org/example/common/model/query`
-- Avro schemas: `build/generated-avro`
+### API interfaces
 
-### Avro Schema Location
-- Source schemas: `src/main/avro/*.avsc`
-- Generated Java classes use package: `org.example.common.model.msg`
+Only **oms-core** generates these, because it is the only module that implements them:
+
+```bash
+cd oms-core && ./gradlew openApiGenerateCmd openApiGenerateQuery
+```
+
+They land in `build/generated/` as `ExecuteApi` and `SearchApi`. Other modules consume the models
+and generate nothing.
 
 ## Project Structure
 
 ```
 oms/
+├── oms-contracts/               # Shared contracts — the only copy
+│   ├── src/main/openapi/        # OpenAPI specifications
+│   ├── src/main/avro/           # Avro schema definitions
+│   └── build.gradle
 ├── oms-core/                    # Main OMS application
 │   ├── src/main/java/
 │   │   └── org/example/
 │   │       ├── common/          # Common models and utilities
 │   │       └── oms/             # OMS-specific logic
-│   ├── src/main/avro/           # Avro schema definitions
-│   ├── src/main/openapi/        # OpenAPI specifications
 │   ├── src/main/resources/
 │   └── build.gradle
 ├── oms-streaming-service/       # Kafka streaming service
@@ -167,36 +191,40 @@ npm start
 ```
 
 ### Docker
+A single `docker-compose.yml` at the repository root builds and runs every module plus the
+infrastructure (Postgres, Kafka, Schema Registry, observability). There are no per-module compose
+files and no Kubernetes manifests in this repository.
+
 ```bash
-# Build Docker image (oms-core)
-cd oms-core
-docker build -t oms:latest .
+# Start everything from the repository root
+docker compose up -d
 
-# Run with docker-compose
-docker-compose up
-
-# Kubernetes deployment
-kubectl apply -f k8s/
+# Rebuild and restart a single service
+docker compose up -d --build oms-core
 ```
 
 ### Code Generation
 ```bash
-# Generate all OpenAPI code
-./gradlew openApiGenerateCmd openApiGenerateQuery openApiGenerateAvro
+# Regenerate all shared models after a spec or schema change
+cd oms-contracts && ./gradlew build
 
-# Clean and regenerate
-./gradlew clean build
+# Regenerate everything from the repository root
+./gradlew cleanAll buildAll
 ```
 
 ## Domain Model
 
-The OMS core provides base entity models:
-- **Order** - Order management
-- **Execution** - Trade executions
-- **Quote** - Price quotes
-- **QuoteRequest** - Quote requests
+JPA entities in oms-core:
 
-Sub-domains (Equity, FX, etc.) extend these base entities through inheritance.
+- **Order** - Order state, versioned with `txNr` for optimistic locking
+- **Execution** - Fills, unique on `(orderId, execID)`
+- **OrderEvent** - The append-only event log
+- **OutboxMessage** - Messages staged for Kafka
+
+**Quote** and **QuoteRequest** exist as Avro schemas only; there are no entities or processors for
+them yet.
+
+Sub-domains (Equity, FX, etc.) are intended to extend these base entities through inheritance.
 
 ## MCP Server Integration
 
@@ -225,7 +253,7 @@ Key documentation files in `oms-knowledge-base/`:
 ## Important Notes
 
 ### When Writing Code
-- **Always check specifications first** - Located in `oms-knowledge-base/` and `src/main/openapi/`
+- **Always check specifications first** - Located in `oms-knowledge-base/` and `oms-contracts/src/main/openapi/`
 - **Prefer editing over creating** - Don't create new files unless necessary
 - **Follow specification-driven approach** - Specs before code
 - **Use generated code** - Don't manually write models covered by OpenAPI/Avro
@@ -233,15 +261,14 @@ Key documentation files in `oms-knowledge-base/`:
 - **Keep it simple** - Avoid over-engineering
 
 ### When Modifying APIs
-1. Update OpenAPI spec in `src/main/openapi/`
-2. Update Avro schema in `src/main/avro/` if needed
+1. Update the OpenAPI spec in `oms-contracts/src/main/openapi/`
+2. Update the Avro schema in `oms-contracts/src/main/avro/` if needed
 3. Regenerate code: `./gradlew clean build`
 4. Implement business logic
 5. Write tests
 
 ### Git Workflow
 - Main branch: `main`
-- Modified files: `.vscode/settings.json` (currently staged)
 - Always review changes before committing
 - Follow commit message conventions
 
@@ -262,7 +289,7 @@ For project-specific questions, refer to:
 
 ---
 
-**Last Updated:** 2026-02-12
+**Last Updated:** 2026-08-17
 
 <!-- OPENWIKI:START -->
 

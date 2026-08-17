@@ -1,9 +1,15 @@
 # OMS Core Architecture Specification
 
-**Version:** 1.0  
-**Last Updated:** November 29, 2025  
-**Status:** Final  
+**Version:** 2.0
+**Last Updated:** August 17, 2026
+**Status:** Living document
 **Author:** OMS Architecture Team
+
+> **How to read this document.** Sections 1–14 describe the system **as built**. Section 15 describes
+> the **target architecture** — capabilities that are designed but not implemented. Anything in
+> section 15 is a plan, not a description; do not rely on it when reasoning about current behaviour.
+>
+> Where the two differ materially, sections 1–14 carry an explicit *Not yet implemented* note.
 
 ---
 
@@ -33,12 +39,15 @@ The Order Management System (OMS) is a securities trading platform built using m
 
 ### Key Characteristics
 
-- **Event-Driven**: All state changes captured as immutable events
-- **CQRS**: Separate read and write models for optimal performance
+- **Event-Driven**: Every state change is appended to an event log with a per-order sequence, and
+  published to Kafka through a transactional outbox
+- **CQRS**: Separate command and query APIs and models. *Not yet implemented:* a separate
+  materialized read store — both sides currently read and write the same `orders` table
 - **Spec-Driven**: OpenAPI and Avro schemas define all contracts
-- **AI-Assisted Development**: GitHub Copilot integration for rapid development
-- **Reactive**: Spring WebFlux and RSocket for real-time streaming
-- **Cloud-Native**: Azure deployment with managed services
+- **AI-Assisted Development**: GitHub Copilot and Claude integration via the MCP server
+- **Reactive**: RSocket over WebSocket for real-time streaming — provided by
+  **oms-streaming-service**, not by oms-core, which is a servlet application
+- *Not yet implemented:* **Cloud-Native** Azure deployment. The repository ships Docker Compose only
 
 ```mermaid
 graph TB
@@ -201,7 +210,7 @@ graph TB
         direction TB
         
         subgraph "Command Side"
-            CMD_API[Command API<br/>POST /commands/*]
+            CMD_API[Command API<br/>POST /api/command/execute]
             CMD_HANDLER[Command Handlers]
             VALIDATOR[Validation Engine]
             SM[State Machine]
@@ -209,63 +218,62 @@ graph TB
         end
         
         subgraph "Query Side"
-            QRY_API[Query API<br/>GET /queries/*]
+            QRY_API[Query API<br/>GET /api/query/search]
             SPEC_BUILDER[Specification Builder]
             QRY_SVC[Query Service]
         end
         
-        subgraph "Event Processing"
-            EVT_PUB[Event Publisher]
-            EVT_PROC[Stream Processor]
-            PROJ[Projections]
+        subgraph "Event Publication"
+            APPENDER[Order Event Appender]
+            RELAY[Outbox Relay<br/>scheduled]
         end
     end
-    
+
     subgraph "Data Layer"
         direction LR
-        EVT_STORE[(Event Store<br/>PostgreSQL)]
-        READ_DB[(Query Store<br/>PostgreSQL)]
-        KAFKA[Kafka<br/>Event Topics]
+        DB[(PostgreSQL<br/>orders · order_events · outbox)]
+        KAFKA[Kafka<br/>oms_orders · oms_executions]
     end
-    
+
+    subgraph "Downstream"
+        STREAM[oms-streaming-service<br/>RSocket]
+        DLT[commands.DLT]
+    end
+
     subgraph "Infrastructure"
         PROM[Prometheus]
         LOKI[Loki]
         TRACE[Distributed Tracing]
     end
-    
+
     AM -->|Orders| API_GW
     API_GW --> CMD_API
     API_GW --> QRY_API
-    
+    KAFKA -->|commands| CMD_HANDLER
+    CMD_HANDLER -.->|unprocessable| DLT
+
     CMD_API --> CMD_HANDLER
     CMD_HANDLER --> VALIDATOR
     CMD_HANDLER --> SM
     CMD_HANDLER --> ORCH
-    ORCH --> EVT_PUB
-    
-    EVT_PUB --> EVT_STORE
-    EVT_PUB --> KAFKA
-    
-    KAFKA --> EVT_PROC
-    EVT_PROC --> PROJ
-    PROJ --> READ_DB
-    
+    ORCH --> APPENDER
+
+    APPENDER -->|one transaction| DB
+    RELAY -->|poll| DB
+    RELAY -->|publish| KAFKA
+
     QRY_API --> SPEC_BUILDER
     SPEC_BUILDER --> QRY_SVC
-    QRY_SVC --> READ_DB
-    
-    KAFKA --> TB
-    TB --> RS[RSocket/WebSocket]
-    
-    EVT_PROC --> MKT
+    QRY_SVC --> DB
+
+    KAFKA --> STREAM
+    STREAM --> TB
     KAFKA --> RISK
     
     style CMD_API fill:#4169E1,color:#FFF
     style QRY_API fill:#32CD32,color:#FFF
     style KAFKA fill:#FF6347,color:#FFF
-    style EVT_STORE fill:#9370DB,color:#FFF
-    style READ_DB fill:#9370DB,color:#FFF
+    style DB fill:#9370DB,color:#FFF
 ```
 
 ### 4.2 Module Structure
@@ -351,34 +359,59 @@ graph LR
 
 ### 6.1 Write Path (Command Side)
 
+Commands arrive at `POST /api/command/execute` or on the `commands` Kafka topic. Both routes converge
+on the same processors.
+
+The command transaction covers four writes — the order row, the event row, the outbox row, and (for
+fills) the execution row. Kafka is deliberately *outside* that transaction: the command commits to
+Postgres only, and `OutboxRelay` publishes afterwards. This is what avoids the dual-write problem,
+and it means a command can never report success for an event that was never durably recorded.
+
 ```mermaid
 sequenceDiagram
     participant Client
     participant CmdAPI as Command API
-    participant Handler as Command Handler
-    participant Val as Validator
-    participant SM as State Machine
-    participant Store as Event Store
+    participant Proc as Command Processor
+    participant Orch as Task Orchestrator
+    participant DB as PostgreSQL
+    participant Relay as Outbox Relay
     participant Kafka
-    
-    Client->>CmdAPI: POST /commands/orders
-    CmdAPI->>Handler: OrderCreateCmd
-    Handler->>Val: validate(order)
-    Val-->>Handler: ValidationResult
-    
-    alt Validation Failed
-        Handler-->>CmdAPI: 400 Bad Request
-    else Validation Passed
-        Handler->>SM: validateTransition(NEW)
-        SM-->>Handler: Valid
-        Handler->>Store: append(OrderCreatedEvent)
-        Store-->>Handler: EventId
-        Handler->>Kafka: publish(order-events)
-        Handler-->>CmdAPI: 200 OK {id, status}
+
+    Client->>CmdAPI: POST /api/command/execute
+    CmdAPI->>Proc: OrderCreateCmd
+    Proc->>Orch: execute(pipeline, context)
+    Orch->>Orch: validate, assign id, set state
+
+    alt Pipeline failed
+        Orch-->>Proc: PipelineResult(failed)
+        Proc->>DB: setRollbackOnly()
+        Proc-->>CmdAPI: failure
+        CmdAPI-->>Client: 400 Bad Request
+    else Pipeline succeeded
+        Orch->>DB: INSERT orders
+        Orch->>DB: INSERT order_events (version = n)
+        Orch->>DB: INSERT outbox
+        Orch-->>Proc: PipelineResult(success)
+        Proc-->>CmdAPI: success
+        CmdAPI-->>Client: 201 Created
     end
-    
-    CmdAPI-->>Client: CommandResult
+
+    Note over Relay,Kafka: separate transaction, polls every 200ms
+    Relay->>DB: claim pending (ORDER BY id, SKIP LOCKED)
+    Relay->>Kafka: publish to oms_orders / oms_executions
+    Relay->>DB: DELETE outbox row
 ```
+
+**Guarantees this path provides:**
+
+| Guarantee | Mechanism |
+| --- | --- |
+| A rejected command leaves no trace | Processors call `setRollbackOnly()` on pipeline failure — the orchestrator reports failures as results, never exceptions, so the transaction would otherwise commit |
+| An event is never published without being recorded | Outbox row is written in the command transaction |
+| A recorded event is never lost before publication | `OutboxRelay` retries until the broker accepts; exhausted rows stay in the table and raise `oms.outbox.stuck` |
+| An order's events arrive in order | Relay drains by primary key, which is commit order; messages are keyed by `orderId` |
+| A duplicate command is not applied twice | Unique on `(session_id, cl_ord_id)` for orders, `(order_id, execid)` for executions |
+| Concurrent updates cannot silently overwrite | `Order.txNr` is the JPA `@Version` column |
 
 ### 6.2 Read Path (Query Side)
 
@@ -402,28 +435,59 @@ sequenceDiagram
     QryAPI-->>Client: PagedOrderDto
 ```
 
-### 6.3 State-Query Store Synchronization
+### 6.3 The Event Log
+
+`order_events` is append-only. Each row carries:
+
+| Column | Purpose |
+| --- | --- |
+| `order_id` + `version` | Per-order sequence starting at 1, unique together |
+| `event` | `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ` |
+| `transaction` | The command that caused the change |
+| `resulting_state` | The state the order was left in |
+| `order_snapshot` | The order as it stood immediately after the event |
+
+The unique constraint on `(order_id, version)` is load-bearing: it orders the stream, and it rejects
+the loser when two writers race to append the same version, rolling that command back for retry.
+
+Reconstruction reads the snapshot rather than folding deltas, because orders are small and every
+event already records the state it produced:
+
+```java
+Order atVersion3 = orderReplayService.replayAt(orderId, 3).orElseThrow();
+Order latest     = orderReplayService.replay(orderId).orElseThrow();
+boolean intact   = orderReplayService.isContiguous(orderId);
+```
+
+Comparing `replay(orderId)` against the live `orders` row is the cheapest check that no path mutated
+an order without recording it; `EventSourcingIntegrationTest` asserts exactly this.
+
+### 6.4 Read Path (Query Side)
 
 ```mermaid
-graph TD
-    subgraph "Write Path"
-        App_W[Application] -->|Commands| EventStore[(Event Store<br/>PostgreSQL)]
-    end
-    
-    subgraph "Projection"
-        EventStore -->|Events| Kafka[Kafka Topics]
-        Kafka -->|Consume| Projector[Projector Service]
-        Projector -->|Materialize| QueryStore[(Query Store<br/>Read Replica)]
-    end
-    
-    subgraph "Read Path"
-        App_R[Application] -->|Queries| QueryStore
-    end
-    
-    style EventStore fill:#9370DB,color:#FFF
-    style QueryStore fill:#32CD32,color:#FFF
-    style Kafka fill:#FF6347,color:#FFF
+sequenceDiagram
+    participant Client
+    participant QryAPI as Query API
+    participant SpecBuilder as Specification Builder
+    participant QrySvc as Query Service
+    participant DB as PostgreSQL
+
+    Client->>QryAPI: GET /api/query/search?symbol=AAPL&state=LIVE
+    QryAPI->>SpecBuilder: buildSpec(params)
+    SpecBuilder->>SpecBuilder: parseFilters()
+    SpecBuilder->>SpecBuilder: buildPredicate()
+    SpecBuilder-->>QryAPI: Specification
+    QryAPI->>QrySvc: findOrders(spec, pageable)
+    QrySvc->>DB: SELECT FROM orders WHERE ...
+    DB-->>QrySvc: ResultSet
+    QrySvc-->>QryAPI: Page<OrderDto>
+    QryAPI-->>Client: PagedOrderDto
 ```
+
+> **Not yet implemented.** The query side reads the same `orders` table the command side writes.
+> There is no projector service and no separate read store, so "CQRS" here means separated APIs and
+> models, not separated storage. Reads are consistent with writes by construction, at the cost of the
+> independent scaling a materialized read model would allow. See section 15 for the target design.
 
 ---
 
@@ -461,35 +525,48 @@ graph TB
 ```java
 Order {
     // Identity
-    String orderId;        // Primary identifier
+    Long id;               // Database primary key
+    String orderId;        // Business identifier
     String parentOrderId;  // Parent in hierarchy
     String rootOrderId;    // Root of order tree
+    String sessionId;      // Trading session
     String clOrdId;        // Client order ID (FIX Tag 11)
-    
+
+    // Concurrency and sequencing
+    long txNr;             // @Version. Optimistic lock, and the per-order
+                           // sequence published to Kafka as eventId
+
     // Core Attributes
     String symbol;
-    Side side;            // BUY, SELL, SELL_SHORT
-    OrdType ordType;      // MARKET, LIMIT, STOP
+    Side side;             // BUY, SELL, SELL_SHORT
+    OrdType ordType;       // MARKET, LIMIT, STOP, STOP_LIMIT, MARKET_ON_CLOSE
     BigDecimal price;
     BigDecimal orderQty;
-    
+
     // Execution Tracking
     BigDecimal cumQty;     // Cumulative executed
     BigDecimal leavesQty;  // Remaining open
-    BigDecimal avgPx;      // Average price
     BigDecimal placeQty;   // Placed in market
     BigDecimal allocQty;   // Allocated to client
-    
-    // State
-    State state;          // NEW, UNACK, LIVE, FILLED, CXL, REJ
-    CancelState cancelState;
-    
-    // Grouping
-    String groupOrderId;
-    Boolean isGroupedOrder;
-    Integer memberCount;
+
+    // State — persisted by name, never by ordinal
+    @Enumerated(EnumType.STRING) State state;
+    @Enumerated(EnumType.STRING) CancelState cancelState;
 }
 ```
+
+Two details that are easy to get wrong and expensive to fix afterwards:
+
+- **`state` and `cancelState` must stay `@Enumerated(EnumType.STRING)`.** They were persisted as
+  ordinals until changeset `007`. With ordinal persistence, inserting a value anywhere but the end of
+  the `State` enum silently relabels every stored order, and `ddl-auto: validate` cannot detect it.
+- **`txNr` is the `@Version` column.** Hibernate increments it at flush, so its value is stale while
+  a command is still executing. Anything that needs the sequence *during* the transaction — the
+  outbox message, the published `eventId` — takes it from the event-log version instead.
+
+*Not yet implemented:* `avgPx` on the order, and the grouping fields (`groupOrderId`,
+`isGroupedOrder`, `memberCount`) described in earlier drafts of this document. Average price is
+currently carried on `Execution` only.
 
 ### 7.3 Quantity Calculation Flow
 
@@ -728,6 +805,11 @@ graph LR
 
 ## 10. Real-Time Streaming
 
+> Everything in this section is implemented by **oms-streaming-service**, a separate module. oms-core
+> is a servlet application with no RSocket or WebFlux dependency; its only part in this flow is
+> publishing to `oms_orders` and `oms_executions`, and serving the initial snapshot over the Query
+> API.
+
 ### 10.1 Trade Blotter Architecture
 
 ```mermaid
@@ -835,13 +917,18 @@ graph TD
 
 ### 11.2 Command Types
 
-| Command | Description | Payload |
-|---------|-------------|---------|
-| `OrderCreateCmd` | Create new order | Order object |
-| `OrderAcceptCmd` | Accept/acknowledge order | orderId |
-| `ExecutionCreateCmd` | Report execution | Execution object |
-| `ExecutionWhackCmd` | Cancel execution | executionId |
-| `ExecutionBustCmd` | Bust/reverse execution | executionId |
+| Command | Description | Payload | Event recorded |
+| --- | --- | --- | --- |
+| `OrderCreateCmd` | Create new order | Order object | `NEW_ORDER` |
+| `OrderAcceptCmd` | Accept/acknowledge order | orderId | `ACK` |
+| `ExecutionCreateCmd` | Report execution | Execution object | `PARTIAL_FILL` or `FILL` |
+
+All three are declared in `src/main/openapi/oms-cmd-api.yml` and dispatched by both
+`CommandController` and `CommandListener`. An unrecognised command type is rejected rather than
+ignored, so it reaches `commands.DLT` instead of being silently dropped.
+
+*Not yet implemented:* `ExecutionWhackCmd` and `ExecutionBustCmd` (cancel and reverse an execution),
+and the `CXL` / `REJ` events — the `Event` enum declares them but no command produces them yet.
 
 ### 11.3 Query Filters
 
@@ -933,8 +1020,8 @@ graph TD
 ```mermaid
 graph TD
     subgraph "Application Layer"
-        JAVA[Java 21]
-        SB[Spring Boot 3.x]
+        JAVA[Java 25]
+        SB[Spring Boot 4.1]
         WF[Spring WebFlux]
         DATA[Spring Data JPA]
     end
@@ -986,17 +1073,19 @@ graph TD
 ### 13.2 Technology Matrix
 
 | Layer | Technology | Purpose |
-|-------|------------|---------|
-| **Language** | Java 21 | Core development |
-| **Framework** | Spring Boot 3.x | Application framework |
-| **Reactive** | Spring WebFlux, Reactor | Async processing |
-| **Database** | PostgreSQL | Event & query stores |
+| --- | --- | --- |
+| **Language** | Java 25 (Gradle toolchain) | Core development |
+| **Framework** | Spring Boot 4.1.0, Spring Cloud 2025.0.3 | Application framework |
+| **Web** | Spring MVC (servlet) | oms-core is not reactive |
+| **Reactive** | Spring WebFlux, Reactor | oms-streaming-service only |
+| **Database** | PostgreSQL | State, event log, outbox |
+| **Migrations** | Liquibase (`ddl-auto: validate`) | Schema management |
 | **Messaging** | Confluent Kafka | Event streaming |
-| **Serialization** | Avro, JSON | Event & API payloads |
-| **Real-Time** | RSocket over WebSocket | UI streaming |
+| **Serialization** | Avro + Schema Registry, Jackson 3 | Event & API payloads |
+| **Real-Time** | RSocket over WebSocket | UI streaming, via oms-streaming-service |
 | **API Spec** | OpenAPI 3.0 | Contract definition |
-| **Mapping** | MapStruct | DTO transformation |
-| **Testing** | JUnit 5, Testcontainers | Testing framework |
+| **Mapping** | MapStruct, hand-written Avro mappers | DTO transformation |
+| **Testing** | JUnit 5, Mockito, Testcontainers | Testing framework |
 
 ---
 
@@ -1079,17 +1168,17 @@ The OMS leverages GitHub Copilot with a specialized MCP (Model Context Protocol)
 ```mermaid
 graph TD
     subgraph "Current State"
-        C1[Synchronous Validation]
-        C2[Single DB Replica]
-        C3[Basic Error Handling]
-        C4[Manual Scaling]
+        C1[Sequential task pipeline]
+        C2[Single database, shared read/write]
+        C3[Retry + DLT, no replay tooling]
+        C4[Manual scaling]
     end
-    
+
     subgraph "Recommended Improvements"
-        R1[Async Validation Pipeline]
-        R2[Read Replica Strategy]
-        R3[Circuit Breaker Pattern]
-        R4[Auto-Scaling with Metrics]
+        R1[Parallel independent tasks]
+        R2[Materialized read store + replicas]
+        R3[Circuit breaker + replay tooling]
+        R4[Auto-scaling with metrics]
     end
     
     C1 -->|Upgrade| R1
@@ -1142,10 +1231,11 @@ graph LR
 ```
 
 #### 4. **Enhanced Observability**
-- **Current**: Basic metrics and logging
-- **Recommendation**: 
-  - Distributed tracing with OpenTelemetry
-  - Business metrics dashboards
+- **Current**: Micrometer metrics, OpenTelemetry tracing, `oms.outbox.pending` and
+  `oms.outbox.stuck` gauges
+- **Recommendation**:
+  - Business metrics dashboards (fill rates, state-transition latency, rejection reasons)
+  - Alerting on `oms.outbox.stuck > 0` — a stuck outbox means downstream is diverging silently
   - Anomaly detection
 
 #### 5. **API Gateway & Rate Limiting**
@@ -1158,30 +1248,25 @@ graph LR
 - **Recommendation**: Implement schema registry with compatibility checks
 - **Benefit**: Safe schema evolution without breaking consumers
 
-#### 7. **Snapshot Store for Event Sourcing**
-- **Current**: Full event replay
-- **Recommendation**: Periodic snapshots to reduce replay time
-- **Benefit**: Faster order reconstruction, reduced DB load
-
-```mermaid
-graph LR
-    E1[Event 1] --> E2[Event 2] --> E3[...]
-    E3 --> SNAP[Snapshot @100]
-    SNAP --> E101[Event 101]
-    E101 --> E102[Event 102]
-    
-    style SNAP fill:#FFD700
-```
+#### 7. **Delta-Based Event Log**
+- **Current**: Every event stores a full snapshot of the resulting order, so replay is a single
+  lookup rather than a fold
+- **Recommendation**: If order size or event volume grows enough for snapshot-per-event to become
+  costly, switch to storing deltas with periodic snapshots
+- **Benefit**: Smaller event log; the trade-off is that replay becomes a fold and gains a failure
+  mode the current design does not have
 
 #### 8. **Caching Layer**
 - **Current**: Direct database queries
 - **Recommendation**: Redis or another cache for frequently accessed data (ReadySet was evaluated and removed — it only passes dynamic JPA queries through without caching them)
 - **Benefit**: Reduced latency, database load offloading
 
-#### 9. **Dead Letter Queue (DLQ)**
-- **Current**: Basic error handling
-- **Recommendation**: DLQ for failed events with retry policies
-- **Benefit**: No message loss, automatic retry with backoff
+#### 9. **Dead-Letter Replay Tooling**
+- **Current**: Failed commands retry with exponential backoff and then land on `commands.DLT`;
+  outbox messages that exhaust their retry budget stay in the `outbox` table
+- **Recommendation**: An operator endpoint or CLI to inspect and replay both, rather than requiring
+  manual SQL and a console producer
+- **Benefit**: Recovery from a poison message or a prolonged broker outage stops being a bespoke task
 
 #### 10. **Multi-Region Deployment**
 - **Current**: Single region
@@ -1191,15 +1276,16 @@ graph LR
 ### 15.3 Priority Matrix
 
 | Improvement | Impact | Effort | Priority |
-|-------------|--------|--------|----------|
-| Parallel Task Execution | High | Medium | P1 |
-| Snapshot Store | High | Medium | P1 |
-| Circuit Breaker | High | Low | P1 |
-| Distributed Tracing | Medium | Low | P2 |
-| Read Replicas | High | Medium | P2 |
+| --- | --- | --- | --- |
+| Materialized read store / projector | High | High | P1 |
+| Dead-letter replay tooling | High | Low | P1 |
+| Cancel and amend commands (`CXL`, `REJ`) | High | Medium | P1 |
+| Circuit Breaker | High | Low | P2 |
+| Parallel Task Execution | Medium | Medium | P2 |
 | Saga Pattern | High | High | P2 |
+| Read Replicas | High | Medium | P2 |
 | API Gateway | Medium | Medium | P3 |
-| Event Store Migration | High | High | P3 |
+| Delta-based event log | Low | Medium | P3 |
 | Multi-Region | High | Very High | P4 |
 
 ---

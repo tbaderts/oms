@@ -1,5 +1,9 @@
 rootProject.name = 'oms'
 
+// oms-contracts is included by each service's own settings.gradle so that a module builds
+// standalone. Listing it here too makes it addressable from the aggregate tasks below.
+includeBuild('oms-contracts')
+
 includeBuild('oms-core')
 includeBuild('oms-streaming-service')
 includeBuild('oms-mcp-server')

@@ -2,7 +2,6 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
-	id 'org.openapi.generator' version '7.24.0'
 }
 
 group = 'org.example'
@@ -30,6 +29,9 @@ ext {
 }
 
 dependencies {
+	// Shared contracts: query models generated once in oms-contracts
+	implementation 'org.example.oms:oms-contracts'
+
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.1.0'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
@@ -58,29 +60,9 @@ dependencyManagement {
 	}
 }
 
-// Add the generated sources to the source set
-sourceSets.main.java.srcDirs += "${layout.buildDirectory.get()}/generated/src/main/java"
-
-openApiGenerate {
-    generatorName = "spring"
-    inputSpec = "$projectDir/src/main/openapi/oms-query-api.yml".toString()
-    outputDir = "${layout.buildDirectory.get()}/generated".toString()
-    apiPackage = "org.example.common.api"
-    modelPackage = "org.example.common.model.query"
-    configOptions = [
-        interfaceOnly: "true",
-        useSpringBoot3: "true",
-		reactive: "true",
-        skipDefaultInterface: "true",
-		enumPropertyNaming: "original",
-        modelNameSuffix: "",
-		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
-    ]
-}
-
-tasks.named("compileJava") {
-    dependsOn tasks.named("openApiGenerate")
-}
+// This module used to keep its own copies of the three OpenAPI specs and generate reactive API
+// interfaces it never implemented, purely to obtain the query models. Both now come from
+// oms-contracts.
 
 tasks.named('test') {
 	useJUnitPlatform()

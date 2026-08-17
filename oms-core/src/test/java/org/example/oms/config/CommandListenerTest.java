@@ -97,7 +97,7 @@ class CommandListenerTest {
 
         when(objectMapper.convertValue(incoming, ExecutionCreateCmd.class)).thenReturn(mapped);
         when(orderMapper.toExecution(mappedExecution)).thenReturn(execution);
-        when(executionCommandProcessor.process(execution)).thenReturn(result);
+        when(executionCommandProcessor.process(execution, mapped)).thenReturn(result);
         when(result.isSuccess()).thenReturn(true);
         when(result.getExecution()).thenReturn(resultExecution);
         when(resultExecution.getExecID()).thenReturn("EX-1");
@@ -106,7 +106,7 @@ class CommandListenerTest {
 
         commandListener.consume(MessageBuilder.withPayload(payload).build());
 
-        verify(executionCommandProcessor).process(execution);
+        verify(executionCommandProcessor).process(execution, mapped);
         verify(orderCreateCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
         verify(orderAcceptCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
     }
@@ -122,12 +122,18 @@ class CommandListenerTest {
         verify(executionCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
     }
 
+    /**
+     * An unknown command type is a contract problem, not something to shrug off. The listener used
+     * to log a warning and return, which let the container commit the offset and lose the record;
+     * throwing routes it to the dead-letter topic instead.
+     */
     @Test
-    void consume_shouldIgnoreUnsupportedCommandType() {
-        Object unsupported = new Object();
-        CommandMessage payload = new CommandMessage(unsupported);
+    void consume_shouldRejectUnsupportedCommandTypeSoItReachesTheDlt() {
+        CommandMessage payload = new CommandMessage(new Object());
+        var message = MessageBuilder.withPayload(payload).build();
 
-        commandListener.consume(MessageBuilder.withPayload(payload).build());
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> commandListener.consume(message));
 
         verify(orderCreateCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());
         verify(orderAcceptCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any());

@@ -43,7 +43,12 @@ out/
 
 ### Avro Generated ###
 **/src/main/avro-generated/
+
+# Hand-written Avro schemas are the Kafka wire contract and must be versioned.
+# They live in oms-contracts and nowhere else; the rule below catches stray copies
+# reappearing in a service module.
 **/src/main/avro/
+!oms-contracts/src/main/avro/
 
 ### Logs ###
 **/logs/

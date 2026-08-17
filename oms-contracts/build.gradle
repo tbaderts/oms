@@ -1,0 +1,153 @@
+/*
+ * oms-contracts — the single source of truth for every cross-service contract.
+ *
+ * Owns the OpenAPI specifications and the Avro schemas, and publishes:
+ *
+ *   1. Generated model classes  org.example.common.model.{cmd,query,msg}
+ *   2. The raw spec files, under META-INF/oms-contracts/ in the same jar
+ *
+ * Services consume (1) as a normal dependency. Only a service that implements REST endpoints needs
+ * the specs, to generate its own API interfaces in the flavour it wants — oms-core generates
+ * servlet interfaces from them, and nothing stops another service generating reactive ones.
+ *
+ * Deliberately NOT a Spring Boot module: no bootJar, no Spring dependencies beyond what generated
+ * code needs to compile. It is a plain library.
+ *
+ * Before this existed, all three service modules carried byte-identical copies of the three specs
+ * and two carried copies of the Avro schemas. They had already drifted: CommandMessage.avsc
+ * declared three command types in oms-core and six in oms-streaming-service, against one shared
+ * schema registry.
+ */
+plugins {
+    id 'java-library'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.openapi.generator' version '7.24.0'
+    id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
+}
+
+group = 'org.example.oms'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = uri("https://packages.confluent.io/maven/") }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:4.1.0"
+    }
+}
+
+dependencies {
+    // Everything below is `api`, not `implementation`: these types appear on the generated models'
+    // public surface, so consumers need them on their compile classpath.
+    api 'org.apache.avro:avro:1.12.1'
+    api 'io.swagger.core.v3:swagger-annotations:2.2.53'
+    api 'org.openapitools:jackson-databind-nullable:0.2.11'
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api 'jakarta.validation:jakarta.validation-api'
+    api 'jakarta.annotation:jakarta.annotation-api'
+
+    // The `spring` generator emits models annotated with org.springframework.lang.Nullable and
+    // org.springframework.format.annotation.DateTimeFormat. Only these two Spring artifacts are
+    // needed — this module stays a plain library, not a Boot application.
+    api 'org.springframework:spring-core'
+    api 'org.springframework:spring-context'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+}
+
+// ---------------------------------------------------------------------------
+// Model generation. `globalProperties = [models: '']` selects models only —
+// API interfaces are each service's business, not this module's.
+// ---------------------------------------------------------------------------
+
+def modelGeneratorOptions = [
+    interfaceOnly: "true",
+    useSpringBoot3: "true",
+    skipDefaultInterface: "true",
+    enumPropertyNaming: "original",
+    modelNameSuffix: "",
+    additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
+]
+
+tasks.register('openApiGenerateCmdModels', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
+    outputDir = layout.buildDirectory.dir("generated").get().asFile.toString()
+    modelPackage = "org.example.common.model.cmd"
+    apiPackage = "org.example.common.api"
+    globalProperties = [models: ""]
+    configOptions = modelGeneratorOptions
+}
+
+tasks.register('openApiGenerateQueryModels', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-query-api.yml".toString()
+    outputDir = layout.buildDirectory.dir("generated").get().asFile.toString()
+    modelPackage = "org.example.common.model.query"
+    apiPackage = "org.example.common.api"
+    globalProperties = [models: ""]
+    configOptions = modelGeneratorOptions
+}
+
+tasks.named('compileJava') {
+    dependsOn 'openApiGenerateCmdModels', 'openApiGenerateQueryModels'
+}
+
+sourceSets.main.java.srcDirs += layout.buildDirectory.dir("generated/src/main/java")
+
+// ---------------------------------------------------------------------------
+// Ship the raw specs inside the jar as well, so anything consuming this module off a repository
+// (rather than as an included build) can still read the contracts it was compiled against.
+//
+// oms-core, which generates its own API interfaces, reads them from `src/main/openapi` directly via
+// the omsContractsSpecDir property — a fixed relative path is honest in a single repo whose root
+// composite already hard-codes every module location, and it avoids resolving a classifier
+// artifact across a composite-build substitution.
+// ---------------------------------------------------------------------------
+
+tasks.named('processResources', ProcessResources) {
+    from('src/main/openapi') { into 'META-INF/oms-contracts/openapi' }
+    from('src/main/avro') { into 'META-INF/oms-contracts/avro' }
+}
+
+// Guard against the failure mode this module exists to prevent: a schema that no consumer can
+// deserialize because it was edited in only one place.
+tasks.register('verifyContracts') {
+    group = 'verification'
+    description = 'Fails if a service module has reintroduced its own copy of the contracts.'
+    doLast {
+        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server']
+            .collectMany { module ->
+                [new File(rootDir, "../$module/src/main/avro"),
+                 new File(rootDir, "../$module/src/main/openapi")]
+            }
+            .findAll { it.exists() }
+
+        if (strays) {
+            throw new GradleException(
+                "Contracts must live only in oms-contracts. Found local copies:\n  "
+                    + strays.collect { it.canonicalPath }.join("\n  "))
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'verifyContracts'
+}

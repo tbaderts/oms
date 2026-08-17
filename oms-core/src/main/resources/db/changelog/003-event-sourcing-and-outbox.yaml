@@ -1,0 +1,222 @@
+databaseChangeLog:
+
+  # ---------------------------------------------------------------------------
+  # ES-3: orders.state / orders.cancel_state were persisted as enum ordinals
+  # (SMALLINT). Reordering the State enum would silently relabel every stored
+  # order. Convert to VARCHAR holding the enum name, mapping the existing
+  # ordinals explicitly.
+  #
+  # State ordinals:       0=NEW 1=UNACK 2=LIVE 3=FILLED 4=CXL 5=REJ 6=CLOSED 7=EXP
+  # CancelState ordinals: 0=CXL 1=PCXL 2=PMOD 3=REJ
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 007-orders-state-ordinal-to-string
+      author: oms
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column: { name: state_name, type: VARCHAR(32) }
+              - column: { name: cancel_state_name, type: VARCHAR(32) }
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE orders SET state_name = CASE state
+                WHEN 0 THEN 'NEW'
+                WHEN 1 THEN 'UNACK'
+                WHEN 2 THEN 'LIVE'
+                WHEN 3 THEN 'FILLED'
+                WHEN 4 THEN 'CXL'
+                WHEN 5 THEN 'REJ'
+                WHEN 6 THEN 'CLOSED'
+                WHEN 7 THEN 'EXP'
+                ELSE NULL
+              END;
+              UPDATE orders SET cancel_state_name = CASE cancel_state
+                WHEN 0 THEN 'CXL'
+                WHEN 1 THEN 'PCXL'
+                WHEN 2 THEN 'PMOD'
+                WHEN 3 THEN 'REJ'
+                ELSE NULL
+              END;
+        - dropColumn: { tableName: orders, columnName: state }
+        - dropColumn: { tableName: orders, columnName: cancel_state }
+        - renameColumn:
+            tableName: orders
+            oldColumnName: state_name
+            newColumnName: state
+            columnDataType: VARCHAR(32)
+        - renameColumn:
+            tableName: orders
+            oldColumnName: cancel_state_name
+            newColumnName: cancel_state
+            columnDataType: VARCHAR(32)
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_state
+            columns:
+              - column:
+                  name: state
+      rollback:
+        - sql: SELECT 1
+
+  # ---------------------------------------------------------------------------
+  # ES-6: no optimistic locking on Order. tx_nr already existed but was never
+  # written; promote it to the JPA @Version column so concurrent fills cannot
+  # silently overwrite one another.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 008-orders-version-column
+      author: oms
+      changes:
+        - sql: UPDATE orders SET tx_nr = 0 WHERE tx_nr IS NULL
+        - addDefaultValue:
+            tableName: orders
+            columnName: tx_nr
+            columnDataType: BIGINT
+            defaultValueNumeric: 0
+        - addNotNullConstraint:
+            tableName: orders
+            columnName: tx_nr
+            columnDataType: BIGINT
+
+  # ---------------------------------------------------------------------------
+  # ES-5: executions had no idempotency key. Kafka delivery is at-least-once,
+  # so a redelivered ExecutionCreateCmd was applied twice and double-counted
+  # cumQty. Deduplicate any pre-existing duplicates, then constrain.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 009-executions-idempotency-constraint
+      author: oms
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              DELETE FROM executions e USING executions dup
+              WHERE e.order_id = dup.order_id
+                AND e.execid = dup.execid
+                AND e.id > dup.id;
+        - createIndex:
+            tableName: executions
+            indexName: idx_executions_order_id
+            columns:
+              - column:
+                  name: order_id
+        - addUniqueConstraint:
+            tableName: executions
+            columnNames: order_id, execid
+            constraintName: uq_executions_order_id_execid
+
+  # ---------------------------------------------------------------------------
+  # ES-2: order_events carried no per-aggregate sequence and stored only the
+  # inbound command, so the log could be neither ordered nor folded back into
+  # an order. Add a monotonic version per order_id, the resulting state, and a
+  # snapshot of the order as it stood after the event.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 010-order-events-versioning
+      author: oms
+      changes:
+        - addColumn:
+            tableName: order_events
+            columns:
+              - column: { name: version, type: BIGINT }
+              - column: { name: resulting_state, type: VARCHAR(32) }
+              - column: { name: order_snapshot, type: JSONB }
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE order_events oe SET version = seq.rn
+              FROM (
+                SELECT id, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY id) AS rn
+                FROM order_events
+              ) seq
+              WHERE oe.id = seq.id;
+        - addNotNullConstraint:
+            tableName: order_events
+            columnName: version
+            columnDataType: BIGINT
+        - addUniqueConstraint:
+            tableName: order_events
+            columnNames: order_id, version
+            constraintName: uq_order_events_order_id_version
+
+  # ---------------------------------------------------------------------------
+  # KF-1 / KF-3: replace the order-only outbox with a generic one that a relay
+  # can poll. order_messages had no bookkeeping columns (no created_at, no
+  # attempt count) and no way to carry an execution payload.
+  #
+  # Existing rows are carried across rather than dropped: anything still in
+  # order_messages was never delivered, and the new relay can now retry it.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 011-generic-outbox
+      author: oms
+      changes:
+        - createSequence:
+            sequenceName: outbox_seq
+            incrementBy: 1
+            startValue: 1
+        - createTable:
+            tableName: outbox
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_outbox
+                    nullable: false
+              - column:
+                  name: aggregate_type
+                  type: VARCHAR(32)
+                  constraints: { nullable: false }
+              - column:
+                  name: aggregate_id
+                  type: VARCHAR(255)
+                  constraints: { nullable: false }
+              - column:
+                  name: topic
+                  type: VARCHAR(255)
+                  constraints: { nullable: false }
+              - column:
+                  name: aggregate_version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+              - column: { name: order_payload, type: JSONB }
+              - column: { name: execution_payload, type: JSONB }
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints: { nullable: false }
+              - column:
+                  name: attempts
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints: { nullable: false }
+              - column: { name: last_error, type: VARCHAR(2000) }
+        - createIndex:
+            tableName: outbox
+            indexName: idx_outbox_created_at
+            columns:
+              - column:
+                  name: created_at
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO outbox (id, aggregate_type, aggregate_id, topic, aggregate_version,
+                                  order_payload, created_at, attempts)
+              SELECT nextval('outbox_seq'),
+                     'ORDER',
+                     COALESCE(outbound_order ->> 'orderId', 'unknown'),
+                     'oms_orders',
+                     0,
+                     outbound_order,
+                     now(),
+                     0
+              FROM order_messages;
+        - dropTable:
+            tableName: order_messages
+        - dropSequence:
+            sequenceName: order_outbox_seq

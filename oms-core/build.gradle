@@ -3,7 +3,6 @@ plugins {
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'org.openapi.generator' version '7.24.0'
-	id 'com.github.davidmc24.gradle.plugin.avro' version '1.9.1'
 }
 
 group = 'org.example.oms'
@@ -33,6 +32,11 @@ ext {
 }
 
 dependencies {
+	// Shared contracts: OpenAPI/Avro models generated once, in oms-contracts.
+	// The API interfaces this module implements are still generated locally, below, because they
+	// are servlet-flavoured and specific to oms-core.
+	implementation 'org.example.oms:oms-contracts'
+
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -101,51 +105,51 @@ configurations {
     }
 }
 
+// ---------------------------------------------------------------------------
+// API interface generation.
+//
+// Models come from oms-contracts; `globalProperties = [apis: '']` selects interfaces only, so
+// ExecuteApi and SearchApi are generated here against the shared model packages. This module is the
+// only one that implements them, which is why it is the only one still running the generator.
+//
+// The generator previously also produced Avro schemas into build/generated-avro from the command
+// spec. Nothing ever compiled them — the Avro plugin reads .avsc files, not that directory — so the
+// task has been dropped rather than moved.
+// ---------------------------------------------------------------------------
+
+def contractsSpecDir = findProperty('omsContractsSpecDir') ?: "$projectDir/../oms-contracts/src/main/openapi"
+
+def apiGeneratorOptions = [
+    interfaceOnly: "true",
+    useSpringBoot3: "true",
+    skipDefaultInterface: "true",
+    enumPropertyNaming: "original",
+    modelNameSuffix: ""
+]
+
 task openApiGenerateCmd(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
     generatorName = "spring"
-    inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
+    inputSpec = "$contractsSpecDir/oms-cmd-api.yml".toString()
     outputDir = "$buildDir/generated".toString()
     apiPackage = "org.example.common.api"
     modelPackage = "org.example.common.model.cmd"
-    configOptions = [
-        interfaceOnly: "true",
-        useSpringBoot3: "true",
-        skipDefaultInterface: "true",
-		enumPropertyNaming: "original",
-        modelNameSuffix: "",
-		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
-    ]
+    globalProperties = [apis: ""]
+    configOptions = apiGeneratorOptions
 }
 
 task openApiGenerateQuery(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
     generatorName = "spring"
-    inputSpec = "$projectDir/src/main/openapi/oms-query-api.yml".toString()
+    inputSpec = "$contractsSpecDir/oms-query-api.yml".toString()
     outputDir = "$buildDir/generated".toString()
     apiPackage = "org.example.common.api"
     modelPackage = "org.example.common.model.query"
-    configOptions = [
-        interfaceOnly: "true",
-        useSpringBoot3: "true",
-        skipDefaultInterface: "true",
-		enumPropertyNaming: "original",
-        modelNameSuffix: "",
-		additionalModelTypeAnnotations: "@lombok.experimental.SuperBuilder @lombok.extern.jackson.Jacksonized"
-    ]
-}
-
-task openApiGenerateAvro(type: org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
-    generatorName = "avro-schema"
-    inputSpec = "$projectDir/src/main/openapi/oms-cmd-api.yml".toString()
-    outputDir = "$buildDir/generated-avro".toString()
-    configOptions = [
-        packageName: "org.example.common.model.msg"
-    ]
+    globalProperties = [apis: ""]
+    configOptions = apiGeneratorOptions
 }
 
 tasks.named("compileJava") {
     dependsOn tasks.named("openApiGenerateCmd")
     dependsOn tasks.named("openApiGenerateQuery")
-    dependsOn tasks.named("openApiGenerateAvro")
 }
 
 // Add the generated sources to the source set

@@ -37,6 +37,33 @@ public class PersistExecutionTask implements ConditionalTask<OrderTaskContext> {
         Execution execution = context.getExecution();
 
         try {
+            // Kafka delivery is at-least-once, so the same fill can arrive more than once. Applying
+            // it twice would double-count cumQty and could drive the order to FILLED on half its
+            // real volume, so a redelivery is rejected here rather than reprocessed.
+            if (executionRepository.existsByOrderIdAndExecID(
+                    execution.getOrderId(), execution.getExecID())) {
+                String message =
+                        String.format(
+                                "Execution already applied: orderId=%s, execId=%s",
+                                execution.getOrderId(), execution.getExecID());
+                context.markValidationFailed(message);
+                log.info("Idempotence check rejected duplicate execution: {}", message);
+                return TaskResult.failed(getName(), message);
+            }
+
+            // Record the order's resulting position on the execution itself, the way a FIX
+            // ExecutionReport carries CumQty(14) and LeavesQty(151). This makes the execution row
+            // self-contained: consumers of the executions topic can render a fill without joining
+            // against the orders topic, and the audit record stands on its own.
+            if (context.getCalculatedCumQty() != null && context.getCalculatedLeavesQty() != null) {
+                execution =
+                        execution.toBuilder()
+                                .cumQty(context.getCalculatedCumQty())
+                                .leavesQty(context.getCalculatedLeavesQty())
+                                .build();
+                context.setExecution(execution);
+            }
+
             // Persist execution to database
             Execution savedExecution = executionRepository.save(execution);
 

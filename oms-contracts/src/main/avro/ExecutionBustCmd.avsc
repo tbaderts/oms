@@ -2,16 +2,21 @@
   "namespace": "org.example.common.model.msg",
   "type": "record",
   "doc": "",
-  "name": "Execution",
+  "name": "ExecutionBustCmd",
   "fields": [
     {
-      "name": "execId",
+      "name": "type",
+      "type": "string",
+      "doc": "Command type discriminator"
+    },
+    {
+      "name": "version",
       "type": ["null", "string"],
-      "doc": "",
+      "doc": "Command API version",
       "default": null
     },
     {
-      "name": "orderId",
+      "name": "executionId",
       "type": ["null", "string"],
       "doc": "",
       "default": null

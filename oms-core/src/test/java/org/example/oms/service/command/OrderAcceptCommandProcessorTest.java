@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,7 +14,9 @@ import java.util.Optional;
 import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.model.cmd.OrderAcceptCmd;
+import org.example.oms.model.Event;
 import org.example.oms.repository.OrderRepository;
+import org.example.oms.service.OrderEventAppender;
 import org.example.oms.service.command.OrderAcceptCommandProcessor.OrderAcceptResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,13 +32,16 @@ class OrderAcceptCommandProcessorTest {
     private OrderRepository orderRepository;
 
     @Mock
+    private OrderEventAppender orderEventAppender;
+
+    @Mock
     private OrderAcceptCmd command;
 
     private OrderAcceptCommandProcessor processor;
 
     @BeforeEach
     void setUp() {
-        processor = new OrderAcceptCommandProcessor(orderRepository);
+        processor = new OrderAcceptCommandProcessor(orderRepository, orderEventAppender);
     }
 
     @Test
@@ -53,6 +59,36 @@ class OrderAcceptCommandProcessorTest {
         ArgumentCaptor<Order> savedCaptor = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(savedCaptor.capture());
         assertEquals(State.LIVE, savedCaptor.getValue().getState());
+    }
+
+    /**
+     * The accept path used to mutate the order and record nothing, so the transition to LIVE was
+     * absent from the audit log and invisible to downstream consumers.
+     */
+    @Test
+    void process_whenAccepted_recordsAckEventAgainstTheLiveOrder() {
+        Order order = Order.builder().orderId("ORD-1").state(State.UNACK).build();
+        when(command.getOrderId()).thenReturn("ORD-1");
+        when(orderRepository.findByOrderId("ORD-1")).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        processor.process(command);
+
+        ArgumentCaptor<Order> eventOrderCaptor = ArgumentCaptor.forClass(Order.class);
+        verify(orderEventAppender)
+                .appendOrderEvent(eventOrderCaptor.capture(), eq(Event.ACK), eq(command));
+        assertEquals(State.LIVE, eventOrderCaptor.getValue().getState());
+    }
+
+    @Test
+    void process_whenRejected_recordsNoEvent() {
+        Order order = Order.builder().orderId("ORD-2").state(State.NEW).build();
+        when(command.getOrderId()).thenReturn("ORD-2");
+        when(orderRepository.findByOrderId("ORD-2")).thenReturn(Optional.of(order));
+
+        processor.process(command);
+
+        verify(orderEventAppender, never()).appendOrderEvent(any(), any(), any());
     }
 
     @Test

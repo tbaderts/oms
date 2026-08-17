@@ -35,7 +35,7 @@ class PersistOrderTaskTest {
 
         assertEquals(TaskResult.Status.FAILED, result.getStatus());
         assertEquals("Duplicate order for sessionId=SESSION-1 and clOrdId=CL-1", result.getMessage());
-        verify(orderRepository, never()).save(order);
+        verify(orderRepository, never()).saveAndFlush(order);
     }
 
     @Test
@@ -45,12 +45,12 @@ class PersistOrderTaskTest {
         OrderTaskContext context = new OrderTaskContext(order);
 
         when(orderRepository.existsBySessionIdAndClOrdId("SESSION-2", "CL-2")).thenReturn(false);
-        when(orderRepository.save(order)).thenReturn(saved);
+        when(orderRepository.saveAndFlush(order)).thenReturn(saved);
 
         TaskResult result = task.execute(context);
 
         assertEquals(TaskResult.Status.SUCCESS, result.getStatus());
         assertEquals(saved, context.getOrder());
-        verify(orderRepository).save(order);
+        verify(orderRepository).saveAndFlush(order);
     }
 }

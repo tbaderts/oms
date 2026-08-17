@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/001-initial-schema.yaml
   - include:
       file: db/changelog/002-order-idempotency-constraint.yaml
+  - include:
+      file: db/changelog/003-event-sourcing-and-outbox.yaml

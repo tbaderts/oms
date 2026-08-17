@@ -1,1 +1,5 @@
 rootProject.name = 'oms-core'
+
+// Keeps `cd oms-core && ./gradlew build` working on its own; the root composite picks this up
+// transitively rather than including oms-contracts a second time.
+includeBuild('../oms-contracts')

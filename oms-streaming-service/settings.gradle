@@ -1,1 +1,3 @@
 rootProject.name = 'oms-streaming-service'
+
+includeBuild('../oms-contracts')

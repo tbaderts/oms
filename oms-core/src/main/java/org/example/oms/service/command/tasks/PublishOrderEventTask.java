@@ -1,87 +1,50 @@
 package org.example.oms.service.command.tasks;
 
-import java.time.Instant;
 import java.util.function.Predicate;
 
 import org.example.common.model.Order;
 import org.example.common.orchestration.ConditionalTask;
-import org.example.oms.model.Event;
-import org.example.oms.model.OrderEvent;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
-import org.example.oms.model.OrderOutbox;
+import org.example.oms.model.Event;
 import org.example.oms.model.OrderTaskContext;
-import org.example.oms.model.ProcessingEvent;
-import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.repository.OrderOutboxRepository;
-import org.springframework.context.ApplicationEventPublisher;
+import org.example.oms.service.OrderEventAppender;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Task that publishes the order creation event to the outbox for downstream processing. This task
- * creates an outbox entry and publishes a processing event.
+ * Records the order-created event and stages the new order for publication.
  *
  * <p>Only executes if the order has been successfully persisted (has a database ID).
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class PublishOrderEventTask implements ConditionalTask<OrderTaskContext> {
 
-    private final OrderOutboxRepository orderOutboxRepository;
-    private final OrderEventRepository orderEventRepository;
-    private final ApplicationEventPublisher eventPublisher;
-
-    public PublishOrderEventTask(
-            OrderOutboxRepository orderOutboxRepository,
-            OrderEventRepository orderEventRepository,
-            ApplicationEventPublisher eventPublisher) {
-        this.orderOutboxRepository = orderOutboxRepository;
-        this.orderEventRepository = orderEventRepository;
-        this.eventPublisher = eventPublisher;
-    }
+    private final OrderEventAppender orderEventAppender;
 
     @Override
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
         try {
             Order order = context.getOrder();
 
-            OrderEvent orderEvent =
-                    OrderEvent.builder()
-                            .orderId(order.getOrderId())
-                            .event(Event.NEW_ORDER)
-                            .transaction(context.getCommand())
-                            .timeStamp(Instant.now())
-                            .build();
-            orderEventRepository.save(orderEvent);
+            long version =
+                    orderEventAppender.appendOrderEvent(
+                            order, Event.NEW_ORDER, context.getCommand());
 
-            // Create outbox entry
-            OrderOutbox outbox = OrderOutbox.builder().order(order).build();
+            context.put("eventVersion", version);
 
-            OrderOutbox savedOutbox = orderOutboxRepository.save(outbox);
-
-            log.info(
-                    "Created outbox entry with ID: {} for order: {}",
-                    savedOutbox.getId(),
-                    order.getOrderId());
-
-            // Publish event for transactional event listener
-            ProcessingEvent event = ProcessingEvent.builder().orderOutbox(savedOutbox).build();
-
-            eventPublisher.publishEvent(event);
-
-            log.info("Published processing event for order: {}", order.getOrderId());
-
-            // Store outbox ID in context
-            context.put("outboxId", savedOutbox.getId());
+            log.info("Recorded NEW_ORDER v{} for order {}", version, order.getOrderId());
 
             return TaskResult.success(
-                    getName(), "Event published for order: " + order.getOrderId());
+                    getName(), "Event recorded for order: " + order.getOrderId());
 
         } catch (Exception e) {
-            log.error("Failed to publish order event: {}", e.getMessage(), e);
-            throw new TaskExecutionException(getName(), "Failed to publish order event", e);
+            log.error("Failed to record order event: {}", e.getMessage(), e);
+            throw new TaskExecutionException(getName(), "Failed to record order event", e);
         }
     }
 

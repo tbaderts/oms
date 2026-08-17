@@ -1,86 +1,81 @@
 package org.example.oms.service.execution.tasks;
 
+import java.util.function.Predicate;
+
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
+import org.example.common.model.State;
 import org.example.common.orchestration.ConditionalTask;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
+import org.example.oms.model.Event;
 import org.example.oms.model.OrderTaskContext;
+import org.example.oms.service.OrderEventAppender;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.function.Predicate;
-
 /**
- * Task that publishes an execution event for downstream consumers.
- * 
- * <p>This task creates and publishes an event containing execution details that can be consumed by:
- * 
- * <ul>
- *   <li>Risk management systems
- *   <li>Position tracking systems
- *   <li>Client notification services
- *   <li>Audit and compliance systems
- * </ul>
- * 
- * <p>The event includes order and execution details such as orderId, execId, fill quantity, price,
- * and updated order state.
- * 
+ * Records the fill and stages both the execution and the order it changed for publication.
+ *
+ * <p>This task used to be a stub that logged and returned success, which meant fills reached no
+ * outbox row, no event row and no topic — the executions topic the streaming service subscribes to
+ * was empty by construction, and order state changes caused by fills were invisible downstream.
+ *
+ * <p>Publication failures are not tolerated here. The event and outbox writes are part of the same
+ * transaction as the fill, so failing the task rolls the fill back rather than committing an
+ * execution nobody downstream will ever hear about.
+ *
  * <p>Precondition: Both order and execution must be present in context
  */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class PublishExecutionEventTask implements ConditionalTask<OrderTaskContext> {
+
+    private final OrderEventAppender orderEventAppender;
 
     @Override
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
-        log.debug("Publishing execution event for context: {}", context.getContextId());
-
         Order order = context.getOrder();
         Execution execution = context.getExecution();
 
         try {
-            // TODO: Integrate with actual event publishing mechanism
-            // For now, just log the event details
+            Event event = order.getState() == State.FILLED ? Event.FILL : Event.PARTIAL_FILL;
+
+            long version =
+                    orderEventAppender.appendExecutionEvent(
+                            order, execution, event, context.getCommand());
+
+            context.put("eventVersion", version);
+
             log.info(
-                    "Execution event published - orderId={}, execId={}, symbol={}, side={}, "
-                            + "lastQty={}, lastPx={}, cumQty={}, leavesQty={}, avgPx={}, state={}",
+                    "Recorded {} v{} - orderId={}, execId={}, lastQty={}, lastPx={}, "
+                            + "cumQty={}, leavesQty={}, state={}",
+                    event,
+                    version,
                     order.getOrderId(),
                     execution.getExecID(),
-                    order.getSymbol(),
-                    order.getSide(),
                     execution.getLastQty(),
                     execution.getLastPx(),
                     order.getCumQty(),
                     order.getLeavesQty(),
-                    execution.getAvgPx(),
                     order.getState());
-
-            // TODO: Actual event publishing logic would go here
-            // Example:
-            // ExecutionEvent event = new ExecutionEvent(order, execution);
-            // eventPublisher.publish(event);
 
             return TaskResult.success(
                     getName(),
                     String.format(
-                            "Execution event published for orderId=%s, execId=%s",
-                            order.getOrderId(), execution.getExecID()));
+                            "%s v%d recorded for orderId=%s, execId=%s",
+                            event, version, order.getOrderId(), execution.getExecID()));
 
         } catch (Exception e) {
-            // Log error but don't fail the pipeline - event publishing is not critical
             log.error(
-                    "Failed to publish execution event for orderId={}, execId={}",
+                    "Failed to record execution event for orderId={}, execId={}",
                     order.getOrderId(),
                     execution.getExecID(),
                     e);
-
-            return TaskResult.warning(
-                    getName(),
-                    String.format(
-                            "Execution event publishing failed: %s (execution still processed successfully)",
-                            e.getMessage()));
+            throw new TaskExecutionException(getName(), "Failed to record execution event", e);
         }
     }
 

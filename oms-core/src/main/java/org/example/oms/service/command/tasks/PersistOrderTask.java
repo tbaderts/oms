@@ -32,6 +32,10 @@ public class PersistOrderTask implements ConditionalTask<OrderTaskContext> {
         try {
             Order order = context.getOrder();
 
+            // The exists check is a fast path only — it races. The unique constraint on
+            // (session_id, cl_ord_id) is what actually enforces idempotence, and saveAndFlush below
+            // makes the resulting violation surface here rather than at commit time, where it would
+            // escape the processor entirely and be reported to the client as a 500.
             if (orderRepository.existsBySessionIdAndClOrdId(order.getSessionId(), order.getClOrdId())) {
                 String message =
                         "Duplicate order for sessionId="
@@ -43,7 +47,7 @@ public class PersistOrderTask implements ConditionalTask<OrderTaskContext> {
                 return TaskResult.failed(getName(), message);
             }
 
-            Order savedOrder = orderRepository.save(order);
+            Order savedOrder = orderRepository.saveAndFlush(order);
 
             // Update context with persisted order (now has database ID)
             context.setOrder(savedOrder);

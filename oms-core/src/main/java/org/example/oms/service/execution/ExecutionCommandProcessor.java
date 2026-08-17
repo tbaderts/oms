@@ -2,6 +2,7 @@ package org.example.oms.service.execution;
 
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
+import org.example.common.model.cmd.Command;
 import org.example.common.orchestration.TaskOrchestrator;
 import org.example.common.orchestration.TaskOrchestrator.PipelineResult;
 import org.example.common.orchestration.TaskPipeline;
@@ -15,6 +16,7 @@ import org.example.oms.service.execution.tasks.UpdateOrderTask;
 import org.example.oms.service.execution.tasks.ValidateExecutionTask;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
@@ -51,9 +53,20 @@ public class ExecutionCommandProcessor {
     private final UpdateOrderTask updateOrderTask;
     private final PublishExecutionEventTask publishExecutionEventTask;
 
+    /**
+     * Convenience overload for callers that have no originating command (tests, internal flows).
+     *
+     * <p>Annotated so the transaction is opened here: the delegation below is a self-invocation and
+     * does not pass through the proxy, so the inner method would otherwise run without one.
+     */
+    @Transactional
+    public ExecutionProcessingResult process(Execution execution) {
+        return process(execution, null);
+    }
+
     @Transactional
     @Observed(name = "oms.execution-processor.process")
-    public ExecutionProcessingResult process(Execution execution) {
+    public ExecutionProcessingResult process(Execution execution, Command command) {
         log.info(
                 "Processing execution report: orderId={}, execId={}, lastQty={}, lastPx={}",
                 execution.getOrderId(),
@@ -63,10 +76,24 @@ public class ExecutionCommandProcessor {
 
         Order order = loadOrder(execution.getOrderId());
         OrderTaskContext context = createContext(order, execution);
+        context.setCommand(command);
         TaskPipeline<OrderTaskContext> pipeline = buildPipeline();
         PipelineResult result = orchestrator.execute(pipeline, context);
 
         logPipelineResult(result);
+
+        // Without this the transaction commits whatever earlier tasks wrote. The concrete failure
+        // this prevents: PersistExecutionTask succeeds, UpdateOrderTask throws, and the caller is
+        // told the fill was rejected while the execution row sits committed against an order whose
+        // quantities were never updated.
+        if (!result.isSuccess()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            log.warn(
+                    "ExecutionProcessingPipeline failed for orderId={}, execId={}, rolling back",
+                    execution.getOrderId(),
+                    execution.getExecID());
+        }
+
         return createResult(result, context);
     }
 

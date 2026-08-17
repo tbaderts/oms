@@ -5,12 +5,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 @SpringBootApplication
 @EnableJpaRepositories("org.example.oms.repository")
 @EntityScan({"org.example.common.model", "org.example.oms.model"})
 @EnableTransactionManagement
+@EnableScheduling // drives OutboxRelay
 @ComponentScan(basePackages = {"org.example.oms", "org.example.common"})
 public class OmsApplication {
 

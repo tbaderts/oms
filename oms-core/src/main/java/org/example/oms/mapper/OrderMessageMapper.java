@@ -24,9 +24,10 @@ public class OrderMessageMapper {
      * Converts a JPA Order entity to an Avro OrderMessage.
      *
      * @param order the JPA order entity
+     * @param eventId the order's event-log version this message represents
      * @return the Avro OrderMessage
      */
-    public OrderMessage toOrderMessage(Order order) {
+    public OrderMessage toOrderMessage(Order order, long eventId) {
         if (order == null) {
             return null;
         }
@@ -45,6 +46,10 @@ public class OrderMessageMapper {
                 .setSecurityIDSource(mapSecurityIdSource(order.getSecurityIdSource()))
                 .setOrderQty(order.getOrderQty())
                 .setCashOrderQty(order.getCashOrderQty())
+                // Fill progress. Without these the blotter's live updates blanked out the
+                // quantities it had just loaded from the snapshot API.
+                .setCumQty(order.getCumQty())
+                .setLeavesQty(order.getLeavesQty())
                 .setPositionEffect(mapPositionEffect(order.getPositionEffect()))
                 .setSecurityDesc(order.getSecurityDesc())
                 .setMaturityMonthYear(order.getMaturityMonthYear())
@@ -68,7 +73,10 @@ public class OrderMessageMapper {
                 .setTifTimestamp(order.getTifTimestamp())
                 .setState(mapState(order.getState()))
                 .setCancelState(mapCancelState(order.getCancelState()))
-                .setEventId(order.getId())  // Use the database ID as event ID
+                // Per-order sequence, not the database primary key. The key never changes, so every
+                // message for an order used to carry an identical eventId and consumers had no way
+                // to deduplicate a redelivery or order two updates against each other.
+                .setEventId(eventId)
                 .build();
     }
 

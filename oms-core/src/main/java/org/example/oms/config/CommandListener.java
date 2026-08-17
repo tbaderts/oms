@@ -18,6 +18,20 @@ import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Consumes commands from Kafka.
+ *
+ * <p>This listener deliberately does not catch exceptions. It used to catch {@code RuntimeException}
+ * and return normally, which let the container commit the offset for a command that had failed — the
+ * command was recorded as consumed and lost. Failing loudly hands the decision to the container's
+ * error handler, which retries and then routes to the dead-letter topic.
+ *
+ * <p>Rejections that are not faults — a duplicate order, an invalid state transition — are reported
+ * by the processors as unsuccessful results, not exceptions, and are logged and acknowledged here.
+ * Retrying those would never succeed.
+ *
+ * @see KafkaConsumerConfig#commandErrorHandler
+ */
 @Component
 @Slf4j
 @RequiredArgsConstructor
@@ -41,64 +55,61 @@ public class CommandListener {
     public void consume(Message<CommandMessage> message) {
         log.info("New message: {}", message.getPayload());
         Object command = message.getPayload().getCommand();
+
         if (command == null) {
+            // Nothing to retry and nothing to process; acknowledge and move on.
             log.warn("Received CommandMessage with null command payload");
             return;
         }
 
-        try {
-            if (command instanceof org.example.common.model.msg.OrderCreateCmd msgOrderCreateCmd) {
-                OrderCreateCmd orderCreateCmd =
-                        objectMapper.convertValue(msgOrderCreateCmd, OrderCreateCmd.class);
-                var result = orderCreateCommandProcessor.process(orderCreateCmd);
-                if (result.isSuccess()) {
-                    log.info("Processed OrderCreateCmd from Kafka: orderId={}", result.getOrderId());
-                } else {
-                    log.warn(
-                            "OrderCreateCmd processing failed from Kafka: {}",
-                            result.getErrorMessage());
-                }
-                return;
-            }
-
-            if (command instanceof org.example.common.model.msg.ExecutionCreateCmd msgExecutionCreateCmd) {
-                ExecutionCreateCmd executionCreateCmd =
-                    objectMapper.convertValue(msgExecutionCreateCmd, ExecutionCreateCmd.class);
-                var execution = orderMapper.toExecution(executionCreateCmd.getExecution());
-                var result = executionCommandProcessor.process(execution);
-                if (result.isSuccess()) {
-                    log.info(
-                            "Processed ExecutionCreateCmd from Kafka: execId={}, orderId={}",
-                            result.getExecution().getExecID(),
-                            result.getOrder().getOrderId());
-                } else {
-                    log.warn("ExecutionCreateCmd processing failed from Kafka");
-                }
-                return;
-            }
-
-            if (command instanceof org.example.common.model.msg.OrderAcceptCmd msgOrderAcceptCmd) {
-                OrderAcceptCmd orderAcceptCmd =
-                        new OrderAcceptCmd(msgOrderAcceptCmd.getOrderId(), msgOrderAcceptCmd.getType());
-                var result = orderAcceptCommandProcessor.process(orderAcceptCmd);
-                if (result.isSuccess()) {
-                    log.info("Processed OrderAcceptCmd from Kafka: orderId={}", result.getOrderId());
-                } else {
-                    log.warn(
-                            "OrderAcceptCmd processing failed from Kafka: {}",
-                            result.getErrorMessage());
-                }
-                return;
-            }
-        } catch (RuntimeException ex) {
-            log.error(
-                    "Failed to process command from Kafka: type={}, error={}",
-                    command.getClass().getSimpleName(),
-                    ex.getMessage(),
-                    ex);
-            return;
+        switch (command) {
+            case org.example.common.model.msg.OrderCreateCmd msgCmd -> handleOrderCreate(msgCmd);
+            case org.example.common.model.msg.ExecutionCreateCmd msgCmd -> handleExecutionCreate(msgCmd);
+            case org.example.common.model.msg.OrderAcceptCmd msgCmd -> handleOrderAccept(msgCmd);
+            default ->
+                    // An unknown command type is a contract problem, not a transient fault. Throwing
+                    // sends it to the DLT rather than dropping it, which is what happened before.
+                    throw new IllegalArgumentException(
+                            "Unsupported command type: " + command.getClass().getName());
         }
+    }
 
-        log.warn("Received unsupported command type: {}", command.getClass().getName());
+    private void handleOrderCreate(org.example.common.model.msg.OrderCreateCmd msgCmd) {
+        OrderCreateCmd cmd = objectMapper.convertValue(msgCmd, OrderCreateCmd.class);
+        var result = orderCreateCommandProcessor.process(cmd);
+
+        if (result.isSuccess()) {
+            log.info("Processed OrderCreateCmd from Kafka: orderId={}", result.getOrderId());
+        } else {
+            log.warn("OrderCreateCmd rejected: {}", result.getErrorMessage());
+        }
+    }
+
+    private void handleExecutionCreate(org.example.common.model.msg.ExecutionCreateCmd msgCmd) {
+        ExecutionCreateCmd cmd = objectMapper.convertValue(msgCmd, ExecutionCreateCmd.class);
+        var execution = orderMapper.toExecution(cmd.getExecution());
+        var result = executionCommandProcessor.process(execution, cmd);
+
+        if (result.isSuccess()) {
+            log.info(
+                    "Processed ExecutionCreateCmd from Kafka: execId={}, orderId={}",
+                    result.getExecution().getExecID(),
+                    result.getOrder().getOrderId());
+        } else {
+            log.warn(
+                    "ExecutionCreateCmd rejected: execId={}",
+                    cmd.getExecution() != null ? cmd.getExecution().getExecId() : null);
+        }
+    }
+
+    private void handleOrderAccept(org.example.common.model.msg.OrderAcceptCmd msgCmd) {
+        OrderAcceptCmd cmd = new OrderAcceptCmd(msgCmd.getOrderId(), msgCmd.getType());
+        var result = orderAcceptCommandProcessor.process(cmd);
+
+        if (result.isSuccess()) {
+            log.info("Processed OrderAcceptCmd from Kafka: orderId={}", result.getOrderId());
+        } else {
+            log.warn("OrderAcceptCmd rejected: {}", result.getErrorMessage());
+        }
     }
 }

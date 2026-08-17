@@ -386,6 +386,17 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         return ExecutionDto.builder()
                 .execId(exec.getExecId() != null ? exec.getExecId().toString() : null)
                 .orderId(exec.getOrderId() != null ? exec.getOrderId().toString() : null)
+                // The Avro record used to carry only the two identifiers, so every fill rendered
+                // as a blank row. It now carries the fill and the order's resulting position.
+                .lastQty(exec.getLastQty())
+                .lastPx(exec.getLastPx())
+                .cumQty(exec.getCumQty())
+                .leavesQty(exec.getLeavesQty())
+                .avgPx(exec.getAvgPx())
+                .execType(exec.getExecType() != null ? exec.getExecType().toString() : null)
+                .lastMkt(exec.getLastMkt() != null ? exec.getLastMkt().toString() : null)
+                .lastCapacity(exec.getLastCapacity() != null ? exec.getLastCapacity().toString() : null)
+                .transactTime(exec.getTransactTime())
                 .eventTime(Instant.now())
                 .build();
     }

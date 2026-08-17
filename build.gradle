@@ -3,14 +3,18 @@ plugins {
 }
 
 def includedBuildNames = [
+    'oms-contracts',
     'oms-core',
     'oms-streaming-service',
     'oms-mcp-server',
     'oms-ui'
 ]
 
-def includedTaskRefs = { taskPath ->
-    includedBuildNames.collect { buildName ->
+// oms-contracts is a plain library, so it has no bootJar task.
+def bootJarBuildNames = includedBuildNames - 'oms-contracts'
+
+def includedTaskRefs = { taskPath, buildNames = includedBuildNames ->
+    buildNames.collect { buildName ->
         gradle.includedBuild(buildName).task(taskPath)
     }
 }
@@ -35,8 +39,8 @@ tasks.register('testAll') {
 
 tasks.register('bootJarAll') {
     group = 'build'
-    description = 'Runs bootJar in all included builds.'
-    dependsOn includedTaskRefs(':bootJar')
+    description = 'Runs bootJar in all included builds that produce one.'
+    dependsOn includedTaskRefs(':bootJar', bootJarBuildNames)
 }
 
 tasks.named('clean') {

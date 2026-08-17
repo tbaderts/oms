@@ -1,12 +1,12 @@
 ## Quick context for AI coding agents
 
-- Repo: OMS (Order Management System) — Java 21+, Spring Boot microservices with OpenAPI + Avro specs. Primary modules: `oms-core`, `oms-mcp-server`, `oms-ui`.
-- Spec-driven: APIs and DTOs are defined in OpenAPI YAML under `src/main/openapi/` (e.g. `oms-query-api.yml`, `oms-cmd-api.yml`). OpenAPI generation is wired in `build.gradle` (openApiGenerate task).
+- Repo: OMS (Order Management System) — Java 25, Spring Boot 4 microservices with OpenAPI + Avro specs. Primary modules: `oms-core`, `oms-mcp-server`, `oms-ui`.
+- Spec-driven: APIs and DTOs are defined in OpenAPI YAML under `oms-contracts/src/main/openapi/` (e.g. `oms-query-api.yml`, `oms-cmd-api.yml`). Models are generated once in `oms-contracts`; only `oms-core` generates API interfaces.
 - Migrations & DB: project uses standard DB migration folders (look for `db/migration` or Liquibase conventions in module docs). Tests rely on Testcontainers for integration tests.
 
 ## Immediate tasks you can help with
 
-- Implement thin Spring controllers that map to OpenAPI paths and call service layer. See `oms-core/src/main/java/org/example/oms/api/*Controller.java` for examples and `oms-mcp-server/src/main/openapi/` for query API.
+- Implement thin Spring controllers that map to OpenAPI paths and call service layer. See `oms-core/src/main/java/org/example/oms/api/*Controller.java` for examples and `oms-contracts/src/main/openapi/oms-query-api.yml` for the query API.
 - Prefer small immutable DTOs and explicit mappers (controller -> dto/mapper -> service -> repository).
 - When asked to generate DB migrations, produce Liquibase changelogs and comments; add corresponding tests and note compatibility concerns in PR description.
 
@@ -26,7 +26,7 @@
 
 ## Project-specific conventions & patterns
 
-- OpenAPI-first: OpenAPI YAML under `src/main/openapi/` is the source of truth. Gradle `openApiGenerate` is configured in each module's `build.gradle`.
+- OpenAPI-first: OpenAPI YAML under `oms-contracts/src/main/openapi/` is the source of truth. Service modules must not keep their own copies.
 - Two API families: Command APIs (commands/commands) and Query APIs (under `/api/query/*`). Examples: `OrderController.java`, `OrderQueryController.java`.
 - DTO nullability: repo uses jackson-databind-nullable and OpenAPI generator nullables — be explicit about nullable filters. See `build.gradle` for `org.openapitools:jackson-databind-nullable`.
 - Error format: RFC7807 Problem+JSON is used in examples — follow that shape for error responses.
@@ -46,7 +46,7 @@
 
 ## Helpful file pointers (examples to open)
 
-- OpenAPI specs: `oms-core/src/main/openapi/oms-cmd-api.yml`, `oms-core/src/main/openapi/oms-query-api.yml`, `oms-mcp-server/src/main/openapi/`.
+- OpenAPI specs: `oms-contracts/src/main/openapi/{oms-cmd-api,oms-query-api,schema}.yml`.
 - Controllers: `oms-core/src/main/java/org/example/oms/api/*Controller.java`.
 - MCP docs & run scripts: `oms-mcp-server/docs/README.md`, `oms-mcp-server/run-mcp.ps1`, `oms-mcp-server/run-mcp.sh`, `oms-mcp-server/setup-semantic-search.ps1`.
 - Gradle build config: `oms-core/build.gradle`, `oms-mcp-server/build.gradle`, `oms-ui/build.gradle`.

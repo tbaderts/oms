@@ -42,9 +42,12 @@ class LiquibaseMigrationIntegrationTest {
         assertTableExists("databasechangelog");
         assertTableExists("orders");
         assertTableExists("executions");
-        assertTableExists("order_messages");
         assertTableExists("order_events");
+        assertTableExists("outbox");
+        assertTableDoesNotExist("order_messages");
         assertConstraintExists("uq_orders_session_cl_ord_id");
+        assertConstraintExists("uq_executions_order_id_execid");
+        assertConstraintExists("uq_order_events_order_id_version");
 
         Integer count = jdbcTemplate.queryForObject(
                 "select count(*) from databasechangelog where id = ?",
@@ -53,12 +56,50 @@ class LiquibaseMigrationIntegrationTest {
         assertEquals(1, count);
     }
 
+    /**
+     * Order state is persisted by name, not by enum ordinal. Persisting it as an ordinal meant
+     * inserting a value into the State enum would silently relabel every stored order.
+     */
+    @Test
+    void orderStateColumnsArePersistedAsText() {
+        assertColumnType("orders", "state", "character varying");
+        assertColumnType("orders", "cancel_state", "character varying");
+    }
+
+    /** tx_nr backs the JPA @Version column, so it must be present and non-null on every row. */
+    @Test
+    void orderVersionColumnIsNotNull() {
+        String nullable = jdbcTemplate.queryForObject(
+                "select is_nullable from information_schema.columns "
+                        + "where table_schema = 'public' and table_name = 'orders' and column_name = 'tx_nr'",
+                String.class);
+        assertEquals("NO", nullable);
+    }
+
     private void assertTableExists(String tableName) {
         Integer exists = jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public' and table_name = ?",
                 Integer.class,
                 tableName);
         assertEquals(1, exists, () -> "Expected table to exist: " + tableName);
+    }
+
+    private void assertTableDoesNotExist(String tableName) {
+        Integer exists = jdbcTemplate.queryForObject(
+                "select count(*) from information_schema.tables where table_schema = 'public' and table_name = ?",
+                Integer.class,
+                tableName);
+        assertEquals(0, exists, () -> "Expected table to have been dropped: " + tableName);
+    }
+
+    private void assertColumnType(String tableName, String columnName, String expectedType) {
+        String actual = jdbcTemplate.queryForObject(
+                "select data_type from information_schema.columns "
+                        + "where table_schema = 'public' and table_name = ? and column_name = ?",
+                String.class,
+                tableName,
+                columnName);
+        assertEquals(expectedType, actual, () -> tableName + "." + columnName);
     }
 
     private void assertConstraintExists(String constraintName) {

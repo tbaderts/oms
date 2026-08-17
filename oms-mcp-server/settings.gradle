@@ -1,1 +1,3 @@
 rootProject.name = 'oms-mcp-server'
+
+includeBuild('../oms-contracts')

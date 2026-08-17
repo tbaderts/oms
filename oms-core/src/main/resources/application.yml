@@ -39,9 +39,16 @@ spring:
       auto-offset-reset: earliest
     producer:
       acks: all
-      retries: 3
+      # Safe to retry aggressively because idempotence is on: the broker deduplicates retried
+      # records rather than appending them twice.
+      retries: 10
       properties:
         retry.backoff.ms: 250
+        # Declared explicitly rather than left to client defaults. Both are required for the
+        # producer's exactly-once-per-partition and ordering guarantees, and leaving them implicit
+        # meant lowering `acks` for throughput would silently disable both.
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
         schema.registry:
           url: ${REGISTRY_URL:http://localhost:8081}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -50,7 +57,19 @@ spring:
 kafka:
   enabled: ${KAFKA_ENABLED:false}
   order-topic: ${ORDER_TOPIC:oms_orders}
+  execution-topic: ${EXECUTION_TOPIC:oms_executions}
   command-topic: ${COMMAND_TOPIC:commands}
+  send-timeout-seconds: ${KAFKA_SEND_TIMEOUT_SECONDS:10}
+  consumer:
+    # Failed commands retry with backoff, then land on <topic>.DLT rather than being dropped.
+    retry-attempts: ${KAFKA_RETRY_ATTEMPTS:4}
+    retry-initial-interval-ms: ${KAFKA_RETRY_INITIAL_INTERVAL_MS:500}
+  outbox:
+    # The relay is what makes the outbox a delivery guarantee. Poll interval is the added latency
+    # between a command committing and its event reaching Kafka.
+    poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:200}
+    batch-size: ${OUTBOX_BATCH_SIZE:100}
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
 
 management:
   endpoint:

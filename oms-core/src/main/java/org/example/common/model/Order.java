@@ -10,6 +10,7 @@ import org.hibernate.Hibernate;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -19,6 +20,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -50,7 +52,16 @@ public class Order implements Serializable {
     private String orderId;
     private String parentOrderId;
     private String rootOrderId;
-    @Setter private long txNr;
+
+    /**
+     * Optimistic-locking version. Incremented by Hibernate on every update, which makes concurrent
+     * read-modify-write of the fill quantities fail loudly instead of silently losing one of them.
+     * Also serves as the per-order sequence published to Kafka as {@code eventId}.
+     */
+    @Version
+    @Column(nullable = false)
+    private long txNr;
+
     private String sessionId;
     private String clOrdId;
     private Instant sendingTime;
@@ -115,8 +126,14 @@ public class Order implements Serializable {
     private String securityExchange;
     private String text;
     private Instant tifTimestamp;
-    @Setter private State state;
-    @Setter private CancelState cancelState;
+
+    @Enumerated(EnumType.STRING)
+    @Setter
+    private State state;
+
+    @Enumerated(EnumType.STRING)
+    @Setter
+    private CancelState cancelState;
 
     @Override
     public final boolean equals(Object other) {

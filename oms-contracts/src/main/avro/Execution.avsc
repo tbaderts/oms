@@ -1,0 +1,120 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "An execution (fill) against an order, published on the executions topic.",
+  "name": "Execution",
+  "fields": [
+    {
+      "name": "execId",
+      "type": ["null", "string"],
+      "doc": "Execution identifier, unique per order.",
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": ["null", "string"],
+      "doc": "The order this execution filled.",
+      "default": null
+    },
+    {
+      "name": "lastQty",
+      "doc": "Quantity filled by this execution. Scale 4 to match the OMS quantity scale.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "lastPx",
+      "doc": "Price of this execution.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "cumQty",
+      "doc": "Order's cumulative executed quantity after this execution.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "leavesQty",
+      "doc": "Order's remaining open quantity after this execution.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "avgPx",
+      "doc": "Average price across the order's fills. Not currently computed by oms-core; always null until it is.",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "execType",
+      "type": ["null", "string"],
+      "doc": "Execution type.",
+      "default": null
+    },
+    {
+      "name": "lastMkt",
+      "type": ["null", "string"],
+      "doc": "Market of execution.",
+      "default": null
+    },
+    {
+      "name": "lastCapacity",
+      "type": ["null", "string"],
+      "doc": "Capacity in which the execution was made.",
+      "default": null
+    },
+    {
+      "name": "transactTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "doc": "Time of the execution.",
+      "default": null
+    }
+  ]
+}
