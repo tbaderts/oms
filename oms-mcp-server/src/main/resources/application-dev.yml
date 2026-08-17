@@ -1,6 +1,4 @@
 spring:
-  config:
-    import: "optional:file:.env[.properties]"
   main:
     # Override to enable web server for local development
     web-application-type: reactive

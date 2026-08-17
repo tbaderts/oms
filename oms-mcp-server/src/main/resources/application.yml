@@ -1,6 +1,8 @@
 spring:
   application:
     name: oms-mcp-server
+  config:
+    import: optional:file:.env[.properties]
   main:
     # Keep reactive/web server disabled when acting purely as MCP over stdio.
     web-application-type: none

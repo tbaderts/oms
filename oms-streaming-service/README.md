@@ -45,9 +45,10 @@ Data Flow:
 ### Run with Kafka
 
 ```powershell
-# Start Kafka, Schema Registry and OMS Core (from oms-core)
-cd ..\oms-core
+# Start Kafka, Schema Registry and OMS Core (from repo root)
+cd ..
 docker compose up broker schema-registry -d
+cd oms-core
 .\gradlew.bat bootRun
 
 # Run streaming service

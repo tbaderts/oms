@@ -17,7 +17,6 @@ OMS (Order Management System) is a Java-based application designed to manage ord
 - `src/test/` - Test sources
 - `build.gradle` - Gradle build configuration
 - `Dockerfile` - Containerization setup
-- `docker-compose.yml` - Multi-service orchestration
 - `k8s/` - Kubernetes deployment manifests
 - `prometheus.yml`, `loki-config.yml`, `promtail-config.yml` - Monitoring and logging configs
 - `generated-avro/` - Avro schema definitions

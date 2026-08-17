@@ -32,7 +32,7 @@ spring:
           key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
           value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
         schema.registry:
-          url: http://localhost:8081
+          url: ${REGISTRY_URL:http://localhost:8081}
       group-id: orders-group
       key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
@@ -43,7 +43,7 @@ spring:
       properties:
         retry.backoff.ms: 250
         schema.registry:
-          url: http://localhost:8081
+          url: ${REGISTRY_URL:http://localhost:8081}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
 
