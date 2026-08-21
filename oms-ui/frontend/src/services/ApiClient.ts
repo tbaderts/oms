@@ -26,16 +26,9 @@ export class ApiClient {
     // Request interceptor - inject OAuth token
     this.axiosInstance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        console.log('[ApiClient] Request:', config.method?.toUpperCase(), config.url);
-        console.log('[ApiClient] Request params:', config.params);
-        console.log('[ApiClient] Request headers:', config.headers);
-        
         const token = this.authTokenService.getToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log('[ApiClient] Token injected (length:', token.length, ')');
-        } else {
-          console.log('[ApiClient] No token available');
         }
         return config;
       },
@@ -47,16 +40,10 @@ export class ApiClient {
 
     // Response interceptor - handle errors
     this.axiosInstance.interceptors.response.use(
-      (response: any) => {
-        console.log('[ApiClient] Response:', response.status, response.statusText);
-        console.log('[ApiClient] Response data:', response.data);
-        return response;
-      },
+      (response: any) => response,
       (error: any) => {
         console.error('[ApiClient] Error:', error.message);
         console.error('[ApiClient] Error response status:', error.response?.status);
-        console.error('[ApiClient] Error response data:', error.response?.data);
-        console.error('[ApiClient] Error config:', error.config?.url, error.config?.params);
         return Promise.reject(error);
       }
     );

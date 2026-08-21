@@ -17,7 +17,6 @@
     "react": "^19.2.8",
     "react-app-rewired": "^2.2.1",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2",
     "react-scripts": "^5.0.1",
     "rsocket-core": "^0.0.29-alpha.0",
     "rsocket-websocket-client": "^0.0.29-alpha.0",

@@ -13,10 +13,11 @@ import {
   StreamingOrderDto,
 } from '../types/streaming';
 import { RSocketStreamingService } from '../services/RSocketStreamingService';
-import { ConfigService } from '../services/ConfigService';
+import { ConfigService, DEFAULT_STREAMING_URL } from '../services/ConfigService';
 import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
+import { convertFiltersToState, convertFiltersFromState } from '../services/filterUtils';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
@@ -30,7 +31,7 @@ interface StreamingBlotterProps {
 
 const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   domainObject,
-  streamingUrl = 'ws://localhost:7000/trade-blotter/stream',
+  streamingUrl,
   onModeChange,
 }) => {
   // Data state - use Map for efficient updates by orderId
@@ -56,6 +57,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   const gridApiRef = useRef<GridApi | null>(null);
   const subscriptionRef = useRef<StreamSubscription | null>(null);
   const streamingServiceRef = useRef<RSocketStreamingService | null>(null);
+  const connectionStateHandlerRef = useRef<((state: StreamingConnectionState) => void) | null>(null);
   
   const metamodelService = MetamodelService.getInstance();
   const columnConfigService = ColumnConfigService.getInstance();
@@ -72,16 +74,15 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   // Initialize streaming service with config
   useEffect(() => {
     const initService = async () => {
-      // Get streaming URL from config if not provided as prop
+      // Resolve streaming URL: explicit prop > backend config > default
       let wsUrl = streamingUrl;
-      if (!wsUrl || wsUrl === 'ws://localhost:7000/trade-blotter/stream') {
+      if (!wsUrl) {
         try {
           const config = await ConfigService.getConfig();
-          if (config.streamingUrl) {
-            wsUrl = config.streamingUrl;
-          }
+          wsUrl = config.streamingUrl || DEFAULT_STREAMING_URL;
         } catch (e) {
           console.warn('[StreamingBlotter] Failed to get config, using default URL');
+          wsUrl = DEFAULT_STREAMING_URL;
         }
       }
 
@@ -97,6 +98,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         }
       };
 
+      connectionStateHandlerRef.current = handleConnectionStateChange;
       service.addConnectionStateListener(handleConnectionStateChange);
       setServiceReady(true);
     };
@@ -104,9 +106,13 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     initService();
 
     return () => {
-      if (streamingServiceRef.current) {
-        streamingServiceRef.current.removeConnectionStateListener(() => {});
+      // Remove the exact handler that was registered (fixes listener leak)
+      const service = streamingServiceRef.current;
+      const handler = connectionStateHandlerRef.current;
+      if (service && handler) {
+        service.removeConnectionStateListener(handler);
       }
+      connectionStateHandlerRef.current = null;
     };
   }, [streamingUrl]);
 
@@ -119,15 +125,12 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         
         // Try to restore saved state from base domain object state
         const savedState = stateService.getState(domainObject);
-        console.log('[StreamingBlotter] initializeBlotter - savedState:', savedState);
         
         if (savedState && savedState.visibleColumns && savedState.visibleColumns.length > 0) {
           const restoredFilters = convertFiltersFromState(savedState.filters || {});
-          console.log('[StreamingBlotter] initializeBlotter - restoring filters:', restoredFilters);
           setFilters(restoredFilters);
           setVisibleColumns(savedState.visibleColumns);
         } else {
-          console.log('[StreamingBlotter] initializeBlotter - using default columns, no filters');
           setVisibleColumns(metadata.defaultColumns);
         }
         
@@ -178,10 +181,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
         // Create filter from UI filters
         const streamFilter: StreamFilter = service.convertToStreamFilter(filters, includeSnapshot);
-        
-        console.log('[StreamingBlotter] Subscribing with filter:', JSON.stringify(streamFilter));
-        console.log('[StreamingBlotter] Current filters state:', filters);
-        console.log('[StreamingBlotter] includeSnapshot:', includeSnapshot);
 
         // Subscribe to order events
         if (domainObject === 'Order') {
@@ -218,8 +217,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   }, [initialized, serviceReady, filters, includeSnapshot, domainObject]);
 
   const handleOrderEvent = useCallback((event: OrderEvent) => {
-    console.log('[StreamingBlotter] Received order event:', event.eventType, event.orderId);
-    
     const order = RSocketStreamingService.normalizeOrderEvent(event);
     const orderId = order.orderId || order.id;
     
@@ -247,8 +244,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   }, []);
 
   const handleExecutionEvent = useCallback((event: ExecutionEvent) => {
-    console.log('[StreamingBlotter] Received execution event:', event.eventType, event.execId);
-    
     const execution = event.execution;
     const execId = execution.execId || execution.id;
     
@@ -274,7 +269,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   }, []);
 
   const handleStreamComplete = useCallback(() => {
-    console.log('[StreamingBlotter] Stream completed');
     setLoading(false);
   }, []);
 
@@ -323,25 +317,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
   const handleAutoSize = () => {
     gridApiRef.current?.autoSizeAllColumns();
-  };
-
-  const convertFiltersToState = (filters: FilterCondition[]): { [key: string]: any } => {
-    const state: { [key: string]: any } = {};
-    filters.forEach(f => {
-      state[`${f.field}${f.operation}`] = f.value;
-    });
-    return state;
-  };
-
-  const convertFiltersFromState = (state: { [key: string]: any }): FilterCondition[] => {
-    return Object.entries(state).map(([key, value]) => {
-      const match = key.match(/^(.+?)(__\w+)?$/);
-      return {
-        field: match![1],
-        operation: match![2] || '',
-        value,
-      };
-    });
   };
 
   const getConnectionStatusClass = (): string => {

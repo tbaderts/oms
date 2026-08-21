@@ -1,264 +1,134 @@
 # OMS UI Microservice
 
-A Spring Boot 3 microservice that serves a React.js single-page application (SPA). The React application is built as part of the Gradle build process and served as static content by Spring MVC.
+A Spring Boot 4 microservice that serves the **OMS Admin Tool** — a React 19 + TypeScript single-page application (SPA) providing real-time blotters for Orders and Executions.
 
 ## Overview
 
-This microservice demonstrates a modern approach to building web applications where:
-- The frontend is a React.js application with client-side routing
-- The backend is a Spring Boot 3 application serving static content and providing REST APIs
-- The build process is unified through Gradle, which orchestrates both the Java and JavaScript builds
+The OMS Admin UI is a metamodel-driven blotter application:
+
+- **Columns, filters, and types are generated from backend metadata** (`oms-core` metamodel API) rather than hardcoded in the frontend.
+- **Dual data modes**: a REST mode (server-side pagination/sort/filter via the oms-core query API) and a **streaming mode** (default) that subscribes to RSocket streams from `oms-streaming-service` for real-time updates.
+- The Spring Boot backend is a **thin shell**: it serves the built SPA, exposes a runtime configuration endpoint (`/api/config`), and forwards SPA routes to `index.html`. It never proxies business data — the browser talks directly to `oms-core` (REST) and `oms-streaming-service` (RSocket WebSocket).
 
 ## Technology Stack
 
 ### Backend
-- **Java 21**: Latest LTS version
-- **Spring Boot 3.2.0**: Modern Java framework
-- **Spring MVC**: For serving static content and REST endpoints
-- **Spring Boot Actuator**: For health checks and metrics
-- **Gradle 8.x**: Build automation
+- **Java 25** (toolchain), **Spring Boot 4.1**, Spring MVC, Actuator
+- **Gradle** with the node-gradle plugin (provisions Node 22.20 + npm 10.9)
 
 ### Frontend
-- **React 18.2.0**: Modern UI library
-- **React Router 6.x**: Client-side routing
-- **Create React App**: React toolchain
-- **Node.js 20.x**: JavaScript runtime for build
+- **React 19** + **TypeScript** (strict mode)
+- **AG Grid Community 36** (data grid, shared theme)
+- **Axios** (REST client with OAuth bearer-token injection)
+- **rsocket-core / rsocket-websocket-client** (real-time streaming)
+- **SCSS** component styles, react-app-rewired CRA build
 
 ## Project Structure
 
 ```
 oms-ui/
-├── build.gradle                    # Gradle build configuration
-├── settings.gradle                 # Gradle settings
-├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── org/example/omsui/
-│   │   │       ├── OmsUiApplication.java          # Main Spring Boot application
-│   │   │       ├── config/
-│   │   │       │   └── WebConfig.java             # Web MVC configuration
-│   │   │       └── controller/
-│   │   │           └── HealthController.java      # Health check API
-│   │   └── resources/
-│   │       └── application.yml                    # Spring Boot configuration
-│   └── test/
-│       └── java/
-│           └── org/example/omsui/
-│               └── OmsUiApplicationTests.java     # Integration tests
-└── frontend/                                       # React application
-    ├── package.json                                # npm dependencies
-    ├── public/
-    │   └── index.html                              # HTML template
+├── build.gradle                    # Gradle build (Java + orchestrated npm build)
+├── Dockerfile                      # Container image (matches oms-core pattern)
+├── src/main/java/org/example/omsui/
+│   ├── OmsUiApplication.java       # Main Spring Boot application
+│   ├── config/WebConfig.java       # SPA route forwarding → index.html
+│   └── controller/
+│       ├── ConfigController.java   # GET /api/config (URLs + feature flags)
+│       └── HealthController.java   # Health check API
+├── src/main/resources/application.yml
+└── frontend/                       # React SPA
+    ├── config-overrides.js         # Webpack overrides (Buffer polyfill for rsocket)
     └── src/
-        ├── index.js                                # React entry point
-        ├── index.css                               # Global styles
-        ├── App.js                                  # Main App component
-        ├── App.css                                 # App styles
-        ├── App.test.js                             # App tests
-        └── pages/
-            ├── Home.js                             # Home page component
-            └── About.js                            # About page component
+        ├── App.tsx                 # Shell: header, tabs, REST/Streaming mode toggle
+        ├── components/             # Blotter, StreamingBlotter, FilterBuilder,
+        │                           #   ColumnSelector, DetailModal/Panel,
+        │                           #   AuthorizeModal, ErrorBoundary, …
+        ├── services/               # ApiClient, OMSApiService, RSocketStreamingService,
+        │                           #   Metamodel* services, ConfigService,
+        │                           #   AuthTokenService, BlotterStateService, …
+        ├── types/                  # Domain, metamodel, and streaming types
+        └── theme/agGridTheme.ts    # Shared AG Grid theme
 ```
 
 ## Build Process
 
-The build process integrates React and Spring Boot seamlessly:
+The Gradle build orchestrates both the Java and JavaScript builds:
 
-1. **npm install**: Installs all Node.js dependencies
-2. **npm build**: Builds the React application (creates optimized production bundle)
-3. **copyReactBuild**: Copies the React build output to Spring Boot's static resources
-4. **processResources**: Includes the copied React build in the final JAR
-5. **bootJar**: Creates the executable Spring Boot JAR with embedded React app
+1. **npmInstall** — installs Node dependencies (`--legacy-peer-deps`)
+2. **buildReact** — production build of the React app
+3. **copyReactBuild** — copies `frontend/build` into Spring Boot static resources
+4. **processResources / bootJar** — packages everything into an executable JAR
 
 ### Gradle Tasks
 
-- `./gradlew build` - Builds the entire application (React + Spring Boot)
-- `./gradlew bootRun` - Runs the application locally
-- `./gradlew clean` - Cleans build artifacts (including React build)
-- `./gradlew npmInstall` - Installs npm dependencies only
-- `./gradlew npmBuild` - Builds React app only
-- `./gradlew test` - Runs all tests
+- `./gradlew build` — builds the entire application (React + Spring Boot)
+- `./gradlew bootRun` — runs the application locally
+- `./gradlew test` — runs all tests
+- `./gradlew npmInstall` / `npmBuild` — frontend-only tasks
+
+### Frontend Tests
+
+```powershell
+cd oms-ui/frontend
+npm test            # Jest + React Testing Library (watch mode)
+npm test -- --watchAll=false --ci   # single run
+```
 
 ## Configuration
 
-### Application Properties
+Runtime configuration is served to the SPA by `GET /api/config` and driven by these properties (all overridable via environment variables):
 
-The application is configured via `src/main/resources/application.yml`:
+| Property | Env var | Default |
+|---|---|---|
+| `oms.ui.app-name` | — | `OMS Admin Tool` |
+| `oms.api.base-url` | `OMS_API_BASE_URL` | `http://localhost:8090` |
+| `oms.streaming.url` | `OMS_STREAMING_URL` | `ws://localhost:7000/trade-blotter/stream` |
+| `oms.ui.features.quotes-enabled` | `OMS_UI_QUOTES_ENABLED` | `false` |
+| `oms.ui.features.quote-requests-enabled` | `OMS_UI_QUOTE_REQUESTS_ENABLED` | `false` |
+| `oms.ui.features.streaming-enabled` | `OMS_UI_STREAMING_ENABLED` | `true` |
 
-```yaml
-server:
-  port: 8080                    # HTTP port
-  compression:
-    enabled: true               # Enable gzip compression
+Feature flags control tab visibility and the REST/Streaming mode toggle without rebuilding the frontend.
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
-```
+## Running
 
-### Environment Variables
+### Development (hot reload)
 
-You can override configuration using environment variables:
-- `SERVER_PORT` - HTTP port (default: 8080)
-- `SPRING_PROFILES_ACTIVE` - Active Spring profile
-
-## Running the Application
-
-### Development Mode
-
-For development, you can run the React app and Spring Boot separately:
-
-**Terminal 1 - React Development Server:**
 ```powershell
-cd frontend
-npm install
+# Terminal 1 — React dev server (proxies /api to oms-core)
+cd oms-ui/frontend
 npm start
-```
-This starts the React dev server on port 3000 with hot reloading.
 
-**Terminal 2 - Spring Boot:**
-```powershell
-./gradlew bootRun
-```
-The React dev server proxies API calls to Spring Boot on port 8080.
-
-### Production Mode
-
-Build and run the complete application:
-
-```powershell
-# Build everything
-./gradlew build
-
-# Run the application
-./gradlew bootRun
+# Terminal 2 — Spring Boot shell
+cd oms-ui
+.\gradlew.bat bootRun
 ```
 
-Or run the JAR directly:
+### Production build
+
 ```powershell
+cd oms-ui
+.\gradlew.bat clean build
 java -jar build/libs/oms-ui-0.0.1-SNAPSHOT.jar
 ```
 
-Access the application at: http://localhost:8080
+### Docker Compose
 
-## API Endpoints
+`oms-ui` is part of the root `docker-compose.yml` stack:
 
-### REST API
-- `GET /api/health` - Health check endpoint
-
-### Actuator Endpoints
-- `GET /actuator/health` - Detailed health information
-- `GET /actuator/info` - Application information
-- `GET /actuator/metrics` - Metrics
-- `GET /actuator/prometheus` - Prometheus metrics
-
-### Static Content
-- `GET /` - Serves the React application
-- All other routes are handled by React Router (client-side routing)
-
-## Routing
-
-The application uses client-side routing via React Router. The `WebConfig` class ensures that all non-API routes are forwarded to `index.html`, allowing React Router to handle navigation:
-
-```java
-@Override
-public void addViewControllers(ViewControllerRegistry registry) {
-    registry.addViewController("/").setViewName("forward:/index.html");
-    registry.addViewController("/{x:[\\w\\-]+}").setViewName("forward:/index.html");
-    registry.addViewController("/{x:^(?!api$).*$}/**/{y:[\\w\\-]+}")
-        .setViewName("forward:/index.html");
-}
-```
-
-## Development Workflow
-
-1. **Make React changes**: Edit files in `frontend/src/`
-   - In dev mode: Changes hot-reload automatically
-   - In prod mode: Run `./gradlew npmBuild` to rebuild
-
-2. **Make Spring Boot changes**: Edit Java files in `src/main/java/`
-   - Rebuild: `./gradlew compileJava`
-   - Restart: `./gradlew bootRun`
-
-3. **Add new API endpoints**: Create controllers in `src/main/java/org/example/omsui/controller/`
-
-4. **Add new React pages**: 
-   - Create components in `frontend/src/pages/`
-   - Add routes in `frontend/src/App.js`
-
-## Testing
-
-### Backend Tests
 ```powershell
-./gradlew test
+docker compose up -d --build oms-ui   # http://localhost:8080
 ```
 
-### Frontend Tests
-```powershell
-cd frontend
-npm test
-```
+## Integration Points
 
-## Deployment
+- **oms-core** (REST, `:8090`): `/api/query/search` (orders), `/api/executions`, `/api/v1/metamodel/{entity}` (column/filter metadata)
+- **oms-streaming-service** (RSocket WebSocket, `:7000`): routes `orders.stream`, `executions.stream`, `blotter.stream` with server-side stream filters
+- OAuth bearer token is entered via the **Authorize** dialog and kept in `sessionStorage`; blotter preferences (filters, visible columns) persist in `localStorage`
 
-### Docker
+## Monitoring
 
-Create a Dockerfile:
-```dockerfile
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-COPY build/libs/oms-ui-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
-```
+- Application: `http://localhost:8080`
+- Actuator: `http://localhost:8080/actuator`
+- Prometheus metrics: `http://localhost:8080/actuator/prometheus`
 
-Build and run:
-```powershell
-docker build -t oms-ui .
-docker run -p 8080:8080 oms-ui
-```
-
-### Kubernetes
-
-Deploy using the standard Spring Boot deployment patterns with the generated JAR file.
-
-## Troubleshooting
-
-### Build Issues
-
-**Problem**: npm install fails
-- **Solution**: Ensure Node.js is accessible or let Gradle download it (configured in build.gradle)
-
-**Problem**: React build not included in JAR
-- **Solution**: Run `./gradlew clean build` to ensure proper task execution order
-
-### Runtime Issues
-
-**Problem**: 404 on React routes after refresh
-- **Solution**: Verify `WebConfig` is properly configured to forward routes to index.html
-
-**Problem**: API calls fail from React
-- **Solution**: Check that API endpoints are under `/api/*` path and CORS is configured if needed
-
-## Performance Considerations
-
-- **Compression**: Enabled for all text-based content (HTML, CSS, JS, JSON)
-- **Caching**: Static resources are served with appropriate cache headers
-- **Production Build**: React production build is optimized and minified
-- **JAR Size**: The complete application (Spring Boot + React) is packaged in a single JAR
-
-## Future Enhancements
-
-- Add authentication/authorization (Spring Security + JWT)
-- Implement WebSocket support for real-time updates
-- Add state management (Redux/Context API)
-- Integrate with other OMS microservices
-- Add comprehensive error handling and logging
-- Implement CI/CD pipeline
-- Add end-to-end testing (Cypress/Playwright)
-
-## License
-
-This project is part of the OMS (Order Management System) suite.
+See `docs/ARCHITECTURE.md` for detailed architecture diagrams.

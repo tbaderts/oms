@@ -13,6 +13,10 @@ server:
 oms:
   ui:
     app-name: OMS Admin Tool
+    features:
+      quotes-enabled: ${OMS_UI_QUOTES_ENABLED:false}
+      quote-requests-enabled: ${OMS_UI_QUOTE_REQUESTS_ENABLED:false}
+      streaming-enabled: ${OMS_UI_STREAMING_ENABLED:true}
   api:
     base-url: ${OMS_API_BASE_URL:http://localhost:8090}
   streaming:

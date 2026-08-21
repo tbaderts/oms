@@ -1,6 +1,6 @@
 // App.tsx - Main application shell with header, tabs, and navigation
 import React, { useState, useEffect } from 'react';
-import { ConfigService } from './services/ConfigService';
+import { ConfigService, FeatureFlags, DEFAULT_FEATURE_FLAGS } from './services/ConfigService';
 import { AuthTokenService } from './services/AuthTokenService';
 import OrderBlotter from './components/OrderBlotter';
 import ExecutionBlotter from './components/ExecutionBlotter';
@@ -9,13 +9,6 @@ import StreamingExecutionBlotter from './components/StreamingExecutionBlotter';
 import AuthorizeModal from './components/AuthorizeModal';
 import AcmeLogo from './components/AcmeLogo';
 import './App.scss';
-
-// Feature flags for tab visibility
-const FEATURE_FLAGS = {
-  QUOTES_ENABLED: false,
-  QUOTE_REQUESTS_ENABLED: false,
-  STREAMING_ENABLED: true, // Enable real-time streaming mode
-};
 
 type TabType = 'orders' | 'executions' | 'quotes' | 'quoteRequests';
 type DataMode = 'rest' | 'streaming';
@@ -26,11 +19,13 @@ const App: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [dataMode, setDataMode] = useState<DataMode>('streaming'); // Default to streaming mode
+  const [featureFlags, setFeatureFlags] = useState<FeatureFlags>(DEFAULT_FEATURE_FLAGS);
 
   useEffect(() => {
     // Load configuration
     ConfigService.getConfig().then(config => {
       setAppName(config.appName);
+      setFeatureFlags(ConfigService.getFeatureFlags());
     });
 
     // Check initial auth status
@@ -62,14 +57,14 @@ const App: React.FC = () => {
 
   // Render the appropriate blotter based on mode
   const renderOrderBlotter = () => {
-    if (FEATURE_FLAGS.STREAMING_ENABLED && dataMode === 'streaming') {
+    if (featureFlags.streamingEnabled && dataMode === 'streaming') {
       return <StreamingOrderBlotter onModeChange={handleModeChange} />;
     }
     return <OrderBlotter />;
   };
 
   const renderExecutionBlotter = () => {
-    if (FEATURE_FLAGS.STREAMING_ENABLED && dataMode === 'streaming') {
+    if (featureFlags.streamingEnabled && dataMode === 'streaming') {
       return <StreamingExecutionBlotter onModeChange={handleModeChange} />;
     }
     return <ExecutionBlotter />;
@@ -84,7 +79,7 @@ const App: React.FC = () => {
           <h1>{appName}</h1>
         </div>
         <div className="header-right">
-          {FEATURE_FLAGS.STREAMING_ENABLED && (
+          {featureFlags.streamingEnabled && (
             <div className="mode-toggle">
               <button
                 className={`mode-button ${dataMode === 'rest' ? 'active' : ''}`}
@@ -123,7 +118,7 @@ const App: React.FC = () => {
         >
           Executions
         </button>
-        {FEATURE_FLAGS.QUOTES_ENABLED && (
+        {featureFlags.quotesEnabled && (
           <button
             className={`tab ${activeTab === 'quotes' ? 'active' : ''}`}
             onClick={() => setActiveTab('quotes')}
@@ -131,7 +126,7 @@ const App: React.FC = () => {
             Quotes
           </button>
         )}
-        {FEATURE_FLAGS.QUOTE_REQUESTS_ENABLED && (
+        {featureFlags.quoteRequestsEnabled && (
           <button
             className={`tab ${activeTab === 'quoteRequests' ? 'active' : ''}`}
             onClick={() => setActiveTab('quoteRequests')}

@@ -1,7 +1,18 @@
-// AuthTokenService.ts - OAuth token management singleton
+// AuthTokenService.ts - OAuth token management singleton backed by sessionStorage
+const TOKEN_STORAGE_KEY = 'oms.auth.token';
+
+function readStoredToken(): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // sessionStorage unavailable (e.g. disabled cookies) — fall back to memory
+    return null;
+  }
+}
+
 export class AuthTokenService {
   private static instance: AuthTokenService;
-  private token: string | null = null;
+  private token: string | null = readStoredToken();
   private listeners: Array<(token: string | null) => void> = [];
 
   private constructor() {}
@@ -15,6 +26,15 @@ export class AuthTokenService {
 
   public setToken(token: string | null): void {
     this.token = token;
+    try {
+      if (token) {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+      } else {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore storage failures — in-memory token still works for this session
+    }
     this.notifyListeners();
   }
 
@@ -27,8 +47,7 @@ export class AuthTokenService {
   }
 
   public clearToken(): void {
-    this.token = null;
-    this.notifyListeners();
+    this.setToken(null);
   }
 
   public addTokenChangeListener(listener: (token: string | null) => void): void {

@@ -89,12 +89,11 @@ export class RSocketStreamingService {
    */
   public async connect(): Promise<void> {
     if (this.socket) {
-      console.log('[RSocketStreamingService] Already connected');
       return;
     }
 
     this.setConnectionState('connecting');
-    console.log(`[RSocketStreamingService] Connecting to ${this.config.wsUrl}`);
+    console.info(`[RSocketStreamingService] Connecting to ${this.config.wsUrl}`);
 
     try {
       this.client = new RSocketClient({
@@ -113,7 +112,6 @@ export class RSocketStreamingService {
       this.socket = await new Promise((resolve, reject) => {
         this.client!.connect().subscribe({
           onComplete: (socket: any) => {
-            console.log('[RSocketStreamingService] Connected successfully');
             this.reconnectAttempts = 0;
             resolve(socket);
           },
@@ -134,7 +132,6 @@ export class RSocketStreamingService {
         // Store original close to detect when connection is closed externally
         const originalClose = this.socket.close.bind(this.socket);
         this.socket.close = () => {
-          console.log('[RSocketStreamingService] Connection closed');
           this.socket = null;
           this.setConnectionState('disconnected');
           return originalClose();
@@ -162,7 +159,7 @@ export class RSocketStreamingService {
 
     this.reconnectAttempts++;
     const delay = this.config.reconnectDelayMs * Math.pow(2, Math.min(this.reconnectAttempts - 1, 4));
-    console.log(`[RSocketStreamingService] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
+    console.warn(`[RSocketStreamingService] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
     
     this.setConnectionState('reconnecting');
     this.reconnectTimeout = setTimeout(() => {
@@ -187,7 +184,6 @@ export class RSocketStreamingService {
     }
     
     this.setConnectionState('disconnected');
-    console.log('[RSocketStreamingService] Disconnected');
   }
 
   /**
@@ -266,7 +262,7 @@ export class RSocketStreamingService {
       return { unsubscribe: () => {}, isActive: () => false };
     }
 
-    console.log('[RSocketStreamingService] Subscribing to orders.stream with filter:', filter);
+    console.info('[RSocketStreamingService] Subscribing to orders.stream');
     
     let active = true;
     let subscription: any = null;
@@ -276,7 +272,6 @@ export class RSocketStreamingService {
       metadata: this.createMetadata('orders.stream'),
     }).subscribe({
       onComplete: () => {
-        console.log('[RSocketStreamingService] Orders stream completed');
         active = false;
         callbacks.onComplete();
       },
@@ -288,7 +283,6 @@ export class RSocketStreamingService {
       onNext: (payload: any) => {
         try {
           const event = JSON.parse(payload.data.toString()) as OrderEvent;
-          console.log('[RSocketStreamingService] Received order event:', event.eventType, event.orderId);
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse order event:', e);
@@ -323,7 +317,7 @@ export class RSocketStreamingService {
       return { unsubscribe: () => {}, isActive: () => false };
     }
 
-    console.log('[RSocketStreamingService] Subscribing to executions.stream');
+    console.info('[RSocketStreamingService] Subscribing to executions.stream');
     
     let active = true;
     let subscription: any = null;
@@ -333,7 +327,6 @@ export class RSocketStreamingService {
       metadata: this.createMetadata('executions.stream'),
     }).subscribe({
       onComplete: () => {
-        console.log('[RSocketStreamingService] Executions stream completed');
         active = false;
         callbacks.onComplete();
       },
@@ -345,7 +338,6 @@ export class RSocketStreamingService {
       onNext: (payload: any) => {
         try {
           const event = JSON.parse(payload.data.toString()) as ExecutionEvent;
-          console.log('[RSocketStreamingService] Received execution event:', event.eventType, event.execId);
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse execution event:', e);
@@ -380,7 +372,7 @@ export class RSocketStreamingService {
       return { unsubscribe: () => {}, isActive: () => false };
     }
 
-    console.log('[RSocketStreamingService] Subscribing to blotter.stream:', request);
+    console.info('[RSocketStreamingService] Subscribing to blotter.stream');
     
     let active = true;
     let subscription: any = null;
@@ -390,7 +382,6 @@ export class RSocketStreamingService {
       metadata: this.createMetadata('blotter.stream'),
     }).subscribe({
       onComplete: () => {
-        console.log('[RSocketStreamingService] Blotter stream completed');
         active = false;
         callbacks.onComplete();
       },
@@ -402,7 +393,6 @@ export class RSocketStreamingService {
       onNext: (payload: any) => {
         try {
           const event = JSON.parse(payload.data.toString());
-          console.log('[RSocketStreamingService] Received blotter event:', event);
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse blotter event:', e);

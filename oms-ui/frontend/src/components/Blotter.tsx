@@ -8,6 +8,7 @@ import { OMSApiService } from '../services/OMSApiService';
 import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
+import { convertFiltersToState, convertFiltersFromState } from '../services/filterUtils';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
@@ -47,21 +48,16 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
         // Fetch metadata
         await metamodelService.getMetamodelAsync(domainObject);
         const metadata = metamodelService.getMetamodel(domainObject);
-        console.log('[Blotter] initializeBlotter - Metadata fetched:', metadata);
-        console.log('[Blotter] initializeBlotter - Default columns:', metadata.defaultColumns);
 
         // Restore saved state or use defaults
         const savedState = stateService.getState(domainObject);
-        console.log('[Blotter] initializeBlotter - Saved state:', savedState);
         
         if (savedState && savedState.visibleColumns && savedState.visibleColumns.length > 0) {
-          console.log('[Blotter] initializeBlotter - Restoring saved state');
           setFilters(convertFiltersFromState(savedState.filters));
           setVisibleColumns(savedState.visibleColumns);
           setSortModel(savedState.sortModel);
           setCurrentPage(savedState.currentPage);
         } else {
-          console.log('[Blotter] initializeBlotter - Using default columns:', metadata.defaultColumns);
           setVisibleColumns(metadata.defaultColumns);
         }
         // Mark as initialized - data loading useEffect will trigger
@@ -104,55 +100,32 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
   }, [initialized, filters, sortModel, currentPage]);
 
   const loadData = useCallback(async () => {
-    console.log('[Blotter] loadData - Starting load for:', domainObject);
-    console.log('[Blotter] loadData - Current filters:', filters);
-    console.log('[Blotter] loadData - Current sortModel:', sortModel);
-    console.log('[Blotter] loadData - Current page:', currentPage);
-    console.log('[Blotter] loadData - Page size:', pageSize);
-    
     setLoading(true);
     setError(null);
 
     try {
       const omsApiService = await OMSApiService.getInstance();
-      console.log('[Blotter] loadData - Got API service instance');
       
       const sort = sortModel.length > 0
         ? { field: sortModel[0].colId, direction: sortModel[0].sort }
         : undefined;
-      console.log('[Blotter] loadData - Computed sort:', sort);
 
       let response;
       if (domainObject === 'Order') {
-        console.log('[Blotter] loadData - Calling getOrders...');
         response = await omsApiService.getOrders(filters, sort, currentPage - 1, pageSize);
-        console.log('[Blotter] loadData - getOrders response:', response);
       } else if (domainObject === 'Execution') {
-        console.log('[Blotter] loadData - Calling getExecutions...');
         response = await omsApiService.getExecutions(filters, sort, currentPage - 1, pageSize);
-        console.log('[Blotter] loadData - getExecutions response:', response);
       } else {
         throw new Error(`Unsupported domain object: ${domainObject}`);
       }
 
-      console.log('[Blotter] loadData - Response content:', response.content);
-      console.log('[Blotter] loadData - Response page metadata:', response.page);
-      console.log('[Blotter] loadData - Response totalElements:', response.page?.totalElements);
-      console.log('[Blotter] loadData - Setting data with', response.content?.length, 'items');
-      console.log('[Blotter] loadData - First order data:', response.content?.[0]);
-      console.log('[Blotter] loadData - First order keys:', response.content?.[0] ? Object.keys(response.content[0]) : 'no data');
-      
       setData(response.content);
       setTotalCount(response.page?.totalElements || 0);
-      console.log('[Blotter] loadData - Data set successfully');
     } catch (err: any) {
-      console.error('[Blotter] loadData - Error caught:', err);
-      console.error('[Blotter] loadData - Error message:', err.message);
-      console.error('[Blotter] loadData - Error stack:', err.stack);
+      console.error('[Blotter] loadData - Error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
-      console.log('[Blotter] loadData - Loading complete');
     }
   }, [domainObject, filters, sortModel, currentPage, pageSize]);
 
@@ -210,25 +183,6 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
     gridApiRef.current?.autoSizeAllColumns();
   };
 
-  const convertFiltersToState = (filters: FilterCondition[]): { [key: string]: any } => {
-    const state: { [key: string]: any } = {};
-    filters.forEach(f => {
-      state[`${f.field}${f.operation}`] = f.value;
-    });
-    return state;
-  };
-
-  const convertFiltersFromState = (state: { [key: string]: any }): FilterCondition[] => {
-    return Object.entries(state).map(([key, value]) => {
-      const match = key.match(/^(.+?)(__\w+)?$/);
-      return {
-        field: match![1],
-        operation: match![2] || '',
-        value,
-      };
-    });
-  };
-
   // Don't render until metadata is loaded
   if (!initialized) {
     return (
@@ -240,12 +194,6 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
 
   const columnDefs = columnConfigService.getColumnConfig(domainObject, visibleColumns);
   const metadata = metamodelService.getMetamodel(domainObject);
-
-  console.log('[Blotter] Column defs:', columnDefs);
-  console.log('[Blotter] Visible columns:', visibleColumns);
-  console.log('[Blotter] Metadata:', metadata);
-  console.log('[Blotter] Current data length:', data.length);
-  console.log('[Blotter] Current data:', data);
 
   return (
     <div className="blotter-container">

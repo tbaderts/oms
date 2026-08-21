@@ -3,6 +3,40 @@ import { ApiClient } from './ApiClient';
 import { ConfigService } from './ConfigService';
 import { FilterCondition, PageResponse, Order, Execution } from '../types/types';
 
+/**
+ * Normalizes a paged response to the shape the UI expects ({ content, page }).
+ *
+ * - oms-core `/api/query/search` returns `PagedOrderDto` ({ content, page }) natively.
+ * - oms-core `/api/executions` returns a raw Spring Data `Page` where the
+ *   metadata (totalElements, totalPages, size, number) sits at the top level.
+ */
+function normalizePage<T>(raw: any): PageResponse<T> {
+  if (!raw) {
+    return { content: [], page: { totalElements: 0, totalPages: 0, size: 0, number: 0 } };
+  }
+
+  // Already in PagedOrderDto shape
+  if (raw.page && Array.isArray(raw.content)) {
+    return raw as PageResponse<T>;
+  }
+
+  // Raw Spring Data Page shape
+  if (Array.isArray(raw.content)) {
+    return {
+      content: raw.content,
+      page: {
+        totalElements: raw.totalElements ?? raw.content.length,
+        totalPages: raw.totalPages ?? 1,
+        size: raw.size ?? raw.content.length,
+        number: raw.number ?? 0,
+      },
+    };
+  }
+
+  // Unexpected shape — surface an empty page rather than crash the grid
+  return { content: [], page: { totalElements: 0, totalPages: 0, size: 0, number: 0 } };
+}
+
 export class OMSApiService {
   private static instance: OMSApiService | null = null;
   private static initPromise: Promise<OMSApiService> | null = null;
@@ -43,30 +77,27 @@ export class OMSApiService {
     }
 
     const params = this.buildQueryParams(filters, sort, page, size);
-    console.log('[OMSApiService] getOrders - Request params:', params);
-    console.log('[OMSApiService] getOrders - Filters:', filters);
-    console.log('[OMSApiService] getOrders - Sort:', sort);
-    console.log('[OMSApiService] getOrders - Page:', page, 'Size:', size);
-    
+
     try {
-      const response = await this.apiClient.get<PageResponse<Order>>('/api/query/search', { params });
-      console.log('[OMSApiService] getOrders - Response:', response);
-      console.log('[OMSApiService] getOrders - Content length:', response?.content?.length);
-      console.log('[OMSApiService] getOrders - Page metadata:', response?.page);
-      console.log('[OMSApiService] getOrders - Total elements:', response?.page?.totalElements);
-      return response;
+      const raw = await this.apiClient.get<any>('/api/query/search', { params });
+      return normalizePage<Order>(raw);
     } catch (error) {
       console.error('[OMSApiService] getOrders - Error:', error);
       throw error;
     }
   }
 
-  // Get order by ID
-  public async getOrderById(id: string): Promise<Order> {
+  // Get order by ID (uses the query search endpoint with an orderId filter,
+  // since oms-core does not expose a single-order query path)
+  public async getOrderById(id: string): Promise<Order | null> {
     if (!this.apiClient) {
       throw new Error('API client not initialized');
     }
-    return this.apiClient.get<Order>(`/api/query/search/${id}`);
+    const response = await this.apiClient.get<PageResponse<Order>>('/api/query/search', {
+      params: { orderId: id, size: 1 },
+    });
+    const page = normalizePage<Order>(response);
+    return page.content.length > 0 ? page.content[0] : null;
   }
 
   // Query executions
@@ -81,7 +112,8 @@ export class OMSApiService {
     }
 
     const params = this.buildQueryParams(filters, sort, page, size);
-    return this.apiClient.get<PageResponse<Execution>>('/api/v1/queries/executions', { params });
+    const raw = await this.apiClient.get<any>('/api/executions', { params });
+    return normalizePage<Execution>(raw);
   }
 
   // Build query parameters from filters
@@ -96,12 +128,8 @@ export class OMSApiService {
       size,
     };
 
-    console.log('[OMSApiService] buildQueryParams - Input filters:', filters);
-    console.log('[OMSApiService] buildQueryParams - Input sort:', sort);
-
     if (sort) {
       params.sort = `${sort.field},${sort.direction.toUpperCase()}`;
-      console.log('[OMSApiService] buildQueryParams - Sort param:', params.sort);
     }
 
     if (filters) {
@@ -113,11 +141,9 @@ export class OMSApiService {
         } else {
           params[paramKey] = filter.value;
         }
-        console.log('[OMSApiService] buildQueryParams - Added param:', paramKey, '=', params[paramKey]);
       });
     }
 
-    console.log('[OMSApiService] buildQueryParams - Final params:', params);
     return params;
   }
 

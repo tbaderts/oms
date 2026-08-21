@@ -1,9 +1,31 @@
 // ConfigService.ts - Fetch runtime configuration from Spring Boot backend
 
+/**
+ * Single source of truth for the default streaming URL.
+ * Used only as a fallback when the backend config endpoint is unreachable
+ * (e.g. running the React dev server standalone). In production the value
+ * always comes from /api/config (oms.streaming.url on the backend).
+ */
+export const DEFAULT_STREAMING_URL = 'ws://localhost:7000/trade-blotter/stream';
+
+/** Feature flags served by the backend /api/config endpoint */
+export interface FeatureFlags {
+  quotesEnabled: boolean;
+  quoteRequestsEnabled: boolean;
+  streamingEnabled: boolean;
+}
+
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  quotesEnabled: false,
+  quoteRequestsEnabled: false,
+  streamingEnabled: true,
+};
+
 export interface AppConfig {
   appName: string;
   apiBaseUrl: string;
   streamingUrl?: string; // WebSocket URL for RSocket streaming
+  features?: Partial<FeatureFlags>;
 }
 
 export class ConfigService {
@@ -45,7 +67,8 @@ export class ConfigService {
       return {
         appName: 'OMS Admin Tool',
         apiBaseUrl: '',  // Empty = use relative URLs via proxy in dev
-        streamingUrl: 'ws://localhost:7000/trade-blotter/stream',
+        streamingUrl: DEFAULT_STREAMING_URL,
+        features: DEFAULT_FEATURE_FLAGS,
       };
     }
   }
@@ -59,5 +82,13 @@ export class ConfigService {
 
   public static getCachedConfig(): AppConfig | null {
     return this.config;
+  }
+
+  /**
+   * Resolve feature flags from the loaded config, merged over defaults.
+   * Safe to call before getConfig() — returns defaults in that case.
+   */
+  public static getFeatureFlags(): FeatureFlags {
+    return { ...DEFAULT_FEATURE_FLAGS, ...(this.config?.features || {}) };
   }
 }

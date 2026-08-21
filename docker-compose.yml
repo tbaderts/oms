@@ -80,6 +80,23 @@ services:
     networks:
       - app-net
 
+  oms-ui:
+    image: 'oms-ui:latest'
+    container_name: oms-ui
+    build:
+      context: ./oms-ui
+    depends_on:
+      - oms-core
+      - streaming-service
+    environment:
+      # Browser-facing URLs must be host-reachable (published ports), not in-network hostnames
+      OMS_API_BASE_URL: http://localhost:8090
+      OMS_STREAMING_URL: ws://localhost:7000/trade-blotter/stream
+    ports:
+      - "8080:8080"
+    networks:
+      - app-net
+
   broker:
     image: confluentinc/cp-kafka:7.9.9
     hostname: broker
