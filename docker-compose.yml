@@ -16,6 +16,8 @@ services:
       REGISTRY_URL: http://schema-registry:8081
       TRACING_URL: http://jaeger:4317
       TRACING_ENABLED: ${TRACING_ENABLED:-true}
+      # Browser-facing origins allowed to call oms-core directly (oms-ui SPA, CRA dev server)
+      CORS_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:3000
     ports:
       - "8090:8090"
     networks:
