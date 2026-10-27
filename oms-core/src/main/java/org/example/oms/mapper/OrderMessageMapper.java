@@ -70,9 +70,17 @@ public class OrderMessageMapper {
                 .setExpireTime(order.getExpireTime())
                 .setSecurityExchange(order.getSecurityExchange())
                 .setText(order.getText())
+                .setRejectReason(order.getRejectReason())
                 .setTifTimestamp(order.getTifTimestamp())
                 .setState(mapState(order.getState()))
                 .setCancelState(mapCancelState(order.getCancelState()))
+                // SLA checkpoints, so downstream analytics can compute latency without joining back
+                // to the order table. These are timestamp-micros in the schema; the business
+                // timestamps above are millis and would truncate what they measure.
+                .setOrderReceivedTime(order.getOrderReceivedTime())
+                .setAckTime(order.getAckTime())
+                .setMarketSendTime(order.getMarketSendTime())
+                .setMarketAckTime(order.getMarketAckTime())
                 // Per-order sequence, not the database primary key. The key never changes, so every
                 // message for an order used to carry an identical eventId and consumers had no way
                 // to deduplicate a redelivery or order two updates against each other.

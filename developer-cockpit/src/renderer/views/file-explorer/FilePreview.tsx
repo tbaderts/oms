@@ -1,5 +1,6 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
+import '@/lib/monaco';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useConfigStore } from '@/stores/config';
 

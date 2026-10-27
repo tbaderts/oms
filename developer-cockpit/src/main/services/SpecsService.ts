@@ -57,6 +57,7 @@ export class SpecsService {
   }
 
   writeFile(filePath: string, content: string): void {
+    this.validatePathWithinWorkspace(filePath);
     this.validatePathWithinSpecDirs(filePath);
     fs.writeFileSync(filePath, content, 'utf-8');
   }
@@ -293,9 +294,7 @@ export class SpecsService {
   }
 
   private validatePathWithinWorkspace(filePath: string): void {
-    const resolved = path.resolve(filePath);
-    const wsRoot = path.resolve(this.workspaceRoot);
-    if (!resolved.startsWith(wsRoot)) {
+    if (!isWithin(path.resolve(filePath), path.resolve(this.workspaceRoot))) {
       throw new Error(`Path ${filePath} is outside workspace`);
     }
   }
@@ -303,12 +302,19 @@ export class SpecsService {
   private validatePathWithinSpecDirs(filePath: string): void {
     const resolved = path.resolve(filePath);
     const allDirs = [...this.specsConfig.openApiPaths, ...this.specsConfig.avroPaths];
-    const withinSpec = allDirs.some((relDir) => {
-      const absDir = path.resolve(this.workspaceRoot, relDir);
-      return resolved.startsWith(absDir);
-    });
+    const withinSpec = allDirs.some((relDir) => isWithin(resolved, path.resolve(this.workspaceRoot, relDir)));
     if (!withinSpec) {
       throw new Error(`Path ${filePath} is not within spec directories`);
     }
+    if (!CONTRACT_EXTENSIONS.includes(path.extname(resolved).toLowerCase())) {
+      throw new Error(`Path ${filePath} is not a contract file (${CONTRACT_EXTENSIONS.join(', ')})`);
+    }
   }
+}
+
+const CONTRACT_EXTENSIONS = ['.yml', '.yaml', '.avsc'];
+
+/** True if `file` is `dir` or below it; a sibling that merely shares the prefix (`dir-old/`) is not. */
+function isWithin(file: string, dir: string): boolean {
+  return file === dir || file.startsWith(dir.endsWith(path.sep) ? dir : dir + path.sep);
 }

@@ -1,0 +1,5 @@
+exit 1
+--- stdout
+SPEC-0003 gate "plan": FAIL
+  ERROR tasks.md: no task covers AC-2
+--- stderr

@@ -11,7 +11,14 @@ import { registerFsIpc } from './ipc/fs.ipc';
 import { registerRequirementsIpc } from './ipc/requirements.ipc';
 import { registerGitIpc } from './ipc/git.ipc';
 import { registerSpecsIpc } from './ipc/specs.ipc';
+import { registerSpecTicketsIpc } from './ipc/specTickets.ipc';
+import { registerApiExplorerIpc } from './ipc/apiExplorer.ipc';
 import { createApplicationMenu } from './menu';
+import type { CockpitConfig } from '../shared/types/config';
+
+/** Extra API Explorer template files live outside the watched folders; watch them by path. */
+const templateWatchPaths = (config: CockpitConfig) =>
+  (config.infrastructure.apiTemplateSources ?? []).filter((p) => p.trim()).map((p) => path.resolve(config.general.workspaceRoot, p.trim()));
 
 let mainWindow: BrowserWindow | null = null;
 let configService: ConfigService;
@@ -57,10 +64,11 @@ async function initServices(): Promise<void> {
 
   const config = configService.getConfig();
   watcherService = new WatcherService(config.general.workspaceRoot, wsServer);
+  watcherService.setExtraPaths(templateWatchPaths(config));
 }
 
 function registerAllIpc(): void {
-  registerConfigIpc(ipcMain, configService);
+  registerConfigIpc(ipcMain, configService, (config) => watcherService.setExtraPaths(templateWatchPaths(config)));
   registerShellIpc(ipcMain);
   registerEventsIpc(ipcMain, WS_PORT);
   registerKbIpc(ipcMain, configService);
@@ -68,6 +76,8 @@ function registerAllIpc(): void {
   registerRequirementsIpc(ipcMain, configService);
   registerGitIpc(ipcMain, configService);
   registerSpecsIpc(ipcMain, configService);
+  registerSpecTicketsIpc(ipcMain, configService);
+  registerApiExplorerIpc(ipcMain, configService);
 }
 
 app.whenReady().then(async () => {

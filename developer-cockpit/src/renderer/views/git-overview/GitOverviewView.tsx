@@ -23,7 +23,7 @@ export function GitOverviewView() {
     selectFile,
   } = useGitStore();
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     refreshAll();

@@ -1,0 +1,70 @@
+{
+  "ranAt": "2026-10-25T06:51:50.503Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "oms-ui",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "e13c8fb488f975d6",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-contracts/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-exchange-simulator/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-exchange-simulator/settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 5425b9f3)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 51,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "npm test -- --watchAll=false --passWithNoTests",
+      "exitCode": 0,
+      "seconds": 8,
+      "log": "evidence/oms-ui-1.log"
+    }
+  ]
+}

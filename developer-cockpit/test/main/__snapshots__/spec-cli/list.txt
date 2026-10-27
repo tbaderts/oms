@@ -1,0 +1,8 @@
+exit 0
+--- stdout
+SPEC-0001  proposal     -    Ticket SPEC-0001
+SPEC-0002  proposal     -    Ticket SPEC-0002
+SPEC-0003  plan         0/2  Ticket SPEC-0003
+SPEC-0004  implement    2/3  Ticket SPEC-0004
+SPEC-0005  verify       1/1  Ticket SPEC-0005
+--- stderr

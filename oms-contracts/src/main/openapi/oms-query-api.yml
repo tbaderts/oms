@@ -14,7 +14,8 @@ info:
     Filterable fields:
       - String: orderId, rootOrderId, parentOrderId, clOrdId, account, symbol, securityId
       - Numeric: price, orderQty, cashOrderQty
-      - DateTime (Instant): sendingTime, transactTime, expireTime
+      - DateTime (Instant): sendingTime, transactTime, expireTime,
+        orderReceivedTime, ackTime, marketSendTime, marketAckTime
       - Enum: side, ordType, state, cancelState
     
     Sorting:
@@ -194,10 +195,45 @@ components:
           type: string
         text:
           type: string
+        rejectReason:
+          type: string
+          maxLength: 255
+          description: Latest reason the venue gave for refusing the order or a cancel request (FIX Text 58 from the venue). The client's own text stays in `text`.
         tifTimestamp:
           type: string
           format: date-time
           x-java-type: java.time.Instant
+        orderReceivedTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: |
+            SLA checkpoint — the moment this order crossed the OMS boundary, on the OMS clock.
+            Equivalent to FIX TrdRegTimestampType 2 (TimeIn). Written once and never updated.
+        ackTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: |
+            SLA checkpoint — the moment the OMS completed validation and assumed responsibility
+            for a client order, which is when the client acknowledgement goes out. Set on the
+            CLI leg only. `ackTime - orderReceivedTime` is time-to-ack.
+        marketSendTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: |
+            SLA checkpoint — the moment the order was released downstream to the broker or venue.
+            Equivalent to FIX TrdRegTimestampType 3 (TimeOut). Set on the MKT leg only.
+        marketAckTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: |
+            SLA checkpoint — the moment the downstream acknowledgement was observed at the OMS
+            boundary. Equivalent to FIX TrdRegTimestampType 4 (BrokerReceipt). Set on the MKT
+            leg only. This is when the broker or venue confirmed receipt, not when the order
+            reached the order book; we cannot observe the latter.
         state:
           $ref: 'schema.yml#/components/schemas/State'
         cancelState:

@@ -1,0 +1,87 @@
+# API Explorer templates: commands on an existing order (SPEC-0008).
+#
+# In the cockpit, {{orderId}} is the order shown in the follow-up. In VS Code, declare it first,
+# e.g. `@orderId = ORD-…`. With the exchange simulator running, the market side (accept, reject,
+# fills, cancel confirmations) is normally sent by the simulator; these are for testing by hand.
+
+@baseUrl = http://localhost:8090
+
+###
+# @name Accept order (market acknowledges, ExecType=0)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderAcceptCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}"
+}
+
+###
+# @name Reject order (ExecType=8)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderRejectCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}",
+  "text": "Rejected by hand"
+}
+
+###
+# @name Fill 100 (ExecType=F)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "ExecutionCreateCmd",
+  "version": "1.0.0",
+  "execution": {
+    "execId": "{{$guid}}",
+    "orderId": "{{orderId}}",
+    "lastQty": 100,
+    "lastPx": 86.96,
+    "execType": "F",
+    "lastMkt": "XSIM"
+  }
+}
+
+###
+# @name Request cancel (FIX 35=F)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCancelRequestCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}"
+}
+
+###
+# @name Confirm cancel (ExecType=4)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCancelCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}",
+  "text": "Cancelled on request"
+}
+
+###
+# @name Refuse cancel (35=9)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCancelRejectCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}",
+  "text": "Too late to cancel"
+}

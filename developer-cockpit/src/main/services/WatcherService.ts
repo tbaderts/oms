@@ -1,11 +1,16 @@
 import { watch, type FSWatcher } from 'chokidar';
+import * as path from 'path';
 import type { WebSocketServer } from '../websocket/server';
-import type { FileChangePayload } from '../../shared/types/events';
+import type { FileChangePayload, SpecTicketsChangedPayload } from '../../shared/types/events';
+
+const SPEC_TICKET_DIRS = /^specs\/(changes|archive)\//;
 
 export class WatcherService {
   private watcher: FSWatcher | null = null;
   private debounceTimers = new Map<string, NodeJS.Timeout>();
+  private specTicketsTimer: NodeJS.Timeout | null = null;
   private readonly debounceMs = 300;
+  private extraPaths: string[] = [];
 
   constructor(
     private workspaceRoot: string,
@@ -17,12 +22,18 @@ export class WatcherService {
     // The full workspace contains ~100K files; scanning all of them at startup
     // blocks the Electron main process and makes the app feel sluggish.
     const watchPaths = [
+      'oms-contracts/src/main',
       'oms-core/src',
       'oms-streaming-service/src',
       'oms-ui/frontend/src',
       'oms-knowledge-base',
       'developer-cockpit/src',
-    ].map((p) => require('path').join(this.workspaceRoot, p));
+      'developer-cockpit/api-templates',
+      'specs/changes',
+      'specs/archive',
+    ]
+      .map((p) => path.join(this.workspaceRoot, p))
+      .concat(this.extraPaths);
 
     this.watcher = watch(watchPaths, {
       ignored: [
@@ -51,6 +62,17 @@ export class WatcherService {
     });
   }
 
+  /** Files outside the fixed folders, such as extra API Explorer template sources; replaces the previous set. */
+  setExtraPaths(paths: string[]): void {
+    const previous = this.extraPaths;
+    this.extraPaths = [...paths];
+    if (!this.watcher) return; // applied by start()
+    const removed = previous.filter((p) => !this.extraPaths.includes(p));
+    const added = this.extraPaths.filter((p) => !previous.includes(p));
+    if (removed.length) this.watcher.unwatch(removed);
+    if (added.length) this.watcher.add(added);
+  }
+
   stop(): void {
     if (this.watcher) {
       this.watcher.close();
@@ -60,9 +82,15 @@ export class WatcherService {
       clearTimeout(timer);
     }
     this.debounceTimers.clear();
+    if (this.specTicketsTimer) clearTimeout(this.specTicketsTimer);
+    this.specTicketsTimer = null;
   }
 
   private debouncedEmit(filePath: string, kind: FileChangePayload['kind']): void {
+    if (SPEC_TICKET_DIRS.test(path.relative(this.workspaceRoot, filePath).replace(/\\/g, '/'))) {
+      this.emitSpecTicketsChanged(filePath);
+    }
+
     const key = `${kind}:${filePath}`;
     const existing = this.debounceTimers.get(key);
     if (existing) clearTimeout(existing);
@@ -79,5 +107,18 @@ export class WatcherService {
         });
       }, this.debounceMs),
     );
+  }
+
+  /** One trailing event per burst (e.g. `spec verify` writing logs), whatever the file. */
+  private emitSpecTicketsChanged(filePath: string): void {
+    if (this.specTicketsTimer) clearTimeout(this.specTicketsTimer);
+    this.specTicketsTimer = setTimeout(() => {
+      this.specTicketsTimer = null;
+      this.wsServer.broadcast({
+        type: 'specs:tickets-changed',
+        timestamp: Date.now(),
+        payload: { path: filePath } satisfies SpecTicketsChangedPayload,
+      });
+    }, this.debounceMs);
   }
 }

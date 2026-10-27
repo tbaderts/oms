@@ -6,8 +6,8 @@ content-type: application/json
   "type": "OrderCreateCmd",
   "order": {
     "sessionId": "test-session",
-    "clOrdId": "20260817-test-001",
-    "sendingTime": "2026-08-17T05:44:00Z",
+    "clOrdId": "20261027-test-001",
+    "sendingTime": "2026-10-27T05:44:00Z",
     "account": "account-01",
     "execInst": "NO_CROSS",
     "handlInst": "BROKER_INTERVENTION_OK",
@@ -15,13 +15,13 @@ content-type: application/json
     "orderQty": 100,
     "priceType": "PER_UNIT",
     "ordType": "LIMIT",
-    "price": 40.56,
+    "price": 86.96,
     "securityId": "INTC.OQ",
     "securityDesc": "Intel Corporation",
     "side": "BUY",
     "symbol": "INTC",
     "timeInForce": "DAY",
-    "transactTime": "2026-02-14T08:01:00Z",
+    "transactTime": "2026-10-27T05:44:00Z",
     "exDestination": "XNAS",
     "settlCurrency": "USD",
     "securityExchange": "XNAS",
@@ -75,3 +75,40 @@ content-type: application/json
 # Metamodel health check
 GET http://localhost:8090/api/v1/metamodel/health HTTP/1.1
 content-type: application/json
+###
+# Lifecycle commands (SPEC-0001). With the exchange simulator running, only the cancel request is
+# sent by hand; the simulator answers with OrderCancelCmd or OrderCancelRejectCmd.
+
+# Request cancellation of a resting order's open quantity (FIX 35=F)
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{"type":"OrderCancelRequestCmd","version":"1.0.0","orderId":"<orderId>","commandId":"<unique id; a repeat is refused as duplicate>"}
+
+###
+# Market confirms a cancel (ExecType=4)
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{"type":"OrderCancelCmd","version":"1.0.0","orderId":"<orderId>","text":"Cancelled on request","commandId":"<orderId>-CXL-1"}
+
+###
+# Market refuses a cancel request (35=9)
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{"type":"OrderCancelRejectCmd","version":"1.0.0","orderId":"<orderId>","text":"Too late to cancel","commandId":"<orderId>-CXLREJ-1"}
+
+###
+# Market rejects an order (ExecType=8)
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{"type":"OrderRejectCmd","version":"1.0.0","orderId":"<orderId>","text":"Unknown symbol ZZZZ","commandId":"<orderId>-REJ-1"}
+
+###
+# A fill (ExecType=F)
+POST http://localhost:8090/api/command/execute HTTP/1.1
+content-type: application/json
+
+{"type":"ExecutionCreateCmd","version":"1.0.0","execution":{"execId":"<orderId>-F1","orderId":"<orderId>","lastQty":100,"lastPx":170.00,"execType":"F","lastMkt":"XSIM"}}

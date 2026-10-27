@@ -57,3 +57,41 @@ oms-mcp-server/logs/spring-ai.log
 ### JAR Files ###
 tools/*.jar
 
+### Node ###
+# Module folders have their own rules; this also catches tool caches created at the repo root.
+node_modules/
+
+### Python ###
+__pycache__/
+*.py[cod]
+
+### Rendered media and other binaries ###
+# Manim renders (videos plus text caches) are regenerated from the .py scenes next to them.
+oms-knowledge-base/animations/media/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.mp3
+*.wav
+*.zip
+*.7z
+*.rar
+*.tar
+*.tgz
+*.tar.gz
+*.exe
+*.dll
+*.iso
+
+### OS files ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### Spec workflow ###
+# Command logs are bulky and reproducible; last-run.json (the verdict evidence) is kept.
+specs/*/*/evidence/*.log
+specs/*/*/.autopilot.json
+

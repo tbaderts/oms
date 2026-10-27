@@ -29,6 +29,16 @@ public interface QueryOrderDtoMapper {
     @Mapping(target = "expireTime", source = "expireTime", qualifiedByName = "toOffsetDateTime")
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "toOffsetDateTime")
     @Mapping(target = "tifTimestamp", source = "tifTimestamp", qualifiedByName = "toOffsetDateTime")
+    @Mapping(
+            target = "orderReceivedTime",
+            source = "orderReceivedTime",
+            qualifiedByName = "toOffsetDateTime")
+    @Mapping(target = "ackTime", source = "ackTime", qualifiedByName = "toOffsetDateTime")
+    @Mapping(
+            target = "marketSendTime",
+            source = "marketSendTime",
+            qualifiedByName = "toOffsetDateTime")
+    @Mapping(target = "marketAckTime", source = "marketAckTime", qualifiedByName = "toOffsetDateTime")
     OrderDto toOrderDto(Order order);
 
     /** Converts Instant to OffsetDateTime using UTC. */

@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { loader } from '@monaco-editor/react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ContentArea } from '@/components/layout/ContentArea';
 import { StatusBar } from '@/components/layout/StatusBar';
@@ -8,9 +7,11 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useConfigStore } from '@/stores/config';
 import { eventBus } from '@/lib/event-bus';
 
-// Preload Monaco editor during idle time so it's ready when the user opens Specs Editor
+// Preload the bundled Monaco during idle time so it's ready when an editor opens. Calling
+// loader.init() here instead would lock the loader onto its CDN default before lib/monaco
+// configures it, and the CSP blocks the CDN.
 if (typeof window !== 'undefined') {
-  const preloadMonaco = () => loader.init();
+  const preloadMonaco = () => import('@/lib/monaco');
   if ('requestIdleCallback' in window) {
     (window as any).requestIdleCallback(preloadMonaco);
   } else {

@@ -5,3 +5,7 @@ databaseChangeLog:
       file: db/changelog/002-order-idempotency-constraint.yaml
   - include:
       file: db/changelog/003-event-sourcing-and-outbox.yaml
+  - include:
+      file: db/changelog/004-sla-timestamps.yaml
+  - include:
+      file: db/changelog/005-order-reject-reason.yaml

@@ -33,7 +33,7 @@ const fieldGroups: Record<string, { title: string; fields: string[]; icon: strin
   status: {
     title: 'Status',
     icon: '📍',
-    fields: ['state', 'cancelState', 'positionEffect'],
+    fields: ['state', 'cancelState', 'rejectReason', 'positionEffect'],
   },
   timing: {
     title: 'Timing',
@@ -88,6 +88,7 @@ const fieldDisplayNames: Record<string, string> = {
   execInst: 'Execution Instruction',
   state: 'State',
   cancelState: 'Cancel State',
+  rejectReason: 'Reject Reason',
   positionEffect: 'Position Effect',
   sendingTime: 'Sending Time',
   transactTime: 'Transaction Time',

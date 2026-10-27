@@ -78,7 +78,7 @@ Team can browse all project documentation, requirements, and source files in one
   - [ ] Rendered proposal.md
   - [ ] Rendered design.md
   - [ ] Rendered tasks.md with progress bar
-- [ ] Wire `specs:changed` event for live reload
+- [ ] Wire `specs:tickets-changed` event for live reload
 - [ ] Implement `RoadmapService` -- parse roadmap YAML
 - [ ] Build Roadmap view:
   - [ ] Gantt chart with epics and work items

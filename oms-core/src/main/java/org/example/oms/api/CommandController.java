@@ -1,5 +1,7 @@
 package org.example.oms.api;
 
+import java.time.Instant;
+
 import org.example.common.api.ExecuteApi;
 import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.CommandResult;
@@ -14,6 +16,8 @@ import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.example.oms.service.command.OrderCreateCommandProcessor.OrderCreateResult;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
 import org.example.oms.service.execution.ExecutionCommandProcessor.ExecutionProcessingResult;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor.OrderLifecycleResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +40,7 @@ public class CommandController implements ExecuteApi {
     private final OrderCreateCommandProcessor orderCreateCommandProcessor;
         private final OrderAcceptCommandProcessor orderAcceptCommandProcessor;
     private final ExecutionCommandProcessor executionCommandProcessor;
+    private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     private final OrderMapper orderMapper;
 
     @Override
@@ -57,13 +62,22 @@ public class CommandController implements ExecuteApi {
                                                         name = "OrderAcceptCmd",
                                                         summary = "Order accept command",
                                                         value =
-                                                                "{\"type\":\"OrderAcceptCmd\",\"version\":\"1.0\",\"orderId\":\"12345\"}")
+                                                                "{\"type\":\"OrderAcceptCmd\",\"version\":\"1.0\",\"orderId\":\"12345\"}"),
+                                                @ExampleObject(
+                                                        name = "OrderCancelRequestCmd",
+                                                        summary = "Request cancellation of the open quantity",
+                                                        value =
+                                                                "{\"type\":\"OrderCancelRequestCmd\",\"version\":\"1.0.0\",\"orderId\":\"12345\"}")
                                             })))
     public ResponseEntity<CommandResult> executeCommand(@Valid Command command) {
+        // The SLA clock starts here, at the earliest point in the request we control. Taking it
+        // inside a processor would silently exclude whatever the dispatch below costs.
+        Instant receivedTime = Instant.now();
         log.info("Received command: {}", command);
 
         if (command instanceof OrderCreateCmd orderCreateCmd) {
-            OrderCreateResult result = orderCreateCommandProcessor.process(orderCreateCmd);
+            OrderCreateResult result =
+                    orderCreateCommandProcessor.process(orderCreateCmd, receivedTime);
 
             if (result.isSuccess()) {
                 log.info(
@@ -126,7 +140,8 @@ public class CommandController implements ExecuteApi {
         }
 
         if (command instanceof OrderAcceptCmd orderAcceptCmd) {
-            OrderAcceptResult result = orderAcceptCommandProcessor.process(orderAcceptCmd);
+            OrderAcceptResult result =
+                    orderAcceptCommandProcessor.process(orderAcceptCmd, receivedTime);
 
             if (result.isSuccess()) {
                 return ResponseEntity.ok(
@@ -142,6 +157,28 @@ public class CommandController implements ExecuteApi {
                             .id(result.getOrderId() != null ? result.getOrderId() : "")
                             .status(CommandStatus.FAILED)
                             .message("Order acceptance failed: " + result.getErrorMessage())
+                            .build());
+        }
+
+        if (OrderLifecycleCommandProcessor.supports(command)) {
+            OrderLifecycleResult result =
+                    orderLifecycleCommandProcessor.process(command, receivedTime);
+            String orderId = result.getOrderId() != null ? result.getOrderId() : "";
+
+            if (result.isSuccess()) {
+                return ResponseEntity.ok(
+                        CommandResult.builder()
+                                .id(orderId)
+                                .status(CommandStatus.OK)
+                                .message(result.getAction() + " applied to order " + orderId)
+                                .build());
+            }
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(CommandResult.builder()
+                            .id(orderId)
+                            .status(CommandStatus.FAILED)
+                            .message(result.getErrorMessage())
                             .build());
         }
 

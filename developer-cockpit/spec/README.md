@@ -18,3 +18,4 @@ This spec is designed so that an AI agent (or human team) can bootstrap a comple
 | [08-extension-points.md](./08-extension-points.md) | Plugin system, custom views, adapters |
 | [09-tech-stack-options.md](./09-tech-stack-options.md) | Reference architectures for Web, Electron, Tauri |
 | [10-implementation-guide.md](./10-implementation-guide.md) | Phased build plan with task checklists |
+| [11-storyboards.md](./11-storyboards.md) | Storyboards: end-to-end process journeys with sketches and prose (draft) |

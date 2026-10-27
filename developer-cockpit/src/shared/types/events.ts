@@ -5,6 +5,7 @@ export type EventType =
   | 'config:changed'
   | 'kb:updated'
   | 'git:changed'
+  | 'specs:tickets-changed'
   | 'connection:status';
 
 export interface CockpitEvent<T = unknown> {
@@ -16,6 +17,11 @@ export interface CockpitEvent<T = unknown> {
 export interface FileChangePayload {
   path: string;
   kind: 'change' | 'add' | 'unlink' | 'addDir' | 'unlinkDir';
+}
+
+/** Something under specs/changes or specs/archive changed; payload is the last changed path. */
+export interface SpecTicketsChangedPayload {
+  path: string;
 }
 
 export interface ConnectionStatusPayload {

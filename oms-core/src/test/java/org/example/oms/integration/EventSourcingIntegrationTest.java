@@ -292,7 +292,7 @@ class EventSourcingIntegrationTest {
 
     private void accept() {
         var result =
-                orderAcceptCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"));
+                orderAcceptCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), java.time.Instant.now());
         assertTrue(result.isSuccess(), () -> "accept failed: " + result.getErrorMessage());
     }
 

@@ -1,5 +1,7 @@
 package org.example.oms.service.command;
 
+import java.time.Instant;
+
 import org.example.common.model.Order;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.orchestration.TaskOrchestrator;
@@ -50,12 +52,22 @@ public class OrderCreateCommandProcessor {
     private final PersistOrderTask persistOrderTask;
     private final PublishOrderEventTask publishOrderEventTask;
 
+    /**
+     * Processes an order creation command.
+     *
+     * @param command the command to process
+     * @param receivedTime when the command crossed the OMS boundary, for SLA measurement. Callers
+     *     that cannot observe the boundary may pass {@code null}, in which case the order carries no
+     *     ingress checkpoint and contributes to no latency metric — a gap in the data rather than a
+     *     wrong number.
+     */
     @Transactional
     @Observed(name = "oms.order-create-processor.process")
-    public OrderCreateResult process(OrderCreateCmd command) {
+    public OrderCreateResult process(OrderCreateCmd command, Instant receivedTime) {
         log.info("Processing OrderCreateCmd: {}", command.getOrder().getClOrdId());
 
         OrderTaskContext context = createContext(command);
+        context.setReceivedTime(receivedTime);
         TaskPipeline<OrderTaskContext> pipeline = buildPipeline();
         PipelineResult result = orchestrator.execute(pipeline, context);
 

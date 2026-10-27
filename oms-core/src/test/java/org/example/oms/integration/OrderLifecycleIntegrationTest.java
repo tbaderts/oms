@@ -96,7 +96,7 @@ class OrderLifecycleIntegrationTest {
         assertEquals(State.UNACK, beforeAccept.get().getState());
 
         var acceptResult =
-                orderAcceptCommandProcessor.process(new OrderAcceptCmd("ORD-LIFE-1", "OrderAcceptCmd"));
+                orderAcceptCommandProcessor.process(new OrderAcceptCmd("ORD-LIFE-1", "OrderAcceptCmd"), java.time.Instant.now());
         assertTrue(acceptResult.isSuccess());
 
         Execution liveExecution = Execution.builder()

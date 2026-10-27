@@ -127,8 +127,10 @@ export const useSpecsStore = create<SpecsState>((set, get) => ({
 
   runAllCodeGen: async () => {
     const { codeGenTasks } = get();
+    // Tasks are ordered (models before the interfaces generated against them): stop at a failure.
     for (const task of codeGenTasks) {
       await get().runCodeGen(task.id);
+      if (!get().codeGenResults.get(task.id)?.success) break;
     }
   },
 

@@ -147,7 +147,8 @@ stateDiagram-v2
 **Actions:**
 - Set `state = REJ`
 - Generate rejection message to client
-- Record rejection reason in `text` field
+- No order is created: the command is refused with HTTP 400 and the reason is in the response
+  (the client's `text` is never used for reasons; venue refusals go to `rejectReason`, §4.5)
 
 **FIX Message to Client:**
 ```
@@ -200,6 +201,13 @@ stateDiagram-v2
 - Set `state = REJ`
 - Forward rejection to client
 - Record market rejection reason
+
+**Implementation:** `OrderRejectCmd {orderId, text}` (REST `/api/command/execute` or the `commands`
+topic), processed by `OrderLifecycleCommandProcessor`. Allowed from UNACK and LIVE. Sets
+`leavesQty = 0`, stores the reason in `rejectReason` (the client's `text` is untouched), records
+event `REJ`. Sent by the
+[exchange simulator](exchange-simulator.md) for unknown symbols, invalid quantities and price-band
+violations.
 
 ### 4.6 UNACK → FILLED (Immediate Fill)
 
@@ -271,6 +279,49 @@ Execution 2: lastQty=400 → cumQty=700, leavesQty=300 (LIVE)
 - Set `leavesQty = 0`
 - Preserve `cumQty` (partial fills remain)
 - Generate cancel confirmation to client
+
+**Implementation:** `OrderCancelCmd {orderId, text}`, processed by `OrderLifecycleCommandProcessor`.
+Allowed from LIVE. Sets `state = CXL`, `cancelState = CXL`, `leavesQty = 0`, keeps `cumQty`,
+records event `CXL`. Used both for a confirmed cancel request and for an unsolicited cancel by the
+market (for example the unfilled remainder of an IOC order).
+
+#### 4.9.1 Cancel Request Flow (FIX 35=F → ExecType=4 or 35=9)
+
+A cancel request does not change `state`; it is tracked in `cancelState`, mirroring FIX
+OrdStatus=6 (Pending Cancel):
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant OMS as oms-core
+    participant V as Venue (exchange simulator)
+    C->>OMS: OrderCancelRequestCmd
+    Note over OMS: cancelState = PCXL, state stays LIVE<br/>event CXL_REQUEST
+    OMS->>V: OrderMessage(cancelState=PCXL) on oms_orders
+    alt open quantity at the venue
+        V->>OMS: OrderCancelCmd
+        Note over OMS: state = CXL, cancelState = CXL, leavesQty = 0<br/>event CXL
+    else unknown order / nothing open
+        V->>OMS: OrderCancelRejectCmd
+        Note over OMS: cancelState = REJ, state stays LIVE<br/>event CXL_REJ
+    end
+```
+
+| Command | Allowed when | Effect | Event |
+|---|---|---|---|
+| `OrderCancelRequestCmd` | state LIVE, leavesQty > 0, cancelState ≠ PCXL | cancelState → PCXL, rejectReason cleared | `CXL_REQUEST` |
+| `OrderCancelCmd` | state LIVE | state → CXL, cancelState → CXL, leavesQty → 0 (its reason is kept only in the event log) | `CXL` |
+| `OrderCancelRejectCmd` | cancelState = PCXL | cancelState → REJ, rejectReason ← reason | `CXL_REJ` |
+
+Fills are still accepted while a cancel is pending (§9.2): the venue cancels only what is still
+open. Each precondition stops holding once its command has been applied, so a redelivered command
+is refused and writes nothing (idempotency). After a cancel reject, the client may request again.
+
+Preconditions alone do not cover a Kafka replay: after a cancel reject the order is LIVE again,
+so a replayed cancel request would pass its precondition. Each lifecycle command therefore
+accepts an optional `commandId`. A command whose id already appears in the order's event log is
+refused as `Duplicate command <id>` (`DeduplicateCommandTask`). The exchange simulator derives its
+ids from the OMS event it answers, so its answers are replay-safe.
 
 **Reference:** [Order Replace](order-replace.md) — Complete cancel/replace workflows
 
@@ -539,6 +590,20 @@ sequenceDiagram
 | → REJ | OrderRejectedEvent | `{ orderId, reason, rejectCode }` |
 | → EXP | OrderExpiredEvent | `{ orderId, reason }` |
 
+The table above is the conceptual model. In oms-core, each change appends one row to
+`order_events` with an `Event` value (`oms-core/.../model/Event.java`), the triggering command, the
+resulting state and a snapshot:
+
+| `Event` | Recorded by | Change |
+|---|---|---|
+| `NEW_ORDER` | `OrderCreateCmd` | NEW → UNACK |
+| `ACK` | `OrderAcceptCmd` | UNACK → LIVE |
+| `PARTIAL_FILL` / `FILL` | `ExecutionCreateCmd` | quantities; LIVE → FILLED on the last fill |
+| `REJ` | `OrderRejectCmd` | UNACK/LIVE → REJ |
+| `CXL` | `OrderCancelCmd` | LIVE → CXL |
+| `CXL_REQUEST` | `OrderCancelRequestCmd` | cancelState → PCXL |
+| `CXL_REJ` | `OrderCancelRejectCmd` | cancelState PCXL → REJ |
+
 **Reference:** [OMS State Store](../oms-framework/oms-state-store.md) — Event sourcing patterns
 
 ---
@@ -623,6 +688,7 @@ void testOrderLifecycle_HappyPath() {
 - [Order Quantity Calculations](order-quantity-calculations.md) — Quantity field calculations (cumQty, leavesQty)
 - [Task Orchestration Framework](../oms-framework/task-orchestration-framework_spec.md) — StateTransitionTask usage in pipelines
 - [OMS State Store](../oms-framework/oms-state-store.md) — Event sourcing for state transitions
+- [Exchange Simulator](exchange-simulator.md) — Simulated venue that drives ack, fill, reject and cancel flows
 
 ---
 

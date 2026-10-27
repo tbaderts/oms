@@ -8,7 +8,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
 @TestPropertySource(properties = {
-    "streaming.kafka.enabled=false"
+    "streaming.kafka.enabled=false",
+    // Random ports: a fixed one clashes with a locally running streaming service.
+    "spring.rsocket.server.port=0",
+    "server.port=0"
 })
 class StreamingServiceApplicationTests {
 

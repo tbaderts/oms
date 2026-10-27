@@ -50,12 +50,10 @@ All WebSocket messages are JSON:
 ```json
 {
   "type": "event",
-  "event": "specs:changed",
+  "event": "specs:tickets-changed",
   "timestamp": "2026-03-15T14:30:00Z",
   "data": {
-    "module": "backend",
-    "ticketId": "PROJ-123",
-    "changeType": "modified"
+    "path": "specs/changes/SPEC-0002-integrate-spec-workflow-into-developer-c/ticket.md"
   }
 }
 ```
@@ -83,12 +81,16 @@ All WebSocket messages are JSON:
 }
 ```
 
+> Client → server messages are limited to subscriptions and session input. State-changing commands,
+> in particular spec workflow actions such as approve, are never accepted over the WebSocket;
+> they go through the app's own API (IPC in the Electron build).
+
 ### Client -> Server (Subscribe)
 
 ```json
 {
   "type": "subscribe",
-  "events": ["specs:changed", "sessions:output"]
+  "events": ["specs:tickets-changed", "sessions:output"]
 }
 ```
 
@@ -119,7 +121,7 @@ All WebSocket messages are JSON:
 
 | Event | Trigger | Data |
 |-------|---------|------|
-| `specs:changed` | File change in `*/specs/**` | `{ module, ticketId?, changeType }` |
+| `specs:tickets-changed` | Any change under `specs/changes/**` or `specs/archive/**`; one event per burst (300 ms trailing debounce) | `{ path }` (last changed path) |
 | `kb:changed` | File change in KB root | `{ path, changeType }` |
 | `roadmap:changed` | Roadmap file changed | `{ changeType }` |
 | `reviews:changed` | Review report added/modified | `{ module?, path, changeType }` |
@@ -222,9 +224,9 @@ Each view subscribes to relevant events on mount and unsubscribes on unmount:
 // Pseudocode for Dashboard view
 function DashboardView() {
   useEffect(() => {
-    const handler = () => refreshSpecs();
-    eventBus.on("specs:changed", handler);
-    return () => eventBus.off("specs:changed", handler);
+    const handler = () => refreshSpecTickets();
+    eventBus.on("specs:tickets-changed", handler);
+    return () => eventBus.off("specs:tickets-changed", handler);
   }, []);
 }
 ```
@@ -252,8 +254,8 @@ If WebSocket is not available (e.g., behind certain proxies), fall back to Serve
 - `GET /api/v1/events` returns an SSE stream
 - Each event is formatted as standard SSE:
   ```
-  event: specs:changed
-  data: {"module":"backend","ticketId":"PROJ-123"}
+  event: specs:tickets-changed
+  data: {"path":"specs/changes/SPEC-0002-integrate-spec-workflow-into-developer-c/ticket.md"}
 
   ```
 - Client-to-server communication falls back to regular REST POST calls

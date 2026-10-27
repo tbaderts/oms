@@ -1,0 +1,14 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0003: the venue's reason for refusing an order or a cancel request used
+  # to overwrite orders.text, the client's own FIX Text (58). It now has its own
+  # column. Nullable with no backfill: older orders have no separate reason.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 013-order-reject-reason
+      author: oms
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column: { name: reject_reason, type: VARCHAR(255) }

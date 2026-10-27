@@ -1,12 +1,20 @@
 package org.example.oms.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.common.model.Order;
 import org.example.common.model.cmd.CommandStatus;
+import org.example.common.model.cmd.OrderCancelRequestCmd;
+import org.example.oms.service.lifecycle.LifecycleAction;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.example.oms.mapper.OrderMapper;
 import org.example.oms.service.command.OrderAcceptCommandProcessor;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
@@ -38,6 +46,9 @@ class CommandControllerWebMvcTest {
         @Mock
     private OrderMapper orderMapper;
 
+        @Mock
+    private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
+
         @InjectMocks
         private CommandController commandController;
 
@@ -56,7 +67,7 @@ class CommandControllerWebMvcTest {
                         .orderId("ORD-100")
                         .executionTimeMs(10)
                         .build();
-        when(orderCreateCommandProcessor.process(any())).thenReturn(result);
+        when(orderCreateCommandProcessor.process(any(), any())).thenReturn(result);
 
         mockMvc.perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -80,7 +91,7 @@ class CommandControllerWebMvcTest {
                 .success(true)
                 .orderId("ORD-101")
                 .build();
-        when(orderAcceptCommandProcessor.process(any())).thenReturn(result);
+        when(orderAcceptCommandProcessor.process(any(), any())).thenReturn(result);
 
         mockMvc.perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -90,4 +101,54 @@ class CommandControllerWebMvcTest {
                 .andExpect(jsonPath("$.status").value(CommandStatus.OK.name()));
     }
 
+
+    @Test
+    void cancelRequest_success_returns200Ok() throws Exception {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleCommandProcessor.OrderLifecycleResult.builder()
+                        .success(true)
+                        .orderId("ORD-200")
+                        .action(LifecycleAction.CANCEL_REQUEST)
+                        .build());
+
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"OrderCancelRequestCmd\",\"orderId\":\"ORD-200\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("ORD-200"))
+                .andExpect(jsonPath("$.status").value(CommandStatus.OK.name()));
+
+        verify(orderLifecycleCommandProcessor)
+                .process(org.mockito.ArgumentMatchers.isA(OrderCancelRequestCmd.class), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"OrderRejectCmd", "OrderCancelCmd", "OrderCancelRequestCmd", "OrderCancelRejectCmd"})
+    void lifecycleCommand_failure_returns400Failed(String type) throws Exception {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleCommandProcessor.OrderLifecycleResult.builder()
+                        .success(false)
+                        .orderId("ORD-201")
+                        .errorMessage("CANCEL not allowed for order ORD-201 in state FILLED/null")
+                        .build());
+
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"" + type + "\",\"orderId\":\"ORD-201\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.id").value("ORD-201"))
+                .andExpect(jsonPath("$.status").value(CommandStatus.FAILED.name()))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("not allowed")));
+    }
+
+    @Test
+    void lifecycleCommand_concurrentUpdate_returns409() throws Exception {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Order.class, 1L));
+
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"OrderCancelCmd\",\"orderId\":\"ORD-202\"}"))
+                .andExpect(status().isConflict());
+    }
 }

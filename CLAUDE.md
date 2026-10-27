@@ -87,6 +87,14 @@ The team follows these principles (from `oms-knowledge-base/oms-methodolgy/manif
 - Critically evaluate AI output for quality standards
 - Leverage the MCP server for spec-driven development
 
+## Spec-Driven Workflow
+
+Non-trivial changes go through spec tickets in `specs/` (process: `specs/README.md`):
+proposal → design → plan → implement → verify, each with a gate run by `node specs/tools/spec.mjs`.
+Use the `spec-*` skills (`/spec-new`, `/spec-run`, …). Architecture rules that designs and
+verifications are judged against are in `specs/policies/architecture-policies.md`. Never run
+`spec approve`; approvals are for humans.
+
 ## Code Generation
 
 The project uses code generation extensively:

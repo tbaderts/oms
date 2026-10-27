@@ -1,25 +1,27 @@
 import type { IpcMain } from 'electron';
 import type { ConfigService } from '../services/ConfigService';
+import type { CockpitConfig } from '../../shared/types/config';
 import { SpecsService } from '../services/SpecsService';
 import { CodeGenService } from '../services/CodeGenService';
 
-let specsService: SpecsService | null = null;
-let codeGenService: CodeGenService | null = null;
+let cached: { config: CockpitConfig; specs: SpecsService; codeGen: CodeGenService } | null = null;
 
-function getSpecsService(configService: ConfigService): SpecsService {
-  if (!specsService) {
-    const config = configService.getConfig();
-    specsService = new SpecsService(config.general.workspaceRoot, config.specs);
+// ConfigService.save() replaces the config object, so a new object means Settings changed:
+// rebuild the services so new contract paths or workspace root apply without a restart.
+function services(configService: ConfigService) {
+  const config = configService.getConfig();
+  if (!cached || cached.config !== config) {
+    cached = {
+      config,
+      specs: new SpecsService(config.general.workspaceRoot, config.specs),
+      codeGen: new CodeGenService(config.general.workspaceRoot),
+    };
   }
-  return specsService;
+  return cached;
 }
 
-function getCodeGenService(configService: ConfigService): CodeGenService {
-  if (!codeGenService) {
-    codeGenService = new CodeGenService(configService.getWorkspaceRoot());
-  }
-  return codeGenService;
-}
+const getSpecsService = (configService: ConfigService) => services(configService).specs;
+const getCodeGenService = (configService: ConfigService) => services(configService).codeGen;
 
 export function registerSpecsIpc(ipcMain: IpcMain, configService: ConfigService): void {
   ipcMain.handle('specs:discoverFiles', async () => {

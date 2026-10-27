@@ -106,6 +106,8 @@ export interface StreamingOrderDto {
   securityType?: string;
   exDestination?: string;
   text?: string | null;
+  /** Latest reason the venue refused the order or a cancel request; `text` is the client's. */
+  rejectReason?: string | null;
   sendingTime?: string;
   transactTime?: string;
   expireTime?: string | null;

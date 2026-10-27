@@ -10,6 +10,7 @@ import org.example.common.state.StateMachine;
 import org.example.oms.model.Event;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.service.OrderEventAppender;
+import org.example.oms.service.sla.OrderSlaRecorder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +34,21 @@ public class OrderAcceptCommandProcessor {
 
     private final OrderRepository orderRepository;
     private final OrderEventAppender orderEventAppender;
+    private final OrderSlaRecorder slaRecorder;
     private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
 
+    /**
+     * Moves an order to LIVE.
+     *
+     * @param command the acknowledgement
+     * @param receivedTime when the acknowledgement crossed the OMS boundary. This is the SLA
+     *     checkpoint, not {@code Instant.now()} taken further down: reading the clock after the
+     *     repository lookup would fold our own database time into a number that is supposed to
+     *     describe the broker.
+     */
     @Transactional
     @Observed(name = "oms.order-accept-processor.process")
-    public OrderAcceptResult process(OrderAcceptCmd command) {
+    public OrderAcceptResult process(OrderAcceptCmd command, Instant receivedTime) {
         String orderId = command.getOrderId();
 
         if (orderId == null || orderId.isBlank()) {
@@ -58,9 +69,12 @@ public class OrderAcceptCommandProcessor {
                             currentState, orderId));
         }
 
-        Order updatedOrder =
-                orderRepository.save(
-                        order.toBuilder().state(State.LIVE).transactTime(Instant.now()).build());
+        Order acknowledged =
+                slaRecorder.stampMarketAck(
+                        order.toBuilder().state(State.LIVE).transactTime(Instant.now()).build(),
+                        receivedTime);
+
+        Order updatedOrder = orderRepository.save(acknowledged);
 
         long version = orderEventAppender.appendOrderEvent(updatedOrder, Event.ACK, command);
 

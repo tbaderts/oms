@@ -125,7 +125,37 @@ public class Order implements Serializable {
     private Instant expireTime;
     private String securityExchange;
     private String text;
+    /** The venue's latest reason for refusing the order or a cancel request; {@code text} is the client's. */
+    private String rejectReason;
     private Instant tifTimestamp;
+
+    /*
+     * SLA checkpoints, on the OMS clock. Named after the FIX TrdRegTimestamps model (tag 770) so a
+     * future FIX gateway can emit the group directly.
+     *
+     * None of the timestamps above can serve this purpose: transactTime is rewritten on every
+     * business event, and sendingTime is the counterparty's clock. Only deltas between two of these
+     * four are valid SLA arithmetic.
+     *
+     * @see org.example.oms.service.sla.OrderSlaRecorder
+     */
+
+    /** FIX 770=2 (TimeIn). Message crossed the OMS boundary. Written once, never updated. */
+    private Instant orderReceivedTime;
+
+    /** Validation complete, responsibility assumed, client ack emitted. {@link Leg#CLI} only. */
+    private Instant ackTime;
+
+    /** FIX 770=3 (TimeOut). Released downstream to broker/venue. {@link Leg#MKT} only. */
+    private Instant marketSendTime;
+
+    /**
+     * FIX 770=4 (BrokerReceipt). Downstream ack observed at the OMS boundary. {@link Leg#MKT} only.
+     *
+     * <p>Named for what we can actually observe. It is not the moment the order reached the book —
+     * that happens on the venue's clock, which we never see.
+     */
+    private Instant marketAckTime;
 
     @Enumerated(EnumType.STRING)
     @Setter

@@ -1,0 +1,49 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SLA-1: the OMS had no way to measure how long it took to handle an order.
+  #
+  # None of the existing timestamps could serve as a start point: there was no
+  # creation timestamp at all, transact_time is rewritten on every business
+  # event (creation, then again on the LIVE transition), and sending_time is
+  # FIX tag 52 supplied by the counterparty — the wrong clock entirely.
+  #
+  # These four columns are OMS-owned checkpoints, named after the FIX
+  # TrdRegTimestamps model (tag 770): order_received_time = 2 TimeIn,
+  # market_send_time = 3 TimeOut, market_ack_time = 4 BrokerReceipt. The leg
+  # column says how to read them — CLI legs carry ack_time, MKT legs carry the
+  # send/ack pair.
+  #
+  # Nullable with no backfill: orders that predate this change have no history
+  # to reconstruct, and a fabricated timestamp would poison the percentiles.
+  #
+  # TIMESTAMP WITH TIME ZONE is microsecond-precision in PostgreSQL, matching
+  # what Instant.now() resolves to. That lands us in the sub-millisecond
+  # granularity tier of MiFID II RTS 25 without doing anything special.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 012-order-sla-timestamps
+      author: oms
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column: { name: order_received_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: ack_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: market_send_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: market_ack_time, type: TIMESTAMP WITH TIME ZONE }
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_order_received_time
+            columns:
+              - column: { name: order_received_time }
+      rollback:
+        - dropIndex:
+            tableName: orders
+            indexName: idx_orders_order_received_time
+        - dropColumn:
+            tableName: orders
+            columns:
+              - column: { name: order_received_time }
+              - column: { name: ack_time }
+              - column: { name: market_send_time }
+              - column: { name: market_ack_time }

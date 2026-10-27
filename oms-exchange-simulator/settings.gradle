@@ -1,0 +1,4 @@
+rootProject.name = 'oms-exchange-simulator'
+
+// Keeps `cd oms-exchange-simulator && ./gradlew build` working on its own.
+includeBuild('../oms-contracts')

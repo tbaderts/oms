@@ -76,31 +76,118 @@ All services are plain classes instantiated at server startup. No dependency inj
 
 | Path | Event |
 |------|-------|
-| `*/specs/**` | `specs:changed` |
+| `specs/changes/**`, `specs/archive/**` | `specs:tickets-changed` (one coalesced event per burst) |
 | KB root `**/*.md` | `kb:changed` |
 | Roadmap file | `roadmap:changed` |
 | Review directories | `reviews:changed` |
 
 ---
 
-### 2.3 SpecService
+### 2.2a SpecsService and CodeGenService (Contracts view)
 
-**Responsibility**: Discover, parse, and serve spec metadata and content.
+**SpecsService** discovers contract files in the configured `specs.openApiPaths` / `specs.avroPaths`
+(non-recursive), reads, validates (YAML/JSON syntax) and saves them, and parses domain entities.
+Saves are refused outside the configured folders (a sibling such as `openapi-old/` does not count as
+inside) and for extensions other than `.yml`, `.yaml`, `.avsc`.
+
+**CodeGenService** has two fixed tasks: `contracts` (module `oms-contracts`: `generateAvroJava
+openApiGenerateCmdModels openApiGenerateQueryModels`) and `api` (module `oms-core`:
+`openApiGenerateCmd openApiGenerateQuery`). It runs `./gradlew <tasks>` in the module folder, or on
+Windows `cmd.exe /d /s /c .\gradlew.bat <tasks>` (Node cannot `execFile` a `.bat`; the explicit `.\` is needed because with `NoDefaultCurrentDirectoryInExePath` set `cmd.exe` ignores the working folder for bare names). Only these constant
+arguments are used; unknown task ids never start a process. Timeout 10 min; logs `[codegen]`.
+
+**IPC** (`specs:*`): the services are rebuilt whenever the config object changes (Settings saved), so
+new folders or workspace root apply without a restart.
+
+**ConfigService** migrates, on load, contract paths that are exactly the legacy
+`oms-core/src/main/{openapi,avro}` defaults to the `oms-contracts` defaults and saves once; custom
+values are kept.
+
+### 2.2b API Explorer services
+
+**ApiCatalogService** reads `oms-cmd-api.yml` and `schema.yml` from `specs.openApiPaths` on every
+call and returns the command types (keys of the `Command` discriminator mapping, in file order)
+with one self-contained schema per type (`$ref` into the same file or `schema.yml` inlined, `allOf`
+merged, discriminator and `x-*` keys dropped) plus `enum:State|CancelState|Side|OrdType`. A missing
+or unparseable file is returned as `error`, never thrown. The watcher covers `oms-contracts/src/main`
+so the view can reload on change.
+
+**OmsHttpService** calls oms-core with `fetch` (Node, in main: no CSP or CORS involved):
+`POST /api/command/execute`, `GET /api/query/search?…` and, for the follow-up, the search by
+`orderId` plus `GET /api/order-events/orderId/{orderId}` in parallel. The base URL
+(`infrastructure.omsCoreUrl`, default `http://localhost:8090`) is read per request and must be
+http(s). A command body must be JSON; search parameters must be known filter fields with valid
+operators; a command to a host other than localhost/127.0.0.1/::1 is refused unless the renderer
+passes the confirmed host. 10 s timeout, 5 MB response cap. It never throws: failures return
+`status: null` with "oms-core not reachable at <url>: <cause>". Logs one line per request:
+`[api-explorer] POST /api/command/execute 201 34ms orderId=…`.
+
+**ApiHistoryService** keeps `~/.developer-cockpit/api-explorer-history.json`: newest first, at most
+100 entries, bodies over 64 KB stored truncated, written atomically (temp file + rename); an
+unreadable file reads as empty.
+
+**IPC** (`apiExplorer:*`): `catalog`, `baseUrl`, `sendCommand(body, confirmedHost?)`,
+`search(params, paging)`, `followUp(orderId)`, `history`, `clearHistory`. Each send and search is
+recorded in the history (also failures; requests refused before sending carry `refused: true`);
+follow-up reads are not, and a blank order id is refused. A history write that fails is logged
+(`[api-explorer] history not written`) and the response is still returned.
+
+**ApiTemplateService** (SPEC-0008) handles the `.http` template sources: every `*.http` file in
+`developer-cockpit/api-templates`, then each `infrastructure.apiTemplateSources` entry.
+
+- `list()` reads and parses (`shared/httpFile.ts`) on every call. A missing source is marked
+  `missing`, an unreadable one carries `error`, and it never throws.
+- `save()` only appends a block (`###`, `# @name`, the execute request, the body), in the
+  file's line endings. Every byte already in the file stays the same. It writes only to:
+  - a path `list()` returns, or
+  - a new `name.http` in the shared folder, created with `wx` and starting with
+    `@baseUrl = <oms-core URL>`.
+
+  A name already used in the file is refused. Each save logs
+  `[api-explorer] template saved <name> → <path>`.
+
+IPC adds `templates()` and `saveTemplate(req)` (`{ path | newFile, name, body }` →
+`{ ok, path } | { ok: false, error }`).
+
+The **WatcherService** watches `developer-cockpit/api-templates` and, through `setExtraPaths`,
+the configured extra files. Main calls `setExtraPaths` at startup and after every config save.
+
+Variables are resolved in the renderer (`lib/api-templates.ts`), so `sendCommand` receives,
+and History records, the body as sent.
+
+---
+
+### 2.3 SpecTicketsService
+
+**Responsibility**: Serve spec workflow tickets and run workflow actions. It wraps the workflow CLI
+(`specs/tools/spec.mjs`, through a small `SpecCli` runner) instead of re-implementing its rules.
 
 | Method | Description |
 |--------|-------------|
-| `listSpecs()` | Scan all module spec directories, return metadata array |
-| `getSpec(module, ticketId)` | Return full spec content (proposal, design, tasks) |
-| `getSpecMetadata(module, ticketId)` | Return parsed front-matter only |
-| `getTaskProgress(module, ticketId)` | Count checked/total checkboxes in tasks.md |
+| `listTickets(includeArchived)` | `spec list [--all] --json` → tickets, current git user, ticket types from `specs/config.json`, folders that failed to load |
+| `getTicket(id)` | `spec status <id> --json` (goal, log, tasks, current gate result, evidence freshness) plus the stage documents read from the ticket folder |
+| `runAction(action)` | Validates the action (id `SPEC-NNNN`, known kind and stage) and runs the matching CLI command; returns exit code, stdout, stderr. Approve is refused unless the ticket is awaiting approval and a git user is configured. |
+| `saveDocument(id, doc, content, baseContent, force)` | Writes the current stage's document (`editableDocument()`) exactly as given. Returns `{ status: 'conflict', diskContent }` without writing when the file no longer equals `baseContent`, unless `force`. |
+| `draftGate(id, doc, content)` | `spec gate <id> <stage> --draft <file> --json` with `content` on stdin: the gate result as if the document had that text; nothing is written. |
+| `toggleTask(id, taskId, done, baseContent, force)` | Implement stage only: sets the `[ ]`/`[x]` marker of `T-n` (outside HTML comments) in `tasks.md`; same conflict rule as `saveDocument`. |
 
-**Spec status derivation logic:**
-```
-if only proposal.md exists -> "proposal_only"
-if design.md exists but no tasks.md -> "design_ready"
-if tasks.md exists and has unchecked items -> "in_progress"
-if tasks.md exists and all items checked -> "completed"
-```
+Document requests are refused (thrown, so the IPC call rejects; logged as `[spec-tickets] refused:`)
+for unknown document names, documents other than the current stage's, archived or done tickets,
+paths outside `specs/changes/`, non-text or more than 1 MB of content, invalid task ids, and
+documents that do not exist (the cockpit edits documents, it never creates them; `spec new` does).
+
+The renderer's editors use the Monaco copy bundled by Vite (`src/renderer/lib/monaco.ts` calls
+`loader.config({ monaco })` and provides same-origin workers); the `@monaco-editor/react` CDN default
+is never used, because the renderer CSP (`script-src 'self'`) blocks it.
+
+**SpecCli** runs `process.execPath specs/tools/spec.mjs …` with `ELECTRON_RUN_AS_NODE=1` (no
+`node` on PATH needed), without a shell, with a timeout; read commands append `--json` last; an
+optional input string is written to the CLI's stdin (otherwise stdin is closed); each call is logged
+(`[spec-cli] <command> <id> <exit> <ms>`).
+
+**IPC channels**: `specTickets:list`, `specTickets:get`, `specTickets:run`,
+`specTickets:saveDocument`, `specTickets:draftGate`, `specTickets:toggleTask`. These are the only
+way to reach the service; the WebSocket server does not accept commands.
 
 ---
 
@@ -374,8 +461,8 @@ Single WebSocket connection at `/ws`. Messages are JSON:
 
 ```json
 {
-  "event": "specs:changed",
-  "data": { "module": "backend", "ticketId": "PROJ-123" }
+  "event": "specs:tickets-changed",
+  "data": { "path": "specs/changes/SPEC-0002-integrate-spec-workflow-into-developer-c/ticket.md" }
 }
 ```
 

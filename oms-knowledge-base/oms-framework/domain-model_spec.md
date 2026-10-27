@@ -295,13 +295,15 @@ private Instant tifTimestamp;             // TIF enforcement
 | Field | Type | FIX Tag | Description |
 |-------|------|---------|-------------|
 | `settlCurrency` | `String` | 120 | Settlement currency |
-| `text` | `String` | 58 | Free-form text/comments |
+| `text` | `String` | 58 | Free-form text/comments from the client |
+| `rejectReason` | `String` | 58 (venue) | Latest reason the venue refused the order or a cancel request (max 255) |
 | `positionEffect` | `PositionEffect` | 77 | OPEN, CLOSE position |
 
 ```java
 // Pattern: Additional fields
 private String settlCurrency;              // FIX Tag 120
-private String text;                       // FIX Tag 58 - Free text
+private String text;                       // FIX Tag 58 - Free text (client)
+private String rejectReason;               // FIX Tag 58 from the venue: latest refusal reason
 @Enumerated(EnumType.STRING)
 private PositionEffect positionEffect;     // FIX Tag 77 - OPEN, CLOSE
 ```

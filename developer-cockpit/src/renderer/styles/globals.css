@@ -30,6 +30,27 @@
   --radius: 0.5rem;
 }
 
+/* Stage distribution chart (Dashboard). Active stages: one ordinal blue ramp along the pipeline;
+   done: neutral; blocked: status critical (always with an icon). Validated with the dataviz
+   palette validator against the card surface (#ffffff light, #1e293b dark). */
+:root {
+  --stage-proposal: #86b6ef;
+  --stage-design: #5598e7;
+  --stage-plan: #2a78d6;
+  --stage-implement: #1c5cab;
+  --stage-verify: #104281;
+  --stage-done: #898781;
+  --stage-blocked: #d03b3b;
+}
+
+.dark {
+  --stage-proposal: #cde2fb;
+  --stage-design: #9ec5f4;
+  --stage-plan: #6da7ec;
+  --stage-implement: #3987e5;
+  --stage-verify: #256abf;
+}
+
 .dark {
   --color-background: #0f172a;
   --color-foreground: #f8fafc;

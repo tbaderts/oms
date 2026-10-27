@@ -1,0 +1,6 @@
+exit 3
+--- stdout
+SPEC-0002 gate "proposal": PASS
+
+SPEC-0002: proposal needs human approval. The requester reviews it and runs: node specs/tools/spec.mjs approve SPEC-0002
+--- stderr

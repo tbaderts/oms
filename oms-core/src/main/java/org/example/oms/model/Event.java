@@ -18,5 +18,9 @@ public enum Event {
     /** Order cancelled. */
     CXL,
     /** Order rejected. */
-    REJ
+    REJ,
+    /** Client asked for the open quantity to be cancelled; cancelState is now PCXL. */
+    CXL_REQUEST,
+    /** Market refused a cancel request; cancelState is now REJ and the order stays live. */
+    CXL_REJ
 }

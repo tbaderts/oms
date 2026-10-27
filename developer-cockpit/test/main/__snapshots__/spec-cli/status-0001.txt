@@ -1,0 +1,19 @@
+exit 0
+--- stdout
+SPEC-0001 — Ticket SPEC-0001
+  dir:       specs/changes/SPEC-0001-proposal-fail
+  status:    proposal
+  autopilot: off
+  modules:   oms-knowledge-base
+  approvals: (none)
+  tasks:     -
+
+SPEC-0001 gate "proposal": FAIL
+  ERROR proposal.md: template placeholders left on line(s) 1, 8, 14, 21, 25, 41, 47, 48, …
+  ERROR proposal.md: section "## Why" is empty
+  ERROR proposal.md: section "## What Changes" is empty
+  ERROR proposal.md: section "## Open Questions" is empty
+  WARN  AC-1 is not in Given/When/Then form; make sure it is objectively testable
+
+Next: Fill proposal.md (skill: spec-propose), then `spec advance`.
+--- stderr

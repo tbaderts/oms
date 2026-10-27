@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.example.common.model.Order;
+import org.example.common.model.cmd.OrderCancelRequestCmd;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.Event;
@@ -39,6 +40,23 @@ class PublishOrderEventTaskTest {
         verify(orderEventAppender).appendOrderEvent(order, Event.NEW_ORDER, command);
         assertEquals(TaskResult.Status.SUCCESS, result.getStatus());
         assertEquals(1L, context.get("eventVersion").orElseThrow());
+    }
+
+    @Test
+    void execute_recordsTheEventChosenByThePipeline() throws Exception {
+        Order order = Order.builder().id(102L).orderId("ORD-102").build();
+        OrderTaskContext context = new OrderTaskContext(order);
+        OrderCancelRequestCmd command = new OrderCancelRequestCmd().orderId("ORD-102");
+        context.setCommand(command);
+        context.setEvent(Event.CXL_REQUEST);
+
+        when(orderEventAppender.appendOrderEvent(order, Event.CXL_REQUEST, command)).thenReturn(4L);
+
+        TaskResult result = task.execute(context);
+
+        verify(orderEventAppender).appendOrderEvent(order, Event.CXL_REQUEST, command);
+        assertEquals(TaskResult.Status.SUCCESS, result.getStatus());
+        assertEquals(4L, context.get("eventVersion").orElseThrow());
     }
 
     @Test

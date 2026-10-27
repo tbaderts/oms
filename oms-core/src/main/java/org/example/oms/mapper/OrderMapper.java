@@ -38,6 +38,12 @@ public interface OrderMapper {
     @Mapping(target = "leg", ignore = true)
     @Mapping(target = "placeQty", ignore = true)
     @Mapping(target = "txNr", ignore = true)
+    // SLA checkpoints are stamped by the OMS on its own clock and are deliberately absent from the
+    // command contract. A client that could set its own ackTime could report any latency it liked.
+    @Mapping(target = "orderReceivedTime", ignore = true)
+    @Mapping(target = "ackTime", ignore = true)
+    @Mapping(target = "marketSendTime", ignore = true)
+    @Mapping(target = "marketAckTime", ignore = true)
     Order toOrder(org.example.common.model.cmd.Order cmdOrder);
 
     @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "instantToOffset")
@@ -48,20 +54,22 @@ public interface OrderMapper {
     @Mapping(target = "creationDate", ignore = true)
     @Mapping(target = "executionId", ignore = true)
     @Mapping(target = "avgPx", ignore = true)
-    @Mapping(target = "cumQty", ignore = true)
-    @Mapping(target = "execID", ignore = true)
-    @Mapping(target = "lastCapacity", ignore = true)
-    @Mapping(target = "lastMkt", ignore = true)
-    @Mapping(target = "lastPx", ignore = true)
-    @Mapping(target = "lastQty", ignore = true)
-    @Mapping(target = "transactTime", ignore = true)
-    @Mapping(target = "execType", ignore = true)
-    @Mapping(target = "leavesQty", ignore = true)
+    @Mapping(target = "execID", source = "execId")
+    @Mapping(target = "transactTime", source = "transactTime", qualifiedByName = "offsetToInstant")
     @Mapping(target = "dayOrderQty", ignore = true)
     @Mapping(target = "dayCumQty", ignore = true)
     @Mapping(target = "dayAvgPx", ignore = true)
     @Mapping(target = "secondaryExecID", ignore = true)
     Execution toExecution(org.example.common.model.cmd.Execution cmdExecution);
+
+    /**
+     * Maps a fill received over Kafka to the command model. Explicit rather than Jackson
+     * {@code convertValue}: Avro records expose {@code getSchema()}, which Jackson tries to
+     * serialize and fails on.
+     */
+    @Mapping(target = "transactTime", source = "transactTime", qualifiedByName = "instantToOffset")
+    org.example.common.model.cmd.Execution toCmdExecution(
+            org.example.common.model.msg.Execution message);
 
     @Named("offsetToInstant")
     public static Instant offsetToInstant(OffsetDateTime odt) {

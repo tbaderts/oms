@@ -4,56 +4,228 @@ This document specifies the behavior of every view in the Developer Cockpit. Eac
 
 ---
 
-## 1. Dashboard
+## 1. Dashboard and Spec Tickets
 
 ### Purpose
-Sprint-level overview of all specification work across the project.
+Overview of all spec-driven work (the workflow in `specs/README.md`) and a workbench for driving
+individual tickets through it: see your tickets, their progress and what needs you, and act on them.
 
 ### Data Source
-Filesystem scan of `<module>/specs/` directories. Each spec folder contains:
-- `proposal.md` -- YAML front-matter with `ticket_id`, `title`, `status`, `category`, `classification`, `story_points`
-- `design.md` -- architecture document
-- `tasks.md` -- checklist with `- [x]` / `- [ ]` items
+The spec workflow tickets in the workspace:
 
-### UI Layout (Dashboard Grid)
+```
+specs/
+  changes/SPEC-NNNN-<slug>/     active tickets
+  archive/SPEC-NNNN-<slug>/     finished tickets
+    ticket.md                   front-matter: id, title, type, status, awaiting, autopilot,
+                                modules, approvals, owner, beads, created, blocked_from,
+                                blocked_reason; body: ## Goal, ## Log
+    proposal.md                 why/what; acceptance criteria **AC-n**
+    design.md                   how; test strategy; policy compliance
+    tasks.md                    - [x] **T-n** … (AC-n) tasks with verify: lines
+    verification.md             evidence per AC; verdict
+    evidence/last-run.json      written by `spec verify`
+```
 
-**Top row -- Summary cards:**
-| Card | Value |
+The cockpit does **not** parse these rules itself. It reads tickets through
+`node specs/tools/spec.mjs list|status|gate … --json` and performs every action by running the same
+CLI, so gates, approvals and evidence freshness are exactly what the CLI, CI and Claude Code see.
+Only the four stage documents are read and written directly (see *Editing stage documents*);
+`ticket.md` and `evidence/` are never written by the cockpit.
+
+**Status** is the ticket's `status`: `proposal → design → plan → implement → verify → done`, or
+`blocked` (with `blocked_from`). A ticket can additionally be *awaiting approval* of a stage
+(`awaiting`), when that stage's gate passed but needs a human (`approvals` in `specs/config.json`, or
+a policy exception in the design).
+
+### Dashboard: portfolio of all tickets
+
+The Dashboard is the overview of spec work (navigation lives in the sidebar and Ctrl+K; there are
+no quick-link cards). Top to bottom:
+
+| Element | Value |
 |------|-------|
-| Total Specs | Count of all spec folders |
-| In Progress | Specs with status `in_progress` |
-| Completed | Specs where all tasks are checked |
-| Task Completion | Aggregate % of checked tasks across all specs |
+| Stage distribution | One 100% stacked bar of the active (non-archived) tickets in pipeline order proposal → design → plan → implement → verify → done, then blocked; legend with stage, count and %; hover shows "stage: n of total (p%)"; text alternative lists the same numbers; "No active tickets yet." when empty. Colours: an ordinal blue ramp for the five active stages, neutral grey for done, status-critical red with an alert icon for blocked (`--stage-*` tokens in `globals.css`, validated for light and dark). |
+| Task completion | Ticked tasks / all tasks across active tickets, as % with a bar (– when no tasks) |
+| Needs me | *Awaiting approval* and *Blocked* (your tickets first) and *Mine in progress* (owner = git user, not done); each entry opens the ticket |
+| Tickets | The ticket table (below), with **New ticket** |
 
-**Middle row -- Charts:**
-- **Pie chart**: Spec status distribution (proposal_only, design_ready, in_progress, completed)
-- **Bar chart**: Specs per module
+Clicking any ticket opens it in Spec Tickets; a ticket created from the Dashboard opens there too.
 
-**Bottom -- Spec Table:**
+**Ticket table**:
 
 | Column | Source |
 |--------|--------|
-| Ticket ID | Front-matter `ticket_id` |
-| Title | Front-matter `title` |
-| Module | Parent directory name |
-| Status | Derived from artifact presence and task completion |
-| Tasks | `checked/total` with progress bar |
-| Category | Front-matter `category` |
-| Classification | Front-matter `classification` |
+| ID | `id` |
+| Title | `title`, with `type` and `modules` |
+| Stage | `status` badge (archived / blocked highlighted) |
+| Owner | `owner` |
+| Tasks | ticked/total from `tasks.md`, with progress bar |
+| Flags | awaiting approval, blocked (reason as tooltip), autopilot |
 
-**Filters**: status dropdown, module dropdown, free-text search on title/ticket ID.
+**Filters**: *My tickets* (default; `owner` equals `git config user.name`, case-insensitive; falls
+back to all tickets when no git user is configured) / *All tickets*, stage, module, free-text search
+on id or title, and *Show archived*. Folders that cannot be loaded (missing or malformed
+`ticket.md`) appear as error rows; the rest still load.
 
-### Interactions
-- Click a row to open **Spec Detail** panel (right side or overlay)
-- Spec Detail shows rendered proposal, design, and tasks with live-reload
-- Status auto-derives:
-  - `proposal_only` -- only proposal.md exists
-  - `design_ready` -- design.md exists, no tasks.md
-  - `in_progress` -- tasks.md exists with unchecked items
-  - `completed` -- all items in tasks.md are checked
+### Spec Tickets: workspace for one ticket
+
+Spec Tickets shows one ticket across the whole content area; there is no list pane.
+
+**Header**: a **ticket switcher** (searchable by id or title over all loaded tickets; each option
+shows id, title and stage; arrows, Enter, Escape; switching asks first when there are unsaved
+document edits), **New ticket**, and **All tickets** (opens the Dashboard). With no ticket selected
+the workspace shows the switcher and a pointer to the Dashboard. The last selected ticket is kept
+when you come back and is re-read on open.
+
+**Main column**: header (id, stage, type, owner, modules, approvals, beads), stage progress across
+the six stages (blocked shown in red), the Goal, the stage documents as tabs (rendered Markdown,
+editable for the current stage, see below) and the ticket log.
+
+**Status rail** (right; below the main column on narrow windows): the current **gate result**
+(PASS/FAIL, errors, warnings, policy exceptions, or the draft result while editing) with the next
+step and the workflow actions, the task list and AC coverage, and the **verification evidence**
+(result, time, *Fresh* or *Stale* as the gate judges it, missing modules).
+
+### Editing stage documents
+
+The document of the ticket's **current stage** can be edited in place: proposal → `proposal.md`,
+design → `design.md`, plan and implement → `tasks.md`, verify → `verification.md` (a blocked ticket
+uses the stage it was blocked from). Its tab shows **Edit <file>**; the other documents stay
+read-only with a hint, because changing a stage that already passed its gate or approval is what
+**Reopen** is for. Archived and done tickets have nothing editable. If the stage changes while a
+document is open (e.g. `spec advance` in a terminal), the editor closes, asking first when there are
+unsaved edits.
+
+- **Editor**: Monaco in Markdown mode, *Modified* badge, **Save** (or Ctrl/Cmd+S), **Done**. Monaco
+  is loaded from the app bundle (`src/renderer/lib/monaco.ts`), never from a CDN, which the renderer
+  CSP would block; the same applies to the Contracts → Editor tab.
+- **Live gate check**: 500 ms after typing stops, the current stage's gate runs on the unsaved text
+  (`spec gate <id> <stage> --draft <file> --json`, text on stdin, nothing written). The gate panel
+  shows that result labelled *draft (unsaved)*; after saving it shows the saved file's result again.
+- **Tick tasks**: at the implement stage each task has a checkbox; toggling it changes only that
+  task's `[ ]`/`[x]` marker in `tasks.md`. Checkboxes wait while `tasks.md` has unsaved edits. If
+  `tasks.md` changed on disk meanwhile, the tick is not applied; the list reloads and you tick again
+  (a tick has no text of its own, so there is no Overwrite).
+- **Conflicts**: every save and tick sends the text the editor loaded. If the file on disk differs
+  (CLI, Claude Code, another editor), nothing is written and a banner offers **Reload from disk**
+  (drop the edits) or **Overwrite**. An editor without unsaved edits follows changes on disk.
+- **Unsaved edits**: switching ticket, document tab or view asks for confirmation first; **Advance**
+  and **Approve** are disabled until the edits are saved or discarded, because they act on the saved
+  files. (Closing the window is not guarded yet.)
+
+The main process enforces the same rules: it accepts only the four document names (never paths),
+only the current stage's document, at most 1 MB, and ticks only at the implement stage.
+
+### Interactions (workflow actions)
+
+Each action runs one CLI command and shows its output and exit code (0 ok, 1 rejected with the
+CLI's errors, 3 awaiting approval). Buttons are disabled while an action runs; archived tickets are
+read-only.
+
+| Action | CLI |
+|--------|-----|
+| New ticket (title, type, modules, goal) | `new "<title>" --type --modules --goal` |
+| Advance | `advance <id>` |
+| Approve… (only when awaiting; explicit confirmation) | `approve <id> <awaiting> --by <git user.name>` |
+| Reopen… (earlier stage + reason) | `reopen <id> <stage> "<reason>"` |
+| Block… (reason) / Unblock | `block <id> "<reason>"` / `unblock <id>` |
+| Note… | `note <id> "<text>"` |
+| Autopilot on/off | `autopilot <id> on` / `off` |
+
+Approving is a human action. The cockpit refuses it when the ticket is not awaiting approval or
+no git user is configured. Actions, document saves and ticks are reachable only from the cockpit
+UI (renderer IPC), never over the WebSocket event server or from AI features.
+
+`spec verify` and `spec archive` stay in the terminal for now; their results show up in the
+detail panel.
 
 ### Live Updates
-File watcher on `*/specs/**` triggers `specs:changed` WebSocket event; UI re-fetches spec list.
+The file watcher on `specs/changes/**` and `specs/archive/**` emits one coalesced
+`specs:tickets-changed` event per burst of changes. The list, the open detail and the Dashboard
+re-read, so changes made by the CLI or Claude Code appear within about a second.
+
+### Contracts
+
+One sidebar entry, **Contracts**, for the OMS contracts (the only copy lives in `oms-contracts/`,
+see CLAUDE.md). Tabs:
+
+| Tab | Content |
+|---|---|
+| Editor | OpenAPI (`.yml`/`.yaml`) and Avro (`.avsc`) files from the configured folders; Monaco editor with syntax validation and Save (Ctrl/Cmd+S). Saving is allowed only inside the configured folders and only for those extensions. |
+| Domain Model | Records, enums and commands parsed from both sources, with fields and references. |
+| Code Generation | **Contract models** (`oms-contracts`: `generateAvroJava openApiGenerateCmdModels openApiGenerateQueryModels`) and **API interfaces** (`oms-core`: `openApiGenerateCmd openApiGenerateQuery`), each run with the module's own Gradle wrapper; *Run all* runs models first. Output and exit status are shown. |
+
+Folders come from Settings → Specs (defaults `oms-contracts/src/main/openapi`,
+`oms-contracts/src/main/avro`); changes apply without a restart. A saved config that still has the
+old `oms-core/src/main/{openapi,avro}` defaults is migrated once on load.
+
+### API Explorer
+
+An OMS-aware console for oms-core (SPEC-0007), not a second Swagger UI. Requests are made by the
+main process to the **oms-core URL** from Settings → Infrastructure (default
+`http://localhost:8090`, applies to the next request); the header always shows the target and a
+*non-local* badge when it is not localhost/127.0.0.1/::1. If oms-core cannot be reached (or does
+not answer within 10 s) the response says "oms-core not reachable at …" with the cause.
+
+| Tab | Content |
+|---|---|
+| Commands | The command types of the `Command` discriminator in `oms-cmd-api.yml` (follows the file on disk). Picking one fills a JSON editor with a template built from its schema (`type`, `version`, every required property, enum values from `schema.yml`, `<name>` placeholders). The body is checked as you type: missing required properties, wrong types, values outside an enum and length limits are listed with their path; these are warnings, only invalid JSON blocks **Send**. The response shows status, duration and body (title/detail of a Problem+JSON response first). Sending to a non-local oms-core asks for confirmation every time. |
+| Orders | Filter builder over the query API's filterable fields with only the operators each supports (string `eq`/`like`; numeric and date-time `eq gt gte lt lte between`; enums `eq` with their values), plus page, size and sort. Shows the exact request URL, the results with paging; clicking a row opens the order's follow-up. |
+| History | The last 100 commands and searches (newest first, kept across restarts in `~/.developer-cockpit/api-explorer-history.json`), with status or *unreachable*. **Restore** puts a body back in the editor or filters back in the builder; **Clear history** asks first. |
+
+**Order follow-up** (under a command response that names an order — the created id, the command's
+`orderId` or `execution.orderId` — and for a clicked search row): the order's state and key fields
+from the query API, and its event timeline (version, event, resulting state, time; *Details* shows
+the command and the order snapshot) from the event log. **Next command** starts a template for
+any command acting on an existing order with `orderId` filled in; **Refresh** re-reads both.
+
+**Templates** (SPEC-0008) are VS Code REST Client `.http` files, so the same file works in both
+tools. Every `POST …/api/command/execute` request with a JSON body is a template. It is listed in
+the Commands tab under its command type, by its `# @name`, or else the comment line above it, or
+else `<type> #n`. Picking a template loads its body into the editor.
+
+Sources:
+- Every `.http` file in `developer-cockpit/api-templates/` (in git). The starter files there
+  cover every command type; `orders.http` has orders the exchange simulator accepts.
+- Extra files listed in Settings → Infrastructure → *API Explorer template files*, such as
+  `oms-core/rest.http`.
+
+Files are read in place and reloaded when they change. A missing source, or a command block with
+invalid JSON or an unknown type, is listed under *Template files* with the reason. GET requests are
+ignored.
+
+The URL in a template is never used: requests always go to the configured oms-core.
+
+**Variables** are resolved on every send. The editor keeps the template, and History stores the
+body as sent.
+
+| Variable | Value |
+|---|---|
+| `{{$guid}}` | a new UUID |
+| `{{$datetime iso8601}}` | now, UTC |
+| `{{$timestamp}}` | Unix seconds |
+| `{{$randomInt min max}}` | an integer in [min, max) |
+| `{{name}}` | a file variable `@name = value` |
+| `{{orderId}}` | the order in the follow-up, unless the file declares `@orderId` |
+
+The body check runs on the resolved text. An unresolved variable is listed as a finding and blocks
+**Send**.
+
+**Save as template** appends the editor body as a named block to a listed source file, or to a new
+file in `api-templates`. It never rewrites existing text, and a name already used in that file is
+refused. By default, `clOrdId`, `commandId`, `sendingTime` and `transactTime` are saved as
+`{{$guid}}` / `{{$datetime iso8601}}`. The dialog offers the template's own file first. File variables that the
+target file doesn't declare are written into the body as their values, so the saved template still
+resolves there. To save a past request, Restore it from History first.
+
+**Use as template** in the order follow-up (from Commands or Orders) starts a new
+`OrderCreateCmd` with the order's client fields. Server-assigned fields are dropped, and
+`clOrdId` and the times are fresh.
+
+The event timeline uses oms-core's internal `/api/order-events/orderId/{orderId}` endpoint, which is
+not in the contracts; if its shape changes, the raw JSON is shown instead. The URL prefixes
+(`/api/command`, `/api/query`) are fixed in the cockpit because the contracts declare no `servers`.
 
 ---
 

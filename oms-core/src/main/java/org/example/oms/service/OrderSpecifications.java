@@ -60,7 +60,13 @@ public final class OrderSpecifications {
                                 specs.add(buildString(field, op, v));
                         case "price", "orderQty", "cashOrderQty" ->
                                 specs.add(buildNumeric(field, op, v));
-                        case "sendingTime", "transactTime", "expireTime" ->
+                        case "sendingTime",
+                                        "transactTime",
+                                        "expireTime",
+                                        "orderReceivedTime",
+                                        "ackTime",
+                                        "marketSendTime",
+                                        "marketAckTime" ->
                                 specs.add(buildDate(field, op, v));
                         case "side", "ordType", "state", "cancelState" ->
                                 specs.add(buildEnum(field, op, v));

@@ -10,20 +10,19 @@ const RequirementsView = lazy(() => import('@/views/requirements/RequirementsVie
 const FileExplorerView = lazy(() => import('@/views/file-explorer/FileExplorerView').then(m => ({ default: m.FileExplorerView })));
 const GitOverviewView = lazy(() => import('@/views/git-overview/GitOverviewView').then(m => ({ default: m.GitOverviewView })));
 const BranchManagerView = lazy(() => import('@/views/branch-manager/BranchManagerView').then(m => ({ default: m.BranchManagerView })));
-const SpecsEditorView = lazy(() => import('@/views/specs-editor/SpecsEditorView').then(m => ({ default: m.SpecsEditorView })));
-const CodeGeneratorView = lazy(() => import('@/views/code-generator/CodeGeneratorView').then(m => ({ default: m.CodeGeneratorView })));
-const DomainModelView = lazy(() => import('@/views/domain-model/DomainModelView').then(m => ({ default: m.DomainModelView })));
+const ContractsView = lazy(() => import('@/views/contracts/ContractsView').then(m => ({ default: m.ContractsView })));
+const SpecTicketsView = lazy(() => import('@/views/spec-tickets/SpecTicketsView').then(m => ({ default: m.SpecTicketsView })));
+const ApiExplorerView = lazy(() => import('@/views/api-explorer/ApiExplorerView').then(m => ({ default: m.ApiExplorerView })));
 
 const VIEW_MAP: Record<ViewId, React.LazyExoticComponent<React.FC>> = {
   dashboard: DashboardView,
+  'spec-tickets': SpecTicketsView,
   settings: SettingsView,
   'knowledge-base': KnowledgeBaseView,
   requirements: RequirementsView,
   'file-explorer': FileExplorerView,
-  'specs-editor': SpecsEditorView,
-  'code-generator': CodeGeneratorView,
-  'domain-model': DomainModelView,
-  'api-explorer': lazy(() => Promise.resolve({ default: () => <PlaceholderView name="API Explorer" /> })),
+  contracts: ContractsView,
+  'api-explorer': ApiExplorerView,
   'git-overview': GitOverviewView,
   'branch-manager': BranchManagerView,
   docker: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Docker" /> })),

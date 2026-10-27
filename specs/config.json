@@ -1,0 +1,53 @@
+{
+  "baseBranch": "main",
+  "types": ["feature", "fix", "refactor", "spike", "chore"],
+  "approvals": {
+    "proposal": true,
+    "design": false,
+    "plan": false,
+    "implement": false,
+    "verify": false
+  },
+  "autopilot": {
+    "maxIdleStops": 2,
+    "maxGateAttempts": 3,
+    "maxVerifyAttempts": 3
+  },
+  "git": {
+    "branchPerTicket": true,
+    "commitPerTask": false
+  },
+  "modules": {
+    "oms-contracts": {
+      "verify": ["./gradlew check"],
+      "impacts": ["oms-core", "oms-streaming-service", "oms-mcp-server", "oms-exchange-simulator"]
+    },
+    "oms-core": {
+      "verify": ["./gradlew check"]
+    },
+    "oms-streaming-service": {
+      "verify": ["./gradlew check"]
+    },
+    "oms-mcp-server": {
+      "verify": ["./gradlew check"]
+    },
+    "oms-exchange-simulator": {
+      "verify": ["./gradlew check"]
+    },
+    "oms-ui": {
+      "cwd": "oms-ui/frontend",
+      "verify": ["npm test -- --watchAll=false --passWithNoTests"]
+    },
+    "oms-knowledge-base": {
+      "verify": []
+    },
+    "oms-kb-explorer": {
+      "cwd": "oms-kb-explorer",
+      "verify": ["npm run build"]
+    },
+    "developer-cockpit": {
+      "cwd": "developer-cockpit",
+      "verify": ["npm run typecheck", "npm test"]
+    }
+  }
+}

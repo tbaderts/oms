@@ -1,0 +1,36 @@
+{
+  "ranAt": "2026-10-27T15:51:52.432Z",
+  "result": "pass",
+  "modules": [
+    "developer-cockpit"
+  ],
+  "fingerprint": "f097ec1c4912ef19",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-contracts/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-exchange-simulator/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-exchange-simulator/settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 5425b9f3)"
+  },
+  "commands": [
+    {
+      "module": "developer-cockpit",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "seconds": 8,
+      "log": "evidence/developer-cockpit-1.log"
+    },
+    {
+      "module": "developer-cockpit",
+      "command": "npm test",
+      "exitCode": 0,
+      "seconds": 30,
+      "log": "evidence/developer-cockpit-2.log"
+    }
+  ]
+}

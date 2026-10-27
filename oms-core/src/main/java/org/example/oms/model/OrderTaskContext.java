@@ -1,12 +1,14 @@
 package org.example.oms.model;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.model.cmd.Command;
 import org.example.common.orchestration.TaskContext;
+import org.example.oms.service.lifecycle.LifecycleAction;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -34,6 +36,14 @@ public class OrderTaskContext extends TaskContext {
     /** The command that triggered this processing. */
     private Command command;
 
+    /**
+     * When the triggering command crossed the OMS boundary.
+     *
+     * <p>Captured by the controller or the Kafka listener and carried down, rather than read from
+     * the clock inside a task — by then the latency being measured has already been incurred.
+     */
+    private Instant receivedTime;
+
     /** Error message if validation or processing fails. */
     private String errorMessage;
 
@@ -51,6 +61,15 @@ public class OrderTaskContext extends TaskContext {
 
     /** The new order state determined by execution processing. */
     private State newOrderState;
+
+    /**
+     * The event to record for this change. Unset means the pipeline creates an order, so the
+     * publish task falls back to {@link Event#NEW_ORDER}.
+     */
+    private Event event;
+
+    /** The lifecycle action (reject, cancel, cancel request, cancel reject) being applied. */
+    private LifecycleAction lifecycleAction;
 
     public OrderTaskContext() {
         super();

@@ -1,23 +1,46 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CockpitConfig, DEFAULT_CONFIG } from '../../shared/types/config';
+import { CockpitConfig, DEFAULT_CONFIG, LEGACY_SPECS_PATHS } from '../../shared/types/config';
 
-const CONFIG_DIR = path.join(os.homedir(), '.developer-cockpit');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+/**
+ * Replaces contract paths that are exactly the legacy oms-core defaults (the contracts moved to
+ * oms-contracts) with the current defaults. Anything a user customised is kept.
+ */
+export function migrateConfig(config: CockpitConfig): { config: CockpitConfig; migrated: boolean } {
+  const specs = { ...config.specs };
+  let migrated = false;
+  for (const key of ['openApiPaths', 'avroPaths'] as const) {
+    if (JSON.stringify(specs[key]) === JSON.stringify(LEGACY_SPECS_PATHS[key])) {
+      specs[key] = [...DEFAULT_CONFIG.specs[key]];
+      migrated = true;
+    }
+  }
+  return { config: migrated ? { ...config, specs } : config, migrated };
+}
 
 export class ConfigService {
   private config: CockpitConfig = { ...DEFAULT_CONFIG };
+  private configFile: string;
+
+  constructor(private configDir: string = path.join(os.homedir(), '.developer-cockpit')) {
+    this.configFile = path.join(configDir, 'config.json');
+  }
 
   async load(): Promise<CockpitConfig> {
     try {
-      if (!fs.existsSync(CONFIG_DIR)) {
-        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+      if (!fs.existsSync(this.configDir)) {
+        fs.mkdirSync(this.configDir, { recursive: true });
       }
-      if (fs.existsSync(CONFIG_FILE)) {
-        const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      if (fs.existsSync(this.configFile)) {
+        const raw = fs.readFileSync(this.configFile, 'utf-8');
         const loaded = JSON.parse(raw) as Partial<CockpitConfig>;
-        this.config = this.merge(DEFAULT_CONFIG, loaded);
+        const { config, migrated } = migrateConfig(this.merge(DEFAULT_CONFIG, loaded));
+        this.config = config;
+        if (migrated) {
+          await this.save(config);
+          console.info('[config] migrated legacy contract paths to oms-contracts');
+        }
       } else {
         await this.save(this.config);
       }
@@ -29,14 +52,18 @@ export class ConfigService {
 
   async save(config: CockpitConfig): Promise<void> {
     this.config = config;
-    if (!fs.existsSync(CONFIG_DIR)) {
-      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    if (!fs.existsSync(this.configDir)) {
+      fs.mkdirSync(this.configDir, { recursive: true });
     }
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    fs.writeFileSync(this.configFile, JSON.stringify(config, null, 2), 'utf-8');
   }
 
   getConfig(): CockpitConfig {
     return this.config;
+  }
+
+  getConfigDir(): string {
+    return this.configDir;
   }
 
   getWorkspaceRoot(): string {

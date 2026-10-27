@@ -1,0 +1,14 @@
+exit 0
+--- stdout
+SPEC-0002 — Ticket SPEC-0002
+  dir:       specs/changes/SPEC-0002-proposal-pass
+  status:    proposal (awaiting human approval of proposal)
+  autopilot: off
+  modules:   oms-knowledge-base
+  approvals: (none)
+  tasks:     -
+
+SPEC-0002 gate "proposal": PASS
+
+Next: waiting for a human to run `node specs/tools/spec.mjs approve SPEC-0002` in their own terminal.
+--- stderr

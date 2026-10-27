@@ -27,9 +27,8 @@ export function DomainModelView() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
+      {/* Header (the Contracts tab provides the title) */}
       <div className="flex items-center gap-3 border-b border-border px-6 py-3">
-        <h2 className="text-lg font-medium">Domain Model</h2>
         <div className="flex gap-1 rounded-md border border-border p-0.5">
           {FILTERS.map((f) => (
             <button

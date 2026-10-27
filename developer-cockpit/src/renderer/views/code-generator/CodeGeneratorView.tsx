@@ -27,9 +27,8 @@ export function CodeGeneratorView() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
+      {/* Header (the Contracts tab provides the title) */}
       <div className="flex items-center gap-3 border-b border-border px-6 py-3">
-        <h2 className="text-lg font-medium">Code Generator</h2>
         <div className="flex-1" />
         <Button onClick={runAllCodeGen} disabled={!!runningTask}>
           {runningTask ? (

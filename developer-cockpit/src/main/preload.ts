@@ -49,6 +49,27 @@ const api: CockpitAPI = {
     runCodeGen: (taskId: string) => ipcRenderer.invoke('specs:runCodeGen', taskId),
     parseEntities: () => ipcRenderer.invoke('specs:parseEntities'),
   },
+  specTickets: {
+    list: (includeArchived: boolean) => ipcRenderer.invoke('specTickets:list', includeArchived),
+    get: (id: string) => ipcRenderer.invoke('specTickets:get', id),
+    run: (action) => ipcRenderer.invoke('specTickets:run', action),
+    saveDocument: (id, doc, content, baseContent, force) =>
+      ipcRenderer.invoke('specTickets:saveDocument', id, doc, content, baseContent, force),
+    draftGate: (id, doc, content) => ipcRenderer.invoke('specTickets:draftGate', id, doc, content),
+    toggleTask: (id, taskId, done, baseContent, force) =>
+      ipcRenderer.invoke('specTickets:toggleTask', id, taskId, done, baseContent, force),
+  },
+  apiExplorer: {
+    catalog: () => ipcRenderer.invoke('apiExplorer:catalog'),
+    baseUrl: () => ipcRenderer.invoke('apiExplorer:baseUrl'),
+    sendCommand: (bodyText, confirmedHost) => ipcRenderer.invoke('apiExplorer:sendCommand', bodyText, confirmedHost),
+    search: (params, paging) => ipcRenderer.invoke('apiExplorer:search', params, paging),
+    followUp: (orderId) => ipcRenderer.invoke('apiExplorer:followUp', orderId),
+    history: () => ipcRenderer.invoke('apiExplorer:history'),
+    clearHistory: () => ipcRenderer.invoke('apiExplorer:clearHistory'),
+    templates: () => ipcRenderer.invoke('apiExplorer:templates'),
+    saveTemplate: (req) => ipcRenderer.invoke('apiExplorer:saveTemplate', req),
+  },
   events: {
     getWebSocketUrl: () => ipcRenderer.invoke('events:getWebSocketUrl'),
   },

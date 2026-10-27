@@ -1,0 +1,4 @@
+exit 1
+--- stdout
+{"stage":"proposal","pass":false,"errors":["proposal.md: template placeholders left on line(s) 1, 8, 14, 21, 25, 41, 47, 48, …","proposal.md: section \"## Why\" is empty","proposal.md: section \"## What Changes\" is empty","proposal.md: section \"## Open Questions\" is empty"],"warnings":["AC-1 is not in Given/When/Then form; make sure it is objectively testable"],"exceptions":[]}
+--- stderr

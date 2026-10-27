@@ -84,6 +84,29 @@ ExecType determines how the execution report is processed by the OMS.
 | **TRADE_CORRECT** | `G` | Execution corrected | Apply correction, recalculate |
 | **ORDER_STATUS** | `I` | Status request response | Update order snapshot |
 
+#### ExecType → OMS command (implemented)
+
+oms-core has no FIX session. A venue adapter, today the
+[exchange simulator](exchange-simulator.md), translates each execution report into an OMS command
+on the `commands` topic, keyed by orderId:
+
+| ExecType / message | Code | OMS command | Resulting change |
+|---|---|---|---|
+| NEW | `0` | `OrderAcceptCmd` | UNACK → LIVE, event `ACK` |
+| TRADE | `F` | `ExecutionCreateCmd` (execType `F`) | quantities, LIVE → FILLED when leavesQty = 0, events `PARTIAL_FILL` / `FILL` |
+| CANCELED | `4` | `OrderCancelCmd` | LIVE → CXL, leavesQty → 0, event `CXL` |
+| REJECTED | `8` | `OrderRejectCmd` | UNACK/LIVE → REJ, event `REJ` |
+| OrderCancelReject | 35=9 | `OrderCancelRejectCmd` | cancelState PCXL → REJ, event `CXL_REJ` |
+
+The venue's reason (FIX Text 58 on the reject or the cancel reject) is stored in the order's
+`rejectReason`, never in the client's `text`. A new cancel request clears it. The FIX reason
+codes, OrdRejReason (103) and CxlRejReason (102), are not modelled yet.
+
+The `ExecutionCreateCmd` execution carries `execId`, `orderId`, `lastQty`, `lastPx`, `cumQty`,
+`leavesQty`, `execType`, `lastMkt`, `lastCapacity` and `transactTime`. oms-core recomputes cumQty
+and leavesQty itself and does not trust the venue's values. A redelivered fill is refused by the
+unique constraint on `(orderId, execID)`.
+
 ---
 
 ### 2.3 OrdStatus vs ExecType

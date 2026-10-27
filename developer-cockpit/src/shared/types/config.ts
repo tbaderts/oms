@@ -41,6 +41,10 @@ export interface InfrastructureConfig {
   prometheusUrl: string;
   grafanaUrl: string;
   lokiUrl: string;
+  /** oms-core base URL the API Explorer calls. */
+  omsCoreUrl: string;
+  /** Extra `.http` files the API Explorer lists as templates, workspace-relative or absolute. */
+  apiTemplateSources: string[];
 }
 
 export interface SpecsConfig {
@@ -48,6 +52,12 @@ export interface SpecsConfig {
   avroPaths: string[];
   autoGenerate: boolean;
 }
+
+/** Contract paths before the contracts moved to oms-contracts; saved configs with exactly these are migrated. */
+export const LEGACY_SPECS_PATHS: Pick<SpecsConfig, 'openApiPaths' | 'avroPaths'> = {
+  openApiPaths: ['oms-core/src/main/openapi'],
+  avroPaths: ['oms-core/src/main/avro'],
+};
 
 export const DEFAULT_CONFIG: CockpitConfig = {
   general: {
@@ -80,10 +90,12 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     prometheusUrl: 'http://localhost:9090',
     grafanaUrl: 'http://localhost:3000',
     lokiUrl: 'http://localhost:3100',
+    omsCoreUrl: 'http://localhost:8090',
+    apiTemplateSources: [],
   },
   specs: {
-    openApiPaths: ['oms-core/src/main/openapi'],
-    avroPaths: ['oms-core/src/main/avro'],
+    openApiPaths: ['oms-contracts/src/main/openapi'],
+    avroPaths: ['oms-contracts/src/main/avro'],
     autoGenerate: false,
   },
 };

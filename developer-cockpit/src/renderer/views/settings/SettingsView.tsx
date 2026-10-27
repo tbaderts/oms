@@ -299,6 +299,30 @@ export function SettingsView() {
                   onChange={(e) => updateInfra({ lokiUrl: e.target.value })}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="omsCoreUrl">oms-core URL</Label>
+                <Input
+                  id="omsCoreUrl"
+                  placeholder="http://localhost:8090"
+                  value={draft.infrastructure.omsCoreUrl ?? ''}
+                  onChange={(e) => updateInfra({ omsCoreUrl: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Used by the API Explorer. Empty means http://localhost:8090.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="apiTemplateSources">API Explorer template files</Label>
+                <textarea
+                  id="apiTemplateSources"
+                  className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
+                  placeholder="oms-core/rest.http"
+                  value={(draft.infrastructure.apiTemplateSources ?? []).join('\n')}
+                  onChange={(e) => updateInfra({ apiTemplateSources: e.target.value.split('\n') })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Extra .http files listed as templates, one path per line (relative to the workspace or absolute). Files in
+                  developer-cockpit/api-templates are always listed.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

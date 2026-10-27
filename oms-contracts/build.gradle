@@ -70,6 +70,14 @@ dependencies {
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
+    // Only for the schema-compatibility tests: they guard P-04 at the one place every schema lives.
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +141,7 @@ tasks.register('verifyContracts') {
     group = 'verification'
     description = 'Fails if a service module has reintroduced its own copy of the contracts.'
     doLast {
-        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server']
+        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server', 'oms-exchange-simulator']
             .collectMany { module ->
                 [new File(rootDir, "../$module/src/main/avro"),
                  new File(rootDir, "../$module/src/main/openapi")]

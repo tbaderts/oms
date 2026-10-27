@@ -1,0 +1,31 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "doc": "Client requests cancellation of the open quantity (FIX OrderCancelRequest 35=F).",
+  "name": "OrderCancelRequestCmd",
+  "fields": [
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Command type discriminator"
+    },
+    {
+      "name": "version",
+      "type": ["null", "string"],
+      "doc": "Command API version",
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": ["null", "string"],
+      "doc": "The order this command applies to.",
+      "default": null
+    },
+    {
+      "name": "commandId",
+      "type": ["null", "string"],
+      "doc": "Identity of this command. A command whose id the order has already applied is refused as a duplicate, which makes redelivery safe. Optional.",
+      "default": null
+    }
+  ]
+}

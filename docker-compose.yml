@@ -54,6 +54,26 @@ services:
       retries: 3
       start_period: 30s
 
+  # Plays the market: answers OMS orders with acks, fills, rejects and cancels (SPEC-0001).
+  # Build the jar first: cd oms-exchange-simulator && ./gradlew bootJar
+  exchange-simulator:
+    image: 'oms-exchange-simulator:latest'
+    container_name: oms-exchange-simulator
+    build:
+      context: ./oms-exchange-simulator
+    depends_on:
+      - broker
+      - schema-registry
+    environment:
+      KAFKA_BROKERS: broker:29092
+      REGISTRY_URL: http://schema-registry:8081
+      SIMULATOR_FILL_SLICES: ${SIMULATOR_FILL_SLICES:-1}
+      SIMULATOR_FILL_DELAY: ${SIMULATOR_FILL_DELAY:-0ms}
+    ports:
+      - "8094:8094"
+    networks:
+      - app-net
+
   mcp-server:
     image: 'oms-mcp-server:latest'
     container_name: oms-mcp-server
@@ -222,7 +242,7 @@ services:
     ports:
       - 3000:3000
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=secret
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-secret}
     networks:
       - app-net
     volumes:

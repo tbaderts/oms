@@ -46,6 +46,10 @@ components:
           OrderCreateCmd: '#/components/schemas/OrderCreateCmd'
           OrderAcceptCmd: '#/components/schemas/OrderAcceptCmd'
           ExecutionCreateCmd: '#/components/schemas/ExecutionCreateCmd'
+          OrderRejectCmd: '#/components/schemas/OrderRejectCmd'
+          OrderCancelCmd: '#/components/schemas/OrderCancelCmd'
+          OrderCancelRequestCmd: '#/components/schemas/OrderCancelRequestCmd'
+          OrderCancelRejectCmd: '#/components/schemas/OrderCancelRejectCmd'
       required:
         - type
       properties:
@@ -86,6 +90,82 @@ components:
           properties:
             execution:
               $ref: '#/components/schemas/Execution'
+
+    OrderRejectCmd:
+      description: Market rejected the order (FIX ExecutionReport ExecType=8).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            commandId:
+              type: string
+              maxLength: 64
+              description: Identity of this command; a command already applied to the order is refused as a duplicate
+            text:
+              type: string
+              maxLength: 255
+              description: Reject reason
+
+    OrderCancelCmd:
+      description: Market confirmed a cancel, solicited or unsolicited (FIX ExecutionReport ExecType=4).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            commandId:
+              type: string
+              maxLength: 64
+              description: Identity of this command; a command already applied to the order is refused as a duplicate
+            text:
+              type: string
+              maxLength: 255
+              description: Cancel reason
+
+    OrderCancelRequestCmd:
+      description: Client requests cancellation of the open quantity (FIX OrderCancelRequest 35=F).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            commandId:
+              type: string
+              maxLength: 64
+              description: Identity of this command; a command already applied to the order is refused as a duplicate
+
+    OrderCancelRejectCmd:
+      description: Market refused a cancel request (FIX OrderCancelReject 35=9).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            commandId:
+              type: string
+              maxLength: 64
+              description: Identity of this command; a command already applied to the order is refused as a duplicate
+            text:
+              type: string
+              maxLength: 255
+              description: Cancel reject reason
 
     Order:
       type: object
@@ -225,6 +305,32 @@ components:
         orderId:
           type: string
           minLength: 1
+        lastQty:
+          type: number
+          description: Quantity filled by this execution (FIX LastQty, tag 32)
+        lastPx:
+          type: number
+          description: Price of this execution (FIX LastPx, tag 31)
+        cumQty:
+          type: number
+          description: Order's cumulative executed quantity after this execution, as reported by the market
+        leavesQty:
+          type: number
+          description: Order's open quantity after this execution, as reported by the market
+        execType:
+          type: string
+          description: FIX ExecType (tag 150), e.g. F for a trade
+        lastMkt:
+          type: string
+          description: Market of execution (FIX LastMkt, tag 30)
+        lastCapacity:
+          type: string
+          description: Capacity of the execution (FIX LastCapacity, tag 29)
+        transactTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: Time of the execution
 
     CommandResult:
       type: object

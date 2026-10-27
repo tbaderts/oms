@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: oms-exchange-simulator
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    # Trace context crosses Kafka in both directions (P-15).
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
+    consumer:
+      group-id: ${SIMULATOR_GROUP_ID:exchange-simulator}
+      # latest: a new consumer group must not replay the retained order history as new orders.
+      auto-offset-reset: ${SIMULATOR_OFFSET_RESET:latest}
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        specific.avro.reader: true
+        spring.deserializer:
+          key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+          value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
+        schema.registry:
+          url: ${REGISTRY_URL:http://localhost:8081}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        enable.idempotence: true
+        schema.registry:
+          url: ${REGISTRY_URL:http://localhost:8081}
+
+server:
+  port: ${SERVER_PORT:8094}
+
+simulator:
+  order-topic: ${ORDER_TOPIC:oms_orders}
+  command-topic: ${COMMAND_TOPIC:commands}
+  fill-slices: ${SIMULATOR_FILL_SLICES:1}
+  fill-delay: ${SIMULATOR_FILL_DELAY:0ms}
+  price-band-percent: ${SIMULATOR_PRICE_BAND_PERCENT:10}
+  last-mkt: ${SIMULATOR_LAST_MKT:XSIM}
+  reference-prices:
+    AAPL: 170.00
+    MSFT: 420.00
+    IBM: 250.00
+    NVDA: 120.00
+    INTC: 86.96
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics

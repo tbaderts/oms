@@ -1,10 +1,10 @@
 import { create } from 'zustand';
+import { useDocEditorStore } from './docEditor';
 
 export type ViewId =
   | 'dashboard'
-  | 'specs-editor'
-  | 'code-generator'
-  | 'domain-model'
+  | 'spec-tickets'
+  | 'contracts'
   | 'api-explorer'
   | 'git-overview'
   | 'branch-manager'
@@ -26,9 +26,8 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', group: 'Development', icon: 'LayoutDashboard' },
-  { id: 'specs-editor', label: 'Specs Editor', group: 'Development', icon: 'FileCode' },
-  { id: 'code-generator', label: 'Code Generator', group: 'Development', icon: 'Wand2' },
-  { id: 'domain-model', label: 'Domain Model', group: 'Development', icon: 'Database' },
+  { id: 'spec-tickets', label: 'Spec Tickets', group: 'Development', icon: 'ListChecks' },
+  { id: 'contracts', label: 'Contracts', group: 'Development', icon: 'FileCode' },
   { id: 'api-explorer', label: 'API Explorer', group: 'Development', icon: 'Globe' },
   { id: 'git-overview', label: 'Git Overview', group: 'Source Control', icon: 'GitBranch' },
   { id: 'branch-manager', label: 'Branch Manager', group: 'Source Control', icon: 'GitMerge' },
@@ -50,10 +49,14 @@ interface NavigationState {
   setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
-export const useNavigationStore = create<NavigationState>((set) => ({
+export const useNavigationStore = create<NavigationState>((set, get) => ({
   activeView: 'dashboard',
   sidebarCollapsed: false,
-  setActiveView: (view) => set({ activeView: view }),
+  setActiveView: (view) => {
+    // Unsaved document edits are discarded only after the user confirms.
+    if (view === get().activeView || !useDocEditorStore.getState().confirmLeave()) return;
+    set({ activeView: view });
+  },
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 }));

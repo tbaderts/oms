@@ -1,0 +1,60 @@
+/*
+ * oms-exchange-simulator — plays the market for the OMS in development and test.
+ *
+ * Consumes OMS orders from Kafka, evaluates them against static reference prices, and answers with
+ * the commands a venue's execution reports translate to (ack, fills, reject, cancel, cancel reject).
+ * It talks to oms-core only through Kafka and the shared contracts in oms-contracts.
+ */
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'org.example.oms'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+	maven { url = uri("https://packages.confluent.io/maven/") }
+}
+
+ext {
+	set('testcontainersVersion', "1.21.4")
+}
+
+dependencies {
+	// Shared contracts: OrderMessage in, CommandMessage out.
+	implementation 'org.example.oms:oms-contracts'
+
+	// The same artifacts and versions oms-core uses; nothing new to the repository.
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.boot:spring-boot-starter-kafka'
+	implementation 'io.confluent:kafka-avro-serializer:7.9.9'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.kafka:spring-kafka-test'
+	testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+	testImplementation "org.testcontainers:kafka:${testcontainersVersion}"
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

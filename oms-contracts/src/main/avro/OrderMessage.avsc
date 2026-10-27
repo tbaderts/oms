@@ -242,6 +242,60 @@
     {
       "name": "underlyingSecurityType",
       "type": [ "null", "string" ]
+    },
+    {
+      "doc": "SLA checkpoint: order crossed the OMS boundary. FIX TrdRegTimestampType 2 (TimeIn). Microsecond precision — the business timestamps above are millis, which would truncate the latencies these fields exist to measure.",
+      "name": "orderReceivedTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "doc": "SLA checkpoint: OMS assumed responsibility and acknowledged the client. CLI leg only.",
+      "name": "ackTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "doc": "SLA checkpoint: order released downstream. FIX TrdRegTimestampType 3 (TimeOut). MKT leg only.",
+      "name": "marketSendTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "doc": "SLA checkpoint: downstream ack observed at the OMS boundary. FIX TrdRegTimestampType 4 (BrokerReceipt). MKT leg only.",
+      "name": "marketAckTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "doc": "Latest reason the venue gave for refusing the order or a cancel request (FIX Text 58 on the ExecutionReport ExecType=8 or the OrderCancelReject). Not the client's text.",
+      "name": "rejectReason",
+      "type": ["null", "string"],
+      "default": null
     }
   ]
 }

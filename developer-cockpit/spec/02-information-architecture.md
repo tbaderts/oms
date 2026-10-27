@@ -30,7 +30,10 @@ Views are organized into logical groups. Each group collapses independently in t
 
 | View | Icon Suggestion | Purpose |
 |------|-----------------|---------|
-| **Dashboard** | grid/chart | Sprint-level overview of specs, tasks, progress metrics |
+| **Dashboard** | grid/chart | Portfolio of spec work: stage distribution chart, task completion, Needs me (awaiting approval, blocked, mine in progress) and the ticket table with filters |
+| **Spec Tickets** | list-checks | Full-width workspace for one ticket: switcher in the header, documents and editor in the main column, gate, actions, tasks and evidence in a side rail |
+| **Contracts** | file-code | OMS contracts in `oms-contracts`: tabs *Editor* (OpenAPI/Avro), *Domain Model*, *Code Generation* (replaces the former Specs Editor, Domain Model and Code Generator entries) |
+| **API Explorer** | globe | OMS-aware console for oms-core: tabs *Commands* (templates from the contracts, schema checks, send), *Orders* (filter builder over the query API) and *History*; an order follow-up with state and event timeline |
 | **Flight Deck** | plane/rocket | Mission-based workflow for feature development lifecycle |
 | **Sessions** | terminal | Launch and manage AI coding sessions with embedded terminals |
 | **Reviews** | magnifying-glass | Browse and launch AI-generated code review reports |

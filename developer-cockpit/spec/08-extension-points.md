@@ -196,7 +196,7 @@ Plugins are discovered from a `plugins/` directory:
   "entrypoint": "index.js",
   "serverEntrypoint": "server.js",
   "events": {
-    "consumes": ["specs:changed"]
+    "consumes": ["specs:tickets-changed"]
   }
 }
 ```

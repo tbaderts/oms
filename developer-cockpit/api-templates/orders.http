@@ -1,0 +1,108 @@
+# API Explorer templates: new orders (SPEC-0008).
+#
+# The developer cockpit lists every `POST …/api/command/execute` request in this folder under its
+# command type, and the same file runs in the VS Code REST Client. Variables are resolved on send:
+#   {{$guid}}               a new UUID each time (fresh clOrdId)
+#   {{$datetime iso8601}}   the current time in UTC
+#   {{name}}                a file variable declared below with `@name = value`
+#   {{orderId}}             in the cockpit, the order shown in the follow-up
+#
+# Symbols and prices match the exchange simulator's reference prices
+# (oms-exchange-simulator application.yml): a LIMIT within ±10 % of the reference is accepted.
+
+@baseUrl = http://localhost:8090
+@sessionId = cockpit
+@account = account-01
+
+###
+# @name INTC limit buy
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCreateCmd",
+  "version": "1.0.0",
+  "order": {
+    "sessionId": "{{sessionId}}",
+    "clOrdId": "{{$guid}}",
+    "sendingTime": "{{$datetime iso8601}}",
+    "account": "{{account}}",
+    "execInst": "NO_CROSS",
+    "handlInst": "BROKER_INTERVENTION_OK",
+    "securityIdSource": "RIC",
+    "securityId": "INTC.OQ",
+    "securityDesc": "Intel Corporation",
+    "symbol": "INTC",
+    "side": "BUY",
+    "ordType": "LIMIT",
+    "price": 86.96,
+    "orderQty": 500,
+    "priceType": "PER_UNIT",
+    "timeInForce": "DAY",
+    "exDestination": "XNAS",
+    "securityExchange": "XNAS",
+    "settlCurrency": "USD",
+    "text": "INTC limit buy at the reference price"
+  }
+}
+
+###
+# @name AAPL limit sell
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCreateCmd",
+  "version": "1.0.0",
+  "order": {
+    "sessionId": "{{sessionId}}",
+    "clOrdId": "{{$guid}}",
+    "sendingTime": "{{$datetime iso8601}}",
+    "account": "{{account}}",
+    "execInst": "NO_CROSS",
+    "handlInst": "BROKER_INTERVENTION_OK",
+    "securityIdSource": "RIC",
+    "securityId": "AAPL.OQ",
+    "securityDesc": "Apple Inc.",
+    "symbol": "AAPL",
+    "side": "SELL",
+    "ordType": "LIMIT",
+    "price": 170.00,
+    "orderQty": 100,
+    "priceType": "PER_UNIT",
+    "timeInForce": "DAY",
+    "exDestination": "XNAS",
+    "securityExchange": "XNAS",
+    "settlCurrency": "USD",
+    "text": "AAPL limit sell at the reference price"
+  }
+}
+
+###
+# @name MSFT market buy
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCreateCmd",
+  "version": "1.0.0",
+  "order": {
+    "sessionId": "{{sessionId}}",
+    "clOrdId": "{{$guid}}",
+    "sendingTime": "{{$datetime iso8601}}",
+    "account": "{{account}}",
+    "handlInst": "AUTO",
+    "securityIdSource": "RIC",
+    "securityId": "MSFT.OQ",
+    "securityDesc": "Microsoft Corporation",
+    "symbol": "MSFT",
+    "side": "BUY",
+    "ordType": "MARKET",
+    "orderQty": 200,
+    "timeInForce": "DAY",
+    "exDestination": "XNAS",
+    "securityExchange": "XNAS",
+    "settlCurrency": "USD",
+    "text": "MSFT market buy"
+  }
+}

@@ -44,7 +44,9 @@ export class MetamodelService {
     const backendMetadata = await backendService.getEntityMetadata(domainObject);
     const metadata = MetamodelMappingService.mapBackendMetadataToFrontend(backendMetadata);
     
-    this.cacheService.set(cacheKey, metadata);
+    // No expiry: the metamodel only changes on deploy, and blotters read it synchronously on every
+    // render, so an expired entry crashed the first streamed update after the TTL.
+    this.cacheService.set(cacheKey, metadata, Number.POSITIVE_INFINITY);
     return metadata;
   }
 

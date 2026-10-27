@@ -1,17 +1,17 @@
 import React from 'react';
 import {
-  LayoutDashboard, FileCode, Wand2, Database, Globe,
+  LayoutDashboard, FileCode, Globe,
   GitBranch, GitMerge, BookOpen, ClipboardList, FolderOpen,
-  Container, Ship, Activity, Bot, Settings,
+  Container, Ship, Activity, Bot, Settings, ListChecks,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigationStore, NAV_ITEMS, type ViewId } from '@/stores/navigation';
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
-  LayoutDashboard, FileCode, Wand2, Database, Globe,
+  LayoutDashboard, FileCode, Globe,
   GitBranch, GitMerge, BookOpen, ClipboardList, FolderOpen,
-  Container, Ship, Activity, Bot, Settings,
+  Container, Ship, Activity, Bot, Settings, ListChecks,
 };
 
 export function Sidebar() {

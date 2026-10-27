@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import Editor from '@monaco-editor/react';
+import '@/lib/monaco';
 import type { SpecFile, SpecValidationResult } from '@shared/types/specs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

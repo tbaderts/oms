@@ -31,13 +31,15 @@ public class PublishOrderEventTask implements ConditionalTask<OrderTaskContext> 
         try {
             Order order = context.getOrder();
 
-            long version =
-                    orderEventAppender.appendOrderEvent(
-                            order, Event.NEW_ORDER, context.getCommand());
+            // The create pipeline never sets an event; every other pipeline that reuses this task
+            // names the change it made.
+            Event event = context.getEvent() != null ? context.getEvent() : Event.NEW_ORDER;
+
+            long version = orderEventAppender.appendOrderEvent(order, event, context.getCommand());
 
             context.put("eventVersion", version);
 
-            log.info("Recorded NEW_ORDER v{} for order {}", version, order.getOrderId());
+            log.info("Recorded {} v{} for order {}", event, version, order.getOrderId());
 
             return TaskResult.success(
                     getName(), "Event recorded for order: " + order.getOrderId());

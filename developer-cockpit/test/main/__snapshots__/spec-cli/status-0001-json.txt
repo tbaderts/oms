@@ -1,0 +1,4 @@
+exit 0
+--- stdout
+{"id":"SPEC-0001","dir":"specs/changes/SPEC-0001-proposal-fail","archived":false,"meta":{"id":"SPEC-0001","title":"Ticket SPEC-0001","type":"feature","status":"proposal","awaiting":"","autopilot":false,"modules":["oms-knowledge-base"],"approvals":[],"owner":"Alice","beads":"","created":"2026-10-24","blocked_from":"","blocked_reason":""},"tasks":{"done":0,"total":0},"acs":["AC-1"],"goal":"A goal.","log":["2026-10-24 created"],"taskList":[],"gate":{"stage":"proposal","pass":false,"errors":["proposal.md: template placeholders left on line(s) 1, 8, 14, 21, 25, 41, 47, 48, …","proposal.md: section \"## Why\" is empty","proposal.md: section \"## What Changes\" is empty","proposal.md: section \"## Open Questions\" is empty"],"warnings":["AC-1 is not in Given/When/Then form; make sure it is objectively testable"],"exceptions":[]},"evidence":null,"next":"Fill proposal.md (skill: spec-propose), then `spec advance`."}
+--- stderr

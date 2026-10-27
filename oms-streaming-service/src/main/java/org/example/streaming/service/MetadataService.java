@@ -43,6 +43,7 @@ public class MetadataService {
                         field("securityType", "Enum", "Security type: CS, OPT, FUT", true, true),
                         field("exDestination", "String", "Execution destination", true, true),
                         field("text", "String", "Free text field", true, false),
+                        field("rejectReason", "String", "Latest reason the venue refused the order or a cancel request", true, false),
                         field("sendingTime", "Timestamp", "Order sending time", true, true),
                         field("transactTime", "Timestamp", "Last transaction time", true, true),
                         field("expireTime", "Timestamp", "Order expiration time", true, true)

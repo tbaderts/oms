@@ -52,6 +52,7 @@ public class OrderMessageMapper {
                 .securityType(msg.getSecurityDesc())
                 .exDestination(msg.getExDestination())
                 .text(msg.getText())
+                .rejectReason(msg.getRejectReason())
                 .sendingTime(msg.getSendingTime())
                 .transactTime(msg.getTransactTime())
                 .expireTime(msg.getExpireTime())

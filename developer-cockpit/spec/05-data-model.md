@@ -68,14 +68,91 @@ The Developer Cockpit follows a **filesystem-first** persistence strategy. There
     "type": "postgresql",
     "connectionString": null
   },
+  "infrastructure": {
+    "prometheusUrl": "http://localhost:9090",
+    "grafanaUrl": "http://localhost:3000",
+    "lokiUrl": "http://localhost:3100",
+    "omsCoreUrl": "http://localhost:8090",
+    "apiTemplateSources": ["oms-core/rest.http"]
+  },
   "specs": {
+    "openApiPaths": ["oms-contracts/src/main/openapi"],
+    "avroPaths": ["oms-contracts/src/main/avro"],
+    "autoGenerate": false,
     "moduleDirectories": [],
     "reviewOutputDir": "docs/reviews"
   }
 }
 ```
 
+`specs.openApiPaths` / `specs.avroPaths` are the contract folders of the Contracts view, relative to
+the workspace root. Saved values that are exactly the legacy `oms-core/src/main/openapi` /
+`oms-core/src/main/avro` defaults are migrated to the values above on load.
+
+`infrastructure.omsCoreUrl` is the oms-core the API Explorer calls; an empty or missing value means
+`http://localhost:8090`. `infrastructure.apiTemplateSources` lists extra `.http` template files,
+workspace-relative or absolute (default `[]`; blank lines are ignored). The files in
+`developer-cockpit/api-templates` are always listed.
+
 **Resolution order**: defaults -> config.json -> environment variables -> CLI flags.
+
+### api-explorer-history.json
+
+Next to `config.json`; written only by the main process (temp file + rename). Newest first, at most
+100 entries; bodies over 64 KB are stored truncated (`truncated: true`).
+
+```json
+[
+  {
+    "id": "6f1c…", "at": "2026-10-27T10:03:00.000Z",
+    "kind": "command", "label": "OrderAcceptCmd",
+    "method": "POST", "path": "/api/command/execute",
+    "status": 200, "durationMs": 31,
+    "request": { "body": "{\"type\":\"OrderAcceptCmd\",\"orderId\":\"O-1\"}" }
+  },
+  {
+    "id": "a9e2…", "at": "2026-10-27T10:02:00.000Z",
+    "kind": "query", "label": "search",
+    "method": "GET", "path": "/api/query/search?symbol=AAPL&page=0&size=50",
+    "status": null, "durationMs": 3,
+    "request": { "params": [{ "field": "symbol", "op": "eq", "value": "AAPL" }], "page": 0, "size": 50 }
+  }
+]
+```
+
+`status: null` means no HTTP response: with `"refused": true` the cockpit refused it before sending
+(invalid JSON, unconfirmed non-local host, invalid URL or filter), otherwise oms-core was not
+reachable or did not answer in time.
+
+### API Explorer templates (`*.http`)
+
+Templates use the VS Code REST Client format. The cockpit reads this subset:
+
+- A line starting with `###` starts a new request.
+- `#` and `//` lines are comments, and `# @name X` names the request.
+- `@name = value` lines declare file variables, valid in the whole file. If a name is declared
+  twice, the last one wins.
+- In each request, the first other non-empty line is the request line, `METHOD URL [HTTP/1.1]`
+  (a bare URL means GET). Header lines follow up to the first blank line, and the rest is the
+  body.
+
+```http
+@baseUrl = http://localhost:8090
+@account = account-01
+
+###
+# @name INTC limit buy
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{ "type": "OrderCreateCmd", "version": "1.0.0",
+  "order": { "clOrdId": "{{$guid}}", "sendingTime": "{{$datetime iso8601}}", "account": "{{account}}", … } }
+```
+
+Only `POST` requests to `/api/command/execute` become templates. Supported variables are
+`{{$guid}}`, `{{$datetime iso8601}}`, `{{$timestamp}}`, `{{$randomInt min max}}`, file
+variables (resolved recursively, up to depth 5) and `{{orderId}}`. Environments, `$dotenv`,
+`$processEnv` and request variables are not supported; they are reported as unresolved.
 
 Null values mean "not configured" -- the corresponding feature is disabled gracefully.
 
@@ -93,77 +170,100 @@ Loaded via dotenv or equivalent. Never logged or exposed via API.
 
 ## 3. Spec Data Model
 
+The files under `specs/` are the source of truth and only the workflow CLI
+(`specs/tools/spec.mjs`) writes ticket state. The cockpit keeps no copy; filters and the
+Mine/All toggle are session state only.
+
 ### Directory Structure
 
 ```
-<module>/
-  specs/
-    PROJ-123_add-authentication/
-      proposal.md
-      design.md
-      tasks.md
+specs/
+  config.json                     approvals, modules, types
+  changes/
+    SPEC-0002-integrate-spec-workflow-into-developer-c/
+      ticket.md                   front-matter + Goal + Log (CLI-owned)
+      proposal.md  design.md  tasks.md  verification.md
+      evidence/last-run.json      written by `spec verify`
+  archive/
+    SPEC-0001-…/                  finished tickets, same layout
 ```
 
-### proposal.md Front-Matter
+### ticket.md Front-Matter
 
 ```yaml
 ---
-ticket_id: PROJ-123
-title: Add User Authentication
-status: in_progress
-category: feature
-classification: enhancement
-story_points: 8
-module: backend
-created: 2026-03-01
-author: jsmith
-tags: [auth, security]
+id: SPEC-0002
+title: Integrate spec workflow into developer cockpit
+type: feature                 # feature | fix | refactor | spike | chore
+status: implement             # proposal | design | plan | implement | verify | done | blocked
+awaiting:                     # stage waiting for human approval, if any
+autopilot: false
+modules: [developer-cockpit]
+approvals: [proposal]
+owner: Toni Badertscher
+beads:
+created: 2026-10-24
+blocked_from:
+blocked_reason:
 ---
 ```
 
 ### tasks.md Format
 
 ```markdown
-# Implementation Tasks
-
-## Phase 1: Core Authentication
-- [x] Create user model and migration
-- [x] Implement password hashing service
-- [ ] Add JWT token generation
-
-## Phase 2: API Endpoints
-- [ ] POST /auth/login
-- [ ] POST /auth/register
-- [ ] POST /auth/refresh
+- [x] **T-1** Add Vitest and the fixture workspace (AC-1)
+  - files: developer-cockpit/package.json
+  - verify: `npx vitest run …` passes
+- [ ] **T-2** …
 ```
 
-### Derived Spec Object
+### Derived Ticket Objects (`src/shared/types/specTickets.ts`)
 
 ```typescript
-interface Spec {
-  ticketId: string;
-  title: string;
-  module: string;
-  status: "proposal_only" | "design_ready" | "in_progress" | "completed";
-  category: string;
-  classification: string;
-  storyPoints: number;
-  author: string;
-  created: string;
-  tags: string[];
-  tasks: {
-    total: number;
-    checked: number;
-    phases: {
-      name: string;
-      items: { text: string; checked: boolean }[];
-    }[];
-  };
-  hasProposal: boolean;
-  hasDesign: boolean;
-  hasTasks: boolean;
+interface SpecTicketSummary {
+  id: string; title: string; type: string;
+  status: SpecStage | 'blocked'; awaiting: string; autopilot: boolean;
+  modules: string[]; approvals: string[]; owner: string; beads: string; created: string;
+  blockedFrom: string; blockedReason: string;
+  archived: boolean; dir: string;            // e.g. specs/changes/SPEC-0002-…
+  tasks: { done: number; total: number };
+  acs: string[];                             // AC ids from proposal.md
 }
+
+interface SpecTicketDetail extends SpecTicketSummary {
+  goal: string; log: string[];
+  taskList: { id: string; done: boolean; acs: string[]; summary: string }[];
+  gate: { stage: string; pass: boolean; errors: string[]; warnings: string[]; exceptions: string[] } | null;
+  evidence: { result: 'pass' | 'fail'; ranAt: string; modules: string[]; fresh: boolean; coversModules: boolean } | null;
+  next: string;
+  documents: Partial<Record<'proposal' | 'design' | 'tasks' | 'verification', string>>;
+}
+
+interface SpecTicketList { user: string; types: string[]; tickets: SpecTicketSummary[]; errors: { dir: string; error: string }[] }
 ```
+
+These map 1:1 from `spec list --json` / `spec status --json` (front-matter is converted from
+snake_case to camelCase).
+
+### Editing (`src/shared/types/specTickets.ts`, shared by main and renderer)
+
+```typescript
+const STAGE_DOCUMENT = { proposal: 'proposal', design: 'design', plan: 'tasks', implement: 'tasks', verify: 'verification' };
+const DOCUMENT_FILES = { proposal: 'proposal.md', design: 'design.md', tasks: 'tasks.md', verification: 'verification.md' };
+
+// The one document a human may edit now: the current stage's (blocked → blocked_from);
+// null for archived and done tickets.
+function editableDocument(t: { status; blockedFrom; archived }): SpecDocument | null;
+function editableStage(t): SpecStage | null;   // whose gate a draft is checked against
+
+type SpecSaveResult =
+  | { status: 'saved'; content: string }
+  | { status: 'conflict'; diskContent: string };   // file changed since the editor loaded it
+```
+
+The renderer keeps the open document in `stores/docEditor.ts`: ticket and document, the loaded
+text (`base`, sent with every save as the conflict check), the edited text, `dirty`, the latest
+draft gate result and a pending conflict.
 
 ---
 

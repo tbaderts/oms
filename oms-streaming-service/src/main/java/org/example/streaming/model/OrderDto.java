@@ -50,6 +50,7 @@ public class OrderDto {
     private String securityType;
     private String exDestination;
     private String text;
+    private String rejectReason;
     
     private Instant sendingTime;
     private Instant transactTime;

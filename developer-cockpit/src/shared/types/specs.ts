@@ -17,6 +17,9 @@ export interface CodeGenTask {
   description: string;
   inputSpec: string;
   outputPackage: string;
+  /** Module whose own Gradle wrapper runs the tasks, e.g. oms-contracts. */
+  module: string;
+  gradleTasks: string[];
 }
 
 export interface CodeGenResult {
