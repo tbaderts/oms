@@ -30,25 +30,31 @@
   --radius: 0.5rem;
 }
 
-/* Stage distribution chart (Dashboard). Active stages: one ordinal blue ramp along the pipeline;
-   done: neutral; blocked: status critical (always with an icon). Validated with the dataviz
-   palette validator against the card surface (#ffffff light, #1e293b dark). */
+/* Stage colours (Dashboard donut, legend, table dots; SPEC-0015). A categorical palette built from
+   the dataviz slots blue, orange, aqua, yellow, magenta and violet, assigned to the stages in the
+   one order that keeps every neighbouring donut pair (including the blocked → proposal wrap)
+   apart under protan, deutan and tritan vision in both themes; blocked keeps the reserved
+   status-critical red and always comes with an icon. Measured against the card surface (#ffffff
+   light, #1e293b dark); test/renderer/stageColors.test.ts keeps it that way. In light, yellow,
+   aqua and magenta are below 3:1, so they are never shown without their legend label. */
 :root {
-  --stage-proposal: #86b6ef;
-  --stage-design: #5598e7;
-  --stage-plan: #2a78d6;
-  --stage-implement: #1c5cab;
-  --stage-verify: #104281;
-  --stage-done: #898781;
+  --stage-proposal: #eda100;
+  --stage-design: #1baf7a;
+  --stage-plan: #eb6834;
+  --stage-implement: #2a78d6;
+  --stage-verify: #e87ba4;
+  --stage-done: #6250d6;
   --stage-blocked: #d03b3b;
 }
 
 .dark {
-  --stage-proposal: #cde2fb;
-  --stage-design: #9ec5f4;
-  --stage-plan: #6da7ec;
+  --stage-proposal: #c98500;
+  --stage-design: #199e70;
+  --stage-plan: #d95926;
   --stage-implement: #3987e5;
-  --stage-verify: #256abf;
+  --stage-verify: #d55181;
+  --stage-done: #9085e9;
+  --stage-blocked: #d03b3b;
 }
 
 .dark {

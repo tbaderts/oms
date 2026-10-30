@@ -50,6 +50,8 @@ interface CliStatus extends CliTicket {
 const ID_PATTERN = /^SPEC-\d{4}$/;
 const TASK_PATTERN = /^T-\d+$/;
 const MAX_DOCUMENT_BYTES = 1024 * 1024;
+// Log entries per ticket in the list; the Dashboard's activity feed shows at most this many in total.
+const RECENT_LOG = 20;
 // Module names as in specs/config.json; the CLI checks that they exist.
 const MODULE_PATTERN = /^\w[\w.-]*$/;
 const ACTION_KINDS = ['new', 'advance', 'approve', 'reopen', 'block', 'unblock', 'note', 'autopilot'];
@@ -66,9 +68,24 @@ export class SpecTicketsService {
     return {
       user: list.user ?? '',
       types: list.types ?? [],
-      tickets: list.tickets.map(toSummary),
+      tickets: list.tickets.map((t) => ({ ...toSummary(t), recentLog: this.readRecentLog(t.dir) })),
       errors: list.errors ?? [],
     };
+  }
+
+  /** The last RECENT_LOG entries of the ticket's `## Log`; [] when ticket.md cannot be read. */
+  private readRecentLog(dir: string): string[] {
+    const specs = path.resolve(this.workspaceRoot, 'specs') + path.sep;
+    const file = path.resolve(this.workspaceRoot, dir, 'ticket.md');
+    if (!file.startsWith(specs)) return [];
+    let text: string;
+    try {
+      text = fs.readFileSync(file, 'utf-8');
+    } catch {
+      return [];
+    }
+    const log = text.match(/^## Log[ \t]*\r?\n([\s\S]*?)(?=^## |(?![\s\S]))/m)?.[1] ?? '';
+    return log.split(/\r?\n/).filter((l) => l.startsWith('- ')).map((l) => l.slice(2).trimEnd()).slice(-RECENT_LOG);
   }
 
   async getTicket(id: string): Promise<SpecTicketDetail> {
@@ -269,5 +286,6 @@ function toSummary(t: CliTicket): SpecTicketSummary {
     dir: t.dir,
     tasks: t.tasks ?? { done: 0, total: 0 },
     acs: t.acs ?? [],
+    recentLog: [],
   };
 }

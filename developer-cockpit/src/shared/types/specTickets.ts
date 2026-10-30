@@ -54,6 +54,8 @@ export interface SpecTicketSummary {
   dir: string;
   tasks: { done: number; total: number };
   acs: string[];
+  /** The last 20 `## Log` entries of ticket.md, oldest first, without the leading "- " (list only; [] elsewhere). */
+  recentLog: string[];
 }
 
 export interface SpecTicketLoadError {

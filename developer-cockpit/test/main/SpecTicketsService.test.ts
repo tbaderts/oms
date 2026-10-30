@@ -29,6 +29,7 @@ describe('SpecTicketsService', () => {
       modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice', beads: 'bd-7',
       created: '2026-10-24', blockedFrom: '', blockedReason: '', archived: false,
       dir: 'specs/changes/SPEC-0001-alpha', tasks: { done: 1, total: 3 }, acs: ['AC-1', 'AC-2'],
+      recentLog: ['2026-10-24 created'],
     });
     expect(active.tickets[1]).toMatchObject({
       status: 'blocked', blockedFrom: 'plan', blockedReason: 'needs a decision', owner: 'Bob',
@@ -38,6 +39,26 @@ describe('SpecTicketsService', () => {
     const all = await svc.listTickets(true);
     expect(all.tickets.map((t) => t.id)).toEqual(['SPEC-0001', 'SPEC-0002', 'SPEC-0003']);
     expect(all.tickets[2]).toMatchObject({ id: 'SPEC-0003', status: 'done', archived: true, dir: 'specs/archive/SPEC-0003-gamma' });
+  });
+
+  it('listTickets returns the last 20 log entries per ticket', async () => {
+    ws = createWorkspace();
+    const log = ['2026-10-24 created', ...Array.from({ length: 24 }, (_, i) => `2026-10-25 10:${String(i).padStart(2, '0')} — note ${i}`)];
+    ws.writeTicket('changes/SPEC-0001-alpha', ticketMeta('SPEC-0001'), { log });
+    ws.writeTicket('changes/SPEC-0002-beta', ticketMeta('SPEC-0002'));
+    const svc = new SpecTicketsService(ws.root);
+
+    let list = await svc.listTickets(false);
+    expect(list.tickets[0].recentLog).toEqual(log.slice(-20));
+    expect(list.tickets[0].recentLog[19]).toBe('2026-10-25 10:23 — note 23');
+    expect(list.tickets[1].recentLog).toEqual(['2026-10-24 created']);
+
+    // A ticket.md without a Log section lists with no entries rather than failing.
+    const file = path.join(ws.root, 'specs', 'changes', 'SPEC-0002-beta', 'ticket.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/## Log[\s\S]*$/, ''));
+    list = await svc.listTickets(false);
+    expect(list.tickets.map((t) => t.id)).toEqual(['SPEC-0001', 'SPEC-0002']);
+    expect(list.tickets[1].recentLog).toEqual([]);
   });
 
   it('listTickets returns the configured ticket types', async () => {

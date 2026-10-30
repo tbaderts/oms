@@ -103,7 +103,12 @@ export function TicketTable() {
                   <div>{t.title}</div>
                   <div className="text-xs text-muted-foreground">{t.type} · {t.modules.join(', ')}</div>
                 </TableCell>
-                <TableCell><StageBadge ticket={t} /></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    {!t.archived && <span aria-hidden data-testid="stage-dot" className="h-2 w-2 shrink-0 rounded-full" style={{ background: `var(--stage-${t.status})` }} />}
+                    <StageBadge ticket={t} />
+                  </div>
+                </TableCell>
                 <TableCell className="text-xs">{t.owner}</TableCell>
                 <TableCell><TaskProgress done={t.tasks.done} total={t.tasks.total} /></TableCell>
                 <TableCell>

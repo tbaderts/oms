@@ -4,6 +4,8 @@ import { ContentArea } from '@/components/layout/ContentArea';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SignalsWatcher } from '@/components/SignalsWatcher';
+import { Toaster } from '@/components/Toaster';
 import { useConfigStore } from '@/stores/config';
 import { eventBus } from '@/lib/event-bus';
 
@@ -71,6 +73,8 @@ export function App() {
           <ContentArea />
         </div>
         <StatusBar />
+        <SignalsWatcher />
+        <Toaster />
         <CommandPalette
           open={commandPaletteOpen}
           onOpenChange={setCommandPaletteOpen}

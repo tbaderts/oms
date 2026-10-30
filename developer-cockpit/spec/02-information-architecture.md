@@ -19,7 +19,7 @@
 
 - **Sidebar** -- collapsible, grouped navigation with icons and labels
 - **Main Content Area** -- single active view at a time, with optional split panes
-- **Status Bar** -- active mission indicator, connection status, notification count
+- **Status Bar** -- connection status, new-signals indicator (count and latest workflow signal; opens the Dashboard), workspace root
 - **Command Palette** -- keyboard-driven (Ctrl+K / Cmd+K) for quick navigation
 
 ## 2. Navigation Groups & Views
@@ -30,7 +30,7 @@ Views are organized into logical groups. Each group collapses independently in t
 
 | View | Icon Suggestion | Purpose |
 |------|-----------------|---------|
-| **Dashboard** | grid/chart | Portfolio of spec work: stage distribution chart, task completion, Needs me (awaiting approval, blocked, mine in progress) and the ticket table with filters |
+| **Dashboard** | grid/chart | Portfolio of spec work: KPI tiles, ticket-progress donut (filters the table by stage), Signals (your turn: awaiting approval and blocked; live activity feed from the ticket logs) and the ticket table with filters |
 | **Spec Tickets** | list-checks | Full-width workspace for one ticket: switcher in the header, documents and editor in the main column, gate, actions, tasks and evidence in a side rail |
 | **Contracts** | file-code | OMS contracts in `oms-contracts`: tabs *Editor* (OpenAPI/Avro), *Domain Model*, *Code Generation* (replaces the former Specs Editor, Domain Model and Code Generator entries) |
 | **API Explorer** | globe | OMS-aware console for oms-core: tabs *Commands* (templates from the contracts, schema checks, send), *Orders* (filter builder over the query API) and *History*; an order follow-up with state and event timeline |

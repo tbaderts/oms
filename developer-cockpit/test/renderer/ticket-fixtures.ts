@@ -20,6 +20,7 @@ export function summary(id: string, overrides: Partial<SpecTicketSummary> = {}):
     dir: `specs/changes/${id}-x`,
     tasks: { done: 0, total: 0 },
     acs: [],
+    recentLog: [],
     ...overrides,
   };
 }

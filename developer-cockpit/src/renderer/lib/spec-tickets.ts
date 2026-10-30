@@ -14,8 +14,6 @@ export interface SpecSummary {
   tasksDone: number;
   tasksTotal: number;
   completionPct: number | null;
-  /** The git user's own active tickets that are not done (blocked included). */
-  mineInProgress: SpecTicketSummary[];
 }
 
 /** Pipeline order of the stage distribution chart: the stages, then blocked. */
@@ -37,6 +35,35 @@ export function stageDistribution(tickets: SpecTicketSummary[]): { total: number
     .filter((s) => s.count > 0)
     .map((s) => ({ ...s, pct: (100 * s.count) / total }));
   return { total, shares };
+}
+
+export interface Kpis {
+  active: number;
+  /** Active tickets that are not done; blocked tickets count. */
+  inProgress: number;
+  awaiting: number;
+  blocked: number;
+  done: number;
+  tasksDone: number;
+  tasksTotal: number;
+  completionPct: number | null;
+}
+
+/** Headline counts of the Dashboard's KPI tiles, over the active (non-archived) tickets. */
+export function kpis(tickets: SpecTicketSummary[]): Kpis {
+  const active = tickets.filter((t) => !t.archived);
+  const tasksDone = active.reduce((n, t) => n + t.tasks.done, 0);
+  const tasksTotal = active.reduce((n, t) => n + t.tasks.total, 0);
+  return {
+    active: active.length,
+    inProgress: active.filter((t) => t.status !== 'done').length,
+    awaiting: active.filter((t) => t.awaiting).length,
+    blocked: active.filter((t) => t.status === 'blocked').length,
+    done: active.filter((t) => t.status === 'done').length,
+    tasksDone,
+    tasksTotal,
+    completionPct: tasksTotal ? Math.round((100 * tasksDone) / tasksTotal) : null,
+  };
 }
 
 export function isMine(ticket: SpecTicketSummary, user: string): boolean {
@@ -73,6 +100,5 @@ export function summarize(tickets: SpecTicketSummary[], user: string): SpecSumma
     tasksDone,
     tasksTotal,
     completionPct: tasksTotal ? Math.round((100 * tasksDone) / tasksTotal) : null,
-    mineInProgress: active.filter((t) => isMine(t, user) && t.status !== 'done'),
   };
 }

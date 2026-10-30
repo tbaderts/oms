@@ -45,12 +45,19 @@ no quick-link cards). Top to bottom:
 
 | Element | Value |
 |------|-------|
-| Stage distribution | One 100% stacked bar of the active (non-archived) tickets in pipeline order proposal → design → plan → implement → verify → done, then blocked; legend with stage, count and %; hover shows "stage: n of total (p%)"; text alternative lists the same numbers; "No active tickets yet." when empty. Colours: an ordinal blue ramp for the five active stages, neutral grey for done, status-critical red with an alert icon for blocked (`--stage-*` tokens in `globals.css`, validated for light and dark). |
-| Task completion | Ticked tasks / all tasks across active tickets, as % with a bar (– when no tasks) |
-| Needs me | *Awaiting approval* and *Blocked* (your tickets first) and *Mine in progress* (owner = git user, not done); each entry opens the ticket |
+| KPI tiles | One row of six tiles over the active (non-archived) tickets: *Active tickets*, *In progress* (not done; blocked counts), *Awaiting approval*, *Blocked*, *Done*, and *Task completion* (ticked / all tasks as %, with a progress ring and "x of y tasks"; – when there are no tasks). Each tile has its own colour band and icon; values and labels stay in text colours. *Blocked* and *Done* toggle the stage filter of the ticket table |
+| Ticket progress | A donut of the active tickets per stage in pipeline order proposal → design → plan → implement → verify → done, then blocked, with the total in the hole and a legend with stage, count and %. Hovering or focusing a segment shows "stage, n of total · p%" in the hole. Clicking a segment or legend entry (or Enter / Space on a focused segment) filters the ticket table to that stage and switches it to *All tickets*; clicking again, or *Clear* on the "Showing: stage" chip, removes the filter. The donut and the tiles count only active tickets; with *Show archived* on, the filtered table also lists archived tickets in that stage. The chart's text alternative lists the same numbers; "No active tickets yet." when empty, and "Tickets could not be loaded." after a failed load (the tiles then show –) |
+| Signals | Next to the donut, replacing SPEC-0006's *Needs me*. **Your turn**: tickets awaiting approval ("approve <stage>") and blocked tickets (with the reason), your own first; "Nothing needs you." when empty. **Activity**: the 20 most recent `## Log` entries of all active tickets, newest first, each with time, level, ticket id, title and event text, in a scroll box of fixed height. Levels: *critical* (verify run failed, blocked, reopened, autopilot switched off), *attention* (gate passed, awaiting approval), *good* (verify run passed, reached done), *info* (everything else, including unknown lines); each has a status icon and a visible label. Entries that arrived after the cockpit's first ticket load in this session carry a *new* pill. Every entry opens its ticket. After a failed load: "Signals are unavailable: tickets could not be loaded." |
 | Tickets | The ticket table (below), with **New ticket** |
 
 Clicking any ticket opens it in Spec Tickets; a ticket created from the Dashboard opens there too.
+
+**Stage colours** (`--stage-*` tokens in `globals.css`, separate light and dark steps): a categorical
+palette, one hue per stage — proposal yellow, design aqua, plan orange, implement blue, verify
+magenta, done violet — and the status-critical red, always with an alert icon, for blocked. The hue
+order keeps every pair of neighbouring donut segments distinguishable under protan, deutan and
+tritan colour vision; `test/renderer/stageColors.test.ts` checks this. Light yellow, aqua and
+magenta are below 3:1 contrast, so they are only used next to their legend label.
 
 **Ticket table**:
 
@@ -58,7 +65,7 @@ Clicking any ticket opens it in Spec Tickets; a ticket created from the Dashboar
 |--------|--------|
 | ID | `id` |
 | Title | `title`, with `type` and `modules` |
-| Stage | `status` badge (archived / blocked highlighted) |
+| Stage | `status` badge (archived / blocked highlighted), after a dot in the stage colour |
 | Owner | `owner` |
 | Tasks | ticked/total from `tasks.md`, with progress bar |
 | Flags | awaiting approval, blocked (reason as tooltip), autopilot |
@@ -144,7 +151,19 @@ detail panel.
 ### Live Updates
 The file watcher on `specs/changes/**` and `specs/archive/**` emits one coalesced
 `specs:tickets-changed` event per burst of changes. The list, the open detail and the Dashboard
-re-read, so changes made by the CLI or Claude Code appear within about a second.
+re-read, so changes made by the CLI or Claude Code appear within about a second. The subscription is
+app-wide (`SignalsWatcher` in `App`), so tickets stay current in every view.
+
+**Signals in every view.** The list carries each ticket's last 20 `## Log` entries (`recentLog`,
+read from `ticket.md` by the main process). Each reload is compared with what the session has
+already seen:
+
+- A new *critical* or *attention* entry raises a toast (bottom right, 8 s, at most 3) with the ticket
+  id, event text and **Open**.
+- It also counts in the status bar: a bell, the number of unseen signals and the latest one's text.
+  A click opens the Dashboard and resets the count.
+- *Good* and *info* entries only appear in the Activity feed.
+- Entries present at the first load never count as new. The seen state lasts for the session only.
 
 ### Contracts
 

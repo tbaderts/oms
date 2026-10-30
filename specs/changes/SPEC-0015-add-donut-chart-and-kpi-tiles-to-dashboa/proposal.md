@@ -66,7 +66,11 @@ All criteria are proven by vitest component tests on the Dashboard, rendered wit
 in jsdom.
 
 - **AC-1** — Given active tickets in several stages (for example 2 proposal, 1 implement, 1 done, 1 blocked) and one archived ticket, when the Dashboard renders, then a donut shows one segment per non-empty stage in pipeline order (proposal, design, plan, implement, verify, done, blocked), each segment's arc is proportional to its count among the 5 active tickets, the centre shows the total 5, the archived ticket is not counted, and the chart has a text alternative listing every stage with its count and percentage.
-- **AC-2** — Given the stage colour tokens in `globals.css`, when they are compared, then in both the light and the dark theme every stage has its own colour, any two stages differ in hue by at least 25°, and every colour has a contrast ratio of at least 3:1 against that theme's card background.
+- **AC-2** — Given the stage colour tokens in `globals.css`, in donut order including the wrap from blocked back to proposal, when they are measured against each theme's card background, then in both the light and the dark theme:
+  - every stage has its own colour, no longer a single blue ramp;
+  - every pair of neighbouring colours differs by an OKLab ΔE (×100) of at least 8 under simulated protan, deutan and tritan vision, and at least 15 under normal vision;
+  - every colour has an OKLCH chroma of at least 0.1;
+  - any colour below 3:1 contrast is never shown without a visible text label: its legend entry with name and count.
 - **AC-3** — Given the same tickets plus 2 awaiting approval and task counts of 3 done out of 10, when the Dashboard renders, then the KPI tiles show *Active tickets* 5, *In progress* 4, *Awaiting approval* 2, *Blocked* 1, *Done* 1 and *Task completion* 30%, each tile with its own colour accent.
 - **AC-4** — Given the Dashboard with the ticket table, when the user clicks the *implement* donut segment, then the table shows only the tickets in implement and the overview shows an active-filter chip. When the user clicks the same segment again or the chip's *Clear*, the table shows all tickets again. A legend entry and the *Blocked* and *Done* tiles filter the same way.
 - **AC-5** — Given the donut, when a segment receives keyboard focus or the pointer hovers over it, then its stage, count and percentage are shown. Enter or Space on a focused segment applies the filter from AC-4.
@@ -86,6 +90,7 @@ in jsdom.
 
 ## Open Questions
 
+- [resolved] How is "more colour" made testable? → The first version of AC-2 (hue gap of at least 25° and 3:1 contrast) was a weak proxy, and the design stage showed it conflicts with colour-blind safety. Every 7-colour palette meeting it fails the colour-vision checks of the dataviz palette validator (for example green next to the blocked red collapses for deutan vision), and the validated categorical palette fails it. AC-2 now uses the validator's own measures: OKLab ΔE under simulated colour-vision deficiency and under normal vision, a chroma floor, and labels for low-contrast colours. Proposal reopened on 2026-10-30 for re-approval.
 - [resolved] What does "ticket progress by states" mean? → assumption: the spec workflow stages of the active tickets (proposal → done, plus blocked), the same data the stacked bar shows today; archived tickets are excluded, as they are today.
 - [resolved] Pie or donut? → assumption: a donut. It is a pie chart with the total in the middle and reads better for a handful of categories; easy to change in design.
 - [resolved] Does the donut replace the stacked bar? → assumption: yes; both would show the same data twice.

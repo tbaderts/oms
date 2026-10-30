@@ -72,16 +72,4 @@ describe('spec-tickets lib', () => {
     ]);
     expect(stageDistribution([])).toEqual({ total: 0, shares: [] });
   });
-
-  it('summarize lists my tickets in progress', () => {
-    const tickets = [
-      summary('SPEC-0001', { owner: 'Alice', status: 'design' }),
-      summary('SPEC-0002', { owner: 'Alice', status: 'done' }),
-      summary('SPEC-0003', { owner: 'Bob', status: 'implement' }),
-      summary('SPEC-0004', { owner: 'alice', status: 'blocked', blockedFrom: 'plan' }),
-      summary('SPEC-0005', { owner: 'Alice', status: 'plan', archived: true }),
-    ];
-    expect(summarize(tickets, 'Alice').mineInProgress.map((t) => t.id)).toEqual(['SPEC-0001', 'SPEC-0004']);
-    expect(summarize(tickets, '').mineInProgress).toEqual([]);
-  });
 });

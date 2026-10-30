@@ -3,7 +3,6 @@ import { LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSpecTicketsStore } from '@/stores/specTickets';
 import { useNavigationStore } from '@/stores/navigation';
-import { useSpecTicketsLiveRefresh } from '@/hooks/useSpecTicketsLiveRefresh';
 import { TicketDetail } from './TicketDetail';
 import { TicketSwitcher } from './TicketSwitcher';
 import { NewTicketDialog } from './NewTicketDialog';
@@ -16,7 +15,6 @@ export function SpecTicketsView() {
   const error = useSpecTicketsStore((s) => s.error);
   const lastResult = useSpecTicketsStore((s) => (s.lastResultFor === null ? s.lastResult : null));
   const setActiveView = useNavigationStore((s) => s.setActiveView);
-  useSpecTicketsLiveRefresh();
 
   // Loads the tickets for the switcher and re-reads the open ticket (it may be remembered from before).
   useEffect(() => {
