@@ -12,7 +12,6 @@ export function summary(id: string, overrides: Partial<SpecTicketSummary> = {}):
     modules: ['oms-core'],
     approvals: [],
     owner: 'Alice',
-    beads: '',
     created: '2026-10-24',
     blockedFrom: '',
     blockedReason: '',

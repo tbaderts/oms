@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { SignalsWatcher } from '../../src/renderer/components/SignalsWatcher';
 import { Toaster } from '../../src/renderer/components/Toaster';
 import { StatusBar } from '../../src/renderer/components/layout/StatusBar';
+import { DashboardView } from '../../src/renderer/views/dashboard/DashboardView';
 import { eventBus } from '../../src/renderer/lib/event-bus';
 import { useSignalsStore } from '../../src/renderer/stores/signals';
 import { useSpecTicketsStore } from '../../src/renderer/stores/specTickets';
@@ -71,9 +72,17 @@ describe('signals in the shell', () => {
     expect(indicator.textContent).toContain('2');
     expect(indicator.textContent).toContain('SPEC-0007 implement gate passed; awaiting human approval');
 
+    expect(useSignalsStore.getState().activityExpanded).toBe(false);
     fireEvent.click(indicator);
     expect(useNavigationStore.getState().activeView).toBe('dashboard');
     expect(screen.queryByRole('button', { name: /new signal/ })).toBeNull();
+
+    // The Dashboard opened from the indicator shows the Activity feed expanded (SPEC-0017 AC-5).
+    render(<DashboardView />);
+    const bar = await screen.findByRole('button', { name: /^Activity/ });
+    expect(bar.getAttribute('aria-expanded')).toBe('true');
+    expect(within(screen.getByRole('region', { name: 'Activity' })).getAllByRole('listitem')[0].textContent)
+      .toContain('implement gate passed; awaiting human approval');
   });
 
   it('toast for a new critical or attention signal, not for good or info (AC-6)', async () => {

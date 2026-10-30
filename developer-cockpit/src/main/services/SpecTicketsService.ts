@@ -278,7 +278,6 @@ function toSummary(t: CliTicket): SpecTicketSummary {
     modules: list(m.modules),
     approvals: list(m.approvals),
     owner: str(m.owner),
-    beads: str(m.beads),
     created: str(m.created),
     blockedFrom: str(m.blocked_from),
     blockedReason: str(m.blocked_reason),

@@ -175,4 +175,3 @@ ticket. `spec check --all` audits the whole repository. Today it reports the Jac
   `rules.json` if it can be automated. New tickets get the row automatically.
 - **New module:** add it to `config.json` → `modules` with its `verify` commands (and `cwd` if the
   build does not run from the module root).
-- **Different tracker:** `ticket.md` has a `beads` field; `spec set <id> beads <id>` links an issue.

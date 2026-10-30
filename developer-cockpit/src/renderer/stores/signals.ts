@@ -15,9 +15,12 @@ interface SignalsState {
   unseen: Signal[];
   /** Toasts on screen, oldest first. */
   toasts: Signal[];
+  /** Whether the Dashboard's Activity feed is expanded; session only (SPEC-0017). */
+  activityExpanded: boolean;
   ingest: (tickets: SpecTicketSummary[]) => void;
   markSeen: () => void;
   dismissToast: (key: string) => void;
+  setActivityExpanded: (expanded: boolean) => void;
 }
 
 /** Session state of the workflow signals derived from the ticket logs (SPEC-0016). */
@@ -27,6 +30,7 @@ export const useSignalsStore = create<SignalsState>((set, get) => ({
   fresh: new Set(),
   unseen: [],
   toasts: [],
+  activityExpanded: false,
 
   ingest: (tickets) => {
     const { initialized, known } = get();
@@ -52,4 +56,6 @@ export const useSignalsStore = create<SignalsState>((set, get) => ({
   markSeen: () => set({ unseen: [] }),
 
   dismissToast: (key) => set((st) => ({ toasts: st.toasts.filter((t) => t.key !== key) })),
+
+  setActivityExpanded: (activityExpanded) => set({ activityExpanded }),
 }));

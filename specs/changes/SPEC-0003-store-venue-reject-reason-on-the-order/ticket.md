@@ -8,7 +8,6 @@ autopilot: false
 modules: [oms-contracts, oms-core, oms-streaming-service, oms-ui, oms-exchange-simulator, oms-knowledge-base]
 approvals: [proposal]
 owner: Toni Badertscher
-beads:
 created: 2026-10-25
 blocked_from:
 blocked_reason:

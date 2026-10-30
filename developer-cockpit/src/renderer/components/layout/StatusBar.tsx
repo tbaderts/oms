@@ -32,7 +32,7 @@ export function StatusBar() {
   );
 }
 
-/** Unseen critical and attention signals; a click opens the Dashboard and acknowledges them. */
+/** Unseen critical and attention signals; a click opens the Dashboard with Activity expanded and acknowledges them. */
 function SignalsIndicator() {
   const unseen = useSignalsStore((s) => s.unseen);
   if (!unseen.length) return null;
@@ -44,6 +44,8 @@ function SignalsIndicator() {
       title="Open the Dashboard"
       className="flex min-w-0 items-center gap-1.5 rounded px-1.5 text-foreground hover:bg-accent"
       onClick={() => {
+        // Open the Activity feed first, so the Dashboard shows the counted signals when it mounts.
+        useSignalsStore.getState().setActivityExpanded(true);
         useNavigationStore.getState().setActiveView('dashboard');
         useSignalsStore.getState().markSeen();
       }}

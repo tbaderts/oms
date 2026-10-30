@@ -121,7 +121,6 @@ export function ticketMeta(id: string, overrides: TicketMeta = {}): TicketMeta {
     modules: ['oms-knowledge-base'],
     approvals: [],
     owner: 'Alice',
-    beads: '',
     created: '2026-10-24',
     blocked_from: '',
     blocked_reason: '',

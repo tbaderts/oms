@@ -217,7 +217,6 @@ autopilot: false
 modules: [developer-cockpit]
 approvals: [proposal]
 owner: Toni Badertscher
-beads:
 created: 2026-10-24
 blocked_from:
 blocked_reason:
@@ -239,7 +238,7 @@ blocked_reason:
 interface SpecTicketSummary {
   id: string; title: string; type: string;
   status: SpecStage | 'blocked'; awaiting: string; autopilot: boolean;
-  modules: string[]; approvals: string[]; owner: string; beads: string; created: string;
+  modules: string[]; approvals: string[]; owner: string; created: string;
   blockedFrom: string; blockedReason: string;
   archived: boolean; dir: string;            // e.g. specs/changes/SPEC-0002-…
   tasks: { done: number; total: number };

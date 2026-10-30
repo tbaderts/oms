@@ -43,7 +43,7 @@
 
 ## Follow-ups
 
-<!-- Optional: work discovered but out of scope, filed as new tickets or beads issues. -->
+<!-- Optional: work discovered but out of scope, filed as new tickets. -->
 
 ## Verdict
 

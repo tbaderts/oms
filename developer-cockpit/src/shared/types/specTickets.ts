@@ -46,7 +46,6 @@ export interface SpecTicketSummary {
   modules: string[];
   approvals: string[];
   owner: string;
-  beads: string;
   created: string;
   blockedFrom: string;
   blockedReason: string;

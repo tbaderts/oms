@@ -12,7 +12,7 @@ describe('SpecTicketsService', () => {
     ws = createWorkspace();
     ws.writeTicket('changes/SPEC-0001-alpha', ticketMeta('SPEC-0001', {
       title: 'Alpha', type: 'fix', status: 'design', awaiting: 'design', autopilot: true,
-      modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice', beads: 'bd-7',
+      modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice',
     }), { proposal: proposalDoc(2), tasks: tasksDoc(1, 3) });
     ws.writeTicket('changes/SPEC-0002-beta', ticketMeta('SPEC-0002', {
       title: 'Beta', status: 'blocked', blocked_from: 'plan', blocked_reason: 'needs a decision', owner: 'Bob',
@@ -26,7 +26,7 @@ describe('SpecTicketsService', () => {
     expect(active.tickets.map((t) => t.id)).toEqual(['SPEC-0001', 'SPEC-0002']);
     expect(active.tickets[0]).toEqual({
       id: 'SPEC-0001', title: 'Alpha', type: 'fix', status: 'design', awaiting: 'design', autopilot: true,
-      modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice', beads: 'bd-7',
+      modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice',
       created: '2026-10-24', blockedFrom: '', blockedReason: '', archived: false,
       dir: 'specs/changes/SPEC-0001-alpha', tasks: { done: 1, total: 3 }, acs: ['AC-1', 'AC-2'],
       recentLog: ['2026-10-24 created'],

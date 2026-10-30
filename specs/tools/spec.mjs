@@ -22,7 +22,7 @@ const STAGES = ['proposal', 'design', 'plan', 'implement', 'verify', 'done'];
 const DOCS = { proposal: 'proposal.md', design: 'design.md', plan: 'tasks.md', verify: 'verification.md' };
 const TEMPLATE_FILES = ['ticket.md', 'proposal.md', 'design.md', 'tasks.md', 'verification.md'];
 const PLACEHOLDER = /<!--\s*FILL|\{\{[A-Z_]+\}\}/;
-const SETTABLE = ['title', 'type', 'modules', 'owner', 'beads'];
+const SETTABLE = ['title', 'type', 'modules', 'owner'];
 const PROPOSAL_SECTIONS = ['Why', 'What Changes', 'Scope', 'Acceptance Criteria', 'Impact', 'Open Questions'];
 const DESIGN_SECTIONS = ['Context', 'Approach', 'Contract Changes', 'Data & Persistence', 'Events & Messaging',
   'Domain, State & Orchestration', 'Alternatives & Decisions', 'Risks & Mitigations', 'Test Strategy',

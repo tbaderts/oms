@@ -8,7 +8,6 @@ autopilot: false
 modules: [oms-mcp-server, oms-knowledge-base]
 approvals: [proposal]
 owner: Toni Badertscher
-beads:
 created: 2026-10-27
 blocked_from:
 blocked_reason:

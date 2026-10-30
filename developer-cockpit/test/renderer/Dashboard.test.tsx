@@ -66,7 +66,42 @@ describe('Dashboard', () => {
     expect(screen.getByRole('region', { name: 'Tickets' })).toBeTruthy();
   });
 
-  it('signals panel replaces Needs me', async () => {
+  it('ticket progress card holds donut, your turn and activity', async () => {
+    const api = mockCockpit();
+    api.list.mockResolvedValue({
+      user: 'Alice',
+      tickets: TICKETS.map((t) => (t.id === 'SPEC-0003' ? { ...t, recentLog: ['2026-10-30 09:00 — verify run: fail'] } : t)),
+      errors: [],
+    });
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+
+    const card = screen.getByRole('region', { name: 'Ticket progress' });
+    expect(within(card).getByRole('group', { name: /ticket progress of 5 active tickets/i })).toBeTruthy();
+    expect(within(card).getByRole('region', { name: 'Your turn' })).toBeTruthy();
+    expect(within(card).getByRole('button', { name: /^Activity/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('region', { name: 'Signals' })).toBeNull();
+  });
+
+  it('activity stays expanded after leaving and returning', async () => {
+    const api = mockCockpit();
+    api.list.mockResolvedValue({
+      user: 'Alice',
+      tickets: TICKETS.map((t) => (t.id === 'SPEC-0003' ? { ...t, recentLog: ['2026-10-30 09:00 — verify run: fail'] } : t)),
+      errors: [],
+    });
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+    fireEvent.click(screen.getByRole('button', { name: /^Activity/ }));
+
+    cleanup();
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+    expect(screen.getByRole('button', { name: /^Activity/ }).getAttribute('aria-expanded')).toBe('true');
+    expect(within(screen.getByRole('region', { name: 'Activity' })).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('signals feed lists entries newest first when expanded', async () => {
     const api = mockCockpit();
     api.list.mockResolvedValue({
       user: 'Alice',
@@ -79,9 +114,9 @@ describe('Dashboard', () => {
     render(<DashboardView />);
     await screen.findAllByText('Alice waits');
 
-    expect(screen.getByRole('region', { name: 'Signals' })).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Needs me' })).toBeNull();
     expect(screen.queryByText('Mine in progress')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Activity/ }));
     const rows = within(screen.getByRole('region', { name: 'Activity' })).getAllByRole('listitem');
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringMatching(/09:00.*SPEC-0003.*Building.*verify run: fail/),
@@ -146,6 +181,7 @@ describe('Dashboard', () => {
     expect(screen.getByText(/signals are unavailable/i)).toBeTruthy();
     expect(screen.queryByText('Nothing needs you.')).toBeNull();
     expect(screen.queryByText('No activity yet.')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Activity/ })).toBeNull();
   });
 
   it('KPI tiles show active, in progress, awaiting, blocked, done and task completion', async () => {
@@ -245,6 +281,7 @@ describe('Dashboard', () => {
     render(<><SignalsWatcher /><DashboardView /></>);
     await screen.findAllByText('Alice waits');
     await waitFor(() => expect(useSignalsStore.getState().initialized).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: /^Activity/ }));
     const activity = () => within(screen.getByRole('region', { name: 'Activity' })).getAllByRole('listitem');
     expect(activity().map((r) => r.getAttribute('data-new'))).toEqual([null]);
 
@@ -258,5 +295,7 @@ describe('Dashboard', () => {
     await waitFor(() => expect(activity()).toHaveLength(2));
     expect(activity()[0].textContent).toContain('plan → implement');
     expect(activity().map((r) => r.getAttribute('data-new'))).toEqual(['true', null]);
+    // The refresh does not collapse the feed.
+    expect(screen.getByRole('button', { name: /^Activity/ }).getAttribute('aria-expanded')).toBe('true');
   });
 });

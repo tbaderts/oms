@@ -8,7 +8,6 @@ autopilot: false
 modules: [developer-cockpit, oms-knowledge-base]
 approvals: [proposal]
 owner: Toni Badertscher
-beads:
 created: 2026-10-29
 blocked_from:
 blocked_reason:

@@ -70,7 +70,6 @@ function TicketDetailBody({ detail }: { detail: SpecTicketDetail }) {
           <h2 className="text-xl font-semibold">{detail.title}</h2>
           <div className="text-xs text-muted-foreground">
             {detail.owner || 'no owner'} · {detail.modules.join(', ') || 'no modules'} · created {detail.created}
-            {detail.beads && <> · beads {detail.beads}</>}
             {detail.approvals.length > 0 && <> · approved: {detail.approvals.join(', ')}</>}
           </div>
           <StageProgress ticket={detail} />

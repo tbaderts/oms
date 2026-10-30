@@ -27,9 +27,7 @@ Request: $ARGUMENTS
    ```
    If the goal contains double quotes or several paragraphs, create the ticket without `--goal` and
    ask the user to paste the goal into `ticket.md` → `## Goal` (agents cannot edit ticket.md).
-4. **Optional: link a beads issue.** If the user tracks work in beads (`AGENTS.md`), offer to run
-   `bd create "<title>"`, then `spec set <id> beads <bd-id>`.
-5. **Report** the ticket id and folder, and offer the two ways forward:
+4. **Report** the ticket id and folder, and offer the two ways forward:
    - `/spec-propose <id>`: work stage by stage with the user reviewing each document, or
    - `/spec-run <id>`: autopilot, which drafts the proposal and stops only at human gates
      (by default the proposal approval; see `approvals` in `specs/config.json`).

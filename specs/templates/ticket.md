@@ -8,7 +8,6 @@ autopilot: false
 modules: [{{MODULES}}]
 approvals: []
 owner: {{OWNER}}
-beads:
 created: {{DATE}}
 blocked_from:
 blocked_reason:
