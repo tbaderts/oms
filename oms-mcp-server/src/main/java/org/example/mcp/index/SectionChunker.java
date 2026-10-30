@@ -1,12 +1,15 @@
 package org.example.mcp.index;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.example.mcp.docs.FrontMatter;
 import org.example.mcp.docs.MarkdownAnchors;
 import org.example.mcp.docs.MarkdownParser;
 import org.example.mcp.docs.MarkdownParser.DocMetadata;
 import org.example.mcp.docs.MarkdownParser.DocSection;
+import org.example.mcp.docs.OkfMetadata;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,19 +34,25 @@ public class SectionChunker {
 
     public List<SectionChunk> chunk(String path, String content) {
         DocMetadata meta = markdownParser.extractMetadata(content);
-        String[] lines = content.split("\n", -1);
-        List<DocSection> sections = markdownParser.extractSections(content);
+        FrontMatter frontMatter = FrontMatter.parse(content);
+        OkfMetadata okf = OkfMetadata.derive(frontMatter, meta, Instant.now());
+        // The YAML block is blanked, not removed: no YAML reaches a chunk or looks like a heading,
+        // and line numbers still match the file.
+        String body = frontMatter.blankedContent();
+        String[] lines = body.split("\n", -1);
+        List<DocSection> sections = markdownParser.extractSections(body);
         List<String> anchors = MarkdownAnchors.assignAnchors(sections);
         String docName = path.substring(path.lastIndexOf('/') + 1);
+        SectionChunk template = new SectionChunk(path, "", docName, docName, 0, 1, 1, "",
+                meta.category(), okf.status(), okf.version(), okf.type(), okf.tags(), okf.trustTier());
 
         List<SectionChunk> segments = new ArrayList<>();
 
-        // Preamble: content before the first heading
+        // Preamble: content between the front matter and the first heading
         int firstHeadingLine = sections.isEmpty() ? lines.length + 1 : sections.get(0).lineNumber();
         String preamble = joinLines(lines, 1, firstHeadingLine - 1);
         if (!preamble.isBlank()) {
-            segments.add(new SectionChunk(path, "", docName, docName, 0,
-                    1, firstHeadingLine - 1, preamble, meta.category(), meta.status(), meta.version()));
+            segments.add(template.with("", docName, docName, 0, 1, firstHeadingLine - 1, preamble));
         }
 
         // One segment per heading, up to the next heading of any level
@@ -66,12 +75,20 @@ public class SectionChunker {
                 breadcrumb.append(" > ").append(s.title());
             }
 
-            segments.add(new SectionChunk(path, anchors.get(i), breadcrumb.toString(),
-                    section.title(), section.level(), start, end, text,
-                    meta.category(), meta.status(), meta.version()));
+            segments.add(template.with(anchors.get(i), breadcrumb.toString(),
+                    section.title(), section.level(), start, end, text));
         }
 
-        return splitOversized(mergeTiny(segments));
+        List<SectionChunk> chunks = new ArrayList<>(splitOversized(mergeTiny(segments)));
+
+        // The front matter's title, description and tags become their own chunk over the front
+        // matter lines. Its text is synthetic (it does not match those lines), so it is kept out of
+        // merging and splitting, which assume text line i is file line startLine + i.
+        String metadata = metadataText(okf);
+        if (!metadata.isEmpty()) {
+            chunks.add(0, template.with("", docName, docName, 0, 1, Math.max(1, frontMatter.endLine()), metadata));
+        }
+        return chunks;
     }
 
     /**
@@ -114,11 +131,10 @@ public class SectionChunker {
      */
     private static SectionChunk mergeInto(SectionChunk first, SectionChunk second) {
         SectionChunk identity = second.text().length() > first.text().length() ? second : first;
-        return new SectionChunk(first.path(), identity.anchor(), identity.breadcrumb(),
+        return first.with(identity.anchor(), identity.breadcrumb(),
                 identity.title(), identity.level(),
                 first.startLine(), second.endLine(),
-                first.text() + "\n" + second.text(),
-                first.category(), first.status(), first.version());
+                first.text() + "\n" + second.text());
     }
 
     /**
@@ -176,10 +192,18 @@ public class SectionChunker {
         if (from > 0) {
             text = "[" + chunk.breadcrumb() + " (cont.)]\n" + text;
         }
-        return new SectionChunk(chunk.path(), chunk.anchor(), chunk.breadcrumb(),
+        return chunk.with(chunk.anchor(), chunk.breadcrumb(),
                 chunk.title(), chunk.level(),
-                lineOffset + from, lineOffset + to, text,
-                chunk.category(), chunk.status(), chunk.version());
+                lineOffset + from, lineOffset + to, text);
+    }
+
+    /** Title, description and tags of the front matter as plain lines (empty without front matter). */
+    private static String metadataText(OkfMetadata okf) {
+        StringBuilder sb = new StringBuilder();
+        if (okf.title() != null) sb.append(okf.title()).append('\n');
+        if (okf.description() != null) sb.append(okf.description()).append('\n');
+        if (!okf.tags().isEmpty()) sb.append("Tags: ").append(String.join(", ", okf.tags())).append('\n');
+        return sb.toString();
     }
 
     private static String joinLines(String[] lines, int fromLine, int toLine) {

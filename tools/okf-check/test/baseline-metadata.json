@@ -1,0 +1,82 @@
+{
+  "oms-concepts/block-order-allocation.md": {
+    "version": "0.1",
+    "status": "Draft for discussion"
+  },
+  "oms-concepts/booking-integration.md": {
+    "version": "0.1",
+    "status": "Draft for discussion"
+  },
+  "oms-concepts/exchange-simulator.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-concepts/execution-reporting.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-concepts/order-grouping.md": {
+    "version": "1.0",
+    "status": "Draft"
+  },
+  "oms-concepts/order-lifecycle.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-concepts/order-model-trading-capacity.md": {
+    "version": "0.1",
+    "status": "Draft for discussion"
+  },
+  "oms-concepts/order-quantity-calculations.md": {
+    "version": "1.0",
+    "status": "Draft"
+  },
+  "oms-concepts/order-replace.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-concepts/post-trade-analytics.md": {
+    "version": "0.1",
+    "status": "Draft for discussion"
+  },
+  "oms-framework/domain-model_spec.md": {
+    "version": "2.0",
+    "status": "Active"
+  },
+  "oms-framework/error-handling.md": {
+    "version": "1.0",
+    "status": "Complete"
+  },
+  "oms-framework/oms-state-store.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-framework/openapi-contracts.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-framework/state-machine-framework_spec.md": {
+    "version": "1.0",
+    "status": "Implementation Complete"
+  },
+  "oms-framework/state-query-store_spec.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-framework/testing-patterns.md": {
+    "version": "1.0",
+    "status": "Complete"
+  },
+  "oms-framework/validation-rules.md": {
+    "version": "1.0",
+    "status": "Active"
+  },
+  "oms-knowledge-base-strategy.md": {
+    "version": "2.0",
+    "status": "Active"
+  },
+  "oms-methodolgy/architecture-convergence-assessment.md": {
+    "version": null,
+    "status": "Draft for discussion"
+  }
+}

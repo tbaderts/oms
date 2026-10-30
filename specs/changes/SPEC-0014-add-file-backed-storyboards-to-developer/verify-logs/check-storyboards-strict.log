@@ -1,0 +1,4 @@
+
+check:storyboards --strict: 1 storyboard(s) in oms-knowledge-base/storyboards
+place-and-fill-order  draft  trust=evidenced  drift=current  0 error(s), 0 warning(s)  [oms-knowledge-base/storyboards/order-lifecycle/place-and-fill-order]
+check:storyboards passed

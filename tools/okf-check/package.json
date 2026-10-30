@@ -1,0 +1,16 @@
+{
+  "name": "okf-check",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Conformance checker for the OMS knowledge base as an Open Knowledge Format (OKF v0.2) bundle",
+  "type": "module",
+  "bin": { "okf-check": "okf-check.mjs" },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "node okf-check.mjs ../../oms-knowledge-base"
+  },
+  "engines": { "node": ">=22.18" },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

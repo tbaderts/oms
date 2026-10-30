@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "OpenAPI Contracts and Code Generation Guide"
+description: "OpenAPI command and query contracts and the code generation workflow built on them."
+tags: [openapi, contracts, code-generation]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # OpenAPI Contracts and Code Generation Guide
 
 **Version:** 1.0

@@ -1,3 +1,12 @@
+---
+type: Concept Paper
+title: "Post-Trade Analytics Platform — Concept Paper"
+description: "Analytics platform fed by OMS events for post-trade reporting, TCA and operational insight."
+tags: [analytics, post-trade, events]
+status: draft
+version: "0.1"
+updated: "2026-10-18T00:00:00Z"
+---
 # Post-Trade Analytics Platform — Concept Paper
 
 **Version:** 0.1

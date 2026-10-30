@@ -1,3 +1,10 @@
+---
+type: Specification
+title: "Task Orchestration Framework Specification"
+description: "Spring-based framework for composing business logic from ordered, reusable task components."
+tags: [task-orchestration, framework, spring]
+status: draft
+---
 # Task Orchestration Framework Specification
 
 ## Overview

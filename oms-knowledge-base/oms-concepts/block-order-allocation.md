@@ -1,3 +1,12 @@
+---
+type: Concept Paper
+title: "Block Orders, Allocation and Average Pricing — Concept Paper"
+description: "Block orders for multi-account institutional clients, allocation of fills to accounts and average pricing."
+tags: [block-orders, allocation, average-pricing]
+status: draft
+version: "0.1"
+updated: "2026-10-18T00:00:00Z"
+---
 # Block Orders, Allocation and Average Pricing — Concept Paper
 
 **Version:** 0.1

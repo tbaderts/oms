@@ -6,14 +6,20 @@ import TreeView from './components/TreeView';
 import DocumentViewer from './components/DocumentViewer';
 import TableOfContents from './components/TableOfContents';
 import SearchResults from './components/SearchResults';
+import LinksPanel from './components/LinksPanel';
 import { kbApi } from './services/api';
+import type { SearchFilters } from './okf/search';
+import { docFromLocation, locationForDoc } from './okf/links';
 import type { SearchMode, ThemeMode, HybridSearchHit } from './types';
 
 const queryClient = new QueryClient();
 
 function App() {
   const [theme, setTheme] = useState<ThemeMode>('dark');
-  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
+  // A deep link ?doc=<path>#anchor opens that document on load
+  const [initial] = useState(() => docFromLocation(window.location.search, window.location.hash));
+  const [selectedDoc, setSelectedDoc] = useState<string | null>(initial.path);
+  const [selectedAnchor, setSelectedAnchor] = useState<string | undefined>(initial.anchor);
   const [searchMode, setSearchMode] = useState<SearchMode>('keyword');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<HybridSearchHit[]>([]);
@@ -22,8 +28,6 @@ function App() {
   // Apply theme to document root element
   useEffect(() => {
     const root = document.documentElement;
-    console.log('Applying theme:', theme);
-
     if (theme === 'dark') {
       root.classList.add('dark');
       root.classList.remove('light');
@@ -31,17 +35,26 @@ function App() {
       root.classList.add('light');
       root.classList.remove('dark');
     }
-
-    console.log('Document classes after update:', root.className);
   }, [theme]);
 
+  // Browser Back/Forward: show the document the URL now names
+  useEffect(() => {
+    const onPopState = () => {
+      const { path, anchor } = docFromLocation(window.location.search, window.location.hash);
+      setSelectedDoc(path);
+      setSelectedAnchor(anchor);
+      setSearchQuery('');
+      setSearchResults([]);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   const toggleTheme = () => {
-    const newTheme = theme === 'dark' ? 'light' : 'dark';
-    console.log('Toggling theme from', theme, 'to', newTheme);
-    setTheme(newTheme);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = async (query: string, filters: SearchFilters = {}) => {
     setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
@@ -53,9 +66,9 @@ function App() {
       let results: HybridSearchHit[];
 
       if (searchMode === 'hybrid') {
-        results = await kbApi.searchHybrid(query, 20);
+        results = await kbApi.searchHybrid(query, 20, filters);
       } else if (searchMode === 'keyword') {
-        const keywordResults = await kbApi.searchKeyword(query, 20);
+        const keywordResults = await kbApi.searchKeyword(query, 20, filters);
         // Convert SearchHit to HybridSearchHit format
         results = keywordResults.map(hit => ({
           path: hit.path,
@@ -67,7 +80,7 @@ function App() {
         }));
       } else {
         // Semantic search - uses dedicated semantic endpoint
-        results = await kbApi.searchSemantic(query, 20);
+        results = await kbApi.searchSemantic(query, 20, filters);
       }
 
       setSearchResults(results);
@@ -79,8 +92,10 @@ function App() {
     }
   };
 
-  const handleSelectDoc = (path: string) => {
+  const handleSelectDoc = (path: string, anchor?: string) => {
     setSelectedDoc(path);
+    setSelectedAnchor(anchor);
+    window.history.pushState(null, '', locationForDoc(path, anchor));
     setSearchQuery(''); // Clear search when selecting a document
     setSearchResults([]);
   };
@@ -142,7 +157,8 @@ function App() {
               ) : (
                 <DocumentViewer
                   selectedDoc={selectedDoc}
-                  searchQuery={searchQuery}
+                  anchor={selectedAnchor}
+                  onSelectDoc={handleSelectDoc}
                 />
               )}
               {isSearching && (
@@ -156,6 +172,7 @@ function App() {
             {selectedDoc && !searchQuery && (
               <aside className="w-64 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
                 <TableOfContents documentPath={selectedDoc} />
+                <LinksPanel documentPath={selectedDoc} onSelectDoc={handleSelectDoc} />
               </aside>
             )}
           </div>

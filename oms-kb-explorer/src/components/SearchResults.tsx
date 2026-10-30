@@ -1,5 +1,9 @@
 import { FileText, TrendingUp, Zap } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import type { HybridSearchHit } from '../types';
+import { kbApi } from '../services/api';
+import { decorateHits } from '../okf/search';
+import { StatusPill, TrustPill, TypePill } from './Badges';
 
 interface SearchResultsProps {
   results: HybridSearchHit[];
@@ -9,6 +13,9 @@ interface SearchResultsProps {
 }
 
 export default function SearchResults({ results, searchQuery, searchMode, onSelectDoc }: SearchResultsProps) {
+  const { data: documents } = useQuery({ queryKey: ['documents'], queryFn: () => kbApi.listDocuments() });
+  const decorated = decorateHits(results, documents ?? []);
+
   if (!searchQuery) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -92,7 +99,7 @@ export default function SearchResults({ results, searchQuery, searchMode, onSele
       </div>
 
       <div className="p-4 space-y-4">
-        {results.map((result, index) => (
+        {decorated.map((result, index) => (
           <div
             key={`${result.path}-${index}`}
             onClick={() => onSelectDoc(result.path)}
@@ -102,10 +109,16 @@ export default function SearchResults({ results, searchQuery, searchMode, onSele
               <div className="flex items-center space-x-2 flex-1 min-w-0">
                 <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {result.path.split('/').pop()?.replace('.md', '')}
+                  {result.title}
                 </h3>
               </div>
               {getMatchTypeBadge(result.matchType)}
+            </div>
+
+            <div className="flex flex-wrap gap-1 mb-2">
+              <TypePill type={result.type} />
+              <StatusPill status={result.status} />
+              <TrustPill tier={result.trustTier} />
             </div>
 
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-mono truncate">

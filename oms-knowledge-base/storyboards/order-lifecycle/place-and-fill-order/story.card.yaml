@@ -1,0 +1,60 @@
+id: place-and-fill-order
+title: "Place and fill a client order"
+description: "A trader's new order travels through the OMS to the exchange simulator, is accepted and filled, and appears on the trade blotter."
+tags: [order-lifecycle, exchange-simulator, blotter]
+status: draft
+
+kb_links:
+  - /capabilities/order-capture.md
+  - /capabilities/order-acceptance.md
+  - /capabilities/execution-processing.md
+  - /capabilities/event-publication.md
+  - /capabilities/exchange-simulation.md
+  - /capabilities/real-time-streaming.md
+  - /domain/order-state.md
+
+# Pinned with SPEC-0014. Re-pin (update every commit) after committed changes to the cited code.
+evidence:
+  repos:
+    - module: oms-core
+      commit: "8dc1ced"
+    - module: oms-exchange-simulator
+      commit: "8dc1ced"
+    - module: oms-streaming-service
+      commit: "8dc1ced"
+  sources:
+    - module: oms-core
+      path: src/main/java/org/example/oms/service/command/OrderCreateCommandProcessor.java
+      line: 64
+      end_line: 88
+      label: "order capture: validate, store UNACK, record the event"
+    - module: oms-core
+      path: src/main/java/org/example/oms/service/OutboxRelay.java
+      line: 83
+      end_line: 125
+      label: "outbox relay: publish staged messages in commit order"
+    - module: oms-exchange-simulator
+      path: src/main/java/org/example/simulator/engine/ExchangeEngine.java
+      line: 135
+      end_line: 162
+      label: "simulator: decide the outcome of a new order"
+    - module: oms-core
+      path: src/main/java/org/example/oms/service/command/OrderAcceptCommandProcessor.java
+      line: 49
+      end_line: 88
+      label: "order acceptance: UNACK to LIVE"
+    - module: oms-exchange-simulator
+      path: src/main/java/org/example/simulator/engine/ExchangeEngine.java
+      line: 181
+      end_line: 198
+      label: "simulator: send a fill"
+    - module: oms-core
+      path: src/main/java/org/example/oms/service/execution/ExecutionCommandProcessor.java
+      line: 67
+      end_line: 98
+      label: "execution processing: apply a fill"
+    - module: oms-streaming-service
+      path: src/main/java/org/example/streaming/controller/TradeBlotterController.java
+      line: 114
+      end_line: 136
+      label: "blotter stream to the UI"

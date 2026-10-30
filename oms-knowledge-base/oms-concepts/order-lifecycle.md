@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Order Lifecycle Management Specification"
+description: "Order states and transitions across the full lifecycle, combining state machine rules, business workflows and FIX semantics."
+tags: [order-lifecycle, state-machine, fix]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Order Lifecycle Management Specification
 
 **Version:** 1.0

@@ -1,0 +1,25 @@
+{
+  "ranAt": "2026-10-28T05:41:53.334Z",
+  "result": "pass",
+  "modules": [
+    "oms-mcp-server",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "144316389bd0e23c",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] oms-mcp-server/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 8dc1ceda)"
+  },
+  "commands": [
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-mcp-server-1.log"
+    }
+  ]
+}

@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Order Management System (OMS) State Store Specification"
+description: "State store for domain objects under event sourcing and CQRS, with JPA and PostgreSQL implementation guidance."
+tags: [state-store, event-sourcing, persistence]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Order Management System (OMS) State Store Specification
 
 **Version:** 1.0

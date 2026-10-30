@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "State Machine Framework Specification"
+description: "Generic, type-safe framework for declaring and validating domain state transitions."
+tags: [state-machine, framework, validation]
+status: stable
+version: "1.0"
+updated: "2025-10-10T00:00:00Z"
+---
 # State Machine Framework Specification
 
 **Version:** 1.0  

@@ -1,3 +1,10 @@
+---
+type: Specification
+title: "Order State Indicator Specification"
+description: "Four-bar visual indicator showing leg types, placement and execution progress of an order in the web UI."
+tags: [ui, order-state, visualisation]
+status: draft
+---
 # Order State Indicator Specification
 
 ## Overview

@@ -1,3 +1,10 @@
+---
+type: Methodology
+title: "AI-Augmented Development with MCP, Agents & Skills"
+description: "Using MCP servers, Copilot agents and chat modes, and external AI agents in OMS development."
+tags: [ai-assisted-development, mcp, copilot]
+status: draft
+---
 # AI-Augmented Development with MCP, Agents & Skills
 
 A practical guide to using MCP servers as domain knowledge bases, customizing GitHub Copilot with agents and chat modes, and delegating tasks to external AI agents — all grounded in how the OMS project does it today.

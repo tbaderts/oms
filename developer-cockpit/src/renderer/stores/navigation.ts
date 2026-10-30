@@ -10,6 +10,7 @@ export type ViewId =
   | 'branch-manager'
   | 'knowledge-base'
   | 'requirements'
+  | 'storyboards'
   | 'file-explorer'
   | 'docker'
   | 'kubernetes'
@@ -33,6 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'branch-manager', label: 'Branch Manager', group: 'Source Control', icon: 'GitMerge' },
   { id: 'knowledge-base', label: 'Knowledge Base', group: 'Knowledge', icon: 'BookOpen' },
   { id: 'requirements', label: 'Requirements', group: 'Knowledge', icon: 'ClipboardList' },
+  { id: 'storyboards', label: 'Storyboards', group: 'Knowledge', icon: 'Clapperboard' },
   { id: 'file-explorer', label: 'File Explorer', group: 'Knowledge', icon: 'FolderOpen' },
   { id: 'docker', label: 'Docker', group: 'Infrastructure', icon: 'Container' },
   { id: 'kubernetes', label: 'Kubernetes', group: 'Infrastructure', icon: 'Ship' },

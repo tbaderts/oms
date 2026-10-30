@@ -1,3 +1,10 @@
+---
+type: Specification
+title: "User Interface Specification: OMS Admin Tool"
+description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
+tags: [ui, react, ag-grid]
+status: draft
+---
 # User Interface Specification: OMS Admin Tool
 
 ## Overview

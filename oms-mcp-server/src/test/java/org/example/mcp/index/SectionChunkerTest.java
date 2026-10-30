@@ -117,4 +117,77 @@ class SectionChunkerTest {
         List<SectionChunk> chunks = chunker.chunk("kb/doc.md", md);
         assertTrue(chunks.stream().anyMatch(c -> c.text().contains("Some preamble")));
     }
+
+    @Test
+    void noFrontMatterInChunksAndMetadataChunkFirst() {
+        String md = """
+                ---
+                type: Capability
+                title: "Order Capture"
+                description: "Taking a new client order into the OMS."
+                tags: [orders, intake]
+                status: draft
+                generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
+                sources:
+                  - resource: "repo:oms-core/src/main/java/Foo.java"
+                # a YAML comment that must not become a heading
+                ---
+                # Order Capture
+
+                ## Summary
+
+                The OMS takes responsibility for a client order when it accepts an order create command.
+                """;
+        List<SectionChunk> chunks = productionLikeChunker().chunk("kb/capabilities/order-capture.md", md);
+
+        assertTrue(chunks.stream().noneMatch(c -> c.text().contains("generated:")
+                || c.text().contains("repo:") || c.text().contains("---") || c.text().contains("YAML comment")));
+        assertTrue(chunks.stream().noneMatch(c -> c.title().contains("YAML comment")));
+        SectionChunk first = chunks.get(0);
+        assertTrue(first.text().startsWith("Order Capture\nTaking a new client order into the OMS.\nTags: orders, intake"),
+                first.text());
+        assertEquals(1, first.startLine());
+        assertTrue(chunks.stream().allMatch(c -> "Capability".equals(c.type())
+                && "draft".equals(c.status()) && "unverified".equals(c.trustTier())
+                && c.tags().equals(List.of("orders", "intake"))));
+        // line numbers still refer to the file: the Summary heading is on line 15
+        assertTrue(chunks.stream().anyMatch(c -> c.anchor().equals("summary") && c.startLine() <= 15 && c.endLine() >= 15));
+        // the metadata chunk stands alone over the front matter lines; it is never merged into a section
+        assertEquals("", first.anchor());
+        assertEquals(11, first.endLine());
+        assertTrue(chunks.stream().skip(1).noneMatch(c -> c.text().contains("Taking a new client order")));
+    }
+
+    @Test
+    void splitPartsOfFrontMatterDocumentsCiteFileLines() {
+        StringBuilder md = new StringBuilder("---\ntype: Specification\ntitle: \"Big\"\ndescription: \"A big one.\"\n---\n# Big\n\n");
+        for (int i = 1; i <= 40; i++) {
+            md.append("Paragraph ").append(i).append(" has enough words to make the section grow past the limit.\n\n");
+        }
+        String content = md.toString();
+        String[] fileLines = content.split("\n", -1);
+        List<SectionChunk> chunks = productionLikeChunker().chunk("kb/big.md", content);
+
+        assertTrue(chunks.size() > 2, "expected the section to be split");
+        for (SectionChunk c : chunks.subList(1, chunks.size())) {
+            String firstParagraph = c.text().lines().filter(l -> l.startsWith("Paragraph")).findFirst().orElseThrow();
+            int line = c.startLine();
+            while (line <= c.endLine() && !fileLines[line - 1].equals(firstParagraph)) line++;
+            assertTrue(line <= c.endLine(), "part " + c.startLine() + "-" + c.endLine() + " does not contain its own first paragraph");
+        }
+    }
+
+    @Test
+    void legacyDocumentsKeepHeaderStatus() {
+        String md = "# Spec\n\n**Status:** Active\n\nBody long enough to be its own section without merging anything.\n";
+        List<SectionChunk> chunks = chunker.chunk("kb/spec.md", md);
+        assertTrue(chunks.stream().allMatch(c -> "Active".equals(c.status()) && c.type() == null));
+    }
+    /** Production default for the minimum (200), so small chunks merge as they do in the real index. */
+    private static SectionChunker productionLikeChunker() {
+        KnowledgeIndexProperties p = new KnowledgeIndexProperties();
+        p.setMinSectionChars(200);
+        p.setMaxSectionChars(500);
+        return new SectionChunker(new MarkdownParser(), p);
+    }
 }

@@ -18,9 +18,19 @@ Built as a **blueprint**: the same architecture is designed to scale to knowledg
 
 | Tool | Purpose |
 |---|---|
-| `getKnowledgeBaseOverview` | Orientation: every doc with metadata, summary, and section anchors. Call once per session. |
-| `searchKnowledgeBase(query, topK?, category?, status?)` | One search entry point. Hybrid by default. Returns markdown with citations. |
-| `readKnowledgeBase(path, anchor?, offset?, limit?)` | Read a whole doc (with section outline) or a single cited section. |
+| `getKnowledgeBaseOverview` | Orientation: every concept with type, status, trust tier, staleness, description and section anchors (`index.md`/`log.md` left out). Call once per session. |
+| `searchKnowledgeBase(query, topK?, category?, status?, type?, tag?)` | One search entry point. Hybrid by default. Filters on OKF `type`, `tag` and `status` (`draft`/`stable`/`deprecated`; legacy `Active`/`Complete`/`Draft` are mapped). Each hit shows type · status · trust. |
+| `readKnowledgeBase(path, anchor?, offset?, limit?)` | Read a single cited section, or a whole doc: metadata summary, body (without YAML), section outline, outgoing links (broken ones marked) and "cited by". |
+
+**Open Knowledge Format.** The knowledge base is an [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format)
+bundle (see `oms-knowledge-base/okf-conventions.md`). The server parses each document's YAML front
+matter (`FrontMatter`, `OkfMetadata`): type, title, description, tags, status, version, trust tier
+(from `verified`), staleness (`stale_after`) and the project keys (`maturity`, `id`, `priority`,
+`implementation`, `capability`). Front matter is never indexed as text; title, description and tags
+are. Documents without front matter keep their bold-header metadata. Only markdown files are
+documents; `index.md` and `log.md` are navigation (readable, not searched). `ConceptLinks` builds the
+link graph (outgoing links and backlinks). `GET /api/kb/documents` returns the metadata as an `okf`
+object plus `concept` (false for `index.md`/`log.md`).
 
 **3. MCP resources & prompts**
 - Every KB document is exposed as an MCP **resource** (`kb://<path>`) — attach a spec directly to a conversation

@@ -1,5 +1,6 @@
 package org.example.mcp.index;
 
+import org.example.mcp.docs.ConceptLinks;
 import org.example.mcp.docs.DocumentRepository;
 import org.example.mcp.docs.MarkdownParser;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -44,7 +45,8 @@ public final class IndexTestSupport {
         MarkdownParser parser = new MarkdownParser();
         DocumentRepository repository = new DocumentRepository(docPaths, parser);
         KnowledgeIndexService index = new KnowledgeIndexService(
-                repository, new SectionChunker(parser, properties), disabledEmbeddings(properties));
+                repository, new SectionChunker(parser, properties), disabledEmbeddings(properties),
+                new ConceptLinks(repository));
         index.rebuild();
         return index;
     }

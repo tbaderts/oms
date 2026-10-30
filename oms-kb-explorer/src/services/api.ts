@@ -1,6 +1,9 @@
-import type { DocMeta, DocContent, SearchHit, HybridSearchHit, DocSection } from '../types';
+import type { DocMeta, DocContent, DocLinks, SearchHit, HybridSearchHit, DocSection } from '../types/index.ts';
+import { searchParams, type SearchFilters } from '../okf/search.ts';
 
-const API_BASE_URL = 'http://localhost:8091/api/kb';
+// Override with VITE_KB_API_URL, e.g. to point at a locally started MCP server on another port
+const API_BASE_URL: string =
+  (import.meta as { env?: Record<string, string | undefined> }).env?.VITE_KB_API_URL ?? 'http://localhost:8091/api/kb';
 
 export const kbApi = {
   /**
@@ -25,19 +28,8 @@ export const kbApi = {
   /**
    * Search documents using keyword search
    */
-  async searchKeyword(
-    query: string,
-    topK: number = 10,
-    filterStatus?: string,
-    filterCategory?: string
-  ): Promise<SearchHit[]> {
-    const params = new URLSearchParams({
-      query,
-      topK: topK.toString(),
-      ...(filterStatus && { filterStatus }),
-      ...(filterCategory && { filterCategory }),
-    });
-    const response = await fetch(`${API_BASE_URL}/search/keyword?${params}`);
+  async searchKeyword(query: string, topK: number = 10, filters: SearchFilters = {}): Promise<SearchHit[]> {
+    const response = await fetch(`${API_BASE_URL}/search/keyword?${searchParams(query, topK, filters)}`);
     if (!response.ok) throw new Error('Search failed');
     return response.json();
   },
@@ -45,36 +37,28 @@ export const kbApi = {
   /**
    * Search documents using semantic search (AI-powered, meaning-based)
    */
-  async searchSemantic(
-    query: string,
-    topK: number = 10
-  ): Promise<HybridSearchHit[]> {
-    const params = new URLSearchParams({
-      query,
-      topK: topK.toString(),
-    });
-    const response = await fetch(`${API_BASE_URL}/search/semantic?${params}`);
+  async searchSemantic(query: string, topK: number = 10, filters: SearchFilters = {}): Promise<HybridSearchHit[]> {
+    const response = await fetch(`${API_BASE_URL}/search/semantic?${searchParams(query, topK, filters)}`);
     if (!response.ok) throw new Error('Semantic search failed');
     return response.json();
   },
 
   /**
-   * Search documents using hybrid search (keyword + semantic)
+   * Search documents using hybrid search (keyword + semantic, rank-fused on the server)
    */
-  async searchHybrid(
-    query: string,
-    topK: number = 10,
-    keywordWeight: number = 0.4,
-    semanticWeight: number = 0.6
-  ): Promise<HybridSearchHit[]> {
-    const params = new URLSearchParams({
-      query,
-      topK: topK.toString(),
-      keywordWeight: keywordWeight.toString(),
-      semanticWeight: semanticWeight.toString(),
-    });
-    const response = await fetch(`${API_BASE_URL}/search/hybrid?${params}`);
+  async searchHybrid(query: string, topK: number = 10, filters: SearchFilters = {}): Promise<HybridSearchHit[]> {
+    const response = await fetch(`${API_BASE_URL}/search/hybrid?${searchParams(query, topK, filters)}`);
     if (!response.ok) throw new Error('Hybrid search failed');
+    return response.json();
+  },
+
+  /**
+   * Outgoing links and backlinks ("cited by") of a document
+   */
+  async getLinks(path: string): Promise<DocLinks> {
+    const params = new URLSearchParams({ path });
+    const response = await fetch(`${API_BASE_URL}/documents/links?${params}`);
+    if (!response.ok) throw new Error(`Failed to load links for: ${path}`);
     return response.json();
   },
 
@@ -133,7 +117,7 @@ export const mockKbApi = {
     };
   },
 
-  async searchHybrid(query: string): Promise<HybridSearchHit[]> {
+  async searchHybrid(): Promise<HybridSearchHit[]> {
     return [
       {
         path: 'oms-knowledge-base/oms-concepts/order-lifecycle.md',
@@ -146,11 +130,15 @@ export const mockKbApi = {
     ];
   },
 
-  async listSections(path: string): Promise<DocSection[]> {
+  async listSections(): Promise<DocSection[]> {
     return [
       { title: 'Overview', level: 2, lineNumber: 5 },
       { title: 'Example Code', level: 2, lineNumber: 10 },
       { title: 'Related Documents', level: 2, lineNumber: 20 },
     ];
+  },
+
+  async getLinks(): Promise<DocLinks> {
+    return { outgoing: [], backlinks: [] };
   },
 };

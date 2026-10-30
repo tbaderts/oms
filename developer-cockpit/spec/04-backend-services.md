@@ -221,6 +221,26 @@ way to reach the service; the WebSocket server does not accept commands.
 
 ---
 
+### 2.5a StoryboardService and friends (Storyboards view)
+
+**Responsibility**: scan, read, validate, write and export the storyboards under the configured
+roots (SPEC-0014; full description in [11-storyboards.md](./11-storyboards.md) §6–7). The code lives
+in `src/main/storyboards/` and does not import Electron, so the `check:storyboards` command and the
+tests use it directly.
+
+| Service | Responsibility |
+|---|---|
+| `StoryboardService` | `scan()` (id → folder map; duplicate ids, symlinks, oversized files and malformed files are scan errors). `detail(id)` returns advisory problems. Writes (`create`, `saveStory`, `saveStep`, `createStep`, `deleteStep`, `reorder`, `saveIllustration`) are guarded by revision tokens. It suppresses the watcher echo of its own writes and broadcasts `storyboards:changed` |
+| `LinkIndexService` | Valid link targets: OpenAPI operation ids and command types, Avro records, order-state transitions, FR/NFR ids |
+| `EvidenceService` | `story.card.yaml`: trust tier, drift per pinned module (`git diff <commit> HEAD`, committed history only), `kb_links` |
+| `StoryboardExportService` | Mermaid source and standalone HTML (the PDF is rendered by a hidden window in `storyboards.ipc.ts`) |
+| `StoryboardAiService` | Optional assists through `AnthropicAdapter`; proposals only, with bounded prompts |
+
+IPC: `storyboards:*` channels in `ipc/storyboards.ipc.ts` (ids only, never paths). Assets are
+served by the `storyboard-asset://<id>/<file>` protocol.
+
+---
+
 ### 2.6 RoadmapService
 
 **Responsibility**: Parse and serve roadmap data.

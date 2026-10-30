@@ -1,3 +1,10 @@
+---
+type: Diagram
+title: "Task Orchestration Framework - Architecture Diagrams"
+description: "Architecture, class and sequence diagrams of the task orchestration framework."
+tags: [task-orchestration, framework, diagrams]
+status: draft
+---
 # Task Orchestration Framework - Architecture Diagrams
 
 ## System Overview

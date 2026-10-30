@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ConfigService, migrateConfig } from '../../src/main/services/ConfigService';
+import { ConfigService, migrateConfig, resolveStoryboardsConfig } from '../../src/main/services/ConfigService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
 
 const LEGACY = { openApiPaths: ['oms-core/src/main/openapi'], avroPaths: ['oms-core/src/main/avro'] };
@@ -61,5 +61,51 @@ describe('ConfigService contract paths', () => {
     const half = migrateConfig({ ...DEFAULT_CONFIG, specs: { ...DEFAULT_CONFIG.specs, avroPaths: LEGACY.avroPaths } });
     expect(half.migrated).toBe(true);
     expect(half.config.specs).toEqual(DEFAULT_CONFIG.specs);
+  });
+});
+
+describe('ConfigService storyboards', () => {
+  it('defaults: enabled, KB root, 1 MiB sources, 512 KiB assets, writable', () => {
+    expect(DEFAULT_CONFIG.storyboards).toEqual({
+      enabled: true,
+      roots: ['oms-knowledge-base/storyboards'],
+      maxSourceBytes: 1_048_576,
+      maxAssetBytes: 524_288,
+      writable: true,
+    });
+  });
+
+  it('a saved config without a storyboards section gets the defaults', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-config-'));
+    const { storyboards: _omit, ...legacy } = DEFAULT_CONFIG;
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(legacy));
+    const config = await new ConfigService(dir).load();
+    expect(config.storyboards).toEqual(DEFAULT_CONFIG.storyboards);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('environment overrides win over the saved config', () => {
+    const resolved = resolveStoryboardsConfig(
+      { ...DEFAULT_CONFIG.storyboards, roots: ['saved/root'] },
+      {
+        COCKPIT_STORYBOARDS_ENABLED: 'false',
+        COCKPIT_STORYBOARDS_ROOTS: 'a/storyboards;b/*/docs/storyboards',
+        COCKPIT_STORYBOARDS_MAX_SOURCE_BYTES: '2048',
+        COCKPIT_STORYBOARDS_MAX_ASSET_BYTES: '4096',
+        COCKPIT_STORYBOARDS_WRITABLE: '0',
+      },
+    );
+    expect(resolved).toEqual({
+      enabled: false,
+      roots: ['a/storyboards', 'b/*/docs/storyboards'],
+      maxSourceBytes: 2048,
+      maxAssetBytes: 4096,
+      writable: false,
+    });
+  });
+
+  it('ignores malformed numeric overrides', () => {
+    const resolved = resolveStoryboardsConfig(DEFAULT_CONFIG.storyboards, { COCKPIT_STORYBOARDS_MAX_SOURCE_BYTES: 'lots' });
+    expect(resolved.maxSourceBytes).toBe(1_048_576);
   });
 });

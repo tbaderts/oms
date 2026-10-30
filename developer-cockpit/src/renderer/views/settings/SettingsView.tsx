@@ -40,6 +40,13 @@ export function SettingsView() {
     setDraft((d) => ({ ...d, infrastructure: { ...d.infrastructure, ...patch } }));
   };
 
+  const updateStoryboards = (patch: Partial<CockpitConfig['storyboards']>) => {
+    setDraft((d) => ({ ...d, storyboards: { ...d.storyboards, ...patch } }));
+  };
+  // Roots are edited as raw lines (so an empty line can be typed) and stored as a cleaned list.
+  const [rootsText, setRootsText] = useState<string | null>(null);
+  const positive = (v: string, fallback: number) => (/^\d+$/.test(v.trim()) && Number(v) > 0 ? Number(v) : fallback);
+
   const handleSave = async () => {
     await saveConfig(draft);
     setSaved(true);
@@ -250,6 +257,41 @@ export function SettingsView() {
                   }
                 />
               </div>
+            </CardContent>
+          </Card>
+          <Card className="mt-4">
+            <CardHeader><CardTitle>Storyboards</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="storyboardRoots">Storyboard roots</Label>
+                <textarea
+                  id="storyboardRoots"
+                  className="min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
+                  value={rootsText ?? draft.storyboards.roots.join('\n')}
+                  onChange={(e) => {
+                    setRootsText(e.target.value);
+                    updateStoryboards({ roots: e.target.value.split('\n').map((r) => r.trim()).filter(Boolean) });
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">One folder per line, relative to the workspace; a * segment matches one folder level.</p>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="storyboardsWritable">Storyboards writable</Label>
+                <Switch id="storyboardsWritable" checked={draft.storyboards.writable} onCheckedChange={(checked) => updateStoryboards({ writable: checked })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="storyboardMaxSource">Max source file size (bytes)</Label>
+                  <Input id="storyboardMaxSource" inputMode="numeric" defaultValue={draft.storyboards.maxSourceBytes}
+                    onChange={(e) => updateStoryboards({ maxSourceBytes: positive(e.target.value, draft.storyboards.maxSourceBytes) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="storyboardMaxAsset">Max illustration size (bytes)</Label>
+                  <Input id="storyboardMaxAsset" inputMode="numeric" defaultValue={draft.storyboards.maxAssetBytes}
+                    onChange={(e) => updateStoryboards({ maxAssetBytes: positive(e.target.value, draft.storyboards.maxAssetBytes) })} />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">COCKPIT_STORYBOARDS_* environment variables override these values.</p>
             </CardContent>
           </Card>
         </TabsContent>

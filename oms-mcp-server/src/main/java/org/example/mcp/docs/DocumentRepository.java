@@ -92,6 +92,14 @@ public class DocumentRepository {
     }
 
     /**
+     * Read a document without its front matter: the YAML block's lines are emptied, so line
+     * numbers still match the file.
+     */
+    public String readBody(String relativePath) {
+        return FrontMatter.parse(readContent(relativePath)).blankedContent();
+    }
+
+    /**
      * Resolve a relative path against all configured base directories.
      *
      * @return the resolved path or {@code null} if not found
@@ -162,15 +170,21 @@ public class DocumentRepository {
             String baseName = base.getFileName() == null ? base.toString() : base.getFileName().toString();
             String path = (baseName + "/" + rel).replace('\\', '/');
 
-            // Extract metadata from document content
+            // Legacy bold header plus OKF front matter; front matter wins where both exist
             String content = Files.readString(file, StandardCharsets.UTF_8);
-            MarkdownParser.DocMetadata metadata = markdownParser.extractMetadata(content);
+            MarkdownParser.DocMetadata legacy = markdownParser.extractMetadata(content);
+            FrontMatter frontMatter = FrontMatter.parse(content);
+            if (frontMatter.error() != null) {
+                log.debug("[Docs] Unparseable front matter in {}: {}", path, frontMatter.error());
+            }
+            OkfMetadata okf = OkfMetadata.derive(frontMatter, legacy, Instant.now());
 
             return new DocMeta(path, file.getFileName().toString(), size, modified.toString(),
-                metadata.version(), metadata.status(), metadata.lastUpdated(), metadata.category());
+                okf.version(), okf.status(), legacy.lastUpdated(), legacy.category(),
+                !DocumentFileUtils.isReserved(file), okf);
         } catch (IOException e) {
             return new DocMeta(file.toString(), file.getFileName().toString(), -1, "",
-                null, null, null, null);
+                null, null, null, null, !DocumentFileUtils.isReserved(file), null);
         }
     }
 
@@ -179,8 +193,14 @@ public class DocumentRepository {
     }
 
     // Structured types
+    /**
+     * A listed document. {@code status} is the OKF status for documents with front matter and the
+     * bold-header status otherwise; {@code concept} is false for the OKF reserved files
+     * ({@code index.md}, {@code log.md}); {@code okf} carries the full front matter metadata.
+     */
     public record DocMeta(String path, String name, long size, String lastModifiedIso,
-                          String version, String status, String lastUpdated, String category) {}
+                          String version, String status, String lastUpdated, String category,
+                          boolean concept, OkfMetadata okf) {}
     public record DocContent(String path, String content, int totalLength, int from, int to) {}
 
     public static class DomainDocReadException extends RuntimeException {

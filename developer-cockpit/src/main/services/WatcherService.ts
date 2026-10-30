@@ -11,6 +11,7 @@ export class WatcherService {
   private specTicketsTimer: NodeJS.Timeout | null = null;
   private readonly debounceMs = 300;
   private extraPaths: string[] = [];
+  private pathListeners = new Set<(filePath: string, kind: FileChangePayload['kind']) => void>();
 
   constructor(
     private workspaceRoot: string,
@@ -62,6 +63,12 @@ export class WatcherService {
     });
   }
 
+  /** Every raw change under the watched folders, before debouncing; returns an unsubscribe function. */
+  onPath(listener: (filePath: string, kind: FileChangePayload['kind']) => void): () => void {
+    this.pathListeners.add(listener);
+    return () => this.pathListeners.delete(listener);
+  }
+
   /** Files outside the fixed folders, such as extra API Explorer template sources; replaces the previous set. */
   setExtraPaths(paths: string[]): void {
     const previous = this.extraPaths;
@@ -87,6 +94,7 @@ export class WatcherService {
   }
 
   private debouncedEmit(filePath: string, kind: FileChangePayload['kind']): void {
+    for (const listener of this.pathListeners) listener(filePath, kind);
     if (SPEC_TICKET_DIRS.test(path.relative(this.workspaceRoot, filePath).replace(/\\/g, '/'))) {
       this.emitSpecTicketsChanged(filePath);
     }

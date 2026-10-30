@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "State-Query Store CQRS Specification"
+description: "Options for a read-optimised query store kept in sync with the transactional store (CQRS at the database level)."
+tags: [cqrs, query-store, replication]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # State-Query Store CQRS Specification
 
 **Version:** 1.0

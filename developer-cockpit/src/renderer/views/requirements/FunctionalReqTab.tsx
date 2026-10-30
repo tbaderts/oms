@@ -2,6 +2,7 @@ import React from 'react';
 import { useRequirementsStore } from '@/stores/requirements';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { StoryboardBacklinks } from '@/views/storyboards/StoryboardBacklinks';
 
 const PRIORITY_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   must: 'destructive',
@@ -35,6 +36,7 @@ export function FunctionalReqTab() {
               <TableCell>
                 <div className="font-medium">{fr.title}</div>
                 <div className="text-xs text-muted-foreground line-clamp-2">{fr.description}</div>
+                <StoryboardBacklinks target={fr.id} />
               </TableCell>
               <TableCell>
                 <Badge variant={PRIORITY_COLORS[fr.priority] || 'secondary'}>

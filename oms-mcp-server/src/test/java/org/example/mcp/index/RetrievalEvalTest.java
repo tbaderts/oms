@@ -40,6 +40,9 @@ class RetrievalEvalTest {
      *  Measured 2026-06-10: recall@5 = 1.000, MRR = 0.903 (25 queries). */
     private static final double RECALL_AT_5_BASELINE = 0.90;
 
+    /** MRR floor. Measured 2026-10-27 after the SPEC-0010 restructure (151 documents): MRR = 0.828. */
+    private static final double MRR_BASELINE = 0.80;
+
     private static final Path KB_PATH = Paths.get("../oms-knowledge-base");
 
     private static KnowledgeIndexService index;
@@ -99,6 +102,8 @@ class RetrievalEvalTest {
         assertTrue(recallAt5 >= RECALL_AT_5_BASELINE,
                 "recall@5 regression: %.3f < baseline %.2f. Misses:%n%s"
                         .formatted(recallAt5, RECALL_AT_5_BASELINE, String.join("\n", misses)));
+        assertTrue(mrr >= MRR_BASELINE,
+                "MRR regression: %.3f < baseline %.2f".formatted(mrr, MRR_BASELINE));
     }
 
     @SuppressWarnings("unchecked")

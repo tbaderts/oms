@@ -1,3 +1,12 @@
+---
+type: Concept Paper
+title: "Booking Integration — Draft Specification"
+description: "Booking adapter that turns OMS event streams into calls to the synchronous downstream booking system."
+tags: [booking, post-trade, integration]
+status: draft
+version: "0.1"
+updated: "2026-10-23T00:00:00Z"
+---
 # Booking Integration — Draft Specification
 
 **Version:** 0.1

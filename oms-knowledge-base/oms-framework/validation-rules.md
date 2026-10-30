@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Validation Rules Framework Specification"
+description: "Predicate-based, composable validation framework for orders, executions and quotes."
+tags: [validation, framework, business-rules]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Validation Rules Framework Specification
 
 **Version:** 1.0

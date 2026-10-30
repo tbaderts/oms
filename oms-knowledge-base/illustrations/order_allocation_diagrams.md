@@ -1,3 +1,10 @@
+---
+type: Diagram
+title: "Order Allocation Flow: Multiple Executions Scenario"
+description: "Sequence and flow diagrams for allocating multiple executions from one market order to a client order, in STP and manual modes."
+tags: [allocation, executions, diagrams]
+status: draft
+---
 # Order Allocation Flow: Multiple Executions Scenario
 
 **Scenario**: 1 Client Order + 1 Market Order + Multiple Executions

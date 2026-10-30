@@ -14,7 +14,7 @@
     "maxVerifyAttempts": 3
   },
   "git": {
-    "branchPerTicket": true,
+    "branchPerTicket": false,
     "commitPerTask": false
   },
   "modules": {

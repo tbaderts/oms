@@ -1,3 +1,12 @@
+---
+type: Concept Paper
+title: "Order Model, Trading Capacity and Booking Legs — Concept Paper"
+description: "Whether one order is enough or client and market legs are needed, depending on trading capacity and booking."
+tags: [order-model, trading-capacity, booking]
+status: draft
+version: "0.1"
+updated: "2026-10-18T00:00:00Z"
+---
 # Order Model, Trading Capacity and Booking Legs — Concept Paper
 
 **Version:** 0.1

@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Order Quantity Calculations Specification"
+description: "Quantity field semantics (orderQty, placeQty, cumQty, leavesQty) across parent and child orders in an order tree."
+tags: [quantities, order-tree, fix]
+status: draft
+version: "1.0"
+updated: "2025-10-08T00:00:00Z"
+---
 # Order Quantity Calculations Specification
 
 **Version:** 1.0  

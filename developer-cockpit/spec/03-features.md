@@ -80,7 +80,8 @@ when you come back and is re-read on open.
 
 **Main column**: header (id, stage, type, owner, modules, approvals, beads), stage progress across
 the six stages (blocked shown in red), the Goal, the stage documents as tabs (rendered Markdown,
-editable for the current stage, see below) and the ticket log.
+editable for the current stage, see below) and the ticket log. ` ```mermaid ` blocks in the
+documents render as diagrams (see *Mermaid diagrams* under Knowledge Base).
 
 **Status rail** (right; below the main column on narrow windows): the current **gate result**
 (PASS/FAIL, errors, warnings, policy exceptions, or the draft result while editing) with the next
@@ -518,11 +519,18 @@ tags: [state-machine, architecture, events]
 
 **Right panel -- Document viewer:**
 - Rendered markdown with:
-  - Mermaid diagram support (rendered inline)
+  - Mermaid diagram support (rendered inline; see *Mermaid diagrams* below)
   - Syntax-highlighted code blocks
   - Auto-generated table of contents from headings
   - Metadata banner (status, author, version, tags)
   - Anchor links for deep linking
+
+**Mermaid diagrams** (KB viewer and spec ticket documents, shared Markdown renderer): a
+` ```mermaid ` block renders as an SVG diagram in the cockpit theme (Mermaid `dark` / `default`),
+re-rendered when the theme changes. While it loads the source is shown; invalid syntax shows the
+error and the source, and the rest of the document renders normally. A **Copy diagram source**
+button copies the block's text. Mermaid runs with `securityLevel: 'strict'` and is loaded on first
+use, so it does not slow app startup. Diagrams are not rendered in the editor while typing.
 
 ### Search
 - **Local keyword search**: scans document content and front-matter
@@ -582,6 +590,26 @@ Markdown files in structured directories under a `requirements/` root:
 - "View in KB" button on any requirement opens the Knowledge Base view with the source document loaded
 - FR links in use cases navigate within the Requirements view
 - Spec links navigate to the Dashboard detail view
+- Each functional requirement lists the storyboards whose steps link to it; a click opens the storyboard
+
+### Storyboards
+
+The Storyboards view (Knowledge group, after Requirements) shows end-to-end process journeys
+stored as files under `oms-knowledge-base/storyboards/`. The full specification is
+[11-storyboards.md](./11-storyboards.md). In short:
+
+- **Catalogue (left).** Storyboards are grouped by domain, with a text filter over titles, summaries
+  and step titles, filters for domain, status and tag, trust and drift badges, a thumbnail strip,
+  scan diagnostics, Rescan, and New (only when storyboards are writable).
+- **Journey (right).** A pinned overview in one of three modes: Strip (a sketch filmstrip with data
+  and alternate-path layers), Lanes (swimlanes) and Sequence (a generated Mermaid diagram). The
+  selected step is shown below it.
+- **Keys.** ← → (or j/k) move through the steps, Home/End jump to the first or last, Esc returns to
+  the overview, E edits the step and P presents.
+- **Editing.** A wizard creates storyboards. Steps are edited as form fields plus Markdown with a
+  preview, with link pickers, data and alternate-path editors and Excalidraw sketches. Steps are
+  reordered and inserted from the strip. A stale save opens a Reload/Overwrite dialog.
+- **Exports.** Presentation mode, plus Mermaid, standalone HTML and PDF exports.
 
 ---
 

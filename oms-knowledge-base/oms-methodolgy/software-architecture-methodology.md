@@ -1,3 +1,10 @@
+---
+type: Methodology
+title: "OMS Layered Architecture Framework"
+description: "Layered architecture framework with four pillars: execution, application, development and operations architecture."
+tags: [architecture, methodology, layers]
+status: draft
+---
 # OMS Layered Architecture Framework
 
 **1. Introduction**

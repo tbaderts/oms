@@ -1,0 +1,14 @@
+{
+  "ranAt": "2026-10-27T17:33:15.334Z",
+  "result": "pass",
+  "modules": [
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "7880215da2f4bcd1",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base 8dc1ceda)"
+  },
+  "commands": []
+}

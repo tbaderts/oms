@@ -26,10 +26,25 @@ class DocumentRepositoryTest {
     @BeforeEach
     void setUp() throws IOException {
         // Create a small doc tree
-        Files.writeString(tempDir.resolve("readme.md"), "# Hello\nThis is a test document.");
+        Files.writeString(tempDir.resolve("readme.md"), "# Hello\n\n**Version:** 1.0\n**Status:** Active\n\nThis is a test document.");
         Files.createDirectories(tempDir.resolve("sub"));
-        Files.writeString(tempDir.resolve("sub/guide.txt"), "Guide content here.");
+        Files.writeString(tempDir.resolve("sub/guide.md"), "# Guide\nGuide content here.");
+        Files.writeString(tempDir.resolve("sub/notes.txt"), "Not markdown."); // excluded: OKF bundles are markdown
         Files.writeString(tempDir.resolve("image.png"), "not a doc"); // should be excluded
+        Files.writeString(tempDir.resolve("index.md"), "# Index\n\n- [Readme](readme.md)\n"); // reserved
+        Files.writeString(tempDir.resolve("sub/concept.md"), """
+                ---
+                type: Capability
+                title: "Order Capture"
+                description: "Taking orders in."
+                tags: [orders]
+                status: draft
+                maturity: implemented
+                ---
+                # Order Capture
+
+                Body.
+                """);
 
         // Create MarkdownParser instance for DocumentRepository
         MarkdownParser markdownParser = new MarkdownParser();
@@ -43,9 +58,47 @@ class DocumentRepositoryTest {
         void shouldListOnlyDocFiles() {
             List<DocMeta> docs = repo.listAll();
 
-            assertThat(docs).hasSize(2);
             assertThat(docs).extracting(DocMeta::name)
-                    .containsExactlyInAnyOrder("readme.md", "guide.txt");
+                    .containsExactlyInAnyOrder("readme.md", "guide.md", "concept.md", "index.md");
+        }
+
+        @Test
+        void onlyMarkdownAndReservedFlagged() {
+            List<DocMeta> docs = repo.listAll();
+
+            assertThat(docs).noneMatch(d -> d.name().endsWith(".txt"));
+            assertThat(docs).filteredOn(d -> d.name().equals("index.md"))
+                    .singleElement().extracting(DocMeta::concept).isEqualTo(false);
+            assertThat(docs).filteredOn(d -> !d.name().equals("index.md"))
+                    .allMatch(DocMeta::concept);
+        }
+
+        @Test
+        void listsOkfMetadataAndLegacyMetadata() {
+            List<DocMeta> docs = repo.listAll();
+
+            DocMeta concept = docs.stream().filter(d -> d.name().equals("concept.md")).findFirst().orElseThrow();
+            assertThat(concept.okf().type()).isEqualTo("Capability");
+            assertThat(concept.okf().title()).isEqualTo("Order Capture");
+            assertThat(concept.okf().description()).isEqualTo("Taking orders in.");
+            assertThat(concept.okf().tags()).containsExactly("orders");
+            assertThat(concept.okf().maturity()).isEqualTo("implemented");
+            assertThat(concept.okf().trustTier()).isEqualTo("unverified");
+            assertThat(concept.status()).isEqualTo("draft");
+
+            DocMeta legacy = docs.stream().filter(d -> d.name().equals("readme.md")).findFirst().orElseThrow();
+            assertThat(legacy.okf().type()).isNull();
+            assertThat(legacy.status()).isEqualTo("Active");
+            assertThat(legacy.version()).isEqualTo("1.0");
+        }
+
+        @Test
+        void listsDocumentsWithBrokenFrontMatter() throws IOException {
+            Files.writeString(tempDir.resolve("broken.md"), "---\ntags: [unclosed\n---\n# Broken\n");
+
+            DocMeta broken = repo.listAll().stream().filter(d -> d.name().equals("broken.md")).findFirst().orElseThrow();
+            assertThat(broken.okf().type()).isNull();
+            assertThat(broken.concept()).isTrue();
         }
 
         @Test
@@ -69,8 +122,16 @@ class DocumentRepositoryTest {
 
         @Test
         void shouldReadSubdirectoryFile() {
-            String content = repo.readContent("sub/guide.txt");
+            String content = repo.readContent("sub/guide.md");
             assertThat(content).contains("Guide content");
+        }
+
+        @Test
+        void readBodyBlanksFrontMatterKeepingLines() {
+            String raw = repo.readContent("sub/concept.md");
+            String body = repo.readBody("sub/concept.md");
+            assertThat(body).doesNotContain("type: Capability").contains("# Order Capture");
+            assertThat(body.split("\n", -1)).hasSameSizeAs(raw.split("\n", -1));
         }
 
         @Test
@@ -117,7 +178,7 @@ class DocumentRepositoryTest {
         @Test
         void shouldFindAllDocFilesRecursively() {
             List<Path> files = repo.findAllDocFiles();
-            assertThat(files).hasSize(2);
+            assertThat(files).hasSize(4);
         }
 
         @Test

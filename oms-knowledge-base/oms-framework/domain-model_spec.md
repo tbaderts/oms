@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Domain Model Organization and OMS Core Libraries"
+description: "Core domain entities and libraries that asset-class models extend, with field-level definitions and FIX mappings."
+tags: [domain-model, entities, fix]
+status: stable
+version: "2.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Domain Model Organization and OMS Core Libraries
 
 **Version:** 2.0

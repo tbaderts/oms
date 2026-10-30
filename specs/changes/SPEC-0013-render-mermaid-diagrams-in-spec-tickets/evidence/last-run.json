@@ -1,0 +1,31 @@
+{
+  "ranAt": "2026-10-29T04:10:58.436Z",
+  "result": "pass",
+  "modules": [
+    "developer-cockpit"
+  ],
+  "fingerprint": "eb5e03cef592c93d",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] oms-mcp-server/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 8dc1ceda)"
+  },
+  "commands": [
+    {
+      "module": "developer-cockpit",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "seconds": 9,
+      "log": "evidence/developer-cockpit-1.log"
+    },
+    {
+      "module": "developer-cockpit",
+      "command": "npm test",
+      "exitCode": 0,
+      "seconds": 31,
+      "log": "evidence/developer-cockpit-2.log"
+    }
+  ]
+}

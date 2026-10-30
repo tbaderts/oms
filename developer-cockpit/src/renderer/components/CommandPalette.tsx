@@ -1,7 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import Fuse from 'fuse.js';
-import { NAV_ITEMS, useNavigationStore, type ViewId } from '@/stores/navigation';
+import { NAV_ITEMS, useNavigationStore } from '@/stores/navigation';
+import { useStoryboardsStore } from '@/stores/storyboards';
+
+interface Command {
+  id: string;
+  label: string;
+  group: string;
+  run: () => void;
+}
 
 interface CommandPaletteProps {
   open: boolean;
@@ -13,16 +21,28 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const setActiveView = useNavigationStore((s) => s.setActiveView);
+  const storyboardOpen = useStoryboardsStore((s) => !!s.detail);
 
-  const fuse = useMemo(() => new Fuse(NAV_ITEMS, {
+  // Views, plus the Storyboards commands (SPEC-0014); "Present" only while a storyboard is open.
+  const commands = useMemo<Command[]>(() => {
+    const openStoryboards = () => setActiveView('storyboards');
+    return [
+      ...NAV_ITEMS.map((item) => ({ id: item.id, label: item.label, group: item.group, run: () => setActiveView(item.id) })),
+      { id: 'storyboard-open', label: 'Open storyboard…', group: 'Storyboards', run: openStoryboards },
+      { id: 'storyboard-new', label: 'New storyboard', group: 'Storyboards', run: () => { openStoryboards(); useStoryboardsStore.getState().setEditing({ kind: 'new' }); } },
+      ...(storyboardOpen ? [{ id: 'storyboard-present', label: 'Present storyboard', group: 'Storyboards', run: () => { openStoryboards(); useStoryboardsStore.getState().setPresenting(true); } }] : []),
+    ];
+  }, [setActiveView, storyboardOpen]);
+
+  const fuse = useMemo(() => new Fuse(commands, {
     keys: ['label', 'group'],
     threshold: 0.4,
-  }), []);
+  }), [commands]);
 
   const results = useMemo(() => {
-    if (!query.trim()) return NAV_ITEMS;
+    if (!query.trim()) return commands;
     return fuse.search(query).map((r) => r.item);
-  }, [query, fuse]);
+  }, [query, fuse, commands]);
 
   useEffect(() => {
     if (open) {
@@ -36,8 +56,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     setSelectedIndex(0);
   }, [results]);
 
-  const handleSelect = (id: ViewId) => {
-    setActiveView(id);
+  const handleSelect = (command: Command) => {
+    command.run();
     onOpenChange(false);
   };
 
@@ -49,7 +69,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       e.preventDefault();
       setSelectedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter' && results[selectedIndex]) {
-      handleSelect(results[selectedIndex].id);
+      handleSelect(results[selectedIndex]);
     } else if (e.key === 'Escape') {
       onOpenChange(false);
     }
@@ -77,7 +97,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           {results.map((item, index) => (
             <button
               key={item.id}
-              onClick={() => handleSelect(item.id)}
+              onClick={() => handleSelect(item)}
               className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm ${
                 index === selectedIndex
                   ? 'bg-accent text-accent-foreground'

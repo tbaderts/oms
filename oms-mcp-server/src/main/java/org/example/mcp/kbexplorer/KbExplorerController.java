@@ -2,6 +2,8 @@ package org.example.mcp.kbexplorer;
 
 import java.util.List;
 
+import org.example.mcp.docs.ConceptLinks;
+import org.example.mcp.docs.ConceptLinks.Link;
 import org.example.mcp.docs.DocumentRepository;
 import org.example.mcp.docs.DocumentRepository.DocContent;
 import org.example.mcp.docs.DocumentRepository.DocMeta;
@@ -31,10 +33,11 @@ import reactor.core.scheduler.Schedulers;
  * frontend's api.ts; scoring semantics changed with the move to
  * BM25 + RRF (scores are fused rank scores, not term counts).
  *
- * Only active with the 'local' Spring profile for development.
+ * Active with the 'local' profile (run-mcp / bootRun) and the 'dev' profile (docker-compose), the
+ * two profiles that run the reactive web server; not in pure stdio mode.
  */
 @Slf4j
-@Profile("local")
+@Profile({"local", "dev"})
 @RestController
 @RequestMapping("/api/kb")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176", "http://localhost:5177"})
@@ -43,13 +46,23 @@ public class KbExplorerController {
     private final DocumentRepository documentRepository;
     private final MarkdownParser markdownParser;
     private final KnowledgeIndexService index;
+    private final ConceptLinks conceptLinks;
 
     public KbExplorerController(DocumentRepository documentRepository,
                                 MarkdownParser markdownParser,
-                                KnowledgeIndexService index) {
+                                KnowledgeIndexService index,
+                                ConceptLinks conceptLinks) {
         this.documentRepository = documentRepository;
         this.markdownParser = markdownParser;
         this.index = index;
+        this.conceptLinks = conceptLinks;
+    }
+
+    /** Outgoing links (with existence) and backlinks of a document; empty lists for unknown paths. */
+    @GetMapping("/documents/links")
+    public ResponseEntity<LinksResponse> links(@RequestParam String path) {
+        log.info("[KB Explorer] GET /api/kb/documents/links?path={}", path);
+        return ResponseEntity.ok(new LinksResponse(conceptLinks.outgoing(path), conceptLinks.backlinks(path)));
     }
 
     @GetMapping("/documents")
@@ -74,7 +87,8 @@ public class KbExplorerController {
     @GetMapping("/documents/sections")
     public ResponseEntity<List<DocSection>> listSections(@RequestParam String path) {
         log.info("[KB Explorer] GET /api/kb/documents/sections?path={}", path);
-        return ResponseEntity.ok(markdownParser.extractSections(documentRepository.readContent(path)));
+        // Sections of the body: a YAML comment in the front matter is not a heading; line numbers are the file's
+        return ResponseEntity.ok(markdownParser.extractSections(documentRepository.readBody(path)));
     }
 
     @GetMapping("/search/keyword")
@@ -82,9 +96,12 @@ public class KbExplorerController {
             @RequestParam String query,
             @RequestParam(required = false, defaultValue = "10") Integer topK,
             @RequestParam(required = false) String filterStatus,
-            @RequestParam(required = false) String filterCategory) {
+            @RequestParam(required = false) String filterCategory,
+            @RequestParam(required = false) String filterType,
+            @RequestParam(required = false) String filterTag) {
         log.info("[KB Explorer] GET /api/kb/search/keyword?query={}", query);
-        SearchResponse response = index.search(query, topK, filterCategory, filterStatus, SearchMode.KEYWORD);
+        SearchResponse response = index.search(query, topK, filterCategory, filterStatus,
+                filterType, filterTag, SearchMode.KEYWORD);
         List<KeywordHit> hits = response.hits().stream()
                 .map(h -> new KeywordHit(h.path(), h.score(), snippet(h)))
                 .toList();
@@ -94,10 +111,12 @@ public class KbExplorerController {
     @GetMapping("/search/semantic")
     public Mono<ResponseEntity<List<HybridHit>>> semanticSearch(
             @RequestParam String query,
-            @RequestParam(required = false, defaultValue = "10") Integer topK) {
+            @RequestParam(required = false, defaultValue = "10") Integer topK,
+            @RequestParam(required = false) String filterType,
+            @RequestParam(required = false) String filterTag) {
         log.info("[KB Explorer] GET /api/kb/search/semantic?query={}", query);
-        return Mono.fromCallable(() ->
-                ResponseEntity.ok(toHybridHits(index.search(query, topK, null, null, SearchMode.SEMANTIC))))
+        return Mono.fromCallable(() -> ResponseEntity.ok(toHybridHits(
+                        index.search(query, topK, null, null, filterType, filterTag, SearchMode.SEMANTIC))))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -106,12 +125,14 @@ public class KbExplorerController {
             @RequestParam String query,
             @RequestParam(required = false, defaultValue = "10") Integer topK,
             @RequestParam(required = false) Double keywordWeight,
-            @RequestParam(required = false) Double semanticWeight) {
+            @RequestParam(required = false) Double semanticWeight,
+            @RequestParam(required = false) String filterType,
+            @RequestParam(required = false) String filterTag) {
         // Weights are accepted for API compatibility but ignored:
         // Reciprocal Rank Fusion is weight-free by design.
         log.info("[KB Explorer] GET /api/kb/search/hybrid?query={}", query);
-        return Mono.fromCallable(() ->
-                ResponseEntity.ok(toHybridHits(index.search(query, topK, null, null, SearchMode.HYBRID))))
+        return Mono.fromCallable(() -> ResponseEntity.ok(toHybridHits(
+                        index.search(query, topK, null, null, filterType, filterTag, SearchMode.HYBRID))))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -157,4 +178,5 @@ public class KbExplorerController {
     public record HybridHit(String path, double keywordScore, double semanticScore,
                             double hybridScore, String snippet, String matchType) {}
     public record HealthResponse(String status, int documentCount) {}
+    public record LinksResponse(List<Link> outgoing, List<String> backlinks) {}
 }

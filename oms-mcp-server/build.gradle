@@ -35,6 +35,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.1.0'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// YAML front matter of the OKF knowledge base (already on the classpath via Spring Boot)
+	implementation 'org.yaml:snakeyaml'
 	implementation 'org.springframework.ai:spring-ai-starter-mcp-server-webflux'
 	implementation 'org.openapitools:jackson-databind-nullable:0.2.11'
     implementation 'io.swagger.core.v3:swagger-annotations:2.2.53'
@@ -66,4 +68,6 @@ dependencyManagement {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// RetrievalEvalTest reads the real knowledge base: a changed bundle must re-run the tests
+	inputs.dir('../oms-knowledge-base').withPropertyName('knowledgeBase').withPathSensitivity(PathSensitivity.RELATIVE)
 }

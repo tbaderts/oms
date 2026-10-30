@@ -1,3 +1,10 @@
+---
+type: Methodology
+title: "OMS Team Skill Profiles"
+description: "Skill profiles and general traits for building a well-rounded OMS team across the architecture pillars."
+tags: [team, skills, roles]
+status: draft
+---
 **I. General Traits Across All Pillars:**
 
 *   **Communication:** Excellent written and verbal communication skills are crucial for all roles to ensure clear understanding and collaboration.

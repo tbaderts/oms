@@ -54,6 +54,40 @@ class KnowledgeIndexServiceTest {
                 Orders orders orders orders orders orders orders orders orders orders.
                 It mentions calibration exactly once in passing within this long section.
                 """);
+        Files.writeString(kb.resolve("gamma.md"), """
+                ---
+                type: Capability
+                title: "Widget Receiving"
+                description: "Accepting widgets from suppliers at the receiving dock."
+                tags: [widgets, intake]
+                status: draft
+                generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
+                sources:
+                  - resource: "repo:zzyzxsource/Main.java"
+                ---
+                # Widget Receiving
+
+                ## Behaviour
+
+                Widgets are counted, labelled and stored in bins; damaged widgets go back to the vendor.
+                """);
+        Files.writeString(kb.resolve("delta.md"), """
+                ---
+                type: Requirement
+                title: "Twiddle the gizmo"
+                description: "The gizmo is tuned before every shift."
+                tags: [gizmo-tuning]
+                status: stable
+                ---
+                # Gizmo maintenance
+
+                Gizmo tuning happens with the knob turned slowly until the light turns green.
+                """);
+        Files.writeString(kb.resolve("index.md"), """
+                # Index
+
+                - [Gamma](gamma.md) — navigationonly listing of widgets and gizmos
+                """);
         KnowledgeIndexProperties properties = IndexTestSupport.bm25OnlyProperties();
         properties.setMinSectionChars(40); // keep the small synthetic sections separate
         index = IndexTestSupport.buildIndex(kb.toString(), properties);
@@ -62,7 +96,7 @@ class KnowledgeIndexServiceTest {
     @Test
     void indexesAllDocumentsAsSections() {
         var stats = index.getStats();
-        assertEquals(2, stats.documentCount());
+        assertEquals(4, stats.documentCount(), "index.md is reserved and not indexed");
         assertTrue(stats.chunkCount() >= 3, "expected section-level chunks");
         assertFalse(stats.vectorSearchEnabled());
     }
@@ -102,6 +136,60 @@ class KnowledgeIndexServiceTest {
         SearchResponse draftOnly = index.search("orders", 10, null, "Draft");
         assertFalse(draftOnly.hits().isEmpty());
         assertTrue(draftOnly.hits().stream().allMatch(h -> h.path().endsWith("beta.md")));
+    }
+
+    @Test
+    void filtersByTypeTagAndStatus() {
+        SearchResponse capabilities = index.search("widgets", 10, null, null, "Capability", null);
+        assertFalse(capabilities.hits().isEmpty());
+        assertTrue(capabilities.hits().stream().allMatch(h -> h.path().endsWith("gamma.md")));
+        assertEquals("Capability", capabilities.hits().get(0).type());
+        assertEquals("unverified", capabilities.hits().get(0).trustTier());
+        assertEquals("draft", capabilities.hits().get(0).status());
+
+        assertTrue(index.search("widgets", 10, null, null, "requirement", null).hits().isEmpty(),
+                "type filter is case-insensitive and excludes other types");
+        assertOnly(index.search("gizmo", 10, null, null, null, "gizmo-tuning"), "delta.md");
+        assertTrue(index.search("gizmo", 10, null, null, null, "widgets").hits().isEmpty());
+        assertOnly(index.search("gizmo", 10, null, "stable", "Requirement", "gizmo-tuning"), "delta.md");
+        assertTrue(index.search("gizmo", 10, null, "draft", "Requirement", null).hits().isEmpty(),
+                "all given filters must match");
+    }
+
+    @Test
+    void mapsLegacyStatusFilter() {
+        // alpha's bold header says Complete, which is OKF "stable"
+        SearchResponse stable = index.search("flux capacitor", 10, null, "stable");
+        assertTrue(stable.hits().stream().anyMatch(h -> h.path().endsWith("alpha.md")));
+        SearchResponse complete = index.search("flux capacitor", 10, null, "Complete");
+        assertEquals(stable.hits().size(), complete.hits().size());
+        assertOnly(index.search("gizmo", 10, null, "Active"), "delta.md"); // Active → stable, which delta declares
+        // legacy "Draft" filters OKF draft documents (gamma) and legacy Draft documents (beta) alike
+        assertOnly(index.search("widgets", 10, null, "Draft"), "gamma.md");
+        assertOnly(index.search("orders orders", 10, null, "Draft for discussion"), "beta.md");
+    }
+
+    private static void assertOnly(SearchResponse response, String file) {
+        assertFalse(response.hits().isEmpty(), "expected hits from " + file);
+        assertTrue(response.hits().stream().allMatch(h -> h.path().endsWith(file)),
+                "expected only " + file + ", got " + response.hits().stream().map(SearchHit::path).toList());
+    }
+
+    @Test
+    void frontMatterKeysAreNotSearchableButDescriptionIs() {
+        assertTrue(index.search("zzyzxsource", 10, null, null).hits().isEmpty(), "repo: sources are not body text");
+        assertTrue(index.search("claude", 10, null, null).hits().isEmpty(), "generated actor is not body text");
+        SearchResponse suppliers = index.search("suppliers receiving dock", 10, null, null);
+        assertFalse(suppliers.hits().isEmpty());
+        assertTrue(suppliers.hits().get(0).path().endsWith("gamma.md"));
+        // a term only in the front matter title, and one only in the tags
+        assertOnly(index.search("twiddle", 10, null, null), "delta.md");
+        assertOnly(index.search("intake", 10, null, null), "gamma.md");
+    }
+
+    @Test
+    void reservedFilesAreNotSearchable() {
+        assertTrue(index.search("navigationonly", 10, null, null).hits().isEmpty());
     }
 
     @Test

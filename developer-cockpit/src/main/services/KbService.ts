@@ -35,7 +35,9 @@ export class KbService {
       const relPath = relativeTo ? `${relativeTo}/${entry.name}` : entry.name;
 
       if (entry.isDirectory()) {
-        if (!entry.name.startsWith('.') && entry.name !== 'node_modules') {
+        // storyboards/ at the bundle root is outside the OKF bundle and has its own view (SPEC-0014).
+        const isStoryboards = relPath === 'storyboards';
+        if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && !isStoryboards) {
           await this.scanDirectory(fullPath, relPath);
         }
       } else if (entry.name.endsWith('.md') || entry.name.endsWith('.mdx')) {

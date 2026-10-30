@@ -2,11 +2,11 @@
 id: SPEC-0009
 title: Convert knowledge base to OKF bundle
 type: refactor
-status: proposal
-awaiting: proposal
-autopilot: true
+status: done
+awaiting:
+autopilot: false
 modules: [oms-knowledge-base, oms-kb-explorer]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 beads:
 created: 2026-10-27
@@ -33,3 +33,13 @@ create a new spec ticket for converting knowledge base and mcp server and kb exp
 - 2026-10-27 16:08 — reopened at proposal: Impact row was wrong: oms-kb-explorer renders raw content via ReactMarkdown without stripping front matter, so the YAML block would show as body text after conversion
 - 2026-10-27 16:08 — proposal gate passed; awaiting human approval
 - 2026-10-27 16:16 — set modules = oms-knowledge-base, oms-kb-explorer
+- 2026-10-27 16:26 — proposal approved by Toni Badertscher
+- 2026-10-27 16:26 — proposal → design
+- 2026-10-27 16:27 — autopilot on
+- 2026-10-27 16:27 — design → plan
+- 2026-10-27 16:27 — plan → implement
+- 2026-10-27 16:37 — verify run: pass
+- 2026-10-27 16:37 — implement → verify
+- 2026-10-27 16:46 — verify run: pass
+- 2026-10-27 16:46 — verify → done
+- 2026-10-27 16:46 — autopilot off

@@ -11,13 +11,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 class DocumentFileUtilsTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"readme.md", "CHANGELOG.MD", "guide.markdown", "notes.txt", "doc.adoc"})
+    @ValueSource(strings = {"readme.md", "CHANGELOG.MD", "guide.markdown"})
     void shouldAcceptDocumentFiles(String filename) {
         assertThat(DocumentFileUtils.isDocFile(Path.of(filename))).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"image.png", "App.java", "build.gradle", "data.json", "script.sh"})
+    @ValueSource(strings = {"image.png", "App.java", "build.gradle", "data.json", "script.sh", "notes.txt", "doc.adoc"})
     void shouldRejectNonDocumentFiles(String filename) {
         assertThat(DocumentFileUtils.isDocFile(Path.of(filename))).isFalse();
     }
@@ -25,6 +25,18 @@ class DocumentFileUtilsTest {
     @Test
     void shouldHandleMixedCaseExtensions() {
         assertThat(DocumentFileUtils.isDocFile(Path.of("README.Md"))).isTrue();
-        assertThat(DocumentFileUtils.isDocFile(Path.of("doc.TXT"))).isTrue();
+        assertThat(DocumentFileUtils.isDocFile(Path.of("doc.TXT"))).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"index.md", "log.md", "sub/INDEX.md"})
+    void shouldRecogniseReservedFiles(String path) {
+        assertThat(DocumentFileUtils.isReserved(Path.of(path))).isTrue();
+    }
+
+    @Test
+    void conceptsAreNotReserved() {
+        assertThat(DocumentFileUtils.isReserved(Path.of("indexing.md"))).isFalse();
+        assertThat(DocumentFileUtils.isReserved(Path.of("catalog.md"))).isFalse();
     }
 }

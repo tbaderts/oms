@@ -81,9 +81,25 @@ The Developer Cockpit follows a **filesystem-first** persistence strategy. There
     "autoGenerate": false,
     "moduleDirectories": [],
     "reviewOutputDir": "docs/reviews"
+  },
+  "storyboards": {
+    "enabled": true,
+    "roots": ["oms-knowledge-base/storyboards"],
+    "maxSourceBytes": 1048576,
+    "maxAssetBytes": 524288,
+    "writable": true
   }
 }
 ```
+
+`storyboards` configures the Storyboards view (SPEC-0014):
+
+- `roots` are workspace-relative folders; a `*` segment matches one folder level.
+- The size limits apply to Markdown/YAML sources and to illustrations, on read and on write.
+- `writable: false` turns every write off.
+- The `COCKPIT_STORYBOARDS_ENABLED`, `_ROOTS` (`;`-separated), `_MAX_SOURCE_BYTES`,
+  `_MAX_ASSET_BYTES` and `_WRITABLE` environment variables override the saved values.
+- A config file saved before SPEC-0014 gets the defaults.
 
 `specs.openApiPaths` / `specs.avroPaths` are the contract folders of the Contracts view, relative to
 the workspace root. Saved values that are exactly the legacy `oms-core/src/main/openapi` /

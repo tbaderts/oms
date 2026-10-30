@@ -131,8 +131,11 @@ You choose how much autonomy to give in `specs/config.json`:
   switches autopilot off.
 - `autopilot.maxGateAttempts` / `maxVerifyAttempts`: when the agent should block instead of
   retrying.
-- `git.branchPerTicket`: create `spec/<id>-…` when implementation starts. `git.commitPerTask`:
-  commit after each task (off by default; CLAUDE.md asks for human review before committing).
+- `git.branchPerTicket`: create a `spec/<id>-…` branch when implementation starts. It is off,
+  because the repository works directly on `main` (see Git Workflow in CLAUDE.md). Turn it on only
+  together with a branching workflow that pushes and merges those branches.
+- `git.commitPerTask`: commit after each task. It is off, because CLAUDE.md asks for human review
+  before committing.
 
 ## Hooks (`.claude/settings.json`)
 

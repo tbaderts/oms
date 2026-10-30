@@ -1,3 +1,10 @@
+---
+type: Assessment
+title: "OMS Knowledge Base Review Report"
+description: "Review of all knowledge base documents against the KB strategy: gaps, alignment with the code and recommended fixes."
+tags: [knowledge-base, review, documentation-quality]
+status: draft
+---
 # OMS Knowledge Base Review Report
 
 **Review Date:** February 14, 2026

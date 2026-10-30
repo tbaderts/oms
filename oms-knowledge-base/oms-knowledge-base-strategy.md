@@ -1,3 +1,12 @@
+---
+type: Strategy
+title: "OMS Knowledge Base Strategy"
+description: "How the knowledge base is organised and served to AI assistants: filesystem versus MCP access, structure and content priorities."
+tags: [knowledge-base, mcp, ai-assisted-development]
+status: stable
+version: "2.0"
+updated: "2026-02-15T00:00:00Z"
+---
 # OMS Knowledge Base Strategy
 
 **Version:** 2.0  
@@ -114,6 +123,12 @@ Neither channel alone is optimal. **Use both strategically:**
 ---
 
 ## 3. Document Structure Guidelines
+
+> **Since 2026-10-27 (SPEC-0009)** the knowledge base is an Open Knowledge Format (OKF v0.2)
+> bundle: every document starts with YAML front matter (`type`, `title`, `description`, `tags`,
+> `status`), each folder has an `index.md`, and changes are recorded in `log.md`. The rules and the
+> type vocabulary are in [Knowledge Base Conventions](okf-conventions.md); `tools/okf-check`
+> validates them. The body structure below still applies after the front matter.
 
 ### 3.1 Optimal Markdown Structure for Dual Access
 

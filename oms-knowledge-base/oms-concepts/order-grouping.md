@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Order Grouping Specification"
+description: "Grouping client orders for the same security and price into one market order, and allocating fills back to the members."
+tags: [order-grouping, allocation, execution-desk]
+status: draft
+version: "1.0"
+updated: "2025-10-08T00:00:00Z"
+---
 # Order Grouping Specification
 
 **Version:** 1.0  

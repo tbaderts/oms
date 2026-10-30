@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Error Handling Specification"
+description: "Error handling strategy: RFC 7807 problem responses, exception mapping, stream errors and resilience."
+tags: [error-handling, rfc7807, resilience]
+status: stable
+version: "1.0"
+updated: "2026-02-16T00:00:00Z"
+---
 # Error Handling Specification
 
 **Version:** 1.0
@@ -9,7 +18,7 @@
 ## Related Documents
 
 - [OpenAPI Contracts](openapi-contracts.md) - API error responses
-- [Streaming Architecture](streaming-architecture.md) - Stream error handling and resilience
+- [Streaming Architecture](../oms-concepts/streaming-architecture.md) - Stream error handling and resilience
 - [Testing Patterns](testing-patterns.md) - Testing error scenarios
 - [Validation Rules](validation-rules.md) - Validation error patterns
 

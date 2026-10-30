@@ -1,3 +1,10 @@
+---
+type: Methodology
+title: "OMS Development Team Manifesto: Core Values & Principles"
+description: "Core values and principles of the OMS development team."
+tags: [team, values, principles]
+status: draft
+---
 # OMS Development Team Manifesto: Core Values & Principles
 
 **Preamble:**

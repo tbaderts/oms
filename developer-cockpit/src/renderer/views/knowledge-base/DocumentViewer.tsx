@@ -2,6 +2,7 @@ import React from 'react';
 import type { KbDocument } from '@shared/types/kb';
 import { Badge } from '@/components/ui/badge';
 import { MarkdownContent } from '@/components/MarkdownContent';
+import { StoryboardBacklinks } from '@/views/storyboards/StoryboardBacklinks';
 
 interface DocumentViewerProps {
   document: KbDocument;
@@ -18,6 +19,7 @@ export function DocumentViewer({ document }: DocumentViewerProps) {
             {new Date(document.lastModified).toLocaleDateString()}
           </span>
         </div>
+        <StoryboardBacklinks target={document.relativePath} />
       </header>
 
       <MarkdownContent content={document.content} />

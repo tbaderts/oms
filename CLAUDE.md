@@ -276,9 +276,34 @@ Key documentation files in `oms-knowledge-base/`:
 5. Write tests
 
 ### Git Workflow
-- Main branch: `main`
-- Always review changes before committing
-- Follow commit message conventions
+
+The repository has a single maintainer for now, so all work happens directly on `main`, with no
+feature branches and no pull requests.
+
+- **Branches.** Work on `main`. Spec tickets don't create branches
+  (`git.branchPerTicket: false` in `specs/config.json`), and agents don't run `git switch -c` on
+  their own.
+- **Commits.** Commit only when the maintainer asks, after they have reviewed the diff. Agents
+  don't commit per task (`git.commitPerTask: false`).
+  - Before committing, check for secrets and for build output or media that `.gitignore` should
+    exclude.
+- **Commit messages** follow Conventional Commits: `type(scope): summary`.
+  - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
+  - Scope: the module, e.g. `fix(oms-core): …`.
+  - Name the spec ticket when there is one, e.g.
+    `feat(developer-cockpit): API Explorer command templates (SPEC-0008)`.
+  - Prefer one ticket per commit.
+- **Push.** Run `git push origin main`.
+  - If the push is rejected, run `git pull --rebase origin main`, then push again.
+  - Never force-push `main`.
+- **A stray local branch whose commits aren't on `main`.** If `main` has no commits of its own,
+  fast-forward it:
+  `git switch main && git merge --ff-only <branch> && git push origin main && git branch -d <branch>`.
+  - If `git switch` refuses because of uncommitted files, move `main` without a checkout instead:
+    `git push origin <branch>:main && git branch -f main <branch> && git switch main`.
+- **If the team grows**, switch to Gitflow: `develop`, `feature/*`, `release/*`, `hotfix/*`, with
+  PRs into `develop`. Update this section, and set `git.branchPerTicket` back to true with a
+  matching branch name, at the same time.
 
 ## Monitoring
 

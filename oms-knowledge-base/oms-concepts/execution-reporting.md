@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Execution Reporting Specification"
+description: "Workflows for processing execution reports from venues and brokers: fills, corrections, busts and their effect on order state."
+tags: [executions, execution-report, fix]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Execution Reporting Specification
 
 **Version:** 1.0

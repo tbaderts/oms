@@ -27,18 +27,29 @@ npm run dev
 
 ## ✨ Features
 
-### 📂 Document Browser
-- **Hierarchical tree view** organized by category/folder
-- **26 OMS documents** from the knowledge base
-- **Document metadata** (version, status, last updated, category)
-- **Status indicators** (Complete, Active, Draft)
-- Click to open any document instantly
+### 📂 Document Browser (Open Knowledge Format aware)
+The knowledge base is an [OKF](https://github.com/GoogleCloudPlatform/open-knowledge-format) bundle
+(see `oms-knowledge-base/okf-conventions.md`); the explorer reads each document's OKF metadata.
+- **Types view** (default): concepts grouped by OKF type — capabilities by maturity
+  (implemented / partial / planned), requirements FR / NFR in id order, then domain, interfaces,
+  architecture, specifications, …; documents without front matter under "Untyped"
+- **Folders view**: the bundle hierarchy; a folder's `index.md` opens when you click the folder name
+- **Filters** for status (stable, draft, deprecated — legacy Active/Complete count as stable) and
+  trust tier (human-reviewed, machine-confirmed, unverified)
+- **Document header**: type, status, trust tier, stale warning, version, updated, tags,
+  description, maturity / id / priority / implementation, the capability as a link, and the cited
+  sources (bundle documents open in the explorer, `repo:` paths shown as text, URLs external)
+- **Links panel** next to the table of contents: outgoing links (broken ones struck through) and
+  "cited by"
+- **In-app links**: links between knowledge base documents open in the explorer; external links in
+  a new tab; deep links `?doc=<path>#anchor` open a document directly
 
 ### 🔍 Powerful Search
-- **Keyword Search** - Fast TF-IDF based text matching
+- **Keyword Search** - BM25 text matching
 - **Semantic Search** - AI-powered meaning-based search (when enabled)
 - **Hybrid Search** - Best of both worlds
-- **Search results** with relevance scores and snippets
+- **Type and tag filters**, sent to the server (`filterType`, `filterTag`)
+- **Search results** with title, type, status and trust badges, snippets and scores
 - **Click-to-open** documents from search results
 
 ### 📄 Rich Document Viewer
@@ -207,6 +218,16 @@ bun run dev
 
 Vite will start on **http://localhost:5173** (or next available port).
 
+The API defaults to `http://localhost:8091/api/kb` (the MCP server's KB explorer controller, active
+in its `local` profile). Point it elsewhere with `VITE_KB_API_URL`, e.g.
+`VITE_KB_API_URL=http://localhost:8096/api/kb npm run dev`. Endpoints used: `/documents`
+(with `okf` metadata and `concept`), `/documents/read`, `/documents/sections`,
+`/documents/links`, `/search/{keyword,semantic,hybrid}` (with `filterType`, `filterTag`).
+
+The OKF logic (sidebar views and filters, document header, link resolution, search decoration,
+status/trust badges) lives in plain TypeScript models under `src/okf/`, each with a `*.test.ts`;
+the components only render them.
+
 ### Build for Production
 
 ```bash
@@ -216,6 +237,20 @@ bun run build
 ```
 
 Output: `dist/` directory with optimized static files.
+
+### Run Tests
+
+```bash
+npm test
+```
+
+Runs `src/**/*.test.ts` with Node's built-in test runner (Node 22.18 or later, which strips
+TypeScript types natively; no test framework dependency). Test files are excluded from the app
+build in `tsconfig.app.json`.
+
+Knowledge base documents start with OKF front matter (see
+`oms-knowledge-base/okf-conventions.md`); the document viewer strips it before rendering
+(`src/utils/frontMatter.ts`).
 
 ### Preview Production Build
 

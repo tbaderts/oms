@@ -1,0 +1,12 @@
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1m 43s
+Running 5 tests using 1 worker
+  ok 1 e2e\smoke.spec.ts:3:5 › the cockpit opens on the temporary workspace (1.6s)
+  ok 2 e2e\storyboards.authoring.spec.ts:28:5 › wizard to export round trip (6.1s)
+  ok 3 e2e\storyboards.export.spec.ts:16:5 › pdf export (3.7s)
+  ok 4 e2e\storyboards.export.spec.ts:30:5 › html export from the reader (2.1s)
+  ok 5 e2e\storyboards.lazy.spec.ts:5:5 › editor chunk loads only on open and never from remote (5.3s)
+  5 passed (19.5s)

@@ -1,3 +1,10 @@
+---
+type: Specification
+title: "Trade Blotter Backend Component Specification"
+description: "Backend component that streams orders, executions and quotes in real time to the Trade Blotter UI."
+tags: [streaming, trade-blotter, kafka]
+status: draft
+---
 # Trade Blotter Backend Component Specification
 
 ---

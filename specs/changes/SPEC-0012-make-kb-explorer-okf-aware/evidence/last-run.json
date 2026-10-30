@@ -1,0 +1,33 @@
+{
+  "ranAt": "2026-10-28T06:18:56.784Z",
+  "result": "pass",
+  "modules": [
+    "oms-kb-explorer",
+    "oms-mcp-server",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "febe47867672f13a",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] oms-mcp-server/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 8dc1ceda)"
+  },
+  "commands": [
+    {
+      "module": "oms-kb-explorer",
+      "command": "npm run build",
+      "exitCode": 0,
+      "seconds": 28,
+      "log": "evidence/oms-kb-explorer-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-mcp-server-1.log"
+    }
+  ]
+}

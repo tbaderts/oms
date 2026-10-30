@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Order Lifecycle Management: Replace, Cancel, and Reject Operations"
+description: "Replace, cancel and reject workflows for client and market orders, with their state handling."
+tags: [order-replace, cancel, order-lifecycle]
+status: stable
+version: "1.0"
+updated: "2026-02-14T00:00:00Z"
+---
 # Order Lifecycle Management: Replace, Cancel, and Reject Operations
 
 **Version:** 1.0

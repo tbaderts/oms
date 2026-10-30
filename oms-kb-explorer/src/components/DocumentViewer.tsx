@@ -5,14 +5,32 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FileText, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { kbApi } from '../services/api';
+import { stripFrontMatter } from '../utils/frontMatter';
+import { resolveDocLink, slugify } from '../okf/links';
+import DocumentHeader from './DocumentHeader';
 import MermaidDiagram from './MermaidDiagram';
 
 interface DocumentViewerProps {
   selectedDoc: string | null;
-  searchQuery?: string;
+  anchor?: string;
+  onSelectDoc: (path: string, anchor?: string) => void;
 }
 
-export default function DocumentViewer({ selectedDoc, searchQuery }: DocumentViewerProps) {
+/** Plain text of a heading's children (inline code and emphasis included). */
+function textOf(children: React.ReactNode): string {
+  if (typeof children === 'string' || typeof children === 'number') return String(children);
+  if (Array.isArray(children)) return children.map(textOf).join('');
+  if (children && typeof children === 'object' && 'props' in children) {
+    return textOf((children as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return '';
+}
+
+function scrollToAnchor(anchor: string) {
+  window.document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: DocumentViewerProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
@@ -21,6 +39,16 @@ export default function DocumentViewer({ selectedDoc, searchQuery }: DocumentVie
     queryFn: () => (selectedDoc ? kbApi.readDocument(selectedDoc) : null),
     enabled: !!selectedDoc,
   });
+  const { data: documents } = useQuery({ queryKey: ['documents'], queryFn: () => kbApi.listDocuments() });
+  const meta = documents?.find((d) => d.path === selectedDoc);
+
+  // Scroll to the requested anchor once the document is rendered
+  useEffect(() => {
+    if (document && anchor) {
+      const timer = setTimeout(() => scrollToAnchor(anchor), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [document, anchor]);
 
   // Detect theme changes from parent element
   useEffect(() => {
@@ -89,52 +117,56 @@ export default function DocumentViewer({ selectedDoc, searchQuery }: DocumentVie
 
   return (
     <div className="max-w-4xl mx-auto p-8">
+      <DocumentHeader doc={meta} onSelectDoc={(path) => onSelectDoc(path)} />
       <div className="markdown-content">
         <ReactMarkdown
           components={{
-            // Add IDs to headings for TOC navigation
-            h1: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h1 id={id} {...props}>{children}</h1>;
+            // Add IDs to headings for TOC navigation and in-document anchors
+            h1: ({ children, ...props }) => <h1 id={slugify(textOf(children))} {...props}>{children}</h1>,
+            h2: ({ children, ...props }) => <h2 id={slugify(textOf(children))} {...props}>{children}</h2>,
+            h3: ({ children, ...props }) => <h3 id={slugify(textOf(children))} {...props}>{children}</h3>,
+            h4: ({ children, ...props }) => <h4 id={slugify(textOf(children))} {...props}>{children}</h4>,
+            h5: ({ children, ...props }) => <h5 id={slugify(textOf(children))} {...props}>{children}</h5>,
+            h6: ({ children, ...props }) => <h6 id={slugify(textOf(children))} {...props}>{children}</h6>,
+            // Links inside the bundle open in the explorer; external links in a new tab
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            a: ({ node, href, children, ...props }) => {
+              const link = resolveDocLink(selectedDoc, href ?? '');
+              if (link?.kind === 'external') {
+                return <a href={link.href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+              }
+              if (link?.kind === 'anchor' || link?.kind === 'doc') {
+                return (
+                  <a
+                    href={link.kind === 'anchor' ? `#${link.anchor}` : `#${link.path}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (link.kind === 'anchor') scrollToAnchor(link.anchor);
+                      else onSelectDoc(link.path, link.anchor);
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              }
+              return <span title={href} className="underline decoration-dotted">{children}</span>;
             },
-            h2: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h2 id={id} {...props}>{children}</h2>;
-            },
-            h3: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h3 id={id} {...props}>{children}</h3>;
-            },
-            h4: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h4 id={id} {...props}>{children}</h4>;
-            },
-            h5: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h5 id={id} {...props}>{children}</h5>;
-            },
-            h6: ({ children, ...props }) => {
-              const text = String(children);
-              const id = text.toLowerCase().replace(/\s+/g, '-');
-              return <h6 id={id} {...props}>{children}</h6>;
-            },
-            code({ node, inline, className, children, ...props }) {
+            // react-markdown v10 no longer passes `inline`; fenced blocks are the ones with a language class.
+            // `node`, `style` and `ref` are pulled out so they are not spread onto SyntaxHighlighter.
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            code({ node, className, children, style, ref, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               const codeString = String(children).replace(/\n$/, '');
               const language = match?.[1];
 
               // Render Mermaid diagrams
-              if (!inline && language === 'mermaid') {
+              if (language === 'mermaid') {
                 return <MermaidDiagram chart={codeString} theme={theme} />;
               }
 
               // Render syntax-highlighted code
-              return !inline && match ? (
+              return match ? (
                 <div className="relative group">
                   <button
                     onClick={() => handleCopyCode(codeString)}
@@ -157,14 +189,14 @@ export default function DocumentViewer({ selectedDoc, searchQuery }: DocumentVie
                   </SyntaxHighlighter>
                 </div>
               ) : (
-                <code className={className} {...props}>
+                <code className={className} style={style} {...props}>
                   {children}
                 </code>
               );
             },
           }}
         >
-          {document.content}
+          {stripFrontMatter(document.content)}
         </ReactMarkdown>
       </div>
     </div>

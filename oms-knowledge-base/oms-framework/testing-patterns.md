@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Testing Patterns Specification"
+description: "Testing conventions for the OMS: unit, integration and end-to-end tiers, fixtures and Testcontainers."
+tags: [testing, junit, testcontainers]
+status: stable
+version: "1.0"
+updated: "2026-02-16T00:00:00Z"
+---
 # Testing Patterns Specification
 
 **Version:** 1.0

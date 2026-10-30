@@ -2,6 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { MermaidDiagram } from './MermaidDiagram';
 
 interface MarkdownContentProps {
   content: string;
@@ -23,6 +24,9 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
           ol: ({ children }) => <ol className="mb-3 list-decimal pl-6 space-y-1">{children}</ol>,
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
           code: ({ className, children, ...props }) => {
+            if (MERMAID_CLASS.test(className ?? '')) {
+              return <MermaidDiagram source={textOf(children).replace(/\n$/, '')} />;
+            }
             const isBlock = className?.includes('language-');
             if (isBlock) {
               return (
@@ -33,7 +37,11 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
             }
             return <code className="rounded bg-muted px-1.5 py-0.5 text-sm" {...props}>{children}</code>;
           },
-          pre: ({ children }) => <pre className="mb-3 overflow-x-auto rounded-lg bg-muted">{children}</pre>,
+          pre: ({ children }) =>
+            // A diagram is not preformatted text: render it without the code block's <pre>.
+            isMermaidCode(children)
+              ? children
+              : <pre className="mb-3 overflow-x-auto rounded-lg bg-muted">{children}</pre>,
           table: ({ children }) => (
             <div className="mb-3 overflow-x-auto">
               <table className="w-full border-collapse border border-border text-sm">{children}</table>
@@ -53,6 +61,19 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
       </ReactMarkdown>
     </div>
   );
+}
+
+const MERMAID_CLASS = /\blanguage-mermaid\b/;
+
+function isMermaidCode(children: React.ReactNode): boolean {
+  return React.isValidElement<{ className?: string }>(children) && MERMAID_CLASS.test(children.props.className ?? '');
+}
+
+function textOf(children: React.ReactNode): string {
+  return React.Children.toArray(children)
+    .map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c)
+      : React.isValidElement<{ children?: React.ReactNode }>(c) ? textOf(c.props.children) : ''))
+    .join('');
 }
 
 function headingId(children: React.ReactNode): string {

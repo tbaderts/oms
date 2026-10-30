@@ -39,7 +39,7 @@ App starts, sidebar navigates between placeholder views, settings are persisted,
 - [ ] Build Knowledge Base view:
   - [ ] Category tree (left panel)
   - [ ] Document viewer with markdown rendering
-  - [ ] Mermaid diagram support
+  - [x] Mermaid diagram support
   - [ ] Auto-generated table of contents
   - [ ] Metadata banner (status, author, version, tags)
   - [ ] Search bar with results

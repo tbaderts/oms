@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutDashboard, FileCode, Globe,
-  GitBranch, GitMerge, BookOpen, ClipboardList, FolderOpen,
+  GitBranch, GitMerge, BookOpen, ClipboardList, Clapperboard, FolderOpen,
   Container, Ship, Activity, Bot, Settings, ListChecks,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { useNavigationStore, NAV_ITEMS, type ViewId } from '@/stores/navigation'
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   LayoutDashboard, FileCode, Globe,
-  GitBranch, GitMerge, BookOpen, ClipboardList, FolderOpen,
+  GitBranch, GitMerge, BookOpen, ClipboardList, Clapperboard, FolderOpen,
   Container, Ship, Activity, Bot, Settings, ListChecks,
 };
 

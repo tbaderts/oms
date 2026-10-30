@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { List } from 'lucide-react';
 import { kbApi } from '../services/api';
+import { slugify } from '../okf/links';
 
 interface TableOfContentsProps {
   documentPath: string;
@@ -40,7 +41,7 @@ export default function TableOfContents({ documentPath }: TableOfContentsProps) 
         {sections.map((section, index) => (
           <a
             key={index}
-            href={`#${section.title.toLowerCase().replace(/\s+/g, '-')}`}
+            href={`#${slugify(section.title)}`}
             className={`block py-1 text-sm transition-colors hover:text-blue-600 dark:hover:text-blue-400 ${
               section.level === 2
                 ? 'text-gray-700 dark:text-gray-300 font-medium'

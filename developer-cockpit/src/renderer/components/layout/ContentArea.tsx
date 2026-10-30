@@ -6,6 +6,7 @@ import { PlaceholderView } from '@/components/PlaceholderView';
 const DashboardView = lazy(() => import('@/views/dashboard/DashboardView').then(m => ({ default: m.DashboardView })));
 const SettingsView = lazy(() => import('@/views/settings/SettingsView').then(m => ({ default: m.SettingsView })));
 const KnowledgeBaseView = lazy(() => import('@/views/knowledge-base/KnowledgeBaseView').then(m => ({ default: m.KnowledgeBaseView })));
+const StoryboardsView = lazy(() => import('@/views/storyboards/StoryboardsView').then(m => ({ default: m.StoryboardsView })));
 const RequirementsView = lazy(() => import('@/views/requirements/RequirementsView').then(m => ({ default: m.RequirementsView })));
 const FileExplorerView = lazy(() => import('@/views/file-explorer/FileExplorerView').then(m => ({ default: m.FileExplorerView })));
 const GitOverviewView = lazy(() => import('@/views/git-overview/GitOverviewView').then(m => ({ default: m.GitOverviewView })));
@@ -20,6 +21,7 @@ const VIEW_MAP: Record<ViewId, React.LazyExoticComponent<React.FC>> = {
   settings: SettingsView,
   'knowledge-base': KnowledgeBaseView,
   requirements: RequirementsView,
+  storyboards: StoryboardsView,
   'file-explorer': FileExplorerView,
   contracts: ContractsView,
   'api-explorer': ApiExplorerView,

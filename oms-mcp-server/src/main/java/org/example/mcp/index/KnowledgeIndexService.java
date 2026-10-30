@@ -39,7 +39,10 @@ import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.QueryBuilder;
+import org.example.mcp.docs.ConceptLinks;
+import org.example.mcp.docs.DocumentFileUtils;
 import org.example.mcp.docs.DocumentRepository;
+import org.example.mcp.docs.OkfMetadata;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -74,10 +77,13 @@ public class KnowledgeIndexService {
     private static final String FIELD_VECTOR = "vector";
     private static final String FIELD_CATEGORY_FILTER = "category_f";
     private static final String FIELD_STATUS_FILTER = "status_f";
+    private static final String FIELD_TYPE_FILTER = "type_f";
+    private static final String FIELD_TAG_FILTER = "tag_f";
 
     private final DocumentRepository documentRepository;
     private final SectionChunker sectionChunker;
     private final EmbeddingService embeddingService;
+    private final ConceptLinks conceptLinks;
     private final Analyzer analyzer = new EnglishAnalyzer();
 
     private volatile Snapshot snapshot;
@@ -89,10 +95,12 @@ public class KnowledgeIndexService {
 
     public KnowledgeIndexService(DocumentRepository documentRepository,
                                  SectionChunker sectionChunker,
-                                 EmbeddingService embeddingService) {
+                                 EmbeddingService embeddingService,
+                                 ConceptLinks conceptLinks) {
         this.documentRepository = documentRepository;
         this.sectionChunker = sectionChunker;
         this.embeddingService = embeddingService;
+        this.conceptLinks = conceptLinks;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -107,7 +115,11 @@ public class KnowledgeIndexService {
     /** (Re)build the index from the knowledge base. Safe to call at any time. */
     public synchronized IndexStats rebuild() {
         long startNanos = System.nanoTime();
-        List<Path> files = documentRepository.findAllDocFiles();
+        conceptLinks.invalidate();
+        // OKF reserved files (index.md, log.md) are navigation, not concepts: readable, not searchable
+        List<Path> files = documentRepository.findAllDocFiles().stream()
+                .filter(f -> !DocumentFileUtils.isReserved(f))
+                .toList();
         List<SectionChunk> chunks = new ArrayList<>();
         long totalBytes = 0;
         for (Path file : files) {
@@ -181,16 +193,31 @@ public class KnowledgeIndexService {
      * Fusion, de-duplicated by citation (one hit per section).
      */
     public SearchResponse search(String query, int topK, String category, String status) {
-        return search(query, topK, category, status, SearchMode.HYBRID);
+        return search(query, topK, category, status, null, null, SearchMode.HYBRID);
     }
 
     public SearchResponse search(String query, int topK, String category, String status, SearchMode mode) {
+        return search(query, topK, category, status, null, null, mode);
+    }
+
+    public SearchResponse search(String query, int topK, String category, String status, String type, String tag) {
+        return search(query, topK, category, status, type, tag, SearchMode.HYBRID);
+    }
+
+    /**
+     * Searches the index. Every non-blank filter must match: {@code category} (bold header),
+     * {@code status} (OKF value; legacy header values are mapped, see
+     * {@link OkfMetadata#normalizeStatus}), {@code type} (OKF concept type) and {@code tag}.
+     * All filters are case-insensitive.
+     */
+    public SearchResponse search(String query, int topK, String category, String status,
+                                 String type, String tag, SearchMode mode) {
         Snapshot snap = snapshot;
         if (snap == null) {
             return new SearchResponse(List.of(), 0, false);
         }
         int candidates = Math.max(50, topK * 10);
-        Query filter = buildFilter(category, status);
+        Query filter = buildFilter(category, status, type, tag);
 
         List<ScoreDoc> keywordDocs = mode == SearchMode.SEMANTIC
                 ? List.of() : searchBm25(snap.searcher(), query, filter, candidates);
@@ -282,20 +309,22 @@ public class KnowledgeIndexService {
         }
     }
 
-    private static Query buildFilter(String category, String status) {
+    private static Query buildFilter(String category, String status, String type, String tag) {
         BooleanQuery.Builder builder = new BooleanQuery.Builder();
         boolean any = false;
-        if (category != null && !category.isBlank()) {
-            builder.add(new TermQuery(new Term(FIELD_CATEGORY_FILTER,
-                    category.trim().toLowerCase(Locale.ROOT))), BooleanClause.Occur.FILTER);
-            any = true;
-        }
-        if (status != null && !status.isBlank()) {
-            builder.add(new TermQuery(new Term(FIELD_STATUS_FILTER,
-                    status.trim().toLowerCase(Locale.ROOT))), BooleanClause.Occur.FILTER);
-            any = true;
-        }
+        any |= addFilter(builder, FIELD_CATEGORY_FILTER, category);
+        any |= addFilter(builder, FIELD_STATUS_FILTER, status == null ? null : OkfMetadata.normalizeStatus(status));
+        any |= addFilter(builder, FIELD_TYPE_FILTER, type);
+        any |= addFilter(builder, FIELD_TAG_FILTER, tag);
         return any ? builder.build() : null;
+    }
+
+    private static boolean addFilter(BooleanQuery.Builder builder, String field, String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        builder.add(new TermQuery(new Term(field, value.trim().toLowerCase(Locale.ROOT))), BooleanClause.Occur.FILTER);
+        return true;
     }
 
     private static Document toLuceneDoc(SectionChunk chunk, float[] vector) {
@@ -316,8 +345,18 @@ public class KnowledgeIndexService {
         }
         if (chunk.status() != null) {
             doc.add(new StringField(FIELD_STATUS_FILTER,
-                    chunk.status().toLowerCase(Locale.ROOT), Field.Store.NO));
+                    OkfMetadata.normalizeStatus(chunk.status()), Field.Store.NO));
             doc.add(new StoredField("status", chunk.status()));
+        }
+        if (chunk.type() != null) {
+            doc.add(new StringField(FIELD_TYPE_FILTER, chunk.type().toLowerCase(Locale.ROOT), Field.Store.NO));
+            doc.add(new StoredField("type", chunk.type()));
+        }
+        for (String tag : chunk.tags()) {
+            doc.add(new StringField(FIELD_TAG_FILTER, tag.toLowerCase(Locale.ROOT), Field.Store.NO));
+        }
+        if (chunk.trustTier() != null) {
+            doc.add(new StoredField("trust", chunk.trustTier()));
         }
         if (vector != null) {
             doc.add(new KnnFloatVectorField(FIELD_VECTOR, vector, VectorSimilarityFunction.COSINE));
@@ -340,6 +379,8 @@ public class KnowledgeIndexService {
                 doc.get("text"),
                 doc.get("category"),
                 doc.get("status"),
+                doc.get("type"),
+                doc.get("trust"),
                 fused.score,
                 fused.keywordRank,
                 fused.vectorRank);
@@ -370,7 +411,7 @@ public class KnowledgeIndexService {
 
     public record SearchHit(String path, String anchor, String citation, String breadcrumb,
                             String title, int startLine, int endLine, String text,
-                            String category, String status,
+                            String category, String status, String type, String trustTier,
                             double score, Integer keywordRank, Integer vectorRank) {
     }
 

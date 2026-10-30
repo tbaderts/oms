@@ -1,3 +1,10 @@
+---
+type: Methodology
+title: "Agent Profile: Java Backend Developer (OMS - Trading Environment)"
+description: "Role profile of a senior Java backend developer on the OMS: responsibilities, skills and working practices."
+tags: [role-profile, java, backend]
+status: draft
+---
 # Agent Profile: Java Backend Developer (OMS - Trading Environment)
 
 **Role:** Senior Java Backend Developer

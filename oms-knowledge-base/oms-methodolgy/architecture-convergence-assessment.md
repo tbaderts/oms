@@ -1,3 +1,11 @@
+---
+type: Assessment
+title: "OMS Architecture Convergence Assessment"
+description: "Whether and how two teams building similar OMS cores on different architectures should converge."
+tags: [architecture, convergence, decision]
+status: draft
+updated: "2026-10-08T00:00:00Z"
+---
 # OMS Architecture Convergence Assessment
 
 **Status:** Draft for discussion

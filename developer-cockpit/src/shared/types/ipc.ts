@@ -24,6 +24,17 @@ import type {
   SpecTicketDetail,
   SpecTicketList,
 } from './specTickets';
+import type {
+  AiAssistKind,
+  AiProposal,
+  LinkIndex,
+  ScanResult,
+  StoryboardDetail,
+  StoryboardResult,
+  StepPatch,
+  StoryPatch,
+  Lane,
+} from './storyboards';
 
 export interface CockpitAPI {
   // Config
@@ -113,6 +124,29 @@ export interface CockpitAPI {
     templates(): Promise<TemplateSource[]>;
     /** Appends a template to a listed source, or creates a new file in the shared folder. */
     saveTemplate(req: SaveTemplateRequest): Promise<SaveTemplateResult>;
+  };
+
+  // Storyboards (SPEC-0014). No method takes a filesystem path: storyboards are named by id, roots by rootId.
+  storyboards: {
+    scan(): Promise<ScanResult>;
+    detail(id: string): Promise<StoryboardResult<{ detail: StoryboardDetail }>>;
+    create(input: { rootId: string; domain: string; title: string; lanes: Lane[]; stepTitles: string[] }): Promise<StoryboardResult<{ id: string }>>;
+    saveStory(id: string, patch: StoryPatch, body: string, revision: string): Promise<StoryboardResult<{ revision: string; changed: boolean }>>;
+    createStep(id: string, title: string, afterStepId: string | null, revision: string): Promise<StoryboardResult<{ stepId: string; revision: string }>>;
+    saveStep(id: string, stepId: string, patch: StepPatch, body: string, revision: string): Promise<StoryboardResult<{ revision: string; changed: boolean }>>;
+    deleteStep(id: string, stepId: string, deleteAssets: boolean, revision: string): Promise<StoryboardResult<{ revision: string; deleted: string[] }>>;
+    reorder(id: string, stepIds: string[], revision: string): Promise<StoryboardResult<{ revision: string }>>;
+    saveIllustration(id: string, name: string, svg: string): Promise<StoryboardResult<{ name: string; url: string }>>;
+    /** The text of an editable *.excalidraw.svg, for reopening it in the editor. */
+    readIllustration(id: string, name: string): Promise<StoryboardResult<{ svg: string }>>;
+    library(id: string): Promise<StoryboardResult<{ library: string | null }>>;
+    links(): Promise<LinkIndex>;
+    backlinks(target: string): Promise<{ id: string; title: string }[]>;
+    exportMermaid(id: string, extensions: boolean, save: boolean): Promise<StoryboardResult<{ source: string; savedTo?: string }>>;
+    exportHtml(id: string, sequenceSvg: string | undefined, save: boolean): Promise<StoryboardResult<{ html: string; savedTo?: string }>>;
+    exportPdf(id: string, sequenceSvg: string | undefined): Promise<StoryboardResult<{ savedTo: string | null }>>;
+    aiAvailable(): Promise<boolean>;
+    aiAssist(kind: AiAssistKind, id: string, stepId: string): Promise<StoryboardResult<{ proposal: AiProposal }>>;
   };
 
   // Events

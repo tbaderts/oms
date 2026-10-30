@@ -35,7 +35,7 @@ Node.js Server (Express/Fastify)
 | **Charts** | Recharts or Nivo | React-native charting with good defaults |
 | **Code editor** | Monaco Editor (@monaco-editor/react) | Same engine as VS Code, syntax highlighting, SQL autocomplete |
 | **Terminal** | xterm.js | Industry standard terminal emulator for the web |
-| **Markdown** | react-markdown + remark-gfm + rehype-mermaid | GFM rendering with Mermaid diagram support |
+| **Markdown** | react-markdown + remark-gfm + rehype-highlight + mermaid (client-side, loaded lazily) | GFM rendering with Mermaid diagram support; `rehype-mermaid` was rejected because it renders through a headless browser (SPEC-0013) |
 | **Gantt chart** | dhtmlx-gantt, frappe-gantt, or custom with D3 | Interactive timeline visualization |
 | **Backend** | Express 5 or Fastify | Mature, extensible HTTP framework |
 | **PTY** | node-pty | Pseudo-terminal for AI CLI sessions |

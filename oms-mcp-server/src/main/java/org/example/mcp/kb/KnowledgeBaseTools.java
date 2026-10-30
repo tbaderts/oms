@@ -1,15 +1,20 @@
 package org.example.mcp.kb;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.example.mcp.docs.ConceptLinks;
+import org.example.mcp.docs.ConceptLinks.Link;
 import org.example.mcp.docs.DocumentRepository;
 import org.example.mcp.docs.DocumentRepository.DocMeta;
 import org.example.mcp.docs.MarkdownAnchors;
 import org.example.mcp.docs.MarkdownParser;
 import org.example.mcp.docs.MarkdownParser.DocSection;
+import org.example.mcp.docs.FrontMatter;
+import org.example.mcp.docs.OkfMetadata;
 import org.example.mcp.index.KnowledgeIndexService;
 import org.example.mcp.index.KnowledgeIndexService.IndexStats;
 import org.example.mcp.index.KnowledgeIndexService.SearchHit;
@@ -46,13 +51,16 @@ public class KnowledgeBaseTools {
     private final KnowledgeIndexService index;
     private final DocumentRepository documentRepository;
     private final MarkdownParser markdownParser;
+    private final ConceptLinks conceptLinks;
 
     public KnowledgeBaseTools(KnowledgeIndexService index,
                               DocumentRepository documentRepository,
-                              MarkdownParser markdownParser) {
+                              MarkdownParser markdownParser,
+                              ConceptLinks conceptLinks) {
         this.index = index;
         this.documentRepository = documentRepository;
         this.markdownParser = markdownParser;
+        this.conceptLinks = conceptLinks;
     }
 
     // ------------------------------------------------------------------
@@ -65,15 +73,21 @@ public class KnowledgeBaseTools {
             Returns the most relevant sections with stable citations of the form 'path#anchor'. \
             To read a result in full, pass its path and anchor to readKnowledgeBase. \
             Call getKnowledgeBaseOverview first in a session to see what documentation exists. \
-            Optional filters: category (e.g. 'framework', 'concepts') and status (e.g. 'Complete', 'Draft').""")
-    public String searchKnowledgeBase(String query, Integer topK, String category, String status) {
-        log.info("[MCP] searchKnowledgeBase query='{}' topK={} category={} status={}",
-                query, topK, category, status);
+            Each hit states the document's type, status and trust tier (unverified, machine-confirmed, \
+            human-reviewed). Optional filters, all must match: \
+            type (OKF concept type, e.g. 'Capability', 'Requirement', 'Specification', 'Interface', 'Decision'), \
+            tag (one tag, e.g. 'order-lifecycle'), \
+            status ('draft', 'stable', 'deprecated'; legacy 'Active'/'Complete' mean stable, 'Draft' means draft) \
+            and category (legacy header category).""")
+    public String searchKnowledgeBase(String query, Integer topK, String category, String status,
+                                      String type, String tag) {
+        log.info("[MCP] searchKnowledgeBase query='{}' topK={} category={} status={} type={} tag={}",
+                query, topK, category, status, type, tag);
         if (!StringUtils.hasText(query)) {
             return "Error: query must not be empty.";
         }
         int k = topK == null || topK <= 0 ? DEFAULT_TOP_K : Math.min(topK, MAX_TOP_K);
-        SearchResponse response = index.search(query, k, category, status);
+        SearchResponse response = index.search(query, k, category, status, type, tag);
 
         StringBuilder md = new StringBuilder();
         md.append("## Knowledge base search: \"").append(query).append("\"\n");
@@ -94,9 +108,10 @@ public class KnowledgeBaseTools {
         for (SearchHit hit : response.hits()) {
             md.append("### ").append(i++).append(". `").append(hit.citation()).append("`\n");
             md.append("**").append(hit.breadcrumb()).append("**");
-            md.append(" (lines ").append(hit.startLine()).append("-").append(hit.endLine());
-            if (hit.status() != null) md.append(", status: ").append(hit.status());
-            md.append(")\n\n");
+            md.append(" (lines ").append(hit.startLine()).append("-").append(hit.endLine()).append(")");
+            String facets = facets(hit.type(), hit.status(), hit.trustTier());
+            if (!facets.isEmpty()) md.append(" — ").append(facets);
+            md.append("\n\n");
             md.append(quote(excerpt(hit.text()))).append("\n\n");
         }
 
@@ -118,24 +133,30 @@ public class KnowledgeBaseTools {
             'path' is a document path as returned by searchKnowledgeBase or getKnowledgeBaseOverview \
             (e.g. 'oms-knowledge-base/oms-framework/domain-model_spec.md'). \
             'anchor' (optional) selects one section by its anchor from a citation 'path#anchor' \
-            (a section title also works). Without an anchor the whole document is returned \
-            with its section outline; use offset/limit (characters) to paginate very long documents.""")
+            (a section title also works). Without an anchor the whole document is returned: \
+            first its metadata (type, status, trust tier, tags, description), then the body with its \
+            section outline, then its outgoing links and the documents that cite it. \
+            Use offset/limit (characters of the body) to paginate very long documents.""")
     public String readKnowledgeBase(String path, String anchor, Integer offset, Integer limit) {
         log.info("[MCP] readKnowledgeBase path={} anchor={} offset={} limit={}", path, anchor, offset, limit);
         if (!StringUtils.hasText(path)) {
             return "Error: path must be provided.";
         }
-        String content;
+        String raw;
         try {
-            content = documentRepository.readContent(path.trim());
+            raw = documentRepository.readContent(path.trim());
         } catch (Exception e) {
             return "Error: " + e.getMessage() + "\nUse getKnowledgeBaseOverview() to list valid paths.";
         }
+        FrontMatter frontMatter = FrontMatter.parse(raw);
+        // The body keeps the file's line numbers: front matter lines are blank, not removed
+        String body = frontMatter.blankedContent();
 
         if (StringUtils.hasText(anchor)) {
-            return readSection(path.trim(), content, anchor.trim());
+            return readSection(path.trim(), body, anchor.trim());
         }
-        return readWholeDoc(path.trim(), content, offset, limit);
+        OkfMetadata okf = OkfMetadata.derive(frontMatter, markdownParser.extractMetadata(raw), Instant.now());
+        return readWholeDoc(path.trim(), body, okf, offset, limit);
     }
 
     private String readSection(String path, String content, String anchor) {
@@ -174,7 +195,9 @@ public class KnowledgeBaseTools {
         return md.toString();
     }
 
-    private String readWholeDoc(String path, String content, Integer offset, Integer limit) {
+    private String readWholeDoc(String path, String body, OkfMetadata okf, Integer offset, Integer limit) {
+        // Offsets count characters of the body without the (blanked) front matter lines
+        String content = body.stripLeading();
         int length = content.length();
         int from = offset == null ? 0 : Math.clamp(offset, 0, length);
         int to = limit == null ? length : Math.clamp((long) from + Math.max(0, limit), from, length);
@@ -186,10 +209,14 @@ public class KnowledgeBaseTools {
             md.append(" (characters ").append(from).append("-").append(to).append(" of ").append(length).append(")");
         }
         md.append("\n\n");
+        if (from == 0) {
+            md.append(metadataHeader(okf));
+        }
         md.append(slice);
 
         if (from == 0 && to == length) {
-            List<DocSection> sections = markdownParser.extractSections(content);
+            md.append(linksSection(path));
+            List<DocSection> sections = markdownParser.extractSections(body);
             List<String> anchors = MarkdownAnchors.assignAnchors(sections);
             if (!sections.isEmpty()) {
                 md.append("\n\n---\n**Section outline** (use `readKnowledgeBase(path, anchor)` to re-read one):\n");
@@ -211,13 +238,14 @@ public class KnowledgeBaseTools {
     // ------------------------------------------------------------------
 
     @Tool(name = "getKnowledgeBaseOverview", description = """
-            Get an index of the whole OMS knowledge base: every document with its metadata \
-            (version, status, category), a one-line summary and its top-level sections with anchors. \
+            Get an index of the whole OMS knowledge base: every concept with its metadata \
+            (type, status, trust tier, staleness, version), a one-line description and its top-level \
+            sections with anchors. Navigation files (index.md, log.md) are left out. \
             Call this once at the start of a session for orientation, then use searchKnowledgeBase \
             for questions and readKnowledgeBase to read documents or sections.""")
     public String getKnowledgeBaseOverview() {
         log.info("[MCP] getKnowledgeBaseOverview");
-        List<DocMeta> docs = documentRepository.listAll();
+        List<DocMeta> docs = documentRepository.listAll().stream().filter(DocMeta::concept).toList();
         IndexStats stats = index.getStats();
 
         StringBuilder md = new StringBuilder();
@@ -243,17 +271,26 @@ public class KnowledgeBaseTools {
         for (Map.Entry<String, List<DocMeta>> group : groups.entrySet()) {
             md.append("## ").append(group.getKey()).append("\n\n");
             for (DocMeta doc : group.getValue()) {
-                md.append("### `").append(doc.path()).append("`\n");
+                OkfMetadata okf = doc.okf();
+                md.append("### ");
+                if (okf != null && okf.title() != null) md.append(okf.title()).append(" — ");
+                md.append("`").append(doc.path()).append("`\n");
                 List<String> meta = new ArrayList<>();
+                String facets = okf == null ? facets(null, doc.status(), null)
+                        : facets(okf.type(), doc.status(), okf.trustTier());
+                if (!facets.isEmpty()) meta.add(facets);
+                if (okf != null && okf.stale()) meta.add("STALE");
                 if (doc.version() != null) meta.add("v" + doc.version());
-                if (doc.status() != null) meta.add(doc.status());
                 if (doc.category() != null) meta.add(doc.category());
                 meta.add((doc.size() / 1024) + " KB");
                 md.append("_").append(String.join(" · ", meta)).append("_\n");
+                String keys = projectKeys(okf);
+                if (!keys.isEmpty()) md.append(keys).append("\n");
 
                 try {
-                    String content = documentRepository.readContent(doc.path());
-                    String summary = summarize(content);
+                    String content = documentRepository.readBody(doc.path());
+                    String summary = okf != null && okf.description() != null
+                            ? okf.description() : summarize(content);
                     if (!summary.isEmpty()) {
                         md.append(summary).append("\n");
                     }
@@ -278,6 +315,79 @@ public class KnowledgeBaseTools {
     }
 
     // ----- helpers -----
+
+    /** "Capability · draft · unverified": the facets that are known, joined. */
+    private static String facets(String type, String status, String trustTier) {
+        List<String> parts = new ArrayList<>();
+        if (type != null) parts.add(type);
+        if (status != null) parts.add(status);
+        if (trustTier != null) parts.add(trustTier);
+        return String.join(" · ", parts);
+    }
+
+    /** "Tags: a, b · Maturity: … · Id: … · Priority: … · Implementation: … · Capability: … · Updated: …" */
+    private static String projectKeys(OkfMetadata okf) {
+        if (okf == null) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        if (!okf.tags().isEmpty()) parts.add("Tags: " + String.join(", ", okf.tags()));
+        if (okf.maturity() != null) parts.add("Maturity: " + okf.maturity());
+        if (okf.id() != null) parts.add("Id: " + okf.id());
+        if (okf.priority() != null) parts.add("Priority: " + okf.priority());
+        if (okf.implementation() != null) parts.add("Implementation: " + okf.implementation());
+        if (okf.capability() != null) parts.add("Capability: " + okf.capability());
+        if (okf.updated() != null) parts.add("Updated: " + okf.updated());
+        return String.join(" · ", parts);
+    }
+
+    /** The OKF metadata as a short markdown block, shown before the body of a whole-document read. */
+    private static String metadataHeader(OkfMetadata okf) {
+        if (okf == null || okf.type() == null) {
+            return "";
+        }
+        List<String> fields = new ArrayList<>();
+        fields.add("**Type:** " + okf.type());
+        fields.add("**Status:** " + okf.status());
+        fields.add("**Trust:** " + okf.trustTier());
+        if (okf.stale()) fields.add("**Stale** since " + okf.staleAfter());
+        if (okf.version() != null) fields.add("**Version:** " + okf.version());
+        if (okf.updated() != null) fields.add("**Updated:** " + okf.updated());
+        if (okf.maturity() != null) fields.add("**Maturity:** " + okf.maturity());
+        if (okf.id() != null) fields.add("**Id:** " + okf.id());
+        if (okf.priority() != null) fields.add("**Priority:** " + okf.priority());
+        if (okf.implementation() != null) fields.add("**Implementation:** " + okf.implementation());
+        if (okf.capability() != null) fields.add("**Capability:** " + okf.capability());
+        if (!okf.tags().isEmpty()) fields.add("**Tags:** " + String.join(", ", okf.tags()));
+        StringBuilder md = new StringBuilder(String.join(" · ", fields)).append("\n\n");
+        if (okf.description() != null) {
+            md.append("> ").append(okf.description()).append("\n\n");
+        }
+        return md.toString();
+    }
+
+    /** Outgoing links (broken ones marked) and backlinks of a document. */
+    private String linksSection(String path) {
+        List<Link> outgoing = conceptLinks.outgoing(path);
+        List<String> backlinks = conceptLinks.backlinks(path);
+        if (outgoing.isEmpty() && backlinks.isEmpty()) {
+            return "";
+        }
+        StringBuilder md = new StringBuilder("\n\n---\n");
+        if (!outgoing.isEmpty()) {
+            md.append("### Links\n");
+            for (Link link : outgoing) {
+                md.append("- `").append(link.target()).append("`").append(link.exists() ? "" : " (broken)").append("\n");
+            }
+        }
+        if (!backlinks.isEmpty()) {
+            md.append("### Cited by\n");
+            for (String source : backlinks) {
+                md.append("- `").append(source).append("`\n");
+            }
+        }
+        return md.toString();
+    }
 
     private static String groupOf(String path) {
         // "oms-knowledge-base/oms-framework/x.md" -> "oms-framework"

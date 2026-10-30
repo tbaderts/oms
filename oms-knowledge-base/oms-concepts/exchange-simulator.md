@@ -1,3 +1,12 @@
+---
+type: Specification
+title: "Exchange Simulator"
+description: "FIX exchange simulator that acknowledges, fills, rejects and cancels OMS market orders so the lifecycle can run end to end."
+tags: [exchange-simulator, fix, testing]
+status: stable
+version: "1.0"
+updated: "2026-10-24T00:00:00Z"
+---
 # Exchange Simulator
 
 **Version:** 1.0

@@ -1,3 +1,5 @@
+import { DEFAULT_STORYBOARDS_CONFIG, type StoryboardsConfig } from './storyboards';
+
 export interface CockpitConfig {
   general: GeneralConfig;
   scm: ScmConfig;
@@ -5,6 +7,7 @@ export interface CockpitConfig {
   knowledgeBase: KnowledgeBaseConfig;
   infrastructure: InfrastructureConfig;
   specs: SpecsConfig;
+  storyboards: StoryboardsConfig;
 }
 
 export interface GeneralConfig {
@@ -98,4 +101,5 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     avroPaths: ['oms-contracts/src/main/avro'],
     autoGenerate: false,
   },
+  storyboards: { ...DEFAULT_STORYBOARDS_CONFIG, roots: [...DEFAULT_STORYBOARDS_CONFIG.roots] },
 };
