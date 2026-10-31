@@ -58,6 +58,8 @@ kafka:
   enabled: ${KAFKA_ENABLED:false}
   order-topic: ${ORDER_TOPIC:oms_orders}
   execution-topic: ${EXECUTION_TOPIC:oms_executions}
+  # One record per fill with the order it changed, keyed by rootOrderId (SPEC-0019).
+  order-execution-topic: ${ORDER_EXECUTION_TOPIC:oms_order_executions}
   command-topic: ${COMMAND_TOPIC:commands}
   send-timeout-seconds: ${KAFKA_SEND_TIMEOUT_SECONDS:10}
   consumer:
@@ -78,7 +80,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info,prometheus,metrics,projections
   tracing:
     sampling:
       probability: 0.1

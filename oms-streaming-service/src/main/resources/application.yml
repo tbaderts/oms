@@ -28,7 +28,8 @@ streaming:
   kafka:
     topics:
       orders: ${ORDER_TOPIC:oms_orders}
-      executions: ${EXECUTION_TOPIC:oms_executions}
+      # Fills with their order (SPEC-0019); oms_executions is no longer read here.
+      order-executions: ${ORDER_EXECUTION_TOPIC:oms_order_executions}
     enabled: ${KAFKA_ENABLED:true}
   
   # OMS Core Query API configuration for initial snapshot

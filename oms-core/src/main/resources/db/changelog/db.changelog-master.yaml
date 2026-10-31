@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/005-order-reject-reason.yaml
   - include:
       file: db/changelog/006-order-event-command-id.yaml
+  - include:
+      file: db/changelog/007-projections.yaml

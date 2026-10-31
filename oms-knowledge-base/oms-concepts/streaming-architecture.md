@@ -214,6 +214,7 @@ graph BT
     *   The backend retrieves all entities matching the specified filter from the database or query engine. This provides an initial snapshot of the data.
     *   The retrieval uses reactive data access technologies to avoid blocking the event loop.
 3.  **Kafka Event Subscription:** The backend subscribes to the relevant Kafka topics (e.g., `order-events`, `execution-events`) to receive real-time updates.
+    *   *As built:* `oms_orders` for orders and `oms_order_executions` for fills, where each fill carries the order as of that fill and is deduplicated on `(orderId, execId, orderVersion)`; see [Real-Time Streaming](../capabilities/real-time-streaming.md) and [Kafka Topics](../interfaces/kafka-topics.md).
 4.  **Data Merging:**
     *   The backend merges the initial data snapshot with the real-time event stream.
     *   For each event, the backend updates the corresponding domain object in the stream.

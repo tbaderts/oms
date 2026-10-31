@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import { FILTER_FIELDS, isLocalHost, toSearchParams } from '../../src/shared/apiExplorer';
+import { API_PREFIX, FILTER_FIELDS, eventsPath, isLocalHost, toSearchParams } from '../../src/shared/apiExplorer';
 
 const QUERY_API = path.resolve(__dirname, '../../../oms-contracts/src/main/openapi/oms-query-api.yml');
 
@@ -58,6 +58,15 @@ describe('FILTER_FIELDS', () => {
     expect(ops('ackTime')).toEqual(['eq', 'gt', 'gte', 'lt', 'lte', 'between']);
     expect(ops('side')).toEqual(['eq']);
     expect(FILTER_FIELDS.find((f) => f.field === 'cancelState')!.enumName).toBe('CancelState');
+  });
+});
+
+describe('eventsPath', () => {
+  it('is the contracted event-log operation under the query prefix', () => {
+    const spec = yaml.load(fs.readFileSync(QUERY_API, 'utf8')) as { paths: Record<string, unknown> };
+    expect(Object.keys(spec.paths)).toContain('/orders/{orderId}/events');
+    expect(eventsPath('O 1')).toBe(`${API_PREFIX.query}/orders/O%201/events`);
+    expect(eventsPath('O 1')).toBe('/api/query/orders/O%201/events');
   });
 });
 

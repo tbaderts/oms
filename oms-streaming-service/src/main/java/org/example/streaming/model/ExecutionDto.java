@@ -42,4 +42,10 @@ public class ExecutionDto {
     
     private Long sequenceNumber;
     private Instant eventTime;
+
+    /** The order's event-log version this fill produced; with execId, the dedup key (SPEC-0019). */
+    private Long orderVersion;
+
+    /** The order as of this fill, so a blotter row needs no join with the orders stream. */
+    private OrderDto order;
 }

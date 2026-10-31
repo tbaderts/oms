@@ -1,6 +1,7 @@
 package org.example.oms.mapper;
 
 import org.example.common.model.Execution;
+import org.example.common.model.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -18,7 +19,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class ExecutionMessageMapper {
 
-    public org.example.common.model.msg.Execution toExecutionMessage(Execution execution) {
+    /**
+     * @param order the order as of this fill, for its root; null for outbox rows staged before
+     *     SPEC-0019, which then publish the execution's own order id as the root
+     * @param orderVersion the event-log version the fill produced
+     */
+    public org.example.common.model.msg.Execution toExecutionMessage(
+            Execution execution, Order order, long orderVersion) {
         if (execution == null) {
             return null;
         }
@@ -26,6 +33,8 @@ public class ExecutionMessageMapper {
         return org.example.common.model.msg.Execution.newBuilder()
                 .setExecId(execution.getExecID())
                 .setOrderId(execution.getOrderId())
+                .setRootOrderId(order != null ? OrderMessageMapper.rootOrderIdOf(order) : execution.getOrderId())
+                .setOrderVersion(orderVersion)
                 .setLastQty(execution.getLastQty())
                 .setLastPx(execution.getLastPx())
                 .setCumQty(execution.getCumQty())

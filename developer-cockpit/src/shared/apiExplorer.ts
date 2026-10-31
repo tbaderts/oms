@@ -11,8 +11,8 @@ export const DEFAULT_OMS_CORE_URL = 'http://localhost:8090';
 export const API_PREFIX = { command: '/api/command', query: '/api/query' } as const;
 export const COMMAND_PATH = `${API_PREFIX.command}/execute`;
 export const SEARCH_PATH = `${API_PREFIX.query}/search`;
-/** Internal, uncontracted oms-core endpoint (`OrderEventController`, `@Hidden`). */
-export const eventsPath = (orderId: string) => `/api/order-events/orderId/${encodeURIComponent(orderId)}`;
+/** An order's event log: `getOrderEvents` in oms-query-api.yml (SPEC-0035). */
+export const eventsPath = (orderId: string) => `${API_PREFIX.query}/orders/${encodeURIComponent(orderId)}/events`;
 
 /** The subset of OpenAPI schema keywords the explorer uses, after $ref/allOf are resolved. */
 export interface JsonSchema {

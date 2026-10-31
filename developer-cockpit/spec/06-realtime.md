@@ -39,6 +39,11 @@ Browser/Client
 4. Server pushes events as they occur
 5. Client reconnects automatically on disconnect (exponential backoff)
 
+As built, the cockpit connects to `ws://127.0.0.1:<port>` and retries every 3 s, only after an
+unexpected close of its current socket. A socket the client replaces (a second `connect`, as
+React StrictMode causes in development) or closes deliberately (`disconnect`) is released with its
+handlers detached, so it neither reports Disconnected nor triggers a reconnect (SPEC-0036).
+
 ---
 
 ## 2. Message Protocol

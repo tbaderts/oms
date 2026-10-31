@@ -153,7 +153,6 @@ describe('OmsHttpService', () => {
 
   it('followUp loads the order and events sorted by version', async () => {
     const ev = (version: number, event: string, state: string) => ({
-      id: version,
       orderId: 'O 1',
       version,
       event,
@@ -164,31 +163,31 @@ describe('OmsHttpService', () => {
     });
     const f = fakeFetch({
       '/api/query/search?orderId=O+1&size=1': [200, { content: [{ orderId: 'O 1', state: 'LIVE' }] }],
-      '/api/order-events/orderId/O%201': [200, [ev(2, 'ACCEPT', 'LIVE'), ev(1, 'NEW_ORDER', 'UNACK')]],
+      '/api/query/orders/O%201/events': [200, [ev(2, 'ACK', 'LIVE'), ev(1, 'NEW_ORDER', 'UNACK')]],
     });
     const r = await new OmsHttpService(() => 'http://localhost:8090', { fetch: f.impl, log }).followUp('O 1');
     expect(f.urls).toEqual([
       'http://localhost:8090/api/query/search?orderId=O+1&size=1',
-      'http://localhost:8090/api/order-events/orderId/O%201',
+      'http://localhost:8090/api/query/orders/O%201/events',
     ]);
     expect(r.order).toEqual({ orderId: 'O 1', state: 'LIVE' });
     expect(r.events!.map((e) => [e.version, e.event, e.resultingState])).toEqual([
       [1, 'NEW_ORDER', 'UNACK'],
-      [2, 'ACCEPT', 'LIVE'],
+      [2, 'ACK', 'LIVE'],
     ]);
     expect(r.events![0]).toMatchObject({ timeStamp: '2026-10-27T10:00:00Z', transaction: { type: 'X' }, orderSnapshot: { orderId: 'O 1' } });
     expect(r.error).toBeUndefined();
   });
 
   it('unknown order gives order null and no timeline', async () => {
-    const f = fakeFetch({ '/api/query/search': [200, { content: [] }], '/api/order-events/orderId/NOPE': [200, []] });
+    const f = fakeFetch({ '/api/query/search': [200, { content: [] }], '/api/query/orders/NOPE/events': [200, []] });
     const r = await new OmsHttpService(() => 'http://localhost:8090', { fetch: f.impl, log }).followUp('NOPE');
     expect(r).toEqual({ orderId: 'NOPE', order: null, events: [] });
   });
 
   it('unexpected event shape falls back to raw', async () => {
     const raw = { events: 'something else' };
-    const f = fakeFetch({ '/api/query/search': [200, { content: [{ orderId: 'O' }] }], '/api/order-events/orderId/O': [200, raw] });
+    const f = fakeFetch({ '/api/query/search': [200, { content: [{ orderId: 'O' }] }], '/api/query/orders/O/events': [200, raw] });
     const r = await new OmsHttpService(() => 'http://localhost:8090', { fetch: f.impl, log }).followUp('O');
     expect(r).toMatchObject({ order: { orderId: 'O' }, events: null, rawEvents: raw });
   });
@@ -210,7 +209,7 @@ describe('OmsHttpService', () => {
   });
 
   it('keeps the order when the events call fails', async () => {
-    const f = fakeFetch({ '/api/query/search': [200, { content: [{ orderId: 'O' }] }], '/api/order-events/orderId/O': [500, { error: 'x' }] });
+    const f = fakeFetch({ '/api/query/search': [200, { content: [{ orderId: 'O' }] }], '/api/query/orders/O/events': [500, { error: 'x' }] });
     const r = await new OmsHttpService(() => 'http://localhost:8090', { fetch: f.impl, log }).followUp('O');
     expect(r.order).toEqual({ orderId: 'O' });
     expect(r.events).toBeNull();
@@ -219,7 +218,7 @@ describe('OmsHttpService', () => {
   });
 
   it('tells a failed order query from an unknown order', async () => {
-    const f = fakeFetch({ '/api/query/search': [500, { error: 'x' }], '/api/order-events/orderId/O': [200, []] });
+    const f = fakeFetch({ '/api/query/search': [500, { error: 'x' }], '/api/query/orders/O/events': [200, []] });
     const r = await new OmsHttpService(() => 'http://localhost:8090', { fetch: f.impl, log }).followUp('O');
     expect(r).toMatchObject({ order: null, orderError: 'HTTP 500', events: [] });
   });

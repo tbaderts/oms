@@ -20,7 +20,7 @@ function recordingFetch() {
   const impl = (async (input: string | URL) => {
     urls.push(String(input));
     const p = new URL(String(input)).pathname;
-    const body = p.startsWith('/api/order-events') ? [] : p.endsWith('/search') ? { content: [] } : { id: 'O-1', status: 'OK' };
+    const body = p.endsWith('/events') ? [] : p.endsWith('/search') ? { content: [] } : { id: 'O-1', status: 'OK' };
     return new Response(JSON.stringify(body), { status: p.endsWith('/execute') ? 201 : 200, headers: { 'Content-Type': 'application/json' } });
   }) as typeof fetch;
   return { impl, urls };

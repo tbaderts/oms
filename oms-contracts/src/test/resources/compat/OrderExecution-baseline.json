@@ -1,0 +1,375 @@
+{
+  "type": "record",
+  "name": "OrderExecution",
+  "namespace": "org.example.common.model.msg",
+  "doc": "One fill with the order it changed, as of that change. Published on the order-executions topic in the fill's transaction, keyed by rootOrderId, so a consumer needs no lookup. Deduplicate on (orderId, execId, orderVersion): execId is unique per order only.",
+  "fields": [
+    {
+      "name": "execId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Execution identifier, unique per order.",
+      "default": null
+    },
+    {
+      "name": "lastQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Quantity filled by this execution.",
+      "default": null
+    },
+    {
+      "name": "lastPx",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Price of this execution.",
+      "default": null
+    },
+    {
+      "name": "execType",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Execution type.",
+      "default": null
+    },
+    {
+      "name": "lastCapacity",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Capacity in which the execution was made.",
+      "default": null
+    },
+    {
+      "name": "lastMkt",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Market of execution.",
+      "default": null
+    },
+    {
+      "name": "transactTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "doc": "Time of the execution.",
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "The order this execution filled.",
+      "default": null
+    },
+    {
+      "name": "rootOrderId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Root of the order's tree; the order's own id when it has no root. The record's Kafka key.",
+      "default": null
+    },
+    {
+      "name": "parentOrderId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Direct parent of the order in its tree, if any.",
+      "default": null
+    },
+    {
+      "name": "leg",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "The order's leg (CLI or MKT), if set.",
+      "default": null
+    },
+    {
+      "name": "clOrdId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Client order id.",
+      "default": null
+    },
+    {
+      "name": "sessionId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Trading session of the client order.",
+      "default": null
+    },
+    {
+      "name": "account",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Account the order is for.",
+      "default": null
+    },
+    {
+      "name": "side",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "Side",
+          "doc": "Order side",
+          "symbols": [
+            "BUY",
+            "SELL",
+            "SELL_SHORT",
+            "SUBSCRIBE",
+            "REDEEM"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "symbol",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "securityId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "ordType",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "OrdType",
+          "doc": "Order type",
+          "symbols": [
+            "MARKET",
+            "LIMIT",
+            "STOP",
+            "STOP_LIMIT",
+            "MARKET_ON_CLOSE"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "price",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Order limit price.",
+      "default": null
+    },
+    {
+      "name": "orderQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "settlCurrency",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "exDestination",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "cumQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Order's cumulative executed quantity after this execution.",
+      "default": null
+    },
+    {
+      "name": "leavesQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Order's remaining open quantity after this execution.",
+      "default": null
+    },
+    {
+      "name": "avgPx",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Average price across the order's fills. Not currently computed by oms-core; null until it is.",
+      "default": null
+    },
+    {
+      "name": "state",
+      "type": [
+        "null",
+        {
+          "type": "enum",
+          "name": "State",
+          "doc": "Order state",
+          "symbols": [
+            "NEW",
+            "UNACK",
+            "LIVE",
+            "FILLED",
+            "CXL",
+            "REJ",
+            "CLOSED",
+            "EXP"
+          ]
+        }
+      ],
+      "doc": "Order state after this execution.",
+      "default": null
+    },
+    {
+      "name": "orderVersion",
+      "type": [
+        "null",
+        "long"
+      ],
+      "doc": "The order's event-log version this fill produced (order_events.version); equals the eventId of the order message of the same change.",
+      "default": null
+    },
+    {
+      "name": "tradeDate",
+      "type": [
+        "null",
+        {
+          "type": "int",
+          "logicalType": "date"
+        }
+      ],
+      "doc": "UTC calendar date of transactTime, or of the fill's processing time when it has none.",
+      "default": null
+    }
+  ]
+}

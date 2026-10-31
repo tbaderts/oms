@@ -181,9 +181,13 @@ public class TradeBlotterController {
      * Converts an ExecutionEvent to an OrderEvent for unified streaming.
      */
     private OrderEvent toOrderEvent(ExecutionEvent execEvent) {
+        // The order as of this fill comes with the fill (SPEC-0019), so the row is no longer empty
+        // and stream filters on order fields apply to fills too.
         return OrderEvent.builder()
                 .eventType("EXECUTION_" + execEvent.getEventType())
                 .orderId(execEvent.getOrderId())
+                .order(execEvent.getOrder())
+                .eventId(execEvent.getExecution() != null ? execEvent.getExecution().getOrderVersion() : null)
                 .sequenceNumber(execEvent.getSequenceNumber())
                 .timestamp(execEvent.getTimestamp())
                 .build();

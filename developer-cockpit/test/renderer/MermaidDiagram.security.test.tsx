@@ -16,7 +16,7 @@ beforeAll(() => {
 
 // SPEC-0014 added only `storyboard-asset:` to img-src (illustrations served by the cockpit's own protocol).
 const CSP =
-  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:9321; font-src 'self' data:; img-src 'self' data: storyboard-asset:";
+  "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:*; font-src 'self' data:; img-src 'self' data: storyboard-asset:";
 
 describe('MermaidDiagram security', () => {
   afterEach(() => {

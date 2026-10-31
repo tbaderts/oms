@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.example.common.model.msg.Execution;
+import org.example.common.model.msg.OrderExecution;
 import org.example.common.model.msg.OrderMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -39,8 +39,8 @@ public class KafkaConfig {
     @Value("${streaming.kafka.topics.orders}")
     private String ordersTopic;
 
-    @Value("${streaming.kafka.topics.executions}")
-    private String executionsTopic;
+    @Value("${streaming.kafka.topics.order-executions}")
+    private String orderExecutionsTopic;
 
     /**
      * Creates base consumer properties for Kafka receivers with Avro deserialization.
@@ -75,18 +75,19 @@ public class KafkaConfig {
     }
 
     /**
-     * Kafka receiver for execution messages (Avro).
-     * 
-     * <p>Consumes Execution Avro records from the executions topic.
+     * Kafka receiver for fills (Avro).
+     *
+     * <p>Consumes OrderExecution records: each fill with the order as of that fill, so a blotter row
+     * needs no join with the orders stream (SPEC-0019).
      */
     @Bean
-    public KafkaReceiver<String, Execution> executionReceiver() {
+    public KafkaReceiver<String, OrderExecution> orderExecutionReceiver() {
         Map<String, Object> props = consumerProperties();
-        
-        ReceiverOptions<String, Execution> receiverOptions = ReceiverOptions
-                .<String, Execution>create(props)
-                .subscription(java.util.Collections.singleton(executionsTopic));
-        
+
+        ReceiverOptions<String, OrderExecution> receiverOptions = ReceiverOptions
+                .<String, OrderExecution>create(props)
+                .subscription(java.util.Collections.singleton(orderExecutionsTopic));
+
         return KafkaReceiver.create(receiverOptions);
     }
 }

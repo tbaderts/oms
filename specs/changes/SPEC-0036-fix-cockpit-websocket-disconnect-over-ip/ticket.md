@@ -2,11 +2,11 @@
 id: SPEC-0036
 title: Fix cockpit WebSocket disconnect over IPv4
 type: fix
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [developer-cockpit]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-10-31
 blocked_from:
@@ -25,3 +25,14 @@ The cockpit status bar shows Disconnected: the renderer connects to ws://localho
 ## Log
 
 - 2026-10-31 created
+- 2026-10-31 18:21 — autopilot on
+- 2026-10-31 18:23 — proposal gate passed; awaiting human approval
+- 2026-10-31 18:23 — proposal approved by Toni Badertscher
+- 2026-10-31 18:23 — proposal → design
+- 2026-10-31 18:25 — design → plan
+- 2026-10-31 18:25 — plan → implement
+- 2026-10-31 18:32 — verify run: pass
+- 2026-10-31 18:32 — implement → verify
+- 2026-10-31 18:37 — verify run: pass
+- 2026-10-31 18:38 — verify → done
+- 2026-10-31 18:38 — autopilot off

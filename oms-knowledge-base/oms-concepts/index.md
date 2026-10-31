@@ -11,6 +11,7 @@ Back to the [knowledge base index](../index.md).
 - [Order Grouping Specification](order-grouping.md) — Grouping client orders for the same security and price into one market order, and allocating fills back to the members. *(draft)*
 - [Order Lifecycle Management Specification](order-lifecycle.md) — Order states and transitions across the full lifecycle, combining state machine rules, business workflows and FIX semantics.
 - [Order Lifecycle Management: Replace, Cancel, and Reject Operations](order-replace.md) — Replace, cancel and reject workflows for client and market orders, with their state handling.
+- [Projections](projections.md) — Read models computed from each order change inside the command transaction, published through the outbox and rebuildable from the event log. *(draft)*
 - [Order Quantity Calculations Specification](order-quantity-calculations.md) — Quantity field semantics (orderQty, placeQty, cumQty, leavesQty) across parent and child orders in an order tree. *(draft)*
 - [Trade Blotter Backend Component Specification](streaming-architecture.md) — Backend component that streams orders, executions and quotes in real time to the Trade Blotter UI. *(draft)*
 

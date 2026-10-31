@@ -9,9 +9,12 @@ import org.example.common.model.cmd.OrderCancelCmd;
 import org.example.common.model.cmd.OrderCancelRejectCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
 import org.example.common.model.cmd.OrderRejectCmd;
+import org.example.oms.mapper.AvroPayloadCodec;
+import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.model.OutboxMessage;
+import org.example.oms.projection.StagedMessage;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OutboxRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,16 +41,38 @@ public class OrderEventAppender {
     private final OutboxRepository outboxRepository;
     private final String orderTopic;
     private final String executionTopic;
+    private final AvroPayloadCodec payloadCodec;
 
     public OrderEventAppender(
             OrderEventRepository orderEventRepository,
             OutboxRepository outboxRepository,
             @Value("${kafka.order-topic:oms_orders}") String orderTopic,
-            @Value("${kafka.execution-topic:oms_executions}") String executionTopic) {
+            @Value("${kafka.execution-topic:oms_executions}") String executionTopic,
+            AvroPayloadCodec payloadCodec) {
         this.orderEventRepository = orderEventRepository;
         this.outboxRepository = outboxRepository;
         this.orderTopic = orderTopic;
         this.executionTopic = executionTopic;
+        this.payloadCodec = payloadCodec;
+    }
+
+    /**
+     * Stages a projection's message for publication, in the caller's transaction (SPEC-0020). The
+     * outbox stays written in this one place; the payload is the record's Avro encoding and its type
+     * the record's schema name, so the publisher needs no column or case per message type.
+     */
+    public void stageMessage(StagedMessage message) {
+        outboxRepository.save(
+                OutboxMessage.builder()
+                        .aggregateType(OutboxMessage.AggregateType.PROJECTION)
+                        .aggregateId(message.key())
+                        .topic(message.topic())
+                        .aggregateVersion(message.version())
+                        .payloadType(message.payload().getSchema().getFullName())
+                        .payload(payloadCodec.encode(message.payload()))
+                        .createdAt(Instant.now())
+                        .attempts(0)
+                        .build());
     }
 
     /**
@@ -73,7 +98,7 @@ public class OrderEventAppender {
         outboxRepository.save(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.ORDER)
-                        .aggregateId(order.getOrderId())
+                        .aggregateId(partitionKey(order))
                         .topic(orderTopic)
                         .aggregateVersion(version)
                         .orderPayload(order)
@@ -95,10 +120,12 @@ public class OrderEventAppender {
      * Records a fill and stages both the execution and the order it changed.
      *
      * <p>Both are published: consumers tracking fills read the executions topic, consumers tracking
-     * order state read the orders topic, and neither has to infer one from the other.
+     * order state read the orders topic. The fill with its order (the order-executions topic) is
+     * staged afterwards by the order-execution projection, through {@link #stageMessage}.
      *
-     * <p>The execution is staged under the order's id, not its execID, because the aggregate id is
-     * the Kafka key: all fills of one order then land on one partition and are consumed in order.
+     * <p>The execution is staged under the order's partition key, not its execID, because the
+     * aggregate id is the Kafka key: all fills of one order tree then land on one partition and are
+     * consumed in order.
      */
     public long appendExecutionEvent(Order order, Execution execution, Event event, Command command) {
         long version = appendOrderEvent(order, event, command);
@@ -106,9 +133,10 @@ public class OrderEventAppender {
         outboxRepository.save(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.EXECUTION)
-                        .aggregateId(order.getOrderId())
+                        .aggregateId(partitionKey(order))
                         .topic(executionTopic)
                         .aggregateVersion(version)
+                        .orderPayload(order)
                         .executionPayload(execution)
                         .createdAt(Instant.now())
                         .attempts(0)
@@ -121,6 +149,15 @@ public class OrderEventAppender {
                 executionTopic);
 
         return version;
+    }
+
+    /**
+     * The Kafka key of every message staged for the order: its root order id, or its own id when it
+     * has none. Every record of one order tree then lands on one partition of each topic and is
+     * consumed in commit order. Today every order is its own root, so the key is the order id.
+     */
+    public static String partitionKey(Order order) {
+        return OrderMessageMapper.rootOrderIdOf(order);
     }
 
     /**

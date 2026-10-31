@@ -66,7 +66,7 @@ export class OmsHttpService {
     return this.request('GET', base, qs ? `${SEARCH_PATH}?${qs}` : SEARCH_PATH);
   }
 
-  /** The order (contracted query API) and its event log (internal endpoint), read in parallel. */
+  /** The order and its event log, both from the contracted query API, read in parallel. */
   async followUp(orderId: string): Promise<OrderFollowUp> {
     // A blank id would drop the filter and return an arbitrary order.
     if (!orderId.trim()) return { orderId, order: null, events: null, error: 'No order id' };

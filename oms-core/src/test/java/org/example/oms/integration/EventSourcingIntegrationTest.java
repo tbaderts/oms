@@ -14,11 +14,13 @@ import org.example.common.model.Side;
 import org.example.common.model.State;
 import org.example.common.model.cmd.OrderAcceptCmd;
 import org.example.oms.OmsApplication;
+import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.ExecutionRepository;
 import org.example.oms.repository.OrderEventRepository;
+import org.example.oms.repository.OrderExecutionViewRepository;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.repository.OutboxRepository;
 import org.example.oms.service.OrderReplayService;
@@ -72,9 +74,44 @@ class EventSourcingIntegrationTest {
     @Autowired private ExecutionCommandProcessor executionCommandProcessor;
     @Autowired private OrderReplayService orderReplayService;
     @Autowired private TransactionTemplate transactionTemplate;
+    @Autowired private OrderExecutionViewRepository orderExecutionViewRepository;
+    @Autowired private AvroPayloadCodec payloadCodec;
+
+    /**
+     * SPEC-0020 AC-4. The relay is off in this class (no Kafka), so the staged rows stay: the fill
+     * stages its order and execution messages as before, then the projection's OrderExecution as a
+     * generic payload that decodes to the record the topic receives.
+     */
+    @Test
+    void fill_stagesOrderExecutionAsGenericPayload() {
+        accept();
+        executionCommandProcessor.process(execution("EX-G1", "4.0000"));
+
+        List<OutboxMessage> staged = outboxRepository.findAll().stream()
+                .sorted(java.util.Comparator.comparing(OutboxMessage::getId))
+                .toList();
+        assertEquals(
+                List.of(OutboxMessage.AggregateType.ORDER, OutboxMessage.AggregateType.ORDER,
+                        OutboxMessage.AggregateType.EXECUTION, OutboxMessage.AggregateType.PROJECTION),
+                staged.stream().map(OutboxMessage::getAggregateType).toList(),
+                "ack, then the fill's order, execution and projection messages");
+
+        OutboxMessage projected = staged.getLast();
+        assertEquals("org.example.common.model.msg.OrderExecution", projected.getPayloadType());
+        assertEquals(ORDER_ID, projected.getAggregateId());
+        assertEquals(2L, projected.getAggregateVersion());
+        var record = (org.example.common.model.msg.OrderExecution)
+                payloadCodec.decode(projected.getPayloadType(), projected.getPayload());
+        assertEquals("EX-G1", record.getExecId());
+        assertEquals(ORDER_ID, record.getOrderId());
+        assertEquals(2L, record.getOrderVersion());
+        assertEquals(0, new BigDecimal("4.0000").compareTo(record.getCumQty()));
+        assertEquals("ACC-ES", record.getAccount());
+    }
 
     @BeforeEach
     void setUp() {
+        orderExecutionViewRepository.deleteAll();
         outboxRepository.deleteAll();
         orderEventRepository.deleteAll();
         executionRepository.deleteAll();
@@ -116,8 +153,9 @@ class EventSourcingIntegrationTest {
                 List.of(State.LIVE, State.LIVE, State.FILLED),
                 history.stream().map(OrderEvent::getResultingState).toList());
 
-        // One order message per event, plus one execution message per fill.
-        assertEquals(5, outboxRepository.count());
+        // One order message per event, plus an execution and an order-execution message per fill
+        // (SPEC-0019).
+        assertEquals(7, outboxRepository.count());
 
         // Each staged order message must carry a distinct eventId, otherwise consumers cannot tell
         // two updates apart or spot a redelivery.
@@ -205,7 +243,8 @@ class EventSourcingIntegrationTest {
 
         transactionTemplate.executeWithoutResult(status -> {
             List<OutboxMessage> all = outboxRepository.claimPending(10, Limit.of(100));
-            assertEquals(3, all.size());
+            // ACK order message, then the fill's order, execution and order-execution messages.
+            assertEquals(4, all.size());
             assertEquals(
                     all.stream().map(OutboxMessage::getId).sorted().toList(),
                     all.stream().map(OutboxMessage::getId).toList(),

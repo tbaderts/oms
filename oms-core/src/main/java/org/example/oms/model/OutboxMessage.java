@@ -40,10 +40,17 @@ import lombok.experimental.SuperBuilder;
 @Getter
 public class OutboxMessage {
 
-    /** Which aggregate produced the message; selects the payload column to read. */
+    /** Which message the row becomes; selects the payload column(s) to read. */
     public enum AggregateType {
         ORDER,
-        EXECUTION
+        EXECUTION,
+        /**
+         * A fill with the order it changed; reads both payload columns (SPEC-0019). Only rows staged
+         * before SPEC-0020 have this type; the projection now stages the message as PROJECTION.
+         */
+        ORDER_EXECUTION,
+        /** A message staged by a projection: {@link #payloadType} and {@link #payload} (SPEC-0020). */
+        PROJECTION
     }
 
     @Id
@@ -55,7 +62,10 @@ public class OutboxMessage {
     @Column(name = "aggregate_type", nullable = false)
     private AggregateType aggregateType;
 
-    /** Business key of the aggregate: orderId or execId. Used as the Kafka partition key. */
+    /**
+     * The Kafka partition key: the order's root order id, or its own order id when it has none. All
+     * messages of one order tree therefore land on one partition of each topic.
+     */
     @Column(name = "aggregate_id", nullable = false)
     private String aggregateId;
 
@@ -79,6 +89,14 @@ public class OutboxMessage {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", name = "execution_payload")
     private Execution executionPayload;
+
+    /** The Avro record's schema full name, for PROJECTION rows. */
+    @Column(name = "payload_type")
+    private String payloadType;
+
+    /** The Avro record's binary encoding, for PROJECTION rows. */
+    @Column(name = "payload")
+    private byte[] payload;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

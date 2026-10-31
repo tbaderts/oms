@@ -136,13 +136,16 @@ must be confirmed (Appendix A).
 
 | Topic | Payload | Key | Notes |
 |---|---|---|---|
-| `oms_orders` | `OrderMessage`: full order snapshot after each event, with `parentOrderId`, `rootOrderId`, `account`, `side`, `symbol`, `state` | `orderId` | Enough to register the order |
-| `oms_executions` | `Execution`: `execId`, `orderId`, `lastQty`, `lastPx`, `cumQty`, `leavesQty`, `avgPx`, `execType`, `lastMkt`, `lastCapacity`, `transactTime` | `orderId` | **No** account, side, instrument, trade date, settlement date, order version or `rootOrderId`, which is why executions have to be enriched |
+| `oms_orders` | `OrderMessage`: full order snapshot after each event, with `parentOrderId`, `rootOrderId`, `account`, `side`, `symbol`, `state` | `rootOrderId` | Enough to register the order |
+| `oms_executions` | `Execution`: `execId`, `orderId`, `rootOrderId`, `orderVersion`, `lastQty`, `lastPx`, `cumQty`, `leavesQty`, `avgPx`, `execType`, `lastMkt`, `lastCapacity`, `transactTime` | `rootOrderId` | **No** account, side, instrument, trade date or settlement date |
+| `oms_order_executions` | `OrderExecution`: the fill plus the order as of that fill (identity, account, side, instrument, price, quantities, state), `orderVersion` and `tradeDate` (UTC date of `transactTime`) | `rootOrderId` | One self-contained record per fill: no enrichment needed (since SPEC-0019) |
 
-Both topics are filled from the outbox in commit order and keyed by `orderId` (executions since
-SPEC-0018; before, they were keyed by `execId`), so events for one order arrive in order
-**within a topic**. There is **no ordering across the two topics**: the first fill of an order
-can reach a consumer before the order event that created it. The adapter must handle this.
+All three topics are filled from the outbox in commit order and keyed by `rootOrderId` (the order's
+own `orderId` while it has no root; since SPEC-0019, before which they were keyed by `orderId`), so
+events for one order tree arrive in order **within a topic**. There is **no ordering across
+topics**: the first fill of an order can reach a consumer of `oms_executions` before the order
+event that created it. A booking adapter avoids this by reading `oms_order_executions` only, and
+deduplicating on `(orderId, execId, orderVersion)`. Settlement date is still not published.
 
 Busts and corrections (`ExecutionBustCmd`, `ExecutionWhackCmd`) exist as command schemas, but
 there is no processor for them yet, so what they publish is not defined (Appendix A, F5).
@@ -700,7 +703,7 @@ result, or from a lookup downstream.
 | R7 Visibility | OMS tables, existing UI | Search attributes + query API; new blotter |
 | R8 Operator actions | OMS commands | Signals via booking-service API |
 | R9 Isolation of stuck bookings | Per booking in scheduler | Per workflow |
-| R10 Reconciliation | SQL on booking tables | Activity per trade date + search attributes, or a projection table |
+| R10 Reconciliation | SQL on booking tables | Activity per trade date + search attributes, or a projection table: OMS fills per trade date are available from `order_execution_view` / `GET /api/query/executions` (SPEC-0020, [Projections](projections.md)) |
 | R11 OMS path unaffected | Partly: extra writes per fill in the OMS | Fully |
 | Atomic with the fill | **Yes** | No, but not needed: the outbox is atomic and Kafka delivery is durable |
 | Enrichment | Free (order already loaded) | From events; needs E1–E4 (§12) |
@@ -787,9 +790,9 @@ Needed for Option B and the fallback, and useful for any other consumer. They ov
 
 | # | Change | Where | Why |
 |---|---|---|---|
-| E1 | `rootOrderId` on `Execution.avsc` | oms-contracts | Route the event to the right workflow (§8.3) |
-| E2 | Order `version` (event version) on `OrderMessage.avsc` and `Execution.avsc` | oms-contracts | Idempotent intake and ordering (W5) |
-| E3 | `tradeDate` on `Execution.avsc` | oms-contracts | Required for booking and reconciliation (= B1) |
+| E1 | `rootOrderId` on `Execution.avsc` | oms-contracts | Route the event to the right workflow (§8.3). **Done** (SPEC-0019), also on `OrderExecution` |
+| E2 | Order `version` (event version) on `OrderMessage.avsc` and `Execution.avsc` | oms-contracts | Idempotent intake and ordering (W5). **Done**: `OrderMessage.eventId` (SPEC-0018), `Execution.orderVersion` and `OrderExecution.orderVersion` (SPEC-0019) |
+| E3 | `tradeDate` on `Execution.avsc` | oms-contracts | Required for booking and reconciliation (= B1). **Done on `OrderExecution`** (SPEC-0019): the UTC date of `transactTime`, not yet the venue-local trade date |
 | E4 | `orderRole`, `orderCapacity`, and `lastCapacity` as an enum | oms-contracts | Booking legs and capacity (= O1–O3) |
 | E5 | Define what a bust and a correction publish: an `Execution` with `execType` `H` / `G` and a reference to the original `execId` | oms-contracts, oms-core | Cancel and replace bookings (§4.4) |
 

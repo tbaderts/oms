@@ -4,7 +4,7 @@ title: "Avro Messages"
 description: "Catalogue of all 31 Avro schemas in oms-contracts: commands, messages, entities and enumerations, and which are used."
 tags: [avro, schemas, contracts]
 status: draft
-covers: ["avro:Cmd", "avro:Command", "avro:CommandMessage", "avro:CommandResult", "avro:CommandStatus", "avro:OrderCreateCmd", "avro:OrderAcceptCmd", "avro:OrderRejectCmd", "avro:OrderCancelCmd", "avro:OrderCancelRequestCmd", "avro:OrderCancelRejectCmd", "avro:ExecutionCreateCmd", "avro:ExecutionBustCmd", "avro:ExecutionWhackCmd", "avro:QuoteCreateCmd", "avro:QuoteRequestCreateCmd", "avro:Order", "avro:OrderMessage", "avro:Execution", "avro:Quote", "avro:QuoteRequest", "avro:State", "avro:CancelState", "avro:Side", "avro:OrdType", "avro:TimeInForce", "avro:PriceType", "avro:ExecInst", "avro:HandlInst", "avro:PositionEffect", "avro:SecurityIDSource"]
+covers: ["avro:Cmd", "avro:Command", "avro:CommandMessage", "avro:CommandResult", "avro:CommandStatus", "avro:OrderCreateCmd", "avro:OrderAcceptCmd", "avro:OrderRejectCmd", "avro:OrderCancelCmd", "avro:OrderCancelRequestCmd", "avro:OrderCancelRejectCmd", "avro:ExecutionCreateCmd", "avro:ExecutionBustCmd", "avro:ExecutionWhackCmd", "avro:QuoteCreateCmd", "avro:QuoteRequestCreateCmd", "avro:Order", "avro:OrderMessage", "avro:Execution", "avro:OrderExecution", "avro:Quote", "avro:QuoteRequest", "avro:State", "avro:CancelState", "avro:Side", "avro:OrdType", "avro:TimeInForce", "avro:PriceType", "avro:ExecInst", "avro:HandlInst", "avro:PositionEffect", "avro:SecurityIDSource"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-contracts/src/main/avro/Command.avsc"
@@ -46,6 +46,17 @@ de-duplication.
 
 - `Order`, `Execution`: the domain records ([Order](../domain/order.md), [Execution](../domain/execution.md)).
 - `OrderMessage`: the order as published on `oms_orders`, including state, cancel state and quantities.
+- `Execution` as published on `oms_executions` also carries `rootOrderId` (the record key) and
+  `orderVersion` (the event-log version the fill produced), both optional (SPEC-0019).
+- `OrderExecution`: one fill with the order as of that fill, published on `oms_order_executions`
+  (SPEC-0019). The fill (`execId`, `lastQty`, `lastPx`, `execType`, `lastCapacity`, `lastMkt`,
+  `transactTime`); the order's identity (`orderId`, `rootOrderId`, `parentOrderId`, `leg`,
+  `clOrdId`, `sessionId`, `account`) and economics (`side`, `symbol`, `securityId`, `ordType`,
+  `price`, `orderQty`, `settlCurrency`, `exDestination`); the resulting position (`cumQty`,
+  `leavesQty`, `avgPx`, `state`); `orderVersion`, equal to the `eventId` of the `OrderMessage` of
+  the same change; and `tradeDate`, the UTC date of `transactTime` (of the fill's processing time
+  when it has none). Every field is optional with a `null` default. Consumers deduplicate on
+  `(orderId, execId, orderVersion)`.
 - `Quote`, `QuoteRequest`: schema-only ([Quote and Quote Request](../domain/quote-and-quote-request.md)).
 
 ## Enumerations

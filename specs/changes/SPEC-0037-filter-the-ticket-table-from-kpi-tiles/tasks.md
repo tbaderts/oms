@@ -25,8 +25,33 @@
 
 ## Tasks
 
-<!-- FILL: the task list -->
+- [x] **T-1** Extend the Dashboard test "the Active, In progress and Awaiting approval tiles …" to assert that there is no filter chip after *Active tickets* (AC-1, AC-2, AC-4)
+  - files: developer-cockpit/test/renderer/Dashboard.test.tsx
+  - verify: `cd developer-cockpit && npx vitest run test/renderer/Dashboard.test.tsx` passes
+- [x] **T-2** Add the Dashboard test "clicking In progress or Awaiting approval again removes the filter" (AC-3)
+  - files: developer-cockpit/test/renderer/Dashboard.test.tsx
+  - verify: `cd developer-cockpit && npx vitest run test/renderer/Dashboard.test.tsx -t "again removes the filter"` passes
+- [x] **T-3** Add the Dashboard test "the stage select's cross-stage views list the same tickets as their tiles", which also checks the chip label and dot colour (AC-5)
+  - files: developer-cockpit/test/renderer/Dashboard.test.tsx
+  - verify: `cd developer-cockpit && npx vitest run test/renderer/Dashboard.test.tsx test/renderer/StageDonut.test.tsx` passes
+- [x] **T-4** Add `test/vitest-config.test.ts` (stubbed `os.cpus()` for 1, 4, 8, 12 and 32 CPUs gives maxWorkers 2, 2, 4, 6, 6, and minWorkers is 1) (AC-6)
+  - files: developer-cockpit/test/vitest-config.test.ts
+  - verify: `cd developer-cockpit && npx vitest run test/vitest-config.test.ts` passes
+- [x] **T-5** Check `developer-cockpit/spec/03-features.md` (KPI tiles row, Filters) against AC-1 to AC-5, and correct it only if it disagrees (AC-1, AC-2, AC-3, AC-4, AC-5)
+  - files: developer-cockpit/spec/03-features.md
+  - verify: every tile behaviour in AC-1 to AC-5 is stated in the KPI tiles row or the Filters paragraph (observed and recorded in verification.md)
+- [x] **T-7** Tighten the tests after independent review: AC-5's test selects *All tickets* first, the AC-4 test clicks *Blocked* a second time, and the AC-1 test asserts the three *My tickets* rows before the click (AC-1, AC-4, AC-5)
+  - files: developer-cockpit/test/renderer/Dashboard.test.tsx
+  - verify: `cd developer-cockpit && npx vitest run test/renderer/Dashboard.test.tsx` passes
+- [x] **T-6** Run spec verify (AC-7)
+  - files: (none)
+  - verify: `node specs/tools/spec.mjs verify SPEC-0037` exits 0
 
 ## Notes
 
-<!-- Optional: sequencing constraints, tasks added during implementation and why. -->
+- This is verification of committed behaviour (`ad7c3d0`). A new gap test that passes at once is
+  expected and is recorded as such. A failing one means a defect: fix it test-first, and record
+  the fix in design.md.
+- T-7 was added after the independent review reopened the ticket at verify (AC-5 had an unstated
+  precondition; AC-4 and AC-1 were weakly asserted). T-6 was un-ticked so verify runs again on the
+  final tests.

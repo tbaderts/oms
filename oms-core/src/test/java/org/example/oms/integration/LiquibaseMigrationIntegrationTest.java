@@ -77,6 +77,21 @@ class LiquibaseMigrationIntegrationTest {
         assertEquals("NO", nullable);
     }
 
+    /** SPEC-0020: the outbox carries any typed payload, and the fill projection has its table. */
+    @Test
+    void projectionSchemaIsApplied() {
+        assertColumnType("outbox", "payload", "bytea");
+        assertColumnType("outbox", "payload_type", "character varying");
+        assertTableExists("order_execution_view");
+        assertConstraintExists("uq_order_execution_view_order_id_execid");
+        assertColumnType("order_execution_view", "trade_date", "date");
+        String nullable = jdbcTemplate.queryForObject(
+                "select is_nullable from information_schema.columns "
+                        + "where table_schema = 'public' and table_name = 'order_execution_view' and column_name = 'order_version'",
+                String.class);
+        assertEquals("NO", nullable);
+    }
+
     private void assertTableExists(String tableName) {
         Integer exists = jdbcTemplate.queryForObject(
                 "select count(*) from information_schema.tables where table_schema = 'public' and table_name = ?",

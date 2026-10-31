@@ -1,0 +1,55 @@
+{
+  "ranAt": "2026-10-31T18:37:30.624Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "66e65da39d871bc8",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base ad7c3d0c)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 6,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 89,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 18,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 15,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 42,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    }
+  ]
+}

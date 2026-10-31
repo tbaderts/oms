@@ -1,0 +1,150 @@
+{
+  "type": "record",
+  "name": "Execution",
+  "namespace": "org.example.common.model.msg",
+  "doc": "An execution (fill) against an order, published on the executions topic.",
+  "fields": [
+    {
+      "name": "execId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Execution identifier, unique per order.",
+      "default": null
+    },
+    {
+      "name": "orderId",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "The order this execution filled.",
+      "default": null
+    },
+    {
+      "name": "lastQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Quantity filled by this execution. Scale 4 to match the OMS quantity scale.",
+      "default": null
+    },
+    {
+      "name": "lastPx",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Price of this execution.",
+      "default": null
+    },
+    {
+      "name": "cumQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Order's cumulative executed quantity after this execution.",
+      "default": null
+    },
+    {
+      "name": "leavesQty",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Order's remaining open quantity after this execution.",
+      "default": null
+    },
+    {
+      "name": "avgPx",
+      "type": [
+        "null",
+        {
+          "type": "bytes",
+          "logicalType": "decimal",
+          "precision": 18,
+          "scale": 4
+        }
+      ],
+      "doc": "Average price across the order's fills. Not currently computed by oms-core; always null until it is.",
+      "default": null
+    },
+    {
+      "name": "execType",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Execution type.",
+      "default": null
+    },
+    {
+      "name": "lastMkt",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Market of execution.",
+      "default": null
+    },
+    {
+      "name": "lastCapacity",
+      "type": [
+        "null",
+        {
+          "type": "string",
+          "avro.java.string": "String"
+        }
+      ],
+      "doc": "Capacity in which the execution was made.",
+      "default": null
+    },
+    {
+      "name": "transactTime",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-millis"
+        }
+      ],
+      "doc": "Time of the execution.",
+      "default": null
+    }
+  ]
+}

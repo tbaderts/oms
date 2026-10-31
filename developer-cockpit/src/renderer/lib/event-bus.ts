@@ -2,7 +2,7 @@ import type { CockpitEvent, EventType } from '@shared/types/events';
 
 type EventHandler = (event: CockpitEvent) => void;
 
-class EventBus {
+export class EventBus {
   private ws: WebSocket | null = null;
   private listeners = new Map<EventType | '*', Set<EventHandler>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -19,18 +19,23 @@ class EventBus {
   }
 
   private doConnect(): void {
-    if (this.ws) {
-      this.ws.close();
-    }
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    if (this.ws) this.release(this.ws);
 
-    this.ws = new WebSocket(this.url);
+    const socket = new WebSocket(this.url);
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    // Only the current socket may change the status or reconnect. A replaced socket's late close
+    // used to report Disconnected and reconnect, replacing the current one in a loop (SPEC-0036).
+    socket.onopen = () => {
+      if (this.ws !== socket) return;
       this._connected = true;
       this.emit({ type: 'connection:status', timestamp: Date.now(), payload: { connected: true } });
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) return;
       try {
         const parsed = JSON.parse(event.data) as CockpitEvent;
         this.emit(parsed);
@@ -39,15 +44,26 @@ class EventBus {
       }
     };
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
       this._connected = false;
       this.emit({ type: 'connection:status', timestamp: Date.now(), payload: { connected: false } });
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
+    socket.onerror = () => {
+      if (this.ws !== socket) return;
       this._connected = false;
     };
+  }
+
+  /** Closes a socket we no longer want, without letting its events reach the bus. */
+  private release(socket: WebSocket): void {
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    socket.close();
   }
 
   private scheduleReconnect(): void {
@@ -72,7 +88,8 @@ class EventBus {
 
   disconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    this.ws?.close();
+    this.reconnectTimer = null;
+    if (this.ws) this.release(this.ws);
     this.ws = null;
     this._connected = false;
   }

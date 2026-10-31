@@ -73,9 +73,13 @@ class AvroMessageMapperTest {
                         .transactTime(transactTime)
                         .build();
 
-        var decoded = roundTrip(executionMessageMapper.toExecutionMessage(execution));
+        Order order = Order.builder().orderId("ORD-1").rootOrderId("ROOT-1").build();
+
+        var decoded = roundTrip(executionMessageMapper.toExecutionMessage(execution, order, 5L));
 
         assertEquals("EX-1", decoded.getExecId());
+        assertEquals("ROOT-1", decoded.getRootOrderId());
+        assertEquals(5L, decoded.getOrderVersion());
         assertEquals("ORD-1", decoded.getOrderId());
         assertEquals(0, new BigDecimal("4.0000").compareTo(decoded.getLastQty()));
         assertEquals(0, new BigDecimal("101.2500").compareTo(decoded.getLastPx()));
@@ -87,6 +91,20 @@ class AvroMessageMapperTest {
 
         // avgPx is declared on the contract but oms-core does not compute it yet.
         assertNull(decoded.getAvgPx());
+    }
+
+    /**
+     * Outbox rows staged before SPEC-0019 carry no order payload; their execution still publishes,
+     * with the order id as its root.
+     */
+    @Test
+    void executionMessage_withoutOrder_usesTheOrderIdAsRoot() throws Exception {
+        Execution execution = Execution.builder().execID("EX-2").orderId("ORD-2").build();
+
+        var decoded = roundTrip(executionMessageMapper.toExecutionMessage(execution, null, 3L));
+
+        assertEquals("ORD-2", decoded.getRootOrderId());
+        assertEquals(3L, decoded.getOrderVersion());
     }
 
     /**

@@ -115,6 +115,18 @@
       ],
       "doc": "Time of the execution.",
       "default": null
+    },
+    {
+      "name": "rootOrderId",
+      "type": ["null", "string"],
+      "doc": "Root of the order's tree; the order's own id when it has no root. The record's Kafka key.",
+      "default": null
+    },
+    {
+      "name": "orderVersion",
+      "type": ["null", "long"],
+      "doc": "The order's event-log version this fill produced (order_events.version).",
+      "default": null
     }
   ]
 }

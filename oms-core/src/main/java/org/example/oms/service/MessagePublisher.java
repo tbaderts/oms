@@ -6,7 +6,9 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.example.common.model.msg.OrderMessage;
+import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.mapper.ExecutionMessageMapper;
+import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.OutboxMessage;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,24 +32,30 @@ public class MessagePublisher {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OrderMessageMapper orderMessageMapper;
     private final ExecutionMessageMapper executionMessageMapper;
+    private final OrderExecutionMessageMapper orderExecutionMessageMapper;
+    private final AvroPayloadCodec payloadCodec;
     private final long sendTimeoutSeconds;
 
     public MessagePublisher(
             KafkaTemplate<String, Object> kafkaTemplate,
             OrderMessageMapper orderMessageMapper,
             ExecutionMessageMapper executionMessageMapper,
+            OrderExecutionMessageMapper orderExecutionMessageMapper,
+            AvroPayloadCodec payloadCodec,
             @Value("${kafka.send-timeout-seconds:10}") long sendTimeoutSeconds) {
         this.kafkaTemplate = kafkaTemplate;
         this.orderMessageMapper = orderMessageMapper;
         this.executionMessageMapper = executionMessageMapper;
+        this.orderExecutionMessageMapper = orderExecutionMessageMapper;
+        this.payloadCodec = payloadCodec;
         this.sendTimeoutSeconds = sendTimeoutSeconds;
     }
 
     /**
      * Publishes one staged message, blocking until the broker acknowledges it.
      *
-     * <p>The record key is the message's aggregate id, which is the order id for both orders and
-     * executions, so every record of one order goes to the same partition of each topic.
+     * <p>The record key is the message's aggregate id, the order's root order id (its own id when it
+     * has no root), so every record of one order tree goes to the same partition of each topic.
      *
      * @throws ExecutionException if the broker rejected the record
      * @throws TimeoutException if the broker did not acknowledge in time
@@ -60,7 +68,17 @@ public class MessagePublisher {
                 switch (message.getAggregateType()) {
                     case ORDER -> toOrderMessage(message);
                     case EXECUTION -> executionMessageMapper.toExecutionMessage(
-                            message.getExecutionPayload());
+                            message.getExecutionPayload(),
+                            message.getOrderPayload(),
+                            message.getAggregateVersion());
+                    case ORDER_EXECUTION -> orderExecutionMessageMapper.toOrderExecutionMessage(
+                            message.getExecutionPayload(),
+                            message.getOrderPayload(),
+                            message.getAggregateVersion(),
+                            message.getCreatedAt());
+                    case PROJECTION -> message.getPayload() == null
+                            ? null
+                            : payloadCodec.decode(message.getPayloadType(), message.getPayload());
                 };
 
         if (payload == null) {

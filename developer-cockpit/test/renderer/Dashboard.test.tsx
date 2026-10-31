@@ -234,6 +234,9 @@ describe('Dashboard', () => {
     fireEvent.click(within(tile('Blocked')).getByRole('button'));
     expect(tableIds()).toEqual(['SPEC-0004']);
     expect(within(tile('Blocked')).getByRole('button').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(tile('Blocked')).getByRole('button'));
+    expect(tableIds()).toEqual(all);
+    expect(within(tile('Blocked')).getByRole('button').getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(within(tile('Done')).getByRole('button'));
     expect(tableIds()).toEqual(['SPEC-0005']);
     fireEvent.click(within(tile('Done')).getByRole('button'));
@@ -246,11 +249,14 @@ describe('Dashboard', () => {
     render(<DashboardView />);
     await screen.findAllByText('Alice waits');
     const all = ['SPEC-0001', 'SPEC-0002', 'SPEC-0003', 'SPEC-0004', 'SPEC-0005'];
+    // Default: My tickets, so only Alice's.
+    expect(tableIds()).toEqual(['SPEC-0002', 'SPEC-0003', 'SPEC-0005']);
 
     // Active tickets clears the stage filter and shows everyone's tickets.
     fireEvent.click(within(tile('Active tickets')).getByRole('button'));
     expect(tableIds()).toEqual(all);
     expect(within(tile('Active tickets')).getByRole('button').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByTestId('stage-filter-chip')).toBeNull();
 
     // In progress: every non-done ticket, blocked included.
     fireEvent.click(within(tile('In progress')).getByRole('button'));
@@ -264,6 +270,52 @@ describe('Dashboard', () => {
 
     // Task completion stays a static tile.
     expect(within(tile('Task completion')).queryByRole('button')).toBeNull();
+  });
+
+  it('clicking In progress or Awaiting approval again removes the filter', async () => {
+    const api = mockCockpit();
+    api.list.mockResolvedValue({ user: 'Alice', tickets: TICKETS, errors: [] });
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+    const all = ['SPEC-0001', 'SPEC-0002', 'SPEC-0003', 'SPEC-0004', 'SPEC-0005'];
+
+    for (const label of ['In progress', 'Awaiting approval']) {
+      const button = () => within(tile(label)).getByRole('button');
+      fireEvent.click(button());
+      expect(screen.getByTestId('stage-filter-chip').textContent, label).toContain(label);
+
+      fireEvent.click(button());
+      expect(tableIds(), label).toEqual(all);
+      expect(screen.queryByTestId('stage-filter-chip'), label).toBeNull();
+      expect(button().getAttribute('aria-pressed'), label).toBe('false');
+    }
+  });
+
+  it("the stage select's cross-stage views list the same tickets as their tiles", async () => {
+    const api = mockCockpit();
+    api.list.mockResolvedValue({ user: 'Alice', tickets: TICKETS, errors: [] });
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+    const pick = (option: string) => {
+      fireEvent.keyDown(screen.getByRole('combobox', { name: 'Stage filter' }), { key: 'Enter' });
+      fireEvent.click(screen.getByRole('option', { name: option }));
+    };
+    // AC-5's Given: All tickets. The select keeps the My/All mode; a tile click switches to All.
+    fireEvent.click(screen.getByRole('button', { name: 'All tickets' }));
+
+    for (const [label, accent] of [['In progress', 'var(--stage-proposal)'], ['Awaiting approval', 'var(--stage-plan)']]) {
+      const button = within(tile(label)).getByRole('button');
+      fireEvent.click(button);
+      const fromTile = tableIds();
+      fireEvent.click(button);
+
+      pick(label);
+      expect(tableIds(), label).toEqual(fromTile);
+      const chip = screen.getByTestId('stage-filter-chip');
+      expect(chip.textContent, label).toContain(label);
+      expect(chip.querySelector('span')!.style.background, label).toBe(accent);
+      pick('All stages');
+    }
   });
 
   it('empty portfolio shows no-active-tickets and zero tiles', async () => {

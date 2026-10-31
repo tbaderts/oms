@@ -1,0 +1,29 @@
+{
+  "ranAt": "2026-10-31T18:55:48.005Z",
+  "result": "pass",
+  "modules": [
+    "developer-cockpit"
+  ],
+  "fingerprint": "604dee2f1bba7103",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base ad7c3d0c)"
+  },
+  "commands": [
+    {
+      "module": "developer-cockpit",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "seconds": 10,
+      "log": "evidence/developer-cockpit-1.log"
+    },
+    {
+      "module": "developer-cockpit",
+      "command": "npm test",
+      "exitCode": 0,
+      "seconds": 70,
+      "log": "evidence/developer-cockpit-2.log"
+    }
+  ]
+}

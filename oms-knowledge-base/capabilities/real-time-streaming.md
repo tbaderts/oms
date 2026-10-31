@@ -26,8 +26,14 @@ Admin UI / trade blotter users.
 
 RSocket routes `orders.stream`, `executions.stream`, `blotter.stream`, `orders.snapshot`,
 `executions.snapshot` and `health` (`TradeBlotterController`). The snapshot comes from the oms-core
-[Query API](../interfaces/query-api.md); live updates from the `oms_orders` and `oms_executions`
-topics. Metadata over HTTP under `/trade-blotter`.
+[Query API](../interfaces/query-api.md); live updates from the `oms_orders` and
+`oms_order_executions` topics. Metadata over HTTP under `/trade-blotter`.
+
+Fills come from `oms_order_executions` (since SPEC-0019; before, `oms_executions`). Each record
+carries the order as of that fill, so a fill's blotter event (`EXECUTION_<execType>`) has an
+`order` with its symbol, side, account, quantities and state instead of ids only, and stream
+filters on order fields apply to fills too. A fill whose `(orderId, execId, orderVersion)` was already
+emitted is a redelivery and is dropped; a newer version of the same `execId` passes.
 
 After the snapshot, live order events are deduplicated **per order on the event version**: a live
 event whose `eventId` is at or below the snapshot's `eventVersion` for the same order is dropped,

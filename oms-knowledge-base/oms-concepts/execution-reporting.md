@@ -138,7 +138,7 @@ Meaning: A FILL event occurred, resulting in the order being FILLED
 
 ### 3.1 Execution Task Pipeline
 
-The OMS uses the Task Orchestration Framework to process executions through a 6-task pipeline:
+The OMS uses the Task Orchestration Framework to process executions through a 7-task pipeline (the seventh, `ProjectTask`, since SPEC-0020; see [Projections](projections.md)):
 
 ```mermaid
 flowchart TD
@@ -148,7 +148,8 @@ flowchart TD
     T3[3. DetermineOrderStateTask] --> T4
     T4[4. PersistExecutionTask] --> T5
     T5[5. UpdateOrderTask] --> T6
-    T6[6. PublishExecutionEventTask] --> End([Complete])
+    T6[6. PublishExecutionEventTask] --> T7
+    T7[7. ProjectTask] --> End([Complete])
 
     T1 -.-> Fail([Pipeline Failed])
     T2 -.-> Fail

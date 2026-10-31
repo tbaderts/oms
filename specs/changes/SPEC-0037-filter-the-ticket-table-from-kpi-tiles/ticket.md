@@ -2,11 +2,11 @@
 id: SPEC-0037
 title: Filter the ticket table from KPI tiles
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [developer-cockpit]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-10-31
 blocked_from:
@@ -25,3 +25,21 @@ Give the uncommitted KPI-tile filter work its own ticket (SPEC-0017 follow-up): 
 ## Log
 
 - 2026-10-31 created
+- 2026-10-31 18:45 — autopilot on
+- 2026-10-31 18:46 — proposal gate passed; awaiting human approval
+- 2026-10-31 18:46 — proposal approved by Toni Badertscher
+- 2026-10-31 18:46 — proposal → design
+- 2026-10-31 18:47 — design → plan
+- 2026-10-31 18:48 — plan → implement
+- 2026-10-31 18:50 — verify run: pass
+- 2026-10-31 18:50 — implement → verify
+- 2026-10-31 18:52 — reopened at proposal: AC-5 omits its precondition: the stage select keeps the My/All tickets mode, while a tile click switches to All tickets, so in the default My tickets view the select lists fewer tickets than the tile. Reword AC-5's Given to 'with All tickets selected' (independent review finding 1).
+- 2026-10-31 18:52 — proposal gate passed; awaiting human approval
+- 2026-10-31 18:53 — proposal approved by Toni Badertscher
+- 2026-10-31 18:53 — proposal → design
+- 2026-10-31 18:53 — design → plan
+- 2026-10-31 18:53 — plan → implement
+- 2026-10-31 18:55 — verify run: pass
+- 2026-10-31 18:55 — implement → verify
+- 2026-10-31 18:56 — verify → done
+- 2026-10-31 18:56 — autopilot off

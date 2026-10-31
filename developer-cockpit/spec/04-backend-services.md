@@ -114,7 +114,7 @@ so the view can reload on change.
 
 **OmsHttpService** calls oms-core with `fetch` (Node, in main: no CSP or CORS involved):
 `POST /api/command/execute`, `GET /api/query/search?…` and, for the follow-up, the search by
-`orderId` plus `GET /api/order-events/orderId/{orderId}` in parallel. The base URL
+`orderId` plus `GET /api/query/orders/{orderId}/events` in parallel. The base URL
 (`infrastructure.omsCoreUrl`, default `http://localhost:8090`) is read per request and must be
 http(s). A command body must be JSON; search parameters must be known filter fields with valid
 operators; a command to a host other than localhost/127.0.0.1/::1 is refused unless the renderer
@@ -476,6 +476,11 @@ All endpoints are prefixed with `/api/v1/`.
 | FlightDeck | `GET /missions`, `POST /missions/preflight`, `POST /missions/:id/activate` |
 
 ### WebSocket Protocol
+
+The main process listens on `127.0.0.1:<port>` only (default 9321, `COCKPIT_WS_PORT` overrides
+it), so the event stream is never reachable from the network. The renderer gets the URL
+`ws://127.0.0.1:<port>` over IPC (`events:getWebSocketUrl`), and the page CSP allows
+`ws://127.0.0.1:*` and no other WebSocket host (SPEC-0036).
 
 Single WebSocket connection at `/ws`. Messages are JSON:
 

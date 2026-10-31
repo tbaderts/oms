@@ -8,9 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
-import org.example.common.model.msg.Execution;
+import org.example.common.model.msg.OrderExecution;
 import org.example.common.model.msg.OrderMessage;
 import org.example.streaming.client.OmsQueryClient;
+import org.example.streaming.mapper.OrderExecutionMapper;
 import org.example.streaming.mapper.OrderMessageMapper;
 import org.example.streaming.model.ExecutionDto;
 import org.example.streaming.model.ExecutionEvent;
@@ -46,9 +47,10 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     private static final String[] TERMINAL_STATES = {"FILLED", "CXL", "REJ", "CLOSED", "EXP"};
 
     private final KafkaReceiver<String, OrderMessage> orderMessageReceiver;
-    private final KafkaReceiver<String, Execution> executionReceiver;
+    private final KafkaReceiver<String, OrderExecution> orderExecutionReceiver;
     private final OmsQueryClient omsQueryClient;
     private final OrderMessageMapper orderMessageMapper;
+    private final OrderExecutionMapper orderExecutionMapper;
     private final FilterService filterService;
 
     @Value("${streaming.buffer.max-size:10000}")
@@ -73,14 +75,16 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
 
     public KafkaEventStreamProvider(
             KafkaReceiver<String, OrderMessage> orderMessageReceiver,
-            KafkaReceiver<String, Execution> executionReceiver,
+            KafkaReceiver<String, OrderExecution> orderExecutionReceiver,
             OmsQueryClient omsQueryClient,
             OrderMessageMapper orderMessageMapper,
+            OrderExecutionMapper orderExecutionMapper,
             FilterService filterService) {
         this.orderMessageReceiver = orderMessageReceiver;
-        this.executionReceiver = executionReceiver;
+        this.orderExecutionReceiver = orderExecutionReceiver;
         this.omsQueryClient = omsQueryClient;
         this.orderMessageMapper = orderMessageMapper;
+        this.orderExecutionMapper = orderExecutionMapper;
         this.filterService = filterService;
     }
 
@@ -134,29 +138,29 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     }
 
     private void startExecutionConsumer() {
-        executionConsumerDisposable = executionReceiver.receive()
+        executionConsumerDisposable = orderExecutionReceiver.receive()
                 .doOnNext(record -> {
-                    Execution exec = record.value();
-                    log.debug("Received Execution from Kafka: execId={}, orderId={}",
-                            exec.getExecId(), exec.getOrderId());
+                    OrderExecution fill = record.value();
+                    log.debug("Received OrderExecution from Kafka: execId={}, orderId={}, orderVersion={}",
+                            fill.getExecId(), fill.getOrderId(), fill.getOrderVersion());
 
-                    // Convert Avro Execution to streaming DTO
-                    ExecutionDto execDto = toExecutionDto(exec);
-                    if (exec.getExecId() != null) {
-                        executionCache.put(exec.getExecId().toString(), execDto);
+                    if (isRedelivery(fill)) {
+                        // The relay publishes at least once; the same fill carries the same
+                        // (orderId, execId, orderVersion) every time and has already been shown.
+                        log.debug("Skipping redelivered fill: orderId={}, execId={}, orderVersion={}",
+                                fill.getOrderId(), fill.getExecId(), fill.getOrderVersion());
+                        record.receiverOffset().acknowledge();
+                        return;
+                    }
+
+                    ExecutionDto execDto = orderExecutionMapper.toExecutionDto(fill);
+                    if (fill.getExecId() != null) {
+                        executionCache.put(executionKey(fill), execDto);
                         evictOldExecutions();
                     }
 
-                    // Create and emit execution event
-                    ExecutionEvent event = ExecutionEvent.builder()
-                            .eventType("NEW")
-                            .execId(exec.getExecId() != null ? exec.getExecId().toString() : null)
-                            .orderId(exec.getOrderId() != null ? exec.getOrderId().toString() : null)
-                            .execution(execDto)
-                            .timestamp(Instant.now())
-                            .build();
-
-                    executionEventSink.tryEmitNext(event);
+                    String eventType = fill.getExecType() != null ? fill.getExecType() : "NEW";
+                    executionEventSink.tryEmitNext(ExecutionEvent.fromExecution(execDto, eventType));
                     record.receiverOffset().acknowledge();
                 })
                 .doOnError(error -> log.error("Error consuming execution messages", error))
@@ -187,6 +191,27 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                 log.info("Evicted {} terminal-state orders from cache, size now: {}", evicted, orderCache.size());
             }
         }
+    }
+
+    /**
+     * True when this fill was already emitted: the cache holds its (orderId, execId) at the same or a
+     * higher orderVersion. A later version of the same execId (a future bust or correction) still passes. A
+     * redelivery that arrives after its entry was evicted is emitted again; the cache holds far more
+     * fills than a redelivery window.
+     */
+    private boolean isRedelivery(OrderExecution fill) {
+        if (fill.getExecId() == null || fill.getOrderVersion() == null) {
+            return false;
+        }
+        ExecutionDto seen = executionCache.get(executionKey(fill));
+        return seen != null
+                && seen.getOrderVersion() != null
+                && seen.getOrderVersion() >= fill.getOrderVersion();
+    }
+
+    /** execId is unique per order only, so the cache is keyed by both. */
+    private static String executionKey(OrderExecution fill) {
+        return fill.getOrderId() + "/" + fill.getExecId();
     }
 
     /**
@@ -375,28 +400,6 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                 .sendingTime(queryDto.getSendingTime() != null ? queryDto.getSendingTime().toInstant() : null)
                 .transactTime(queryDto.getTransactTime() != null ? queryDto.getTransactTime().toInstant() : null)
                 .expireTime(queryDto.getExpireTime() != null ? queryDto.getExpireTime().toInstant() : null)
-                .eventTime(Instant.now())
-                .build();
-    }
-
-    /**
-     * Converts Avro Execution to streaming ExecutionDto.
-     */
-    private ExecutionDto toExecutionDto(Execution exec) {
-        return ExecutionDto.builder()
-                .execId(exec.getExecId() != null ? exec.getExecId().toString() : null)
-                .orderId(exec.getOrderId() != null ? exec.getOrderId().toString() : null)
-                // The Avro record used to carry only the two identifiers, so every fill rendered
-                // as a blank row. It now carries the fill and the order's resulting position.
-                .lastQty(exec.getLastQty())
-                .lastPx(exec.getLastPx())
-                .cumQty(exec.getCumQty())
-                .leavesQty(exec.getLeavesQty())
-                .avgPx(exec.getAvgPx())
-                .execType(exec.getExecType() != null ? exec.getExecType().toString() : null)
-                .lastMkt(exec.getLastMkt() != null ? exec.getLastMkt().toString() : null)
-                .lastCapacity(exec.getLastCapacity() != null ? exec.getLastCapacity().toString() : null)
-                .transactTime(exec.getTransactTime())
                 .eventTime(Instant.now())
                 .build();
     }

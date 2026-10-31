@@ -29,6 +29,9 @@ info:
       - `size` (default 50, max 500)
     
     Responses return paged lists of orders with metadata.
+
+    Event log:
+      - `/orders/{orderId}/events` returns every event-log entry of one order, oldest first.
 paths:
   /search:
     get:
@@ -79,9 +82,204 @@ paths:
           description: Bad request (invalid parameter format)
         '500':
           description: Internal server error
+  /orders/{orderId}/events:
+    get:
+      operationId: getOrderEvents
+      summary: Event log of one order
+      description: |
+        Every entry of the order's event log, in ascending `version` (the order in which the
+        changes happened). Returns an empty array when no events exist for the order id; whether
+        the order exists is answered by `searchOrders`.
+      tags:
+        - Orders
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Business order id (`orderId`, not the database id)
+      responses:
+        '200':
+          description: The order's event log, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderEventDto'
+        '500':
+          description: Internal server error
+
+  /executions:
+    get:
+      operationId: getExecutions
+      summary: Fills with the order as of each fill
+      description: |
+        One entry per applied fill, from the order-execution projection, oldest first
+        (`transactTime`, then storage order). Filters combine with AND. Returns an empty array when
+        nothing matches.
+      tags:
+        - Executions
+      parameters:
+        - name: orderId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Business order id
+        - name: rootOrderId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Root of the order tree; an order without a root is its own root
+        - name: account
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: transactTimeFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Inclusive lower bound on the fill's transactTime
+        - name: transactTimeTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Exclusive upper bound on the fill's transactTime
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 5000
+            default: 1000
+          description: Maximum number of fills returned
+      responses:
+        '200':
+          description: Matching fills, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionViewDto'
+        '400':
+          description: Invalid parameter
+        '500':
+          description: Internal server error
 
 components:
   schemas:
+    ExecutionViewDto:
+      type: object
+      description: One applied fill with the order as of that fill (the order-execution projection).
+      required: [orderId, execId, orderVersion]
+      properties:
+        orderId:
+          type: string
+        execId:
+          type: string
+        rootOrderId:
+          type: string
+        parentOrderId:
+          type: string
+        leg:
+          type: string
+        clOrdId:
+          type: string
+        sessionId:
+          type: string
+        account:
+          type: string
+        side:
+          type: string
+        symbol:
+          type: string
+        securityId:
+          type: string
+        ordType:
+          type: string
+        price:
+          type: number
+        orderQty:
+          type: number
+        settlCurrency:
+          type: string
+        exDestination:
+          type: string
+        lastQty:
+          type: number
+        lastPx:
+          type: number
+        execType:
+          type: string
+        lastCapacity:
+          type: string
+        lastMkt:
+          type: string
+        transactTime:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+        cumQty:
+          type: number
+        leavesQty:
+          type: number
+        avgPx:
+          type: number
+        state:
+          type: string
+        orderVersion:
+          type: integer
+          format: int64
+          description: The order's event-log version this fill produced
+        tradeDate:
+          type: string
+          format: date
+          description: UTC date of transactTime
+    OrderEventType:
+      type: string
+      description: The kind of change an event-log entry records.
+      enum: [NEW_ORDER, ACK, PARTIAL_FILL, FILL, CXL, REJ, CXL_REQUEST, CXL_REJ]
+    OrderEventDto:
+      type: object
+      description: One entry of an order's event log.
+      required: [orderId, version, event]
+      properties:
+        orderId:
+          type: string
+        version:
+          type: integer
+          format: int64
+          description: Monotonic per-order sequence, starting at 1.
+        event:
+          $ref: '#/components/schemas/OrderEventType'
+        commandId:
+          type: string
+          description: The causing command's commandId, when it had one.
+        resultingState:
+          $ref: 'schema.yml#/components/schemas/State'
+        timeStamp:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: When the event was recorded, on the OMS clock.
+        transaction:
+          type: object
+          description: >-
+            The command that caused the change, as accepted by the command API (a `Command` from
+            oms-cmd-api.yml; its `type` property names the command type).
+        orderSnapshot:
+          $ref: '#/components/schemas/OrderDto'
     OrderDto:
       type: object
       description: Summary Order representation used in query responses.

@@ -41,7 +41,7 @@ describe('workflow actions are not reachable over the WebSocket', () => {
     const port = await freePort();
     server = new WebSocketServer(port);
     server.start();
-    const client = new WebSocket(`ws://localhost:${port}`);
+    const client = new WebSocket(`ws://127.0.0.1:${port}`);
     await new Promise<void>((resolve, reject) => {
       client.once('open', () => resolve());
       client.once('error', reject);

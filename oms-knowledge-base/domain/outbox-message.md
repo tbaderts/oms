@@ -23,9 +23,12 @@ change and the message exist, or neither does.
 | Field | Meaning |
 |---|---|
 | `id` | Primary key; the relay publishes in id order, which preserves per-order ordering |
-| `aggregateType`, `aggregateId`, `aggregateVersion` | What the message is about and which event version produced it |
-| `topic` | Target topic (`oms_orders` or `oms_executions`) |
-| `orderPayload`, `executionPayload` | The order or execution to publish |
+| `aggregateType` | `ORDER`, `EXECUTION`, `PROJECTION` (a message staged by a [projection](../oms-concepts/projections.md), SPEC-0020), or `ORDER_EXECUTION` (rows staged before SPEC-0020); selects the message and the payload columns read |
+| `aggregateId` | The Kafka key: the order's `rootOrderId`, or its own `orderId` when it has none |
+| `aggregateVersion` | The event-log version that produced the message (`eventId` / `orderVersion` on the wire) |
+| `topic` | Target topic (`oms_orders`, `oms_executions` or `oms_order_executions`) |
+| `orderPayload`, `executionPayload` | The order and/or execution to publish; `EXECUTION` and `ORDER_EXECUTION` rows carry both |
+| `payloadType`, `payload` | For `PROJECTION` rows: the Avro record's schema full name and its binary encoding |
 | `createdAt`, `attempts`, `lastError` | Bookkeeping for retries; after `kafka.outbox.max-attempts` (default 10) a message is no longer retried and stays in the table for investigation |
 
 ## Related

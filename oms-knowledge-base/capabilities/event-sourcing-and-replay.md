@@ -31,7 +31,7 @@ See [Order Event](../domain/order-event.md) and the [Event Sourcing decision](..
 
 ## Interfaces and domain
 
-[REST Read API](../interfaces/rest-read-api.md) (`/api/order-events`); [Order Event](../domain/order-event.md).
+[Query API](../interfaces/query-api.md) (`GET /api/query/orders/{orderId}/events`); [Order Event](../domain/order-event.md).
 
 ## Detailed specifications
 

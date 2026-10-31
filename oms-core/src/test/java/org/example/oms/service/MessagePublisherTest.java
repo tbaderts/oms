@@ -15,8 +15,11 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
+import org.example.common.model.msg.OrderExecution;
 import org.example.common.model.msg.OrderMessage;
+import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.mapper.ExecutionMessageMapper;
+import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.OutboxMessage;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +36,8 @@ class MessagePublisherTest {
     @Mock private KafkaTemplate<String, Object> kafkaTemplate;
     @Mock private OrderMessageMapper orderMessageMapper;
     @Mock private ExecutionMessageMapper executionMessageMapper;
+    @Mock private OrderExecutionMessageMapper orderExecutionMessageMapper;
+    private final AvroPayloadCodec payloadCodec = new AvroPayloadCodec();
 
     private MessagePublisher messagePublisher;
 
@@ -40,7 +45,89 @@ class MessagePublisherTest {
     void setUp() {
         messagePublisher =
                 new MessagePublisher(
-                        kafkaTemplate, orderMessageMapper, executionMessageMapper, 10);
+                        kafkaTemplate,
+                        orderMessageMapper,
+                        executionMessageMapper,
+                        orderExecutionMessageMapper,
+                        payloadCodec,
+                        10);
+    }
+
+    // SPEC-0020: a projection's message is decoded from the generic payload and sent with the row's key.
+    @Test
+    void publish_sendsProjectionPayload() throws Exception {
+        OrderExecution record = OrderExecution.newBuilder()
+                .setExecId("EX-9")
+                .setOrderId("ORD-9")
+                .setRootOrderId("ROOT-9")
+                .setLastQty(new java.math.BigDecimal("6.5536"))
+                .setOrderVersion(4L)
+                .setTradeDate(java.time.LocalDate.of(2026, 10, 31))
+                .build();
+        OutboxMessage message =
+                OutboxMessage.builder()
+                        .id(5L)
+                        .aggregateType(OutboxMessage.AggregateType.PROJECTION)
+                        .aggregateId("ROOT-9")
+                        .aggregateVersion(4L)
+                        .topic("oms_order_executions")
+                        .payloadType(OrderExecution.getClassSchema().getFullName())
+                        .payload(payloadCodec.encode(record))
+                        .createdAt(Instant.now())
+                        .build();
+        when(kafkaTemplate.send(eq("oms_order_executions"), eq("ROOT-9"), any()))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                sendResult("oms_order_executions", "ROOT-9")));
+
+        messagePublisher.publish(message);
+
+        verify(kafkaTemplate).send("oms_order_executions", "ROOT-9", record);
+    }
+
+    // SPEC-0019 rows staged before SPEC-0020: the fill with its order, from the two payload columns.
+    @Test
+    void publish_stillSendsLegacyOrderExecutionRows() throws Exception {
+        Instant stagedAt = Instant.parse("2026-10-31T09:00:00Z");
+        Order order = Order.builder().orderId("ORD-1").rootOrderId("ROOT-1").build();
+        Execution execution = Execution.builder().execID("EX-1").orderId("ORD-1").build();
+        OutboxMessage message =
+                OutboxMessage.builder()
+                        .id(3L)
+                        .aggregateType(OutboxMessage.AggregateType.ORDER_EXECUTION)
+                        .aggregateId("ROOT-1")
+                        .aggregateVersion(9L)
+                        .topic("oms_order_executions")
+                        .orderPayload(order)
+                        .executionPayload(execution)
+                        .createdAt(stagedAt)
+                        .build();
+
+        OrderExecution avro = org.mockito.Mockito.mock(OrderExecution.class);
+        when(orderExecutionMessageMapper.toOrderExecutionMessage(execution, order, 9L, stagedAt))
+                .thenReturn(avro);
+        when(kafkaTemplate.send(eq("oms_order_executions"), eq("ROOT-1"), any()))
+                .thenReturn(
+                        CompletableFuture.completedFuture(
+                                sendResult("oms_order_executions", "ROOT-1")));
+
+        messagePublisher.publish(message);
+
+        verify(kafkaTemplate).send("oms_order_executions", "ROOT-1", avro);
+    }
+
+    @Test
+    void publish_refusesOrderExecutionWithoutPayload() {
+        OutboxMessage message =
+                OutboxMessage.builder()
+                        .id(4L)
+                        .aggregateType(OutboxMessage.AggregateType.ORDER_EXECUTION)
+                        .aggregateId("ROOT-1")
+                        .topic("oms_order_executions")
+                        .createdAt(Instant.now())
+                        .build();
+
+        assertThrows(IllegalStateException.class, () -> messagePublisher.publish(message));
     }
 
     @Test
@@ -76,7 +163,7 @@ class MessagePublisherTest {
                         .setExecId("EX-1")
                         .setOrderId("ORD-1")
                         .build();
-        when(executionMessageMapper.toExecutionMessage(execution)).thenReturn(avro);
+        when(executionMessageMapper.toExecutionMessage(execution, null, 0L)).thenReturn(avro);
         when(kafkaTemplate.send(eq("oms_executions"), eq("EX-1"), any()))
                 .thenReturn(
                         CompletableFuture.completedFuture(sendResult("oms_executions", "EX-1")));

@@ -42,7 +42,7 @@ let watcherService: WatcherService;
 let wsServer: WebSocketServer;
 let storyboards: StoryboardsIpc;
 
-// COCKPIT_WS_PORT lets an end-to-end run start next to a running cockpit (the page CSP still only allows 9321).
+// COCKPIT_WS_PORT lets an end-to-end run start next to a running cockpit; the page CSP allows any port on 127.0.0.1.
 const WS_PORT = Number(process.env.COCKPIT_WS_PORT) || 9321;
 const isDev = process.env.DEV_SERVER === 'true';
 

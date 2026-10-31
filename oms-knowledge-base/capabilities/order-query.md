@@ -44,9 +44,9 @@ see [decision](../architecture/shared-table-cqrs.md)); the query side never muta
 
 ## Known gaps
 
-- `/api/orders`, `/api/executions` and `/api/order-events` have no automated tests and are not in the OpenAPI contracts.
+- `/api/orders` and `/api/executions` have no automated tests and are not in the OpenAPI contracts. The event log is contracted as `getOrderEvents` in the [Query API](../interfaces/query-api.md) (SPEC-0035).
 - No separate read-optimised store exists; the State-Query Store specification evaluates options only.
 
 ## Verification
 
-`OrderSpecificationsIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OrderSpecificationsIntegrationTest`, `OrderEventQueryIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).

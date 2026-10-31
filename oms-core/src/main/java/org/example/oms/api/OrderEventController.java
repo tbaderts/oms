@@ -2,30 +2,28 @@ package org.example.oms.api;
 
 import java.util.List;
 
-import org.example.oms.model.OrderEvent;
+import org.example.common.api.OrdersApi;
+import org.example.common.model.query.OrderEventDto;
+import org.example.oms.mapper.OrderEventDtoMapper;
 import org.example.oms.service.OrderEventReadService;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import io.swagger.v3.oas.annotations.Hidden;
+import lombok.RequiredArgsConstructor;
 
+/** The order event log as a query API operation ({@code oms-query-api.yml}, SPEC-0035). */
 @RestController
-@RequestMapping("/api/order-events")
-@Transactional(readOnly = true)
-public class OrderEventController {
+@RequestMapping("/api/query")
+@RequiredArgsConstructor
+public class OrderEventController implements OrdersApi {
 
     private final OrderEventReadService orderEventReadService;
+    private final OrderEventDtoMapper orderEventDtoMapper;
 
-    public OrderEventController(OrderEventReadService orderEventReadService) {
-        this.orderEventReadService = orderEventReadService;
-    }
-
-    @GetMapping("/orderId/{orderId}")
-    @Hidden
-    public List<OrderEvent> getOrderEventsByOrderId(@PathVariable String orderId) {
-        return orderEventReadService.findByOrderId(orderId);
+    @Override
+    public ResponseEntity<List<OrderEventDto>> getOrderEvents(String orderId) {
+        return ResponseEntity.ok(
+                orderEventDtoMapper.toOrderEventDtos(orderEventReadService.findByOrderId(orderId)));
     }
 }

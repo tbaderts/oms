@@ -1,0 +1,101 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0020: projections computed in the command transaction.
+  #
+  # The outbox gets a generic payload: payload_type names the Avro record (its
+  # schema full name) and payload holds its binary Avro encoding, so a projection
+  # stages any message without a column per message type. Not JSONB: Avro's JSON
+  # encoding writes decimal bytes as \u0000-style escapes, which jsonb rejects. Rows staged before
+  # this change keep using order_payload / execution_payload.
+  #
+  # order_execution_view is the first projection: one row per applied fill with
+  # the order as of that fill. It starts empty; one rebuild after deployment
+  # fills it from order_events and executions.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 016-outbox-generic-payload
+      author: oms
+      changes:
+        - addColumn:
+            tableName: outbox
+            columns:
+              - column: { name: payload_type, type: VARCHAR(255) }
+              - column: { name: payload, type: BYTEA }
+      rollback:
+        - dropColumn:
+            tableName: outbox
+            columnName: payload
+        - dropColumn:
+            tableName: outbox
+            columnName: payload_type
+  - changeSet:
+      id: 017-order-execution-view
+      author: oms
+      changes:
+        - createSequence:
+            sequenceName: order_execution_view_seq
+            startValue: 1
+            incrementBy: 1
+        - createTable:
+            tableName: order_execution_view
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_order_execution_view
+                    nullable: false
+              - column: { name: order_id, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: execid, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: root_order_id, type: VARCHAR(255) }
+              - column: { name: parent_order_id, type: VARCHAR(255) }
+              - column: { name: leg, type: VARCHAR(255) }
+              - column: { name: cl_ord_id, type: VARCHAR(255) }
+              - column: { name: session_id, type: VARCHAR(255) }
+              - column: { name: account, type: VARCHAR(255) }
+              - column: { name: side, type: VARCHAR(255) }
+              - column: { name: symbol, type: VARCHAR(255) }
+              - column: { name: security_id, type: VARCHAR(255) }
+              - column: { name: ord_type, type: VARCHAR(255) }
+              - column: { name: price, type: NUMERIC }
+              - column: { name: order_qty, type: NUMERIC }
+              - column: { name: settl_currency, type: VARCHAR(255) }
+              - column: { name: ex_destination, type: VARCHAR(255) }
+              - column: { name: last_qty, type: NUMERIC }
+              - column: { name: last_px, type: NUMERIC }
+              - column: { name: exec_type, type: VARCHAR(255) }
+              - column: { name: last_capacity, type: VARCHAR(255) }
+              - column: { name: last_mkt, type: VARCHAR(255) }
+              - column: { name: transact_time, type: TIMESTAMP WITH TIME ZONE }
+              - column: { name: cum_qty, type: NUMERIC }
+              - column: { name: leaves_qty, type: NUMERIC }
+              - column: { name: avg_px, type: NUMERIC }
+              - column: { name: state, type: VARCHAR(255) }
+              - column: { name: order_version, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: trade_date, type: DATE }
+              - column: { name: projected_at, type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
+        - addUniqueConstraint:
+            tableName: order_execution_view
+            constraintName: uq_order_execution_view_order_id_execid
+            columnNames: order_id, execid
+        - createIndex:
+            tableName: order_execution_view
+            indexName: idx_oev_root_order_id
+            columns:
+              - column: { name: root_order_id }
+        - createIndex:
+            tableName: order_execution_view
+            indexName: idx_oev_account
+            columns:
+              - column: { name: account }
+        - createIndex:
+            tableName: order_execution_view
+            indexName: idx_oev_transact_time
+            columns:
+              - column: { name: transact_time }
+      rollback:
+        - dropTable:
+            tableName: order_execution_view
+        - dropSequence:
+            sequenceName: order_execution_view_seq

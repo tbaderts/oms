@@ -35,7 +35,7 @@ public class OrderMessageMapper {
         return OrderMessage.newBuilder()
                 .setOrderId(order.getOrderId())
                 .setParentOrderId(order.getParentOrderId())
-                .setRootOrderId(order.getRootOrderId() != null ? order.getRootOrderId() : order.getOrderId())
+                .setRootOrderId(rootOrderIdOf(order))
                 .setSessionId(order.getSessionId())
                 .setClOrdId(order.getClOrdId())
                 .setSendingTime(order.getSendingTime())
@@ -108,11 +108,20 @@ public class OrderMessageMapper {
         return value == null ? null : PriceType.valueOf(value.name());
     }
 
-    private OrdType mapOrdType(org.example.common.model.OrdType value) {
+    /**
+     * The root of the order's tree, or the order itself when it has none. Every outbound message
+     * publishes this as rootOrderId and uses it as its Kafka key, so all records of one tree share a
+     * partition.
+     */
+    public static String rootOrderIdOf(Order order) {
+        return order.getRootOrderId() != null ? order.getRootOrderId() : order.getOrderId();
+    }
+
+    static OrdType mapOrdType(org.example.common.model.OrdType value) {
         return value == null ? null : OrdType.valueOf(value.name());
     }
 
-    private Side mapSide(org.example.common.model.Side value) {
+    static Side mapSide(org.example.common.model.Side value) {
         return value == null ? null : Side.valueOf(value.name());
     }
 
@@ -120,7 +129,7 @@ public class OrderMessageMapper {
         return value == null ? null : TimeInForce.valueOf(value.name());
     }
 
-    private State mapState(org.example.common.model.State value) {
+    static State mapState(org.example.common.model.State value) {
         return value == null ? null : State.valueOf(value.name());
     }
 
