@@ -1,12 +1,17 @@
 package org.example.oms.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
+
+import io.swagger.v3.oas.annotations.Operation;
 import org.example.common.model.Order;
 import org.example.common.model.cmd.CommandStatus;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
@@ -71,7 +76,7 @@ class CommandControllerWebMvcTest {
 
         mockMvc.perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"OrderCreateCmd\",\"version\":\"1.0.0\",\"order\":{\"clOrdId\":\"C1\",\"symbol\":\"AAPL\",\"account\":\"A1\",\"ordType\":\"LIMIT\",\"orderQty\":1,\"price\":1,\"side\":\"BUY\"}}"))
+                        .content("{\"type\":\"OrderCreateCmd\",\"version\":\"1.0.0\",\"order\":{\"sessionId\":\"S1\",\"clOrdId\":\"C1\",\"symbol\":\"AAPL\",\"account\":\"A1\",\"ordType\":\"LIMIT\",\"orderQty\":1,\"price\":1,\"side\":\"BUY\"}}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("ORD-100"))
                 .andExpect(jsonPath("$.status").value(CommandStatus.OK.name()));
@@ -139,6 +144,38 @@ class CommandControllerWebMvcTest {
                 .andExpect(jsonPath("$.id").value("ORD-201"))
                 .andExpect(jsonPath("$.status").value(CommandStatus.FAILED.name()))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("not allowed")));
+    }
+
+    /** SPEC-0034 AC-7: the Swagger UI's order create example must satisfy the contract it documents. */
+    @Test
+    void swaggerOrderCreateExample_isAccepted() throws Exception {
+        Method execute = CommandController.class.getMethod("executeCommand", org.example.common.model.cmd.Command.class);
+        String example = Arrays.stream(execute.getAnnotation(Operation.class).requestBody().content()[0].examples())
+                .filter(e -> "OrderCreateCmd".equals(e.name()))
+                .findFirst()
+                .orElseThrow()
+                .value();
+        when(orderCreateCommandProcessor.process(any(), any()))
+                .thenReturn(OrderCreateCommandProcessor.OrderCreateResult.builder().success(true).orderId("ORD-300").build());
+
+        mockMvc.perform(post("/api/command/execute").contentType(MediaType.APPLICATION_JSON).content(example))
+                .andExpect(status().isCreated());
+    }
+
+    /** SPEC-0034: sessionId is contract-required, so request validation rejects it before the processor. */
+    @ParameterizedTest
+    @ValueSource(strings = {"", "\"sessionId\":\"\","})
+    void orderCreate_withoutSessionId_returns400ValidationFailed(String sessionField) throws Exception {
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"OrderCreateCmd\",\"version\":\"1.0.0\",\"order\":{" + sessionField
+                                + "\"clOrdId\":\"C1\",\"symbol\":\"AAPL\",\"account\":\"A1\",\"ordType\":\"LIMIT\",\"orderQty\":1,\"price\":1,\"side\":\"BUY\"}}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:oms:error:validation-failed"))
+                .andExpect(jsonPath("$.errorCode").value("OMS-VAL-002"))
+                .andExpect(jsonPath("$.errors['order.sessionId']").isNotEmpty());
+
+        verify(orderCreateCommandProcessor, never()).process(any(), any());
     }
 
     @Test

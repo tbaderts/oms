@@ -1,0 +1,41 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0018: lifecycle deduplication used to load and deserialise an order's
+  # whole event history on every command. Each event now stores its command's
+  # commandId, unique per order, so the check is one indexed lookup. Existing
+  # rows are backfilled from the stored command, so a redelivery of a command
+  # applied before this change is still refused. NULLs are distinct in a unique
+  # constraint, so the many commands without a commandId do not collide.
+  #
+  # The tag marks the schema just before this change; the backfill test
+  # migrates to it, inserts legacy rows, then applies the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 014-tag-before-command-id
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-006-command-id
+  - changeSet:
+      id: 015-order-events-command-id
+      author: oms
+      changes:
+        - addColumn:
+            tableName: order_events
+            columns:
+              - column: { name: command_id, type: VARCHAR(255) }
+        - sql:
+            sql: >-
+              UPDATE order_events SET command_id = transaction ->> 'commandId'
+              WHERE transaction ->> 'commandId' IS NOT NULL
+        - addUniqueConstraint:
+            tableName: order_events
+            constraintName: uq_order_events_order_id_command_id
+            columnNames: order_id, command_id
+      rollback:
+        - dropUniqueConstraint:
+            tableName: order_events
+            constraintName: uq_order_events_order_id_command_id
+        - dropColumn:
+            tableName: order_events
+            columnName: command_id

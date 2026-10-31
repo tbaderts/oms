@@ -5,6 +5,10 @@ import java.time.Instant;
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.cmd.Command;
+import org.example.common.model.cmd.OrderCancelCmd;
+import org.example.common.model.cmd.OrderCancelRejectCmd;
+import org.example.common.model.cmd.OrderCancelRequestCmd;
+import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.model.OutboxMessage;
@@ -60,6 +64,7 @@ public class OrderEventAppender {
                         .version(version)
                         .event(event)
                         .transaction(command)
+                        .commandId(commandIdOf(command))
                         .resultingState(order.getState())
                         .orderSnapshot(order)
                         .timeStamp(Instant.now())
@@ -91,6 +96,9 @@ public class OrderEventAppender {
      *
      * <p>Both are published: consumers tracking fills read the executions topic, consumers tracking
      * order state read the orders topic, and neither has to infer one from the other.
+     *
+     * <p>The execution is staged under the order's id, not its execID, because the aggregate id is
+     * the Kafka key: all fills of one order then land on one partition and are consumed in order.
      */
     public long appendExecutionEvent(Order order, Execution execution, Event event, Command command) {
         long version = appendOrderEvent(order, event, command);
@@ -98,7 +106,7 @@ public class OrderEventAppender {
         outboxRepository.save(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.EXECUTION)
-                        .aggregateId(execution.getExecID())
+                        .aggregateId(order.getOrderId())
                         .topic(executionTopic)
                         .aggregateVersion(version)
                         .executionPayload(execution)
@@ -113,6 +121,20 @@ public class OrderEventAppender {
                 executionTopic);
 
         return version;
+    }
+
+    /**
+     * The command's commandId, or null when it has none. Only the lifecycle commands carry one; this
+     * is the single place that decides which, for both storing and deduplicating.
+     */
+    public static String commandIdOf(Command command) {
+        return switch (command) {
+            case OrderRejectCmd cmd -> cmd.getCommandId();
+            case OrderCancelCmd cmd -> cmd.getCommandId();
+            case OrderCancelRequestCmd cmd -> cmd.getCommandId();
+            case OrderCancelRejectCmd cmd -> cmd.getCommandId();
+            case null, default -> null;
+        };
     }
 
     /**

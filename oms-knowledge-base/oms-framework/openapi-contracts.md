@@ -514,6 +514,10 @@ public interface OrderMapper {
 - Making optional fields required
 - Removing endpoints
 
+Example: SPEC-0034 made `Order.sessionId` required (and non-empty) in `oms-cmd-api.yml`, because
+oms-core already refused orders without it. The command API's `info.version` went from 1.0.0 to
+2.0.0. The URL path did not change, because no request that worked before is refused now.
+
 ---
 
 ## 8. Avro Schema Generation

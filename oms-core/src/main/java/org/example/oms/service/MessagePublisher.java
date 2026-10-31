@@ -46,6 +46,9 @@ public class MessagePublisher {
     /**
      * Publishes one staged message, blocking until the broker acknowledges it.
      *
+     * <p>The record key is the message's aggregate id, which is the order id for both orders and
+     * executions, so every record of one order goes to the same partition of each topic.
+     *
      * @throws ExecutionException if the broker rejected the record
      * @throws TimeoutException if the broker did not acknowledge in time
      */

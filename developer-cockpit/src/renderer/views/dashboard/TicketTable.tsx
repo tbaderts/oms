@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { filterTickets } from '@/lib/spec-tickets';
+import { filterTickets, stageFilterLabel, TILE_CROSS_VIEWS, type StageFilter } from '@/lib/spec-tickets';
 import { openTicket } from '@/lib/open-ticket';
 import { useSpecTicketsStore } from '@/stores/specTickets';
 import { useNavigationStore } from '@/stores/navigation';
@@ -54,7 +54,9 @@ export function TicketTable() {
           <SelectTrigger className="h-8 w-32" aria-label="Stage filter"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ANY}>All stages</SelectItem>
-            {[...SPEC_STAGES, 'blocked'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            {([...TILE_CROSS_VIEWS, ...SPEC_STAGES, 'blocked'] as StageFilter[]).map((s) => (
+              <SelectItem key={s} value={s}>{stageFilterLabel(s)}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={module || ANY} onValueChange={(v) => setFilter({ module: v === ANY ? '' : v })}>

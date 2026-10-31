@@ -1,0 +1,55 @@
+# Grafana datasource provisioning for the OMS LGTM stack (SPEC-0031, SPEC-0032).
+# Mounted read-only at /etc/grafana/provisioning (datasources only;
+# dashboards are a later ticket).
+apiVersion: 1
+
+# The SPEC-0031 Prometheus datasource persists in the grafana-storage volume;
+# dropping it from this file alone would leave it behind.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+datasources:
+  - name: Mimir
+    uid: oms-mimir
+    type: prometheus
+    access: proxy
+    url: http://mimir:9009/prometheus
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      prometheusType: Mimir
+  - name: Loki
+    uid: oms-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+  - name: Tempo
+    uid: oms-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: oms-loki
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        filterByTraceID: true
+        tags:
+          - key: service.name
+            value: service_name
+      tracesToMetrics:
+        datasourceUid: oms-mimir
+        spanStartTimeShift: -5m
+        spanEndTimeShift: 5m
+        tags:
+          - key: service.name
+            value: job
+      serviceMap:
+        datasourceUid: oms-mimir
+      nodeGraph:
+        enabled: true

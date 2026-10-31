@@ -1,0 +1,115 @@
+// Grafana Alloy — the single telemetry agent of the OMS LGTM stack (SPEC-0032).
+// Bind-mounted by docker-compose.yml at /etc/alloy/config.alloy.
+// OTLP in on 4317 (gRPC) / 4318 (HTTP), published on the host too, so host-native
+// bootRun (oms-core/.env TRACING_URL=http://localhost:4317) and compose services
+// (http://alloy:4317) report to the same place. Traces go to Tempo, metrics to
+// Mimir, logs to Loki.
+
+// ---- OTLP in ----
+otelcol.receiver.otlp "default" {
+	grpc {
+		endpoint = "0.0.0.0:4317"
+	}
+
+	http {
+		endpoint = "0.0.0.0:4318"
+	}
+
+	output {
+		metrics = [otelcol.processor.batch.default.input]
+		logs    = [otelcol.processor.batch.default.input]
+		traces  = [otelcol.processor.batch.default.input]
+	}
+}
+
+otelcol.processor.batch "default" {
+	output {
+		metrics = [otelcol.exporter.otlphttp.mimir.input]
+		logs    = [otelcol.exporter.otlphttp.loki.input]
+		traces  = [otelcol.exporter.otlp.tempo.input]
+	}
+}
+
+otelcol.exporter.otlp "tempo" {
+	client {
+		endpoint = "tempo:4317"
+
+		tls {
+			insecure = true
+		}
+	}
+}
+
+// Native OTLP ingestion: Mimir keeps metric names as sent
+otelcol.exporter.otlphttp "mimir" {
+	client {
+		endpoint = "http://mimir:9009/otlp"
+	}
+}
+
+// Native OTLP ingestion (needs allow_structured_metadata in loki-config.yml)
+otelcol.exporter.otlphttp "loki" {
+	client {
+		endpoint = "http://loki:3100/otlp"
+	}
+}
+
+// ---- oms-core actuator scrape; SPEC-0033 removes it once the app pushes OTLP ----
+prometheus.scrape "oms_core" {
+	job_name        = "oms-core"
+	targets         = [{"__address__" = "oms-core:8090"}]
+	metrics_path    = "/actuator/prometheus"
+	scrape_interval = "15s"
+	forward_to      = [prometheus.remote_write.mimir.receiver]
+}
+
+prometheus.remote_write "mimir" {
+	endpoint {
+		url = "http://mimir:9009/api/v1/push"
+	}
+}
+
+// ---- container logs of this compose project (Promtail's former job) ----
+// Read through the read-only /var/run/docker.sock mount; the label filter
+// restricts discovery to compose services.
+discovery.docker "compose" {
+	host             = "unix:///var/run/docker.sock"
+	refresh_interval = "15s"
+
+	filter {
+		name   = "label"
+		values = ["com.docker.compose.service"]
+	}
+}
+
+discovery.relabel "compose" {
+	targets = []
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "compose_service"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_log_stream"]
+		target_label  = "stream"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		target_label  = "docker_name"
+	}
+}
+
+loki.source.docker "compose" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.compose.targets
+	relabel_rules = discovery.relabel.compose.rules
+	forward_to    = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}

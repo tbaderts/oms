@@ -12,6 +12,7 @@ sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OrderEventAppender.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OrderReplayService.java"
   - resource: "repo:oms-core/src/main/resources/db/changelog/003-event-sourcing-and-outbox.yaml"
+  - resource: "repo:oms-core/src/main/resources/db/changelog/006-order-event-command-id.yaml"
   - resource: "repo:oms-core/src/test/java/org/example/oms/integration/EventSourcingIntegrationTest.java"
 ---
 # Order Event
@@ -25,7 +26,8 @@ itself. The log is the audit trail and the source for replay.
 |---|---|
 | `orderId`, `version` | The order and a contiguous per-order sequence starting at 1; unique `(order_id, version)` (`uq_order_events_order_id_version`) |
 | `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ` |
-| `transaction` | The command that caused it, when known (also the record of applied `commandId`s used for de-duplication). Fills received over REST record none; see the known gaps of [Execution Processing](../capabilities/execution-processing.md) |
+| `transaction` | The command that caused it, as received over REST or Kafka (fills included). Null only for events recorded by internal callers that have no command |
+| `commandId` (`command_id`) | The command's `commandId`, when it has one (the four lifecycle commands). Unique per order (`uq_order_events_order_id_command_id`); it is what [de-duplication](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md) looks up. Null otherwise; rows written before the column existed were backfilled from `transaction` |
 | `resultingState`, `orderSnapshot` | The state and the full order after the change |
 | `timeStamp` | When it was recorded |
 

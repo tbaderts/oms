@@ -240,6 +240,32 @@ describe('Dashboard', () => {
     expect(tableIds()).toEqual(all);
   });
 
+  it('the Active, In progress and Awaiting approval tiles filter the table; Task completion does not', async () => {
+    const api = mockCockpit();
+    api.list.mockResolvedValue({ user: 'Alice', tickets: TICKETS, errors: [] });
+    render(<DashboardView />);
+    await screen.findAllByText('Alice waits');
+    const all = ['SPEC-0001', 'SPEC-0002', 'SPEC-0003', 'SPEC-0004', 'SPEC-0005'];
+
+    // Active tickets clears the stage filter and shows everyone's tickets.
+    fireEvent.click(within(tile('Active tickets')).getByRole('button'));
+    expect(tableIds()).toEqual(all);
+    expect(within(tile('Active tickets')).getByRole('button').getAttribute('aria-pressed')).toBe('true');
+
+    // In progress: every non-done ticket, blocked included.
+    fireEvent.click(within(tile('In progress')).getByRole('button'));
+    expect(tableIds()).toEqual(['SPEC-0001', 'SPEC-0002', 'SPEC-0003', 'SPEC-0004']);
+    expect(screen.getByTestId('stage-filter-chip').textContent).toContain('In progress');
+
+    // Awaiting approval: tickets waiting on a stage approval.
+    fireEvent.click(within(tile('Awaiting approval')).getByRole('button'));
+    expect(tableIds()).toEqual(['SPEC-0001', 'SPEC-0002']);
+    expect(screen.getByTestId('stage-filter-chip').textContent).toContain('Awaiting approval');
+
+    // Task completion stays a static tile.
+    expect(within(tile('Task completion')).queryByRole('button')).toBeNull();
+  });
+
   it('empty portfolio shows no-active-tickets and zero tiles', async () => {
     const api = mockCockpit();
     api.list.mockResolvedValue({ user: 'Alice', tickets: [], errors: [] });

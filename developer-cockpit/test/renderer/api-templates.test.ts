@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { ApiCatalogService } from '../../src/main/services/ApiCatalogService';
 import { checkBody } from '../../src/renderer/lib/api-schema';
 import {
@@ -165,5 +166,28 @@ describe('starter templates', () => {
     const create = byType.OrderCreateCmd.map((t) => JSON.parse(resolveVariables(t.body, ctx({ variables: t.variables })).text).order);
     for (const o of create) expect(o.sessionId, o.symbol).toBeTruthy();
     expect(create.map((o) => o.symbol)).toContain('INTC');
+  });
+
+  it('oms-core rest.http create examples pass the contract check (SPEC-0034)', () => {
+    const file = parseHttpFile(fs.readFileSync(path.join(REPO_ROOT, 'oms-core', 'rest.http'), 'utf8'));
+    const creates = file.requests.filter((r) => r.body && JSON.parse(r.body).type === 'OrderCreateCmd');
+    expect(creates.length).toBeGreaterThan(0);
+    for (const r of creates) {
+      expect(checkBody(r.body!, 'OrderCreateCmd', schema('OrderCreateCmd')), `rest.http:${r.line}`).toEqual({ findings: [] });
+    }
+  });
+
+  it('oms-cmd-api.yml request examples pass the contract check (SPEC-0034)', () => {
+    const spec = yaml.load(fs.readFileSync(path.join(REPO_ROOT, 'oms-contracts', 'src', 'main', 'openapi', 'oms-cmd-api.yml'), 'utf8')) as {
+      paths: Record<string, Record<string, { requestBody?: { content?: Record<string, { example?: { type?: string } }> } }>>;
+    };
+    const examples = Object.entries(spec.paths).flatMap(([p, ops]) =>
+      Object.entries(ops).flatMap(([op, o]) =>
+        Object.values(o.requestBody?.content ?? {}).filter((c) => c.example).map((c) => ({ at: `${op} ${p}`, example: c.example! }))));
+    expect(examples.length).toBeGreaterThan(0);
+    for (const { at, example } of examples) {
+      expect(catalog.commandTypes, at).toContain(example.type);
+      expect(checkBody(JSON.stringify(example), example.type!, schema(example.type!)), at).toEqual({ findings: [] });
+    }
   });
 });

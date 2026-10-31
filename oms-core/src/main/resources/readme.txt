@@ -4,16 +4,27 @@ http://localhost:8090/swagger-ui/index.html#
 pgadmin:
 http://localhost:5050
 
-jaeger:
-http://localhost:16686
-
 grafana:
 http://localhost:3000
 admin/secret
 
-prometheus:
-http://localhost:9090
+alloy (telemetry agent; OTLP for host and containers):
+http://localhost:12345
+OTLP gRPC localhost:4317, OTLP HTTP localhost:4318
+
+mimir (metrics; Prometheus API under /prometheus):
+http://localhost:9009
 http://localhost:8090/actuator/metrics
+
+loki:
+http://localhost:3100
+
+tempo:
+http://localhost:3200
+
+one-time migration from the SPEC-0031 stack (removes old jaeger/prometheus/promtail containers):
+docker compose up -d --remove-orphans
+if tempo 3 cannot read old tempo 2 blocks: docker compose rm -sf tempo && docker compose up -d tempo
 
 local:
 export DB_URL=jdbc:postgresql://localhost:5432/postgres?autoReconnect=true
@@ -38,7 +49,7 @@ export CONSUMER_GROUP=oms_consumer_group
 export REGISTRY_URL=http://schema-registry:8081
 export TX_ID_PREFIX=tx-
 export DEAD_LETTER_TOPIC=oms_dlq
-export TRACING_URL=http://jaeger:4317
+export TRACING_URL=http://alloy:4317
 export SERVER_PORT=8090
 
 kubernetes:

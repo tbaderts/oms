@@ -32,7 +32,8 @@ public class LoadOrderTask implements Task<OrderTaskContext> {
             return fail(context, "orderId is required");
         }
 
-        Order order = orderRepository.findByOrderId(orderId).orElse(null);
+        // Locked so that concurrent lifecycle commands on this order run one after the other.
+        Order order = orderRepository.findLockedByOrderId(orderId).orElse(null);
         if (order == null) {
             return fail(context, "Order not found: " + orderId);
         }

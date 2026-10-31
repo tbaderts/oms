@@ -125,6 +125,26 @@ class CommandListenerTest {
         verify(orderAcceptCommandProcessor, never()).process(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
+    /**
+     * SPEC-0034 AC-5: the Avro Order keeps sessionId nullable, so the Kafka path still relies on the
+     * processor to reject it. That rejection is not a fault: it is acknowledged, not thrown to the DLT.
+     */
+    @Test
+    void consume_rejectedOrderCreate_isAcknowledgedNotThrown() {
+        org.example.common.model.msg.OrderCreateCmd incoming =
+                new org.example.common.model.msg.OrderCreateCmd("OrderCreateCmd", "1.0", null);
+        OrderCreateCmd mapped = new OrderCreateCmd()
+                .type("OrderCreateCmd")
+                .order(new org.example.common.model.cmd.Order().sessionId(null).clOrdId("C1"));
+        when(objectMapper.convertValue(incoming, OrderCreateCmd.class)).thenReturn(mapped);
+        when(orderCreateCommandProcessor.process(org.mockito.ArgumentMatchers.eq(mapped), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(OrderCreateResult.builder().success(false).errorMessage("SessionId is required").build());
+
+        commandListener.consume(MessageBuilder.withPayload(new CommandMessage(incoming)).build());
+
+        verify(orderCreateCommandProcessor).process(org.mockito.ArgumentMatchers.eq(mapped), org.mockito.ArgumentMatchers.notNull());
+    }
+
     @Test
     void consume_shouldIgnoreNullCommandPayload() {
         CommandMessage payload = new CommandMessage(null);

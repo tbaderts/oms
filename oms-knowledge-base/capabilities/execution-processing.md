@@ -55,9 +55,8 @@ The market (today the [exchange simulator](exchange-simulation.md)); operators f
 - The over-fill guard (a fill that would make `cumQty` exceed `orderQty` is refused) has no dedicated test.
 - The OMS does not compute an average price; `avgPx` is taken from the report.
 - Execution Reporting describes trade corrections and order-tree propagation that are not built.
-- An `ExecutionCreateCmd` received over REST is processed without its command
-  (`executionCommandProcessor.process(execution)`), so the fill's event records no command
-  (`transaction` is null) and no SLA ingress time is taken; over Kafka the command is recorded.
+- No SLA ingress time is taken for an `ExecutionCreateCmd` received over REST. Its command is
+  recorded in the fill's event, as over Kafka (SPEC-0018).
 - Differences from [Order Lifecycle](../oms-concepts/order-lifecycle.md), which reads as current behaviour:
   - §9.4 "Fill Without Acknowledgment" says to process a fill that arrives before the ack; the code
     refuses any fill unless the order is LIVE (FR-013).

@@ -1,5 +1,14 @@
 # Knowledge Base Log
 
+## 2026-10-31
+
+`sessionId` is required by the command contract (SPEC-0034). `oms-cmd-api.yml` 2.0.0 marks
+`Order.sessionId` required and non-empty, matching what oms-core already enforced. Over HTTP, a
+body that breaks the contract is now answered with the `validation-failed` problem, which lists
+each failing field. [FR-002](functional-requirements/FR-002-validate-new-orders.md),
+[error handling](oms-framework/error-handling.md) and
+[OpenAPI contracts](oms-framework/openapi-contracts.md) are updated.
+
 ## 2026-10-29
 
 Storyboards (SPEC-0014): `storyboards/` holds process journeys that the Developer Cockpit reads,

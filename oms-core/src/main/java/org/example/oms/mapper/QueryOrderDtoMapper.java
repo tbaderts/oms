@@ -11,6 +11,7 @@ import org.example.common.model.Order;
 import org.example.common.model.query.OrderDto;
 import org.example.common.model.query.PageMetadata;
 import org.example.common.model.query.PagedOrderDto;
+import org.example.oms.service.OrderSearchResult;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -61,6 +62,18 @@ public interface QueryOrderDtoMapper {
             return new ArrayList<>();
         }
         return orders.stream().map(this::toOrderDto).collect(Collectors.toList());
+    }
+
+    /**
+     * Converts a search result to PagedOrderDto, setting each order's eventVersion (null when the
+     * order has no events).
+     */
+    default PagedOrderDto toPagedOrderDto(OrderSearchResult result) {
+        PagedOrderDto paged = toPagedOrderDto(result.orders());
+        for (OrderDto dto : paged.getContent()) {
+            dto.setEventVersion(result.eventVersions().get(dto.getOrderId()));
+        }
+        return paged;
     }
 
     /** Converts a Spring Data Page of Orders to simple PagedOrderDto. */

@@ -31,6 +31,7 @@ function evidenced() {
 }
 
 describe('check:storyboards on the repository corpus', () => {
+  // Scans the whole repository twice (normal and strict); that takes ~18s even unloaded.
   it('repository corpus passes normal and strict', () => {
     for (const strict of [false, true]) {
       const lines: string[] = [];
@@ -40,7 +41,7 @@ describe('check:storyboards on the repository corpus', () => {
       expect(code, `${lines.join('\n')}\n${hint}`).toBe(0);
       expect(lines.join('\n')).toMatch(/place-and-fill-order\s+draft\s+trust=evidenced\s+drift=current\s+0 error\(s\), 0 warning\(s\)/);
     }
-  });
+  }, 60_000);
 
   it('ships templates and a well-formed stencil library', () => {
     const root = path.join(REPO_ROOT, 'oms-knowledge-base', 'storyboards');

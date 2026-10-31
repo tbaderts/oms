@@ -36,9 +36,10 @@ include `oms-contracts` so they still build standalone.
 - **Gradle** - Build tool
 
 ### Monitoring & Observability
-- **Prometheus** - Metrics collection
-- **OpenTelemetry** - Distributed tracing
-- **Loki & Promtail** - Log aggregation
+- **Micrometer / Prometheus format** - Metrics exposition (`/actuator/prometheus`)
+- **OpenTelemetry (OTLP)** - Distributed tracing, sent to the Alloy agent
+- **Grafana LGTM stack** - Grafana dashboards, Loki logs, Tempo traces, Mimir metrics, with
+  Grafana Alloy as the single telemetry agent
 
 ### Frontend (oms-ui)
 - **React** - UI framework
@@ -307,11 +308,25 @@ feature branches and no pull requests.
 
 ## Monitoring
 
-When oms-core is running:
-- Application: `http://localhost:8080`
-- Actuator endpoints: `http://localhost:8080/actuator`
-- Prometheus metrics: `http://localhost:8080/actuator/prometheus`
-- OpenAPI UI: `http://localhost:8080/swagger-ui.html`
+When oms-core is running (host-native bootRun on 8090; containers map to the same ports unless noted):
+- Application: `http://localhost:8090`
+- Actuator endpoints: `http://localhost:8090/actuator`
+- Prometheus metrics: `http://localhost:8090/actuator/prometheus`
+- Swagger UI: `http://localhost:8090/swagger-ui.html`
+
+LGTM observability stack from the root `docker-compose.yml` (SPEC-0031, SPEC-0032):
+- Grafana: `http://localhost:3000` (admin / `$GF_SECURITY_ADMIN_PASSWORD`, default `secret`);
+  datasources Mimir/Loki/Tempo are provisioned at startup, with trace→log/metric links
+- Alloy (telemetry agent): OTLP `localhost:4317` (gRPC) / `localhost:4318` (HTTP), UI
+  `http://localhost:12345`. Host-native `bootRun` (`TRACING_URL=http://localhost:4317`) and the
+  compose `oms-core` (`http://alloy:4317`) both report here. Alloy also scrapes
+  `oms-core:8090/actuator/prometheus` (job `oms-core`) and ships all compose containers' logs
+- Mimir: `http://localhost:9009` (Prometheus API under `/prometheus`)
+- Loki: `http://localhost:3100`
+- Tempo: `http://localhost:3200` (API only; OTLP arrives in-network from Alloy)
+- Smoke test: `powershell -File oms-core/scripts/lgtm-smoke-test.ps1` (exit 0 = all ACs pass)
+- Coming from the SPEC-0031 stack: run `docker compose up -d --remove-orphans` once to drop the
+  old `jaeger`, `prometheus` and `promtail` containers (Jaeger would otherwise hold port 4317)
 
 ## Questions?
 

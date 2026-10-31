@@ -29,6 +29,13 @@ RSocket routes `orders.stream`, `executions.stream`, `blotter.stream`, `orders.s
 [Query API](../interfaces/query-api.md); live updates from the `oms_orders` and `oms_executions`
 topics. Metadata over HTTP under `/trade-blotter`.
 
+After the snapshot, live order events are deduplicated **per order on the event version**: a live
+event whose `eventId` is at or below the snapshot's `eventVersion` for the same order is dropped,
+because the snapshot already holds that state or a newer one. Newer events, and events for orders
+the snapshot does not hold, pass. `eventId` on both sides is the order's event-log version (the
+snapshot takes it from the Query API's `OrderDto.eventVersion`, live events from
+`OrderMessage.eventId`).
+
 ## Requirements
 
 - [FR-025 Filter streamed orders and executions](../functional-requirements/FR-025-filter-streams.md)
@@ -44,7 +51,8 @@ topics. Metadata over HTTP under `/trade-blotter`.
 
 ## Known gaps
 
-- The RSocket routes and the snapshot-then-stream sequence have no automated tests.
+- The RSocket routes have no automated tests. The snapshot-then-stream merge is covered only at unit
+  level (`KafkaEventStreamProviderTest`, with mocked Kafka and Query API).
 - `/api/test` endpoints (`TestStreamController`) are diagnostics, not a product interface.
 
 ## Verification

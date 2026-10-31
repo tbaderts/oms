@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import type { SpecTicketStatus, SpecTicketSummary } from '@shared/types/specTickets';
-import { stageDistribution, type StageShare } from '@/lib/spec-tickets';
+import { stageDistribution, stageFilterAccent, stageFilterLabel, type StageShare } from '@/lib/spec-tickets';
 import { useSpecTicketsStore } from '@/stores/specTickets';
 
 const pct = (p: number) => `${Math.round(p)}%`;
@@ -16,8 +16,7 @@ const POP = 6;
  * from it also switches the table to everyone's.
  */
 export function toggleStage(stage: SpecTicketStatus) {
-  const { stage: current, setFilter } = useSpecTicketsStore.getState();
-  setFilter(current === stage ? { stage: '' } : { stage, mineOnly: false });
+  useSpecTicketsStore.getState().toggleStageFilter(stage);
 }
 
 /** Point on a circle around the centre; 0° is 12 o'clock, angles grow clockwise. */
@@ -154,8 +153,8 @@ export function StageDonut({ tickets }: { tickets: SpecTicketSummary[] }) {
 
       {filter && (
         <div data-testid="stage-filter-chip" className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs">
-          <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: `var(--stage-${filter})` }} />
-          <span>Showing: <span className="font-medium">{filter}</span></span>
+          <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: stageFilterAccent(filter) }} />
+          <span>Showing: <span className="font-medium">{stageFilterLabel(filter)}</span></span>
           <button
             aria-label="Clear stage filter"
             className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground"

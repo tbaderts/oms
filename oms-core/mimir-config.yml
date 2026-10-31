@@ -1,0 +1,34 @@
+# Mimir — metrics store of the OMS LGTM stack (SPEC-0032), monolithic single node.
+# Bind-mounted by docker-compose.yml at /etc/mimir/mimir-config.yaml.
+# Classic ingester path with local filesystem storage: no Kafka ingest storage,
+# no object store. Alloy writes here via OTLP (/otlp) and remote_write (/api/v1/push);
+# Grafana reads the Prometheus API under /prometheus.
+target: all
+# Single tenant "anonymous"; no X-Scope-OrgID header needed
+multitenancy_enabled: false
+
+server:
+  http_listen_port: 9009
+  log_level: warn
+
+common:
+  storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/mimir
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/tsdb
+
+ingester:
+  ring:
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+usage_stats:
+  enabled: false

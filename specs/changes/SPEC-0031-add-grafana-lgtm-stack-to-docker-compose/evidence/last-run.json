@@ -1,0 +1,24 @@
+{
+  "ranAt": "2026-10-30T16:32:22.202Z",
+  "result": "pass",
+  "modules": [
+    "oms-core"
+  ],
+  "fingerprint": "bc8264c08161cb59",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 55cc3313)"
+  },
+  "commands": [
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 74,
+      "log": "evidence/oms-core-1.log"
+    }
+  ]
+}

@@ -55,6 +55,8 @@ public class ExecutionCommandProcessor {
 
     /**
      * Convenience overload for callers that have no originating command (tests, internal flows).
+     * An entry point that has a command must pass it to {@link #process(Execution, Command)}, or
+     * the event log loses it.
      *
      * <p>Annotated so the transaction is opened here: the delegation below is a self-invocation and
      * does not pass through the proxy, so the inner method would otherwise run without one.

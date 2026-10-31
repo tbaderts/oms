@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Command API
-  version: 1.0.0
+  version: 2.0.0
   description: Command API for submitting commands to oms
 
 paths:
@@ -17,9 +17,17 @@ paths:
               $ref: '#/components/schemas/Command'
             example:
               type: "OrderCreateCmd"
+              version: "1.0.0"
               order:
-                id: "20250531-test-001"
-                quantity: 100
+                sessionId: "test-session"
+                clOrdId: "20261027-test-001"
+                account: "account-01"
+                symbol: "INTC"
+                side: "BUY"
+                ordType: "LIMIT"
+                orderQty: 100
+                price: 86.96
+                timeInForce: "DAY"
       responses:
         '200':
           description: Command executed successfully
@@ -171,6 +179,7 @@ components:
       type: object
       required:
         - clOrdId
+        - sessionId
         - account
         - ordType
         - side
@@ -188,7 +197,8 @@ components:
           description: Root order identifier in order hierarchy
         sessionId:
           type: string
-          description: Trading session identifier
+          description: Trading session identifier; together with clOrdId it identifies a client order
+          minLength: 1
         clOrdId:
           type: string
           description: Client order identifier

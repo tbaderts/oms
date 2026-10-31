@@ -98,6 +98,22 @@ describe('StageDonut', () => {
     expect(useSpecTicketsStore.getState().stage).toBe('');
   });
 
+  it('the filter chip labels and colours the tiles cross-stage filters', () => {
+    useSpecTicketsStore.setState({ stage: 'in-progress' });
+    const { unmount } = render(<StageDonut tickets={tickets({ proposal: 2 })} />);
+    let chip = screen.getByTestId('stage-filter-chip');
+    expect(chip.textContent).toContain('In progress');
+    // The dot keeps the accent of the tile that set the filter.
+    expect(chip.querySelector('span')!.style.background).toBe('var(--stage-proposal)');
+    unmount();
+
+    useSpecTicketsStore.setState({ stage: 'awaiting' });
+    render(<StageDonut tickets={tickets({ proposal: 2 })} />);
+    chip = screen.getByTestId('stage-filter-chip');
+    expect(chip.textContent).toContain('Awaiting approval');
+    expect(chip.querySelector('span')!.style.background).toBe('var(--stage-plan)');
+  });
+
   it('draws a single stage as a full ring', () => {
     render(<StageDonut tickets={tickets({ implement: 2 })} />);
     const [segment] = screen.getAllByTestId('stage-segment');

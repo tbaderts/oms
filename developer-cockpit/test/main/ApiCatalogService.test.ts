@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 import { ApiCatalogService } from '../../src/main/services/ApiCatalogService';
 import { REPO_ROOT } from '../fixtures/workspace';
 
@@ -32,6 +33,15 @@ describe('ApiCatalogService', () => {
     const catalog = new ApiCatalogService(REPO_ROOT, OPENAPI).load();
     expect(catalog.error).toBeUndefined();
     expect(catalog.commandTypes).toEqual(ALL_TYPES);
+  });
+
+  it('requires a non-empty sessionId on Order (SPEC-0034)', () => {
+    const { schemas } = new ApiCatalogService(REPO_ROOT, OPENAPI).load();
+    const order = schemas.OrderCreateCmd.properties!.order;
+    expect(order.required).toContain('sessionId');
+    expect(order.properties!.sessionId.minLength).toBe(1);
+    const spec = yaml.load(fs.readFileSync(path.join(REPO_ROOT, OPENAPI[0], 'oms-cmd-api.yml'), 'utf8')) as { info: { version: string } };
+    expect(spec.info.version).toBe('2.0.0');
   });
 
   it('bundles allOf and refs into self-contained schemas', () => {

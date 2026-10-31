@@ -31,6 +31,8 @@ describe('Signals', () => {
     });
     render(<ActivityBar tickets={TICKETS} />);
     expect(bar().getAttribute('aria-expanded')).toBe('false');
+    // No aria-controls while the feed is not in the DOM.
+    expect(bar().hasAttribute('aria-controls')).toBe(false);
     expect(bar().textContent).toContain('2 new');
     expect(bar().textContent).toContain('info');
     expect(bar().textContent).toContain('08:03');
@@ -47,6 +49,7 @@ describe('Signals', () => {
     fireEvent.click(bar());
     expect(bar().getAttribute('aria-expanded')).toBe('true');
     expect(useSignalsStore.getState().activityExpanded).toBe(true);
+    expect(bar().getAttribute('aria-controls')).toBe(screen.getByRole('region', { name: 'Activity' }).id);
     expect(rows().map((r) => r.getAttribute('data-level'))).toEqual(['info', 'good', 'attention', 'critical']);
     expect(rows().map((r) => r.getAttribute('data-new'))).toEqual(['true', null, null, null]);
     for (const row of rows()) {

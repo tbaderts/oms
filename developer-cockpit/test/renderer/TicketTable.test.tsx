@@ -92,6 +92,15 @@ describe('TicketTable (Dashboard)', () => {
     expect(titles().join()).not.toContain('Core fix');
     pick('Stage filter', 'All stages');
 
+    // The tiles' cross-stage views are selectable here too.
+    pick('Stage filter', 'In progress');
+    expect(titles().join()).toContain('Core fix');
+    expect(titles().join()).toContain('Cockpit work');
+    pick('Stage filter', 'Awaiting approval');
+    expect(titles().join()).not.toContain('Core fix');
+    expect(titles().join()).not.toContain('Cockpit work');
+    pick('Stage filter', 'All stages');
+
     pick('Module filter', 'oms-core');
     expect(titles().join()).toContain('Core fix');
     expect(titles().join()).not.toContain('Cockpit work');

@@ -44,7 +44,10 @@ import lombok.experimental.SuperBuilder;
         uniqueConstraints = {
             @UniqueConstraint(
                     name = "uq_order_events_order_id_version",
-                    columnNames = {"order_id", "version"})
+                    columnNames = {"order_id", "version"}),
+            @UniqueConstraint(
+                    name = "uq_order_events_order_id_command_id",
+                    columnNames = {"order_id", "command_id"})
         })
 @SuperBuilder
 @NoArgsConstructor
@@ -72,6 +75,13 @@ public class OrderEvent {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Command transaction;
+
+    /**
+     * The command's commandId, when it has one. Unique per order: it is what lifecycle
+     * deduplication looks up, instead of reading every stored command.
+     */
+    @Column(name = "command_id")
+    private String commandId;
 
     /** The state the order was left in by this event. */
     @Enumerated(EnumType.STRING)

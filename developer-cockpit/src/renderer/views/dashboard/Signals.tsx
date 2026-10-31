@@ -70,7 +70,7 @@ export function ActivityBar({ tickets }: { tickets: SpecTicketSummary[] }) {
     <div>
       <button
         aria-expanded={expanded}
-        aria-controls="activity-feed"
+        aria-controls={expanded ? 'activity-feed' : undefined}
         onClick={() => setExpanded(!expanded)}
         className="flex w-full min-w-0 items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
       >

@@ -56,6 +56,9 @@ public class OrderMessageMapper {
                 .sendingTime(msg.getSendingTime())
                 .transactTime(msg.getTransactTime())
                 .expireTime(msg.getExpireTime())
+                // The per-order event version; snapshot deduplication compares it with the query
+                // API's eventVersion (SPEC-0018). It used to be left null on live messages.
+                .eventId(msg.getEventId())
                 .sequenceNumber(msg.getEventId())
                 .eventTime(Instant.now())
                 .build();
@@ -74,6 +77,7 @@ public class OrderMessageMapper {
                 .eventType(eventType)
                 .orderId(msg.getOrderId())
                 .order(dto)
+                .eventId(msg.getEventId())
                 .sequenceNumber(msg.getEventId())
                 .timestamp(Instant.now())
                 .build();

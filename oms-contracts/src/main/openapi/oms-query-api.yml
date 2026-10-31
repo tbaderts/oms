@@ -101,6 +101,12 @@ components:
         txNr:
           type: integer
           format: int64
+        eventVersion:
+          type: integer
+          format: int64
+          description: >-
+            The order's latest event-log version: the highest order_events.version for the order,
+            and the eventId of its newest oms_orders message. Absent when the order has no events.
         sessionId:
           type: string
         clOrdId:

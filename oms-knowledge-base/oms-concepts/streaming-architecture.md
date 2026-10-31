@@ -217,7 +217,10 @@ graph BT
 4.  **Data Merging:**
     *   The backend merges the initial data snapshot with the real-time event stream.
     *   For each event, the backend updates the corresponding domain object in the stream.
-    *   The event sequence number is used to determine the latest version of each object.
+    *   The event version is used to determine the latest version of each object. For orders it is
+        the per-order event-log version: the snapshot carries it as `OrderDto.eventVersion`, live
+        events as `OrderMessage.eventId`. A live event at or below the snapshot's version for the
+        same order is dropped; versions of different orders are never compared (SPEC-0018).
 5.  **Filtering:**
     *   The backend applies the user-defined filter to the merged data stream.
     *   Only objects that match the filter criteria are passed to the UI.

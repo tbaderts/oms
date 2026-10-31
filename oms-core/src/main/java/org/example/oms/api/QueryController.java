@@ -4,15 +4,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.example.common.api.SearchApi;
-import org.example.common.model.Order;
 import org.example.common.model.query.PagedOrderDto;
 import org.example.oms.mapper.QueryOrderDtoMapper;
 import org.example.oms.service.OrderQueryService;
-import org.springframework.data.domain.Page;
+import org.example.oms.service.OrderSearchResult;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/query")
-@Transactional(readOnly = true)
 public class QueryController implements SearchApi {
 
     private final OrderQueryService service;
@@ -52,7 +49,7 @@ public class QueryController implements SearchApi {
                                 && !e.getKey().equals("sort"))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        Page<Order> result = service.search(filterParams, page, size, sort);
+        OrderSearchResult result = service.search(filterParams, page, size, sort);
         PagedOrderDto pagedDto = mapper.toPagedOrderDto(result);
         return ResponseEntity.ok(pagedDto);
     }

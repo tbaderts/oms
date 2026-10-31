@@ -20,5 +20,10 @@ Defined in `oms-query-api.yml` as `/search`; implemented by `QueryController` (g
 `OrderSpecifications` (equality, `like`, ranges); invalid numeric filter values are ignored rather
 than failing the query. Results are paginated.
 
+Each `OrderDto` carries `eventVersion`: the order's latest event-log version, the same number its
+newest `oms_orders` message carries as `eventId` (absent when the order has no events). The orders
+and their versions are read in one REPEATABLE_READ transaction, so the version always belongs to the
+state on the page. The trade blotter uses it to drop live events the snapshot already contains.
+
 Used by the trade blotter's initial snapshot ([Real-time Streaming](../capabilities/real-time-streaming.md)),
 the admin UI and the MCP server's `searchOrders` tool. Capability: [Order Query](../capabilities/order-query.md).

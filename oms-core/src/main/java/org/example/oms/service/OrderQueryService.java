@@ -1,8 +1,12 @@
 package org.example.oms.service;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.example.common.model.Order;
+import org.example.oms.repository.OrderEventRepository;
+import org.example.oms.repository.OrderEventRepository.OrderVersion;
 import org.example.oms.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -10,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -29,8 +34,18 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderQueryService {
 
     private final OrderRepository repository;
+    private final OrderEventRepository orderEventRepository;
 
-    public Page<Order> search(Map<String, String> params, Integer page, Integer size, String sort) {
+    /**
+     * Searches orders and reads each one's latest event-log version.
+     *
+     * <p>REPEATABLE_READ runs both queries against one Postgres snapshot. An order row and its event
+     * are committed together, so the version always belongs to the state on the page; otherwise a
+     * streaming subscriber could pair a newer version with an older state and drop the live event
+     * that carries the newer state.
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public OrderSearchResult search(Map<String, String> params, Integer page, Integer size, String sort) {
         log.info(
                 "Searching orders with params: {}, page: {}, size: {}, sort: {}",
                 params,
@@ -39,7 +54,15 @@ public class OrderQueryService {
                 sort);
         Pageable pageable = buildPageable(page, size, sort);
         Specification<Order> spec = OrderSpecifications.dynamic(params);
-        return repository.findAll(spec, pageable);
+        Page<Order> orders = repository.findAll(spec, pageable);
+        List<String> orderIds = orders.getContent().stream().map(Order::getOrderId).toList();
+        Map<String, Long> eventVersions =
+                orderIds.isEmpty()
+                        ? Map.of()
+                        : orderEventRepository.findLatestVersions(orderIds).stream()
+                                .collect(Collectors.toMap(
+                                        OrderVersion::getOrderId, OrderVersion::getVersion));
+        return new OrderSearchResult(orders, eventVersions);
     }
 
     private Pageable buildPageable(Integer page, Integer size, String sort) {

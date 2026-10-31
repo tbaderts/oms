@@ -1,11 +1,40 @@
 import { SPEC_STAGES, type SpecStage, type SpecTicketStatus, type SpecTicketSummary } from '@shared/types/specTickets';
 
+/** Stage views of the ticket table filter that are not ticket statuses. */
+export const TILE_CROSS_VIEWS = ['in-progress', 'awaiting'] as const;
+export type TileCrossView = (typeof TILE_CROSS_VIEWS)[number];
+
+/** A stage view of the ticket table: a stage, one of the tiles' cross-stage views, or '' for all. */
+export type StageFilter = SpecTicketStatus | TileCrossView | '';
+
 export interface TicketFilter {
   user: string;
   mineOnly: boolean;
-  stage: SpecTicketStatus | '';
+  stage: StageFilter;
   module: string;
   text: string;
+}
+
+/** Names and colours of the tiles' cross-stage views; stages spell themselves and use --stage-<stage>. */
+const CROSS_VIEWS: Record<TileCrossView, { label: string; accent: string }> = {
+  'in-progress': { label: 'In progress', accent: 'var(--stage-proposal)' },
+  awaiting: { label: 'Awaiting approval', accent: 'var(--stage-plan)' },
+};
+
+/** Name of a stage-filter value for display; the stages themselves stay lowercase. */
+export const stageFilterLabel = (stage: StageFilter): string =>
+  stage in CROSS_VIEWS ? CROSS_VIEWS[stage as TileCrossView].label : stage;
+
+/** Colour of a stage-filter dot: the stage token, or the tile's accent for a cross-stage view. */
+export const stageFilterAccent = (stage: StageFilter): string =>
+  stage in CROSS_VIEWS ? CROSS_VIEWS[stage as TileCrossView].accent : `var(--stage-${stage})`;
+
+/** A ticket is in a stage view: a stage (or blocked), or one of the tiles' cross-stage views. */
+function inStageView(ticket: SpecTicketSummary, stage: StageFilter): boolean {
+  if (!stage) return true;
+  if (stage === 'in-progress') return ticket.status !== 'done';
+  if (stage === 'awaiting') return !!ticket.awaiting;
+  return ticket.status === stage;
 }
 
 export interface SpecSummary {
@@ -76,7 +105,7 @@ export function filterTickets(tickets: SpecTicketSummary[], f: TicketFilter): Sp
   const text = f.text.trim().toLowerCase();
   return tickets.filter((t) =>
     (!f.mineOnly || !f.user.trim() || isMine(t, f.user))
-    && (!f.stage || t.status === f.stage)
+    && inStageView(t, f.stage)
     && (!f.module || t.modules.includes(f.module))
     && (!text || t.id.toLowerCase().includes(text) || t.title.toLowerCase().includes(text)));
 }

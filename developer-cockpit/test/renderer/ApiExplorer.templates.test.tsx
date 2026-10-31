@@ -22,7 +22,7 @@ const ORDERS = [
   '# @name INTC buy',
   'POST {{baseUrl}}/api/command/execute',
   '',
-  '{"type":"OrderCreateCmd","order":{"clOrdId":"{{$guid}}","sendingTime":"{{$datetime iso8601}}","account":"{{account}}","ordType":"LIMIT","side":"BUY","symbol":"INTC","orderQty":500,"price":86.96}}',
+  '{"type":"OrderCreateCmd","order":{"sessionId":"cockpit","clOrdId":"{{$guid}}","sendingTime":"{{$datetime iso8601}}","account":"{{account}}","ordType":"LIMIT","side":"BUY","symbol":"INTC","orderQty":500,"price":86.96}}',
   '###',
   '# @name Accept',
   'POST {{baseUrl}}/api/command/execute',

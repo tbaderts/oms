@@ -14,7 +14,11 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/postgres
       KAFKA_BROKERS: broker:29092
       REGISTRY_URL: http://schema-registry:8081
-      TRACING_URL: http://jaeger:4317
+      # Compose-only overrides: container telemetry goes to the Alloy agent (SPEC-0032),
+      # which forwards traces to Tempo. Host-native bootRun keeps oms-core/.env's
+      # localhost:4317, which is Alloy's host port too. Sample every local request.
+      TRACING_URL: http://alloy:4317
+      MANAGEMENT_TRACING_SAMPLING_PROBABILITY: "1.0"
       TRACING_ENABLED: ${TRACING_ENABLED:-true}
       # Browser-facing origins allowed to call oms-core directly (oms-ui SPA, CRA dev server)
       CORS_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:3000
@@ -215,29 +219,8 @@ services:
       - app-net
     restart: unless-stopped
 
-  jaeger:
-    image: jaegertracing/jaeger:2.20.0
-    container_name: jaeger
-    ports:
-      - "16686:16686"
-      - "4317:4317"
-    environment:
-      - COLLECTOR_OTLP_ENABLED=true
-      - LOG_LEVEL=debug
-    networks:
-      - app-net
-
-  prometheus:
-    image: prom/prometheus:v3.13.2
-    ports:
-      - 9090:9090
-    volumes:
-      - ./oms-core/prometheus.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - app-net
-
   grafana:
-    image: grafana/grafana:13.1.3
+    image: grafana/grafana:13.3.0
     container_name: grafana
     ports:
       - 3000:3000
@@ -247,19 +230,75 @@ services:
       - app-net
     volumes:
       - grafana-storage:/var/lib/grafana
+      # Provisioned datasources for the LGTM stack (SPEC-0031, SPEC-0032): mimir, loki, tempo
+      - ./oms-core/grafana/provisioning:/etc/grafana/provisioning:ro
 
   loki:
-    image: grafana/loki:3.7.6
+    image: grafana/loki:3.7.9
     container_name: loki
+    command: -config.file=/etc/loki/loki-config.yaml
     ports:
       - 3100:3100
     volumes:
       - ./oms-core/loki-config.yml:/etc/loki/loki-config.yaml
+    networks:
+      - app-net
+    restart: unless-stopped
 
-  promtail:
-    image: grafana/promtail:3.6.11
+  # Telemetry agent of the LGTM stack (SPEC-0032): OTLP in on 4317/4318 (host and
+  # in-network), container log tailing over the Docker socket (Promtail's successor),
+  # oms-core actuator scrape. Forwards traces→Tempo, metrics→Mimir, logs→Loki.
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      # default 127.0.0.1 would hide the UI and /-/ready from the host
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    ports:
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+      - "12345:12345"   # Alloy UI / readiness
     volumes:
-      - ./oms-core/promtail-config.yml:/etc/promtail/promtail-config.yaml
+      - ./oms-core/alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  # Metrics store of the LGTM stack (SPEC-0032): Mimir monolithic, filesystem storage,
+  # classic ingester path (no Kafka ingest storage). Prometheus API under /prometheus.
+  mimir:
+    image: grafana/mimir:3.2.4
+    container_name: mimir
+    command: -config.file=/etc/mimir/mimir-config.yaml
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./oms-core/mimir-config.yml:/etc/mimir/mimir-config.yaml:ro
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  # Trace backend of the LGTM stack (SPEC-0031, Tempo 3 since SPEC-0032). OTLP arrives
+  # in-network from alloy; host 3200 is the Tempo API only.
+  tempo:
+    image: grafana/tempo:3.1.1
+    container_name: tempo
+    command: -config.file=/etc/tempo/tempo-config.yaml
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./oms-core/tempo-config.yml:/etc/tempo/tempo-config.yaml
+    networks:
+      - app-net
+    restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant:v1.19.0

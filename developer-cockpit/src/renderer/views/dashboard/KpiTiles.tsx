@@ -1,9 +1,8 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle2, Hourglass, Layers, PlayCircle, type LucideIcon } from 'lucide-react';
-import type { SpecTicketStatus, SpecTicketSummary } from '@shared/types/specTickets';
-import { kpis } from '@/lib/spec-tickets';
+import type { SpecTicketSummary } from '@shared/types/specTickets';
+import { kpis, stageFilterLabel, type StageFilter } from '@/lib/spec-tickets';
 import { useSpecTicketsStore } from '@/stores/specTickets';
-import { toggleStage } from './StageDonut';
 
 interface TileProps {
   label: string;
@@ -12,15 +11,16 @@ interface TileProps {
   accent: string;
   icon: LucideIcon;
   iconTag?: string;
-  /** Stage the tile filters the ticket table to, if it filters at all. */
-  filterStage?: SpecTicketStatus;
+  /** Stage view the tile filters the ticket table to, if it filters at all. */
+  filterStage?: StageFilter;
   detail?: React.ReactNode;
   children?: React.ReactNode;
 }
 
 /**
  * Headline numbers of the active tickets. Values and labels stay in text tokens; each tile's
- * colour band and icon carry its identity. The Blocked and Done tiles toggle the stage filter.
+ * colour band and icon carry its identity. Every tile except Task completion toggles the stage
+ * filter; the Active tickets tile clears it.
  */
 export function KpiTiles({ tickets, unavailable }: { tickets: SpecTicketSummary[]; unavailable: boolean }) {
   const k = kpis(tickets);
@@ -29,9 +29,9 @@ export function KpiTiles({ tickets, unavailable }: { tickets: SpecTicketSummary[
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-      <Tile label="Active tickets" value={n(k.active)} accent="--stage-implement" icon={Layers} />
-      <Tile label="In progress" value={n(k.inProgress)} accent="--stage-proposal" icon={PlayCircle} />
-      <Tile label="Awaiting approval" value={n(k.awaiting)} accent="--stage-plan" icon={Hourglass} />
+      <Tile label="Active tickets" value={n(k.active)} accent="--stage-implement" icon={Layers} filterStage="" />
+      <Tile label="In progress" value={n(k.inProgress)} accent="--stage-proposal" icon={PlayCircle} filterStage="in-progress" />
+      <Tile label="Awaiting approval" value={n(k.awaiting)} accent="--stage-plan" icon={Hourglass} filterStage="awaiting" />
       <Tile label="Blocked" value={n(k.blocked)} accent="--stage-blocked" icon={AlertTriangle} iconTag="blocked" filterStage="blocked" />
       <Tile label="Done" value={n(k.done)} accent="--stage-done" icon={CheckCircle2} filterStage="done" />
       <Tile
@@ -68,11 +68,11 @@ function Tile({ label, value, accent, icon: Icon, iconTag, filterStage, detail, 
       className="relative overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm"
     >
       <div aria-hidden className="h-[3px]" style={{ background: `var(${accent})` }} />
-      {filterStage ? (
+      {filterStage !== undefined ? (
         <button
           aria-pressed={stage === filterStage}
-          title={`Show ${filterStage} tickets`}
-          onClick={() => toggleStage(filterStage)}
+          title={filterStage ? `Show ${stageFilterLabel(filterStage)} tickets` : 'Show all active tickets'}
+          onClick={() => useSpecTicketsStore.getState().toggleStageFilter(filterStage)}
           className={`block w-full px-4 py-3 text-left hover:bg-accent ${stage === filterStage ? 'bg-accent' : ''}`}
         >
           {body}

@@ -48,6 +48,7 @@ class LiquibaseMigrationIntegrationTest {
         assertConstraintExists("uq_orders_session_cl_ord_id");
         assertConstraintExists("uq_executions_order_id_execid");
         assertConstraintExists("uq_order_events_order_id_version");
+        assertConstraintExists("uq_order_events_order_id_command_id");
 
         Integer count = jdbcTemplate.queryForObject(
                 "select count(*) from databasechangelog where id = ?",

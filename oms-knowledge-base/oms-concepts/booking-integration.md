@@ -139,7 +139,8 @@ must be confirmed (Appendix A).
 | `oms_orders` | `OrderMessage`: full order snapshot after each event, with `parentOrderId`, `rootOrderId`, `account`, `side`, `symbol`, `state` | `orderId` | Enough to register the order |
 | `oms_executions` | `Execution`: `execId`, `orderId`, `lastQty`, `lastPx`, `cumQty`, `leavesQty`, `avgPx`, `execType`, `lastMkt`, `lastCapacity`, `transactTime` | `orderId` | **No** account, side, instrument, trade date, settlement date, order version or `rootOrderId`, which is why executions have to be enriched |
 
-Both topics are filled from the outbox in commit order, so events for one order arrive in order
+Both topics are filled from the outbox in commit order and keyed by `orderId` (executions since
+SPEC-0018; before, they were keyed by `execId`), so events for one order arrive in order
 **within a topic**. There is **no ordering across the two topics**: the first fill of an order
 can reach a consumer before the order event that created it. The adapter must handle this.
 

@@ -1,0 +1,71 @@
+{
+  "ranAt": "2026-10-31T07:47:22.729Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "developer-cockpit"
+  ],
+  "fingerprint": "2fa576711cbbdfd5",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 55cc3313)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 1,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 65,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 10,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 10,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 30,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    },
+    {
+      "module": "developer-cockpit",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "seconds": 8,
+      "log": "evidence/developer-cockpit-1.log"
+    },
+    {
+      "module": "developer-cockpit",
+      "command": "npm test",
+      "exitCode": 0,
+      "seconds": 48,
+      "log": "evidence/developer-cockpit-2.log"
+    }
+  ]
+}

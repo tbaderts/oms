@@ -37,6 +37,16 @@ describe('buildTemplate', () => {
     expect(t.version).toBe('1.0.0');
   });
 
+  it('OrderCreateCmd template carries sessionId and the check flags it missing (SPEC-0034)', () => {
+    const t = buildTemplate('OrderCreateCmd', schema('OrderCreateCmd')) as any;
+    expect(t.order.sessionId).toBe('<sessionId>');
+    delete t.order.sessionId;
+    expect(checkBody(JSON.stringify(t), 'OrderCreateCmd', schema('OrderCreateCmd')).findings).toContainEqual({
+      path: 'order.sessionId',
+      message: 'required property is missing',
+    });
+  });
+
   it('nested required properties are filled (execution.execId)', () => {
     const t = buildTemplate('ExecutionCreateCmd', schema('ExecutionCreateCmd')) as any;
     expect(t.execution.execId).toBe('<execId>');

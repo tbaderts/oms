@@ -10,12 +10,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.example.common.model.CancelState;
 import org.example.common.model.Execution;
@@ -319,6 +322,138 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
                 events(orderId));
         assertEquals(txNr + 1, order(orderId).getTxNr(), "only the new request may write");
         assertReplayMatches(orderId);
+    }
+
+    // SPEC-0018 AC-1: every record of one order carries the order id as its key, on both topics, so
+    // all of an order's fills land on one partition and are consumed in order.
+    @Test
+    void fills_areKeyedByOrderIdOnBothTopics() throws Exception {
+        String orderId = createOrder(OrdType.MARKET, null, "100", null);
+
+        send(orderId, accept(orderId));
+        send(orderId, fill(orderId, 1, "40", "40", "60"));
+        send(orderId, fill(orderId, 2, "60", "100", "0"));
+        awaitUntil(() -> state(orderId) == State.FILLED, "order FILLED");
+
+        Properties fromStart = new Properties();
+        fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        List<ConsumerRecord<Object, Object>> executionRecords = new ArrayList<>();
+        List<ConsumerRecord<Object, Object>> orderRecords = new ArrayList<>();
+        try (Consumer<Object, Object> consumer =
+                consumerFactory.createConsumer("it-" + UUID.randomUUID(), null, null, fromStart)) {
+            consumer.subscribe(List.of("orders", "oms_executions"));
+            long deadline = System.nanoTime() + TIMEOUT.toNanos();
+            // NEW_ORDER, ACK, PARTIAL_FILL and FILL on the orders topic; the two fills on executions.
+            while ((executionRecords.size() < 2 || orderRecords.size() < 4) && System.nanoTime() < deadline) {
+                for (ConsumerRecord<Object, Object> record : consumer.poll(Duration.ofMillis(200))) {
+                    if (record.value() instanceof org.example.common.model.msg.Execution execution
+                            && orderId.equals(execution.getOrderId())) {
+                        executionRecords.add(record);
+                    } else if (record.value() instanceof OrderMessage message
+                            && orderId.equals(message.getOrderId())) {
+                        orderRecords.add(record);
+                    }
+                }
+            }
+        }
+
+        assertEquals(2, executionRecords.size(), "both fills on oms_executions");
+        assertEquals(4, orderRecords.size(), "every order event on orders");
+        executionRecords.forEach(r -> assertEquals(orderId, String.valueOf(r.key()), "oms_executions key"));
+        orderRecords.forEach(r -> assertEquals(orderId, String.valueOf(r.key()), "orders key"));
+    }
+
+    // SPEC-0018 AC-2: a fill posted over REST keeps its command in the event log, as Kafka fills do.
+    @Test
+    void restFill_recordsItsCommandInTheEventLog() throws Exception {
+        String orderId = createOrder(OrdType.MARKET, null, "100", null);
+        send(orderId, accept(orderId));
+        awaitUntil(() -> state(orderId) == State.LIVE, "order LIVE");
+        String execId = orderId + "-REST1";
+
+        mockMvc()
+                .perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                                + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
+                                + "\"lastQty\":40,\"lastPx\":170,\"cumQty\":40,\"leavesQty\":60,"
+                                + "\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
+                .andExpect(status().isCreated());
+
+        OrderEvent fillEvent = orderEventRepository.findByOrderIdOrderByVersionAsc(orderId).getLast();
+        assertEquals(Event.PARTIAL_FILL, fillEvent.getEvent());
+        assertTrue(
+                fillEvent.getTransaction() instanceof org.example.common.model.cmd.ExecutionCreateCmd,
+                () -> "transaction was " + fillEvent.getTransaction());
+        assertEquals(
+                execId,
+                ((org.example.common.model.cmd.ExecutionCreateCmd) fillEvent.getTransaction())
+                        .getExecution()
+                        .getExecId());
+    }
+
+    // SPEC-0018 AC-3: the query API reports the order's latest event-log version, the number its
+    // newest orders-topic message carries as eventId.
+    @Test
+    void queryApi_reportsTheLatestEventVersion() throws Exception {
+        String orderId = createOrder(OrdType.MARKET, null, "100", null);
+        send(orderId, accept(orderId));
+        send(orderId, fill(orderId, 1, "40", "40", "60"));
+        awaitUntil(() -> events(orderId).size() == 3, "versions 1 to 3");
+
+        mockMvc()
+                .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/query/search").param("orderId", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].eventVersion").value(3));
+
+        send(orderId, fill(orderId, 2, "60", "100", "0"));
+        awaitUntil(() -> events(orderId).size() == 4, "version 4");
+
+        mockMvc()
+                .perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/query/search").param("orderId", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].eventVersion").value(4));
+    }
+
+    // SPEC-0018 AC-5: over Kafka, a command whose commandId the order already applied is refused and
+    // acknowledged: no second effect, no retry and nothing dead-lettered. The second duplicate is a
+    // different lifecycle command reusing the id, which is refused too.
+    @Test
+    void duplicateCommandId_overKafka_isAcknowledgedNotDeadLettered() throws Exception {
+        String orderId = createOrder(OrdType.LIMIT, "165.00", "100", null);
+        String sentinel = createOrder(OrdType.MARKET, null, "100", null);
+        String key = "dup-k-" + orderId;
+        send(key, accept(orderId));
+        send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CK-1"));
+        awaitUntil(() -> cancelState(orderId) == CancelState.PCXL, "cancel request applied");
+        long txNr = order(orderId).getTxNr();
+        List<Event> eventsBefore = events(orderId);
+
+        Properties fromStart = new Properties();
+        fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        try (Consumer<Object, Object> dlt =
+                consumerFactory.createConsumer("it-" + UUID.randomUUID(), null, null, fromStart)) {
+            dlt.subscribe(List.of("commands.DLT"));
+
+            // One key, one partition: the sentinel is consumed strictly after both duplicates.
+            send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CK-1"));
+            send(key, new OrderCancelCmd("OrderCancelCmd", "1.0.0", orderId, null, "CK-1"));
+            send(key, accept(sentinel));
+            awaitUntil(() -> state(sentinel) == State.LIVE, "sentinel LIVE");
+
+            assertEquals(eventsBefore, events(orderId));
+            assertEquals(txNr, order(orderId).getTxNr());
+            assertEquals(CancelState.PCXL, order(orderId).getCancelState());
+
+            long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+            while (System.nanoTime() < deadline) {
+                for (ConsumerRecord<Object, Object> record : dlt.poll(Duration.ofMillis(200))) {
+                    assertTrue(!key.equals(String.valueOf(record.key())), "dead-lettered: " + record);
+                }
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------------

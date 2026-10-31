@@ -111,7 +111,7 @@ public class CommandController implements ExecuteApi {
 
         if (command instanceof ExecutionCreateCmd executionCreateCmd) {
             var execution = orderMapper.toExecution(executionCreateCmd.getExecution());
-            ExecutionProcessingResult result = executionCommandProcessor.process(execution);
+            ExecutionProcessingResult result = executionCommandProcessor.process(execution, executionCreateCmd);
 
             if (result.isSuccess()) {
                 log.info(

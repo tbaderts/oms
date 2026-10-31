@@ -3,10 +3,9 @@ package org.example.streaming.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 import org.example.common.model.msg.Execution;
@@ -235,9 +234,10 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         boolean includeSnapshot = filter != null && filter.isIncludeSnapshot();
         
         if (includeSnapshot) {
-            // Track eventIds from snapshot for deduplication with live stream
-            Set<Long> snapshotEventIds = ConcurrentHashMap.newKeySet();
-            AtomicLong maxSnapshotEventId = new AtomicLong(0);
+            // Each order's event version in the snapshot. eventId is a per-order sequence, so it is
+            // only comparable within one order: a live event at or below the snapshot's version is
+            // already reflected in it, or older, and would roll the subscriber's view back.
+            Map<String, Long> snapshotVersions = new ConcurrentHashMap<>();
             AtomicBoolean snapshotComplete = new AtomicBoolean(false);
             
             // Fetch filtered snapshot from OMS Core Query API  
@@ -247,18 +247,15 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                     .map(this::convertQueryDtoToOrderDto)
                     .doOnNext(order -> {
                         orderCache.put(order.getOrderId(), order);
-                        // Track eventId for deduplication
                         if (order.getEventId() != null) {
-                            snapshotEventIds.add(order.getEventId());
-                            maxSnapshotEventId.updateAndGet(max -> 
-                                    Math.max(max, order.getEventId()));
+                            snapshotVersions.put(order.getOrderId(), order.getEventId());
                         }
                     })
                     .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"))
                     .doOnComplete(() -> {
                         snapshotComplete.set(true);
-                        log.info("Snapshot stream completed with {} orders, maxEventId={}", 
-                                snapshotEventIds.size(), maxSnapshotEventId.get());
+                        log.info("Snapshot stream completed with {} versioned orders",
+                                snapshotVersions.size());
                     })
                     .onErrorResume(e -> {
                         log.warn("Failed to fetch snapshot from OMS Core, using cache: {}", e.getMessage());
@@ -281,10 +278,12 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                     })
                     .filter(filterPredicate)
                     .filter(event -> {
-                        // Skip if we already sent this in snapshot
+                        // Skip if the snapshot already holds this version of the order, or a newer one
                         Long eventId = event.getEventId();
-                        if (eventId != null && snapshotEventIds.contains(eventId)) {
-                            log.debug("Skipping duplicate event from live stream: eventId={}", eventId);
+                        Long snapshotVersion = snapshotVersions.get(event.getOrderId());
+                        if (eventId != null && snapshotVersion != null && eventId <= snapshotVersion) {
+                            log.debug("Skipping live event already covered by the snapshot: orderId={}, eventId={}, snapshotVersion={}",
+                                    event.getOrderId(), eventId, snapshotVersion);
                             return false;
                         }
                         return true;
@@ -347,11 +346,12 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
      * 
      * <p>The Query API uses generated DTOs from OpenAPI, while the streaming
      * service uses its own DTO format optimized for RSocket streaming.
-     * The Query API's 'id' field is mapped to 'eventId' for deduplication.
+     * The Query API's 'eventVersion' is mapped to 'eventId', the same per-order sequence that live
+     * order messages carry, so the two can be deduplicated against each other.
      */
     private OrderDto convertQueryDtoToOrderDto(org.example.common.model.query.OrderDto queryDto) {
         return OrderDto.builder()
-                .eventId(queryDto.getId())  // Map database id to eventId for deduplication
+                .eventId(queryDto.getEventVersion())
                 .orderId(queryDto.getOrderId())
                 .parentOrderId(queryDto.getParentOrderId())
                 .rootOrderId(queryDto.getRootOrderId())

@@ -30,7 +30,9 @@ sources:
 Kafka redelivers and clients retry, so every command type has a guard: order creation by
 `(sessionId, clOrdId)` ([FR-004](../functional-requirements/FR-004-reject-duplicate-client-order-id.md)),
 executions by `(orderId, execID)` ([FR-017](../functional-requirements/FR-017-reject-duplicate-execution.md)),
-lifecycle commands by `commandId` and state preconditions ([FR-010](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md)).
+lifecycle commands by `commandId` and state preconditions ([FR-010](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md)):
+an indexed lookup of `order_events.command_id`, unique per order, with concurrent copies serialised
+by a row lock on the order.
 Acceptance relies on its state precondition (UNACK → LIVE happens once).
 
 Capability: [order-capture](../capabilities/order-capture.md).

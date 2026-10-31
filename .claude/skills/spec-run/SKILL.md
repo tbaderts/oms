@@ -61,9 +61,21 @@ Repeat until the ticket is `done`, `awaiting` approval, or `blocked`:
 
 Whatever the reason (done, awaiting approval, blocked), end with a short report:
 - ticket, stage reached, and why you stopped;
-- for approval: what to review (file and the key decisions or assumptions) and the command
-  `! node specs/tools/spec.mjs approve <id>`. After approving, the user resumes with `/spec-run <id>`;
+- for approval: what to review (file and the key decisions or assumptions) and how to approve:
+  in the developer cockpit, or `! node specs/tools/spec.mjs approve <id>`;
 - for done: the AC → evidence table summary and follow-ups;
 - for blocked: the reason and what would unblock it.
 
 When done, `spec autopilot <id> off`.
+
+## Wait for the human
+
+When stopping for approval or a block, after the report run `spec wait <id>` with the Bash tool's
+`run_in_background` and end your turn. Don't poll it; you are re-invoked when it exits, which is
+when a human approves, unblocks, reopens or archives the ticket. Then:
+- read its output: the new stage and the log lines written meanwhile (approvals, notes with the
+  human's decision, the unblock);
+- if the ticket is still awaiting or blocked (the wait was interrupted), start the wait again;
+- otherwise continue the loop from `spec status <id>`, taking any note as the decision you asked for.
+
+If the user types `/spec-run <id>` while a wait is running, stop that wait and carry on.

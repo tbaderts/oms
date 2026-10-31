@@ -87,6 +87,13 @@ The OMS application uses [RFC 7807 Problem Details for HTTP APIs](https://www.rf
 
 ### Global Exception Handler
 
+**As built in oms-core** (`org.example.oms.api.GlobalExceptionHandler`, SPEC-0034): the
+`validation-failed` response below is implemented. It overrides
+`ResponseEntityExceptionHandler.handleMethodArgumentNotValid` rather than declaring
+`@ExceptionHandler(MethodArgumentNotValidException.class)`, because the base class already maps that
+exception and a second mapping is ambiguous at startup. Field paths are nested, e.g.
+`order.sessionId`. The sketch below is the target design; not every handler in it exists yet.
+
 ```java
 package org.example.oms.api;
 

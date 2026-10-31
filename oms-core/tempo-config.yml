@@ -1,0 +1,27 @@
+# Tempo — trace backend for the OMS LGTM stack (SPEC-0031; Tempo 3.1.1 since
+# SPEC-0032). Bind-mounted by docker-compose.yml at /etc/tempo/tempo-config.yaml.
+# Single binary, local storage, no Kafka ingest. Traces arrive in-network via
+# OTLP from the Alloy agent (tempo:4317 gRPC / tempo:4318 HTTP); host port 3200
+# serves the Tempo API only — host 4317/4318 belong to Alloy.
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+usage_report:
+  reporting_enabled: false

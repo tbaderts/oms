@@ -4,9 +4,9 @@ import type {
   SpecActionResult,
   SpecTicketDetail,
   SpecTicketLoadError,
-  SpecTicketStatus,
   SpecTicketSummary,
 } from '@shared/types/specTickets';
+import { type StageFilter } from '../lib/spec-tickets';
 import { useDocEditorStore } from './docEditor';
 
 interface SpecTicketsState {
@@ -16,7 +16,7 @@ interface SpecTicketsState {
   errors: SpecTicketLoadError[];
   showArchived: boolean;
   mineOnly: boolean;
-  stage: SpecTicketStatus | '';
+  stage: StageFilter;
   module: string;
   text: string;
   selectedId: string | null;
@@ -34,6 +34,10 @@ interface SpecTicketsState {
   /** Runs a CLI action; resolves with the id of a newly created ticket (which is then selected), else null. */
   run: (action: SpecAction) => Promise<string | null>;
   setFilter: (f: Partial<Pick<SpecTicketsState, 'mineOnly' | 'stage' | 'module' | 'text'>>) => void;
+  /** Applies a stage view from the dashboard; like the donut, it shows everyone's tickets. */
+  applyStageFilter: (stage: StageFilter) => void;
+  /** Toggles a stage view off when it is already the filter; '' always clears it. */
+  toggleStageFilter: (stage: StageFilter) => void;
   setShowArchived: (showArchived: boolean) => Promise<void>;
 }
 
@@ -138,6 +142,13 @@ export const useSpecTicketsStore = create<SpecTicketsState>((set, get) => ({
   },
 
   setFilter: (f) => set(f),
+
+  applyStageFilter: (stage) => set({ stage, mineOnly: false }),
+
+  toggleStageFilter: (stage) => {
+    const { stage: current } = get();
+    set({ stage: current === stage ? '' : stage, mineOnly: false });
+  },
 
   setShowArchived: async (showArchived) => {
     set({ showArchived });

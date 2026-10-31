@@ -723,6 +723,33 @@ function cmdUnblock(t) {
   console.log(`${t.id} unblocked, back at ${t.meta.status}.`);
 }
 
+/**
+ * Polls until a human approves, unblocks, reopens or archives the ticket, then prints the new state
+ * and the log lines written meanwhile. An agent runs this in the background after stopping at an
+ * approval gate or a block, so the session resumes by itself once the cockpit (or a terminal) acts.
+ */
+async function cmdWait(t, opts) {
+  const intervalMs = Math.max(1, Number(opts.interval) || 5) * 1000;
+  const waiting = x => Boolean(x.meta.awaiting) || x.meta.status === 'blocked';
+  const logLines = x => nonEmptyLines(section(x.body, 'Log')).filter(l => l.startsWith('- '));
+  const describe = x => `${x.meta.status}${x.meta.awaiting ? ` (awaiting approval of ${x.meta.awaiting})` : ''}`;
+  const seen = logLines(t).length;
+  if (waiting(t)) {
+    console.log(`${t.id}: waiting for a human (${describe(t)})…`);
+    let cur = t;
+    while (waiting(cur)) {
+      await new Promise(r => setTimeout(r, intervalMs));
+      const r = tryLoadTicket(t.dir);
+      if (!r.ticket) return console.log(`${t.id}: ticket folder moved or unreadable (${r.error}); run \`${CLI} status ${t.id}\`.`);
+      cur = r.ticket;
+    }
+    t = cur;
+  }
+  console.log(`${t.id}: now ${describe(t)}.`);
+  const fresh = logLines(t).slice(seen);
+  if (fresh.length) console.log(`Log since waiting:\n${fresh.join('\n')}`);
+}
+
 function cmdAutopilot(t, mode) {
   if (!['on', 'off'].includes(mode)) fail(`usage: ${CLI} autopilot <id> on|off`);
   t.meta.autopilot = mode === 'on';
@@ -923,6 +950,7 @@ const HELP = `OMS spec workflow — ${CLI} <command>
   approve [id] [stage] [--by name]     human only: record approval, then advance
   reopen <id> <stage> "<reason>"       move back to an earlier stage
   block <id> "<reason>" | unblock <id>
+  wait <id> [--interval s]             block until the ticket is no longer awaiting approval or blocked
   autopilot <id> on|off                let the Stop hook keep the agent going until done
   set <id> <${SETTABLE.join('|')}> <value>
   note <id> "<text>"                   append to the ticket log
@@ -948,6 +976,7 @@ async function main() {
     case 'reopen': return cmdReopen(ticket(), args[1], args.slice(2).join(' '));
     case 'block': return cmdBlock(ticket(), args.slice(1).join(' '));
     case 'unblock': return cmdUnblock(ticket());
+    case 'wait': return cmdWait(ticket(), opts);
     case 'autopilot': return cmdAutopilot(ticket(), args[1]);
     case 'set': return cmdSet(ticket(), args[1], args.slice(2).join(' ') || undefined);
     case 'note': return cmdNote(ticket(), args.slice(1).join(' '));

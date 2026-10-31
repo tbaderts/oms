@@ -26,6 +26,24 @@ describe('spec-tickets lib', () => {
     expect(ids(filterTickets(tickets, { ...ALL, user: 'Alice', text: '0002' }))).toEqual(['SPEC-0002']);
   });
 
+  it('filterTickets in-progress and awaiting (the tiles cross-stage views)', () => {
+    const tickets = [
+      summary('SPEC-0001', { status: 'proposal', awaiting: 'proposal', owner: 'Bob' }),
+      summary('SPEC-0002', { status: 'design', awaiting: 'design', owner: 'Alice' }),
+      summary('SPEC-0003', { status: 'implement', owner: 'Alice' }),
+      summary('SPEC-0004', { status: 'blocked', blockedFrom: 'plan', owner: 'Alice' }),
+      summary('SPEC-0005', { status: 'done', owner: 'Alice' }),
+    ];
+    const ids = (ts: typeof tickets) => ts.map((t) => t.id);
+
+    // In progress: not done, blocked counts — the same tickets as the tile's count.
+    expect(ids(filterTickets(tickets, { ...ALL, user: 'Alice', stage: 'in-progress' })))
+      .toEqual(['SPEC-0001', 'SPEC-0002', 'SPEC-0003', 'SPEC-0004']);
+    // Awaiting approval: any ticket waiting for a human.
+    expect(ids(filterTickets(tickets, { ...ALL, user: 'Alice', stage: 'awaiting' })))
+      .toEqual(['SPEC-0001', 'SPEC-0002']);
+  });
+
   it('stageIndex uses blockedFrom for blocked tickets', () => {
     expect(stageIndex(summary('SPEC-0001', { status: 'proposal' }))).toBe(0);
     expect(stageIndex(summary('SPEC-0001', { status: 'done' }))).toBe(5);

@@ -14,7 +14,6 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 import org.example.common.model.CancelState;
@@ -27,7 +26,6 @@ import org.example.common.model.cmd.OrderCancelRequestCmd;
 import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.common.orchestration.TaskOrchestrator;
 import org.example.oms.model.Event;
-import org.example.oms.model.OrderEvent;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.service.OrderEventAppender;
@@ -261,7 +259,7 @@ class OrderLifecycleCommandProcessorTest {
 
     @Test
     void unknownOrder_refused() {
-        when(orderRepository.findByOrderId(ORDER_ID)).thenReturn(Optional.empty());
+        when(orderRepository.findLockedByOrderId(ORDER_ID)).thenReturn(Optional.empty());
 
         OrderLifecycleResult result =
                 processor.process(new OrderCancelCmd(ORDER_ID, "OrderCancelCmd"), Instant.now());
@@ -298,13 +296,7 @@ class OrderLifecycleCommandProcessorTest {
     @Test
     void duplicateCommandId_refusedWithoutWrites() {
         givenOrder(order(State.LIVE, CancelState.REJ, "100", "0", "100"));
-        when(orderEventRepository.findByOrderIdOrderByVersionAsc(ORDER_ID))
-                .thenReturn(List.of(OrderEvent.builder()
-                        .orderId(ORDER_ID)
-                        .version(3L)
-                        .event(Event.CXL_REQUEST)
-                        .transaction(new OrderCancelRequestCmd(ORDER_ID, "OrderCancelRequestCmd").commandId("CR-1"))
-                        .build()));
+        when(orderEventRepository.existsByOrderIdAndCommandId(ORDER_ID, "CR-1")).thenReturn(true);
 
         OrderLifecycleResult result =
                 processor.process(
@@ -319,13 +311,7 @@ class OrderLifecycleCommandProcessorTest {
     @Test
     void newCommandId_isApplied() {
         givenOrder(order(State.LIVE, CancelState.REJ, "100", "0", "100"));
-        when(orderEventRepository.findByOrderIdOrderByVersionAsc(ORDER_ID))
-                .thenReturn(List.of(OrderEvent.builder()
-                        .orderId(ORDER_ID)
-                        .version(3L)
-                        .event(Event.CXL_REQUEST)
-                        .transaction(new OrderCancelRequestCmd(ORDER_ID, "OrderCancelRequestCmd").commandId("CR-1"))
-                        .build()));
+        when(orderEventRepository.existsByOrderIdAndCommandId(ORDER_ID, "CR-2")).thenReturn(false);
 
         OrderLifecycleResult result =
                 processor.process(
@@ -341,7 +327,7 @@ class OrderLifecycleCommandProcessorTest {
         givenOrder(order(State.LIVE, null, "100", "0", "100"));
 
         assertTrue(processor.process(new OrderCancelCmd(ORDER_ID, "OrderCancelCmd"), Instant.now()).isSuccess());
-        verify(orderEventRepository, never()).findByOrderIdOrderByVersionAsc(any());
+        verify(orderEventRepository, never()).existsByOrderIdAndCommandId(any(), any());
     }
 
     // ----------------------------------------------------------------------------------------
@@ -377,7 +363,7 @@ class OrderLifecycleCommandProcessorTest {
     }
 
     private void givenOrder(Order order) {
-        when(orderRepository.findByOrderId(ORDER_ID)).thenReturn(Optional.of(order));
+        when(orderRepository.findLockedByOrderId(ORDER_ID)).thenReturn(Optional.of(order));
     }
 
     private Order savedOrder() {

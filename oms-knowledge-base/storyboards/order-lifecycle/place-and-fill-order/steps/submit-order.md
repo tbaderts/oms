@@ -13,7 +13,7 @@ links:
   requirements: [FR-001, FR-002, FR-003, FR-004]
 in:
   - name: Order ticket
-    shape: "{ symbol: ACME, side: BUY, orderQty: 100, ordType: LIMIT, price: 42.50, clOrdId: T-1001 }"
+    shape: "{ sessionId: S-1, symbol: ACME, side: BUY, orderQty: 100, ordType: LIMIT, price: 42.50, clOrdId: T-1001 }"
     origin: { kind: external, lane: trader }
 out:
   - name: Order
