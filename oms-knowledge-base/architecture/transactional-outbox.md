@@ -20,6 +20,10 @@ Stage messages in `outbox` in the command's transaction; only `OutboxRelay` publ
 ## Consequences
 - At-least-once delivery, ordered per order; consumers must be idempotent.
 - Kafka outages delay publication but do not fail commands.
+- A message that cannot be published delays only its own aggregate (topic and key): the relay
+  sends different aggregates in parallel and holds the later messages of a failing one behind it
+  (SPEC-0026). A message that exhausted its attempts holds its aggregate until an operator acts.
+- Ordering assumes one relay instance per deployment.
 
 Capability: [Event Publication](../capabilities/event-publication.md).
 

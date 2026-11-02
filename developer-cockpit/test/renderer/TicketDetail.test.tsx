@@ -102,4 +102,22 @@ describe('TicketDetail', () => {
     render(<TicketDetail />);
     expect(screen.getByText(/No verification evidence yet/)).toBeTruthy();
   });
+
+  // SPEC-0040 AC-5
+  it('a withdrawn ticket shows the withdrawn badge and reason', () => {
+    mockCockpit();
+    useSpecTicketsStore.setState({
+      selectedId: 'SPEC-0001',
+      detail: detail('SPEC-0001', {
+        status: 'withdrawn',
+        archived: true,
+        withdrawnFrom: 'proposal',
+        withdrawnReason: 'Superseded by SPEC-0039',
+      }),
+    });
+    render(<TicketDetail />);
+    expect(screen.getAllByText('withdrawn').length).toBeGreaterThan(0);
+    expect(screen.queryByText('archived')).toBeNull();
+    expect(screen.getByText(/Withdrawn at proposal: Superseded by SPEC-0039/)).toBeTruthy();
+  });
 });

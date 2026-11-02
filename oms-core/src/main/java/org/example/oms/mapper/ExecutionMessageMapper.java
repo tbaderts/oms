@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component;
  * position ({@code cumQty}, {@code leavesQty}), so a consumer can render a fill without having to
  * join against the orders topic.
  *
- * <p>Decimals are declared at scale 4 in the schema, matching the scale the execution pipeline
- * computes quantities at. Avro rescales losslessly and throws rather than round, so a quantity with
- * more precision than the contract allows fails loudly at publish time instead of being silently
- * rounded — the right trade-off for trade quantities.
+ * <p>Decimals are declared as decimal(18,8) in the schema, the precision of every price and
+ * quantity in the OMS (SPEC-0039), which the API already enforces on the way in. Avro rescales
+ * losslessly and throws rather than round, so a value with more precision fails loudly instead of
+ * being silently rounded — the right trade-off for trade quantities.
  */
 @Component
 public class ExecutionMessageMapper {

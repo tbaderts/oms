@@ -25,5 +25,7 @@ public abstract class AbstractKafkaIntegrationTest {
         registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
         registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> REGISTRY);
         registry.add("spring.kafka.producer.properties.schema.registry.url", () -> REGISTRY);
+        // The mock registry starts empty; tests register as they go, as the compose dev setup does.
+        registry.add("KAFKA_AUTO_REGISTER_SCHEMAS", () -> "true");
     }
 }

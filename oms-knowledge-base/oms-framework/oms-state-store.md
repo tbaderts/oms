@@ -323,21 +323,21 @@ public class Order implements Serializable {
     @Column(name = "ord_type", nullable = false, length = 20)
     private OrdType ordType;  // MARKET, LIMIT, STOP (FIX Tag 40)
 
-    // Quantities (precision 19, scale 4)
-    @Column(name = "order_qty", nullable = false, precision = 19, scale = 4)
+    // Quantities (as built: NUMERIC(18,8), SPEC-0039)
+    @Column(name = "order_qty", nullable = false, precision = 18, scale = 8)
     private BigDecimal orderQty;  // FIX Tag 38
 
-    @Column(name = "cum_qty", precision = 19, scale = 4)
+    @Column(name = "cum_qty", precision = 18, scale = 8)
     private BigDecimal cumQty;  // FIX Tag 14
 
-    @Column(name = "leaves_qty", precision = 19, scale = 4)
+    @Column(name = "leaves_qty", precision = 18, scale = 8)
     private BigDecimal leavesQty;  // FIX Tag 151
 
     // Prices
-    @Column(name = "price", precision = 19, scale = 6)
+    @Column(name = "price", precision = 18, scale = 8)
     private BigDecimal price;  // FIX Tag 44
 
-    @Column(name = "avg_px", precision = 19, scale = 6)
+    @Column(name = "avg_px", precision = 18, scale = 8)
     private BigDecimal avgPx;  // FIX Tag 6
 
     // State
@@ -360,7 +360,7 @@ public class Order implements Serializable {
 **Key Annotations:**
 - `@Table(indexes = {...})` - Creates database indexes for query performance
 - `@UniqueConstraint` - Prevents duplicate orders (same sessionId + clOrdId)
-- `@Column(precision = 19, scale = 4)` - Exact decimal precision for financial quantities
+- `@Column(precision = 18, scale = 8)` - Exact decimal precision for financial quantities
 - `@Enumerated(EnumType.STRING)` - Stores enums as strings (more readable than ordinals)
 
 ---

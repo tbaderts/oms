@@ -6,12 +6,15 @@ import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.OrderCancelCmd;
 import org.example.common.model.cmd.OrderCancelRejectCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
+import org.example.common.model.cmd.OrderCloseCmd;
+import org.example.common.model.cmd.OrderExpireCmd;
 import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.common.orchestration.TaskOrchestrator;
 import org.example.common.orchestration.TaskOrchestrator.PipelineResult;
 import org.example.common.orchestration.TaskPipeline;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
+import org.example.oms.service.PipelineResults;
 import org.example.oms.service.command.tasks.PublishOrderEventTask;
 import org.example.oms.service.lifecycle.tasks.ApplyLifecycleActionTask;
 import org.example.oms.service.lifecycle.tasks.DeduplicateCommandTask;
@@ -63,7 +66,9 @@ public class OrderLifecycleCommandProcessor {
         return command instanceof OrderRejectCmd
                 || command instanceof OrderCancelCmd
                 || command instanceof OrderCancelRequestCmd
-                || command instanceof OrderCancelRejectCmd;
+                || command instanceof OrderCancelRejectCmd
+                || command instanceof OrderExpireCmd
+                || command instanceof OrderCloseCmd;
     }
 
     /**
@@ -102,6 +107,16 @@ public class OrderLifecycleCommandProcessor {
                 orderId = cmd.getOrderId();
                 text = cmd.getText();
             }
+            case OrderExpireCmd cmd -> {
+                action = LifecycleAction.EXPIRE;
+                orderId = cmd.getOrderId();
+                text = cmd.getText();
+            }
+            case OrderCloseCmd cmd -> {
+                action = LifecycleAction.CLOSE;
+                orderId = cmd.getOrderId();
+                text = cmd.getText();
+            }
             default ->
                     throw new IllegalArgumentException(
                             "Not a lifecycle command: " + command.getClass().getName());
@@ -122,7 +137,7 @@ public class OrderLifecycleCommandProcessor {
 
         if (!result.isSuccess()) {
             markRollbackOnly();
-            rethrowConcurrencyConflict(result);
+            PipelineResults.rethrowConcurrencyFailure(result);
             log.warn("{} refused for orderId={}: {}", action, orderId, context.getErrorMessage());
             return OrderLifecycleResult.builder()
                     .success(false)
@@ -162,18 +177,6 @@ public class OrderLifecycleCommandProcessor {
         }
     }
 
-    private static void rethrowConcurrencyConflict(PipelineResult result) {
-        result.getTaskResults().stream()
-                .filter(TaskResult::isFailed)
-                .flatMap(taskResult -> taskResult.getException().stream())
-                .filter(OptimisticLockingFailureException.class::isInstance)
-                .map(OptimisticLockingFailureException.class::cast)
-                .findFirst()
-                .ifPresent(
-                        conflict -> {
-                            throw conflict;
-                        });
-    }
 
     private static String errorMessage(OrderTaskContext context, PipelineResult result) {
         if (context.getErrorMessage() != null) {

@@ -10,11 +10,11 @@ import java.util.List;
  *
  * <p>The first slices are whole units of {@code floor(qty / n)} and the last takes the remainder,
  * so 100 in three slices is 33, 33, 34. No slice is ever zero: when there are fewer whole units than
- * slices, fewer slices are produced. All results carry scale 4, the OMS quantity scale.
+ * slices, fewer slices are produced. All results carry scale 8, the OMS quantity scale (SPEC-0039).
  */
 public final class FillSlicer {
 
-    static final int QUANTITY_SCALE = 4;
+    static final int QUANTITY_SCALE = 8; // decimal(18,8), every quantity in the OMS (SPEC-0039)
 
     private FillSlicer() {}
 

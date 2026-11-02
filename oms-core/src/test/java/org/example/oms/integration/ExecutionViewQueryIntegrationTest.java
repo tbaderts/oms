@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,6 +66,30 @@ class ExecutionViewQueryIntegrationTest extends AbstractFillFlowIntegrationTest 
                 .andExpect(jsonPath("$[0].tradeDate").value("2001-01-01"))
                 .andExpect(jsonPath("$[1].cumQty").value(40.0))
                 .andExpect(jsonPath("$[1].orderVersion").value(4));
+    }
+
+    /** A REST fill may omit transactTime; it sorts by when it was projected, not after every other fill. */
+    @Test
+    void fillWithoutTransactTime_sortsByProjectionTime() throws Exception {
+        String orderId = createLiveOrder();
+        Instant now = Instant.now();
+        String early = orderId + "-EARLY";
+        String untimed = orderId + "-UNTIMED";
+        String late = orderId + "-LATE";
+        assertEquals(201, postFill(early, orderId, "10", now.minus(Duration.ofHours(1)).toString()));
+        assertEquals(201, postFill(untimed, orderId, "10", null));
+        assertEquals(201, postFill(late, orderId, "10", now.plus(Duration.ofHours(1)).toString()));
+
+        assertEquals(List.of(early, untimed, late), execIds(query("orderId=" + orderId)));
+    }
+
+    @Test
+    void limitOutOfBounds_is400() throws Exception {
+        mockMvc().perform(get("/api/query/executions?limit=0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:oms:error:validation-failed"))
+                .andExpect(jsonPath("$.errors.limit").exists());
+        mockMvc().perform(get("/api/query/executions?limit=5001")).andExpect(status().isBadRequest());
     }
 
     @Test

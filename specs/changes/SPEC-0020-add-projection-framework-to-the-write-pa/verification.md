@@ -6,20 +6,22 @@
 
 ## Acceptance Criteria Results
 
-The final `spec verify` (19:13Z) executed oms-core's tests (46 classes, 225 tests, 0 failures,
-0 skipped, 19:11–19:13Z). oms-contracts' tests were up to date: they last ran in T-1
-(`ExecutionViewContractTest` 2/2) and the module has not changed since. Each method below is in
+The final `spec verify` (2026-11-01 05:47Z, after the review fixes T-13 to T-17 and round 2's
+handler fix) executed oms-core's
+tests (46 classes, 231 tests, 0 failures, 0 skipped). oms-contracts' tests were up to date: they
+last ran in T-15's `./gradlew build` after the contract description change (7 classes, 12 tests,
+0 failures). Each method below is in
 `<module>/build/test-results/test/TEST-*.xml` with no `<failure>` or `<skipped>`, and each was read
 against its AC.
 
 | AC | Criterion (short) | Evidence | Result |
 |---|---|---|---|
 | AC-1 | One view row per applied fill (REST and Kafka), equal to its `OrderExecution` | `ProjectionIntegrationTest#fill_writesOneViewRowMatchingItsOrderExecution`: a REST fill (near-midnight `transactTime`) and a Kafka fill; the two `OrderExecution` records consumed from `oms_order_executions`; for each, exactly one row by `(orderId, execId)` whose 20 checked columns (identity, account, side, symbol, ordType, price, quantities, fill fields, `transactTime`, state, `orderVersion`, `tradeDate`) equal the record. Red before T-6 (no row) | PASS |
-| AC-2 | A failing projection refuses the fill and stores nothing | `ProjectionIntegrationTest#failingProjection_rollsBackTheFill`: spy throws once; fill not 201; order state, `cumQty`, `txNr` unchanged; no `executions` row, no view row, event versions still [1, 2]; the next fill gets version 3, so the failed fill committed no event and no outbox row (both share its transaction and version). Mutation-checked: with `ProjectTask` swallowing the exception the test fails (tasks.md Notes) | PASS |
+| AC-2 | A failing projection refuses the fill and stores nothing | `ProjectionIntegrationTest#failingProjection_rollsBackTheFill`: spy throws once; fill not 201; order state, `cumQty`, `txNr` unchanged; no `executions` row, no view row, event versions still [1, 2]; the next fill gets version 3, so the failed fill committed no event and no outbox row (both share its transaction and version). Mutation-checked: with `ProjectTask` swallowing the exception the test fails (tasks.md Notes). `ProjectTaskTest#aFailingProjectionFailsTheTask` and `#aFailingStageFailsTheTask` (staging failures, e.g. encoding, fail the task with the projection's context, T-13) | PASS |
 | AC-3 | Refused fills (duplicate `execId`, overfill) leave the view unchanged | `ProjectionIntegrationTest#refusedFills_writeNoViewRow`: both refused; still one row for the order, same id, same `lastQty` and `orderVersion` | PASS |
 | AC-4 | `OrderExecution` staged as generic payload; published record unchanged; pre-migration `ORDER_EXECUTION` rows still publish | `EventSourcingIntegrationTest#fill_stagesOrderExecutionAsGenericPayload` (relay off): staged rows `ORDER, ORDER, EXECUTION, PROJECTION`; `payload_type` `org.example.common.model.msg.OrderExecution`; the payload decodes to the expected record (version 2, cumQty, account). `OrderExecutionPublicationIntegrationTest` (SPEC-0019, all 6 methods) passes with the projection publishing: same key, field values, ordering, refusals. `AvroPayloadCodecTest#roundTripsThroughPostgresBytea` (real Postgres, decimal with zero bytes) and `#refusesTypesOutsideTheMessagePackage`. `MessagePublisherTest#publish_sendsProjectionPayload` and `#publish_stillSendsLegacyOrderExecutionRows` | PASS |
-| AC-5 | `GET /api/query/executions` filters, ordering, fields, empty result, contract | `ExecutionViewQueryIntegrationTest#filtersByOrderRootAccountAndTime`: by `orderId` (oldest first), `rootOrderId` (child under a root, and a root-less order as its own root), `account`, time range (from inclusive, to exclusive, both checked); the fields of AC-1 asserted on the JSON. `#noMatchReturnsEmptyArray`: `200 []`. oms-contracts `ExecutionViewContractTest` (path, operationId, six parameters; 28 DTO properties). Red before T-8 (404) and T-1 | PASS |
-| AC-6 | Rebuild reproduces the rows, including a fill without stored command; publishes nothing; unknown → 404 | `ProjectionRebuildIntegrationTest#rebuild_reproducesTheViewWithoutPublishing`: three fills on two orders; one fill event's `transaction` set to null (the pre-SPEC-0018 REST shape); `POST /actuator/projections/order_execution_view/rebuild` → 200 with `rows` = table count; the orders' rows equal before and after (every column but the surrogate id and `projected_at`); after a later fill on each order, exactly the three fills and the two sentinels are on `oms_order_executions`. `#unknownProjection_is404` | PASS |
+| AC-5 | `GET /api/query/executions` filters, ordering, fields, empty result, contract | `ExecutionViewQueryIntegrationTest#filtersByOrderRootAccountAndTime`: by `orderId` (oldest first), `rootOrderId` (child under a root, and a root-less order as its own root), `account`, time range (from inclusive, to exclusive, both checked); the fields of AC-1 asserted on the JSON. `#fillWithoutTransactTime_sortsByProjectionTime` (T-15). `#limitOutOfBounds_is400` (validation-failed 400, T-16). `#noMatchReturnsEmptyArray`: `200 []`. oms-contracts `ExecutionViewContractTest` (path, operationId, six parameters; 28 DTO properties). Red before T-8 (404) and T-1 | PASS |
+| AC-6 | Rebuild reproduces the rows, including a fill without stored command; publishes nothing; unknown → 404 | `ProjectionRebuildIntegrationTest#rebuild_reproducesTheViewWithoutPublishing`: three fills on two orders; one fill event's `transaction` set to null (the pre-SPEC-0018 REST shape); `POST /actuator/projections/order_execution_view/rebuild` → 200 with `rows` = table count; the orders' rows equal before and after (every column but the surrogate id and `projected_at`); after a later fill on each order, exactly the three fills and the two sentinels are on `oms_order_executions`. `#unmatchedFillEvent_failsAndLeavesTheViewUnchanged` (500 with the error, rolled back, view as before), `#unknownAction_is400`, `#unknownProjection_is404` | PASS |
 
 ## Goal Assessment
 
@@ -64,7 +66,7 @@ holds uncommitted work of earlier, finished tickets; not judged here.
 | P-10 | State transitions go through the state machine and task pipeline | PASS | Projections run as a pipeline task; no transition change |
 | P-11 | Layering and conventions | PASS | Controller → service → repository; MapStruct `ExecutionViewDtoMapper`; `projection` package; constructor injection; follows `OrderEventController` |
 | P-12 | Jackson 3 only | PASS | No Jackson usage added |
-| P-13 | Errors and validation follow the framework specs | PASS | Pipeline failures answer as other pipeline failures; query parameters validated by the generated interface (`limit` 1–5000, ISO date-times) |
+| P-13 | Errors and validation follow the framework specs | PASS | Pipeline failures answer as other pipeline failures; query parameters validated by the generated `@Validated` interface, violations answered with the `validation-failed` Problem+JSON 400 (`GlobalExceptionHandler`, T-16; `error-handling.md` updated). The actuator endpoint answers plain maps (management surface, not the API contract) |
 | P-14 | Test first, every AC proven by an automated test | PASS | Every AC has a test above, each seen red first except AC-2/AC-3 (guards on rollback and refusal paths; AC-2 mutation-checked) |
 | P-15 | Observability | PASS | `ProjectTask` logs a projection failure with projection, `orderId`, `execId`, version; the rebuild logs start and rows/orders/duration and records `oms.projection.rebuild`; `spec check` R08 clean |
 | P-16 | Security | PASS | Payload type resolution restricted to `org.example.common.model.msg`; rebuild endpoint unauthenticated like the other management endpoints, accepted at proposal approval and documented in `oms-concepts/projections.md`; the table name in the lock statement comes from a registered bean, not the request |
@@ -74,23 +76,66 @@ holds uncommitted work of earlier, finished tickets; not judged here.
 
 ## Independent Review
 
-<!-- PENDING: spec-reviewer findings -->
+**Round 1** (2026-10-31 19:20Z), verdict MET, no blocking finding; one major, six minor:
+
+1. **[major] Decimal scale: a REST fill with more than 4 decimals now fails Avro encoding inside the
+   fill transaction and is rolled back** (it used to be recorded and then fail in the relay).
+   Confirmed by a probe ("Cannot encode decimal with scale 5 as scale 4"). The ticket was blocked
+   for a decision. **Requester's decision (2026-11-01):** unify precision as decimal(18,8) for every
+   price and quantity across database, Avro and OpenAPI, and reject more precise values at the
+   REST and Kafka boundaries, in the new ticket **SPEC-0039**; finish SPEC-0020 now. Until
+   SPEC-0039, the limitation stands. Sub-point (staging failures not logged with context) fixed in
+   T-13.
+2. **[minor] View `transactTime` microseconds vs record milliseconds.** Fixed (T-14): truncated in
+   the mapper, so the row and the record are equal.
+3. **[minor] Fills without `transactTime` sorted last.** Fixed (T-15): ordered by
+   `COALESCE(transactTime, projectedAt)`; contract states that time filters apply to
+   `transactTime` only.
+4. **[minor] The rebuild loads all events and executions in one locked transaction.** Accepted for
+   now (dev-scale); follow-up.
+5. **[minor] Untested paths.** Fixed (T-16): rebuild failure, unknown action, `limit` bounds. The
+   `limit` test found a 500 for out-of-bounds parameters; fixed in `GlobalExceptionHandler`
+   (`ConstraintViolationException` → validation-failed 400).
+6. **[minor] `payload_type` has no schema fingerprint.** Accepted; documented constraint
+   (drain pending rows before a schema change); follow-up.
+7. **[minor] Proposal says JSONB, implementation BYTEA.** Stated in the Goal Assessment and
+   design.md.
+
+**Round 2** (2026-11-01 05:45Z), verdict MET: every AC proven, round-1 fixes sound, no new defect.
+The `GlobalExceptionHandler` change was checked for the other generated APIs: an out-of-range
+`/search` `size` now gets the 400 its contract declares (previously 500), and no other code path
+raises `ConstraintViolationException`. Minor findings:
+
+1. **Error key took only the last path segment**, which would drop context for a nested path.
+   Fixed: only the method name is stripped. Re-verified (05:47Z).
+2. **Ordering by `COALESCE(...)` cannot use the `transact_time` index.** Accepted at today's scale;
+   follow-up (expression index).
+3. **The rebuild's 500 body names the order id and version.** Accepted: management surface,
+   useful to operators, under the P-16 decision.
+4. Decimal precision and round-1 findings 4 and 6: accepted, recorded (SPEC-0039, follow-ups).
 
 ## Automated Evidence
 
-`evidence/last-run.json`, ran 2026-10-31T19:13:50Z, result **pass**, fingerprint
-`1c11446b8ac20ad8`. Policy check: PASS, no errors, no warnings.
+`evidence/last-run.json`, ran 2026-11-01T05:47:31Z, result **pass**, fingerprint
+`9bd5a606fb87043c`. Policy check: PASS, no errors, no warnings.
 
 | Module | Command | Exit | Log |
 |---|---|---|---|
-| oms-core | `./gradlew check` | 0 (`test` executed: 46 classes, 225 tests, 0 failures, 0 skipped) | evidence/oms-core-1.log |
-| oms-contracts | `./gradlew check` | 0 (`test` up to date; last executed in T-1, 7 classes, 12 tests, 0 failures) | evidence/oms-contracts-1.log |
+| oms-core | `./gradlew check` | 0 (`test` executed: 46 classes, 231 tests, 0 failures, 0 skipped) | evidence/oms-core-1.log |
+| oms-contracts | `./gradlew check` | 0 (`test` up to date; last executed in T-15, 7 classes, 12 tests, 0 failures) | evidence/oms-contracts-1.log |
 | oms-streaming-service | `./gradlew check` | 0 | evidence/oms-streaming-service-1.log |
 | oms-mcp-server | `./gradlew check` | 0 | evidence/oms-mcp-server-1.log |
 | oms-exchange-simulator | `./gradlew check` | 0 | evidence/oms-exchange-simulator-1.log |
 
 ## Follow-ups
 
+- **SPEC-0039** (created): decimal(18,8) for every price and quantity across database, Avro and
+  OpenAPI, rejecting more precise values at the REST and Kafka boundaries. Until then a REST fill
+  with more than 4 decimals is refused by the Avro encoding in the fill transaction.
+- Page or stream the rebuild per order, so its memory and lock time do not grow with history.
+- An expression index on `COALESCE(transact_time, projected_at)` if broad execution queries get slow.
+- Store a schema fingerprint with `PROJECTION` payloads, so a pending row written with an older
+  schema is decoded correctly.
 - Run `POST /actuator/projections/order_execution_view/rebuild` once after deploying, to fill the
   view for existing fills.
 - Migrate oms-ui from the hidden `/api/executions` to `GET /api/query/executions`, then retire the
@@ -101,4 +146,8 @@ holds uncommitted work of earlier, finished tickets; not judged here.
 
 ## Verdict
 
-Verdict: <!-- PENDING -->
+Verdict: GOAL MET
+
+All six ACs pass with tests that ran in the final verify run, the independent review (two rounds)
+has no open blocking or major finding (the decimal-precision finding is deferred to SPEC-0039 by the
+requester's decision), and the Goal assessment has no material gap.

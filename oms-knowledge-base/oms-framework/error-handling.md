@@ -92,7 +92,11 @@ The OMS application uses [RFC 7807 Problem Details for HTTP APIs](https://www.rf
 `ResponseEntityExceptionHandler.handleMethodArgumentNotValid` rather than declaring
 `@ExceptionHandler(MethodArgumentNotValidException.class)`, because the base class already maps that
 exception and a second mapping is ambiguous at startup. Field paths are nested, e.g.
-`order.sessionId`. The sketch below is the target design; not every handler in it exists yet.
+`order.sessionId`. Query and path parameters that break the contract (e.g. `limit` outside its
+range on `/api/query/executions`) raise a `ConstraintViolationException`, because the generated API
+interfaces are `@Validated`; since SPEC-0020 that gets the same `validation-failed` 400, keyed by
+parameter name, instead of the generic 500. The sketch below is the target design; not every
+handler in it exists yet.
 
 ```java
 package org.example.oms.api;
@@ -880,42 +884,34 @@ public class OrderCreateCommandProcessor {
 }
 ```
 
-### Kafka Exactly-Once Semantics
+### Kafka Command Consumption
+
+`CommandListener` reads each command value as bytes and decodes it with `CommandDecoder`
+(SPEC-0025). Its error handling, with the container's `commandErrorHandler`:
+
+| Case | Outcome |
+|---|---|
+| Processor returns an unsuccessful result (duplicate, invalid transition) | Logged and acknowledged; counted `refused`. Retrying would never succeed |
+| Processor throws | Retried with exponential back-off, then sent to `commands.DLT`; counted `failed` per attempt |
+| Record cannot be decoded (not Avro, unknown schema id, no class for the record) | `UndecodableCommandException`, not retried, sent to `commands.DLT` |
+| Command type without a handler | `IllegalArgumentException`, not retried, sent to `commands.DLT` |
 
 ```java
-@Service
-public class CommandListener {
-
-    @KafkaListener(
-        topics = "${kafka.command-topic}",
-        groupId = "oms-command-processor",
-        containerFactory = "kafkaListenerContainerFactory"
-    )
-    public void handleCommand(
-            @Payload CommandMessage message,
-            @Header(KafkaHeaders.RECEIVED_KEY) String key,
-            Acknowledgment acknowledgment) {
-
-        try {
-            // Process command (must be idempotent)
-            ProcessingResult result = commandProcessor.process(message);
-
-            if (result.isSuccess()) {
-                // Manually acknowledge only on success
-                acknowledgment.acknowledge();
-                log.info("Command processed successfully: key={}", key);
-            } else {
-                // Do not acknowledge - message will be retried
-                log.warn("Command processing failed, will retry: key={}", key);
-            }
-        } catch (Exception e) {
-            log.error("Error processing command: key={}", key, e);
-            // Do not acknowledge - message will be retried
-            // Consider DLQ after max retries
-        }
+public void consume(ConsumerRecord<String, byte[]> record) {
+    Instant receivedTime = Instant.now();
+    SpecificRecord command;
+    try {
+        command = commandDecoder.decode(record.topic(), record.value());
+    } catch (UndecodableCommandException e) {
+        count(UNDECODABLE, OUTCOME_FAILED);
+        throw e;                       // not retryable: straight to the DLT
     }
+    handle(command, receivedTime);     // MDC commandId/correlationId, dispatch, count the outcome
 }
 ```
+
+The dead-letter recoverer publishes with a byte-array template, so a dead letter is the record
+exactly as it arrived, schema id included, and can be replayed unchanged.
 
 ### Optimistic Locking for Concurrent Updates
 
@@ -928,8 +924,10 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    @Version  // Optimistic locking
-    private Long version;
+    // Optimistic locking. In oms-core this is txNr, the version of the order's latest event; the
+    // event log's unique (order_id, version) rejects a concurrent writer (SPEC-0027). A plain JPA
+    // @Version column gives the same protection where there is no event log.
+    private long txNr;
 
     private String orderId;
     private State state;

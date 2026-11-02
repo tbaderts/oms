@@ -61,6 +61,19 @@ class ProjectTaskTest {
         verify(appender, never()).stageMessage(any());
     }
 
+    /** Staging can fail too (e.g. a value the message schema cannot encode); it must fail as the projection. */
+    @Test
+    void aFailingStageFailsTheTask() {
+        StagedMessage message = message("a");
+        org.mockito.Mockito.doThrow(new IllegalStateException("cannot encode"))
+                .when(appender)
+                .stageMessage(message);
+        ProjectTask task = new ProjectTask(List.of(projection("a_view", message, new ArrayList<>())), appender);
+
+        TaskExecutionException e = assertThrows(TaskExecutionException.class, () -> task.execute(context()));
+        assertTrue(e.getMessage().contains("a_view"), e.getMessage());
+    }
+
     @Test
     void runsAfterThePublishTask() {
         assertTrue(new ProjectTask(List.of(), appender).getOrder()

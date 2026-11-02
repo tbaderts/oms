@@ -36,7 +36,7 @@ ext {
 }
 
 dependencies {
-	// Shared contracts: OrderMessage in, CommandMessage out.
+	// Shared contracts: OrderMessage in, bare command records out.
 	implementation 'org.example.oms:oms-contracts'
 
 	// The same artifacts and versions oms-core uses; nothing new to the repository.

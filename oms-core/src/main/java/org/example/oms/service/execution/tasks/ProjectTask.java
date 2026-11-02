@@ -12,7 +12,6 @@ import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.projection.Projection;
 import org.example.oms.projection.ProjectionContext;
-import org.example.oms.projection.StagedMessage;
 import org.example.oms.service.OrderEventAppender;
 import org.springframework.stereotype.Component;
 
@@ -51,9 +50,9 @@ public class ProjectTask implements Task<OrderTaskContext> {
         ProjectionContext change = new ProjectionContext(order, execution, version, context.getCommand(), Instant.now());
 
         for (Projection projection : projections) {
-            List<StagedMessage> messages;
             try {
-                messages = projection.project(change);
+                // Staging encodes the message, so it can fail on a value the schema cannot carry.
+                projection.project(change).forEach(orderEventAppender::stageMessage);
             } catch (RuntimeException e) {
                 log.error(
                         "Projection {} failed - orderId={}, execId={}, version={}",
@@ -64,7 +63,6 @@ public class ProjectTask implements Task<OrderTaskContext> {
                         e);
                 throw new TaskExecutionException(getName(), "Projection " + projection.name() + " failed", e);
             }
-            messages.forEach(orderEventAppender::stageMessage);
         }
 
         return TaskResult.success(

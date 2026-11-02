@@ -73,6 +73,8 @@ abstract class AbstractKafkaPostgresIntegrationTest {
 
         registry.add("spring.kafka.consumer.properties.schema.registry.url", () -> "mock://oms-it");
         registry.add("spring.kafka.producer.properties.schema.registry.url", () -> "mock://oms-it");
+        // The mock registry starts empty; tests register as they go, as the compose dev setup does.
+        registry.add("KAFKA_AUTO_REGISTER_SCHEMAS", () -> "true");
         registry.add("kafka.enabled", () -> "true");
         registry.add("kafka.command-topic", () -> "commands");
         registry.add("kafka.order-topic", () -> "orders");

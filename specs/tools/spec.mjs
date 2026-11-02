@@ -38,6 +38,7 @@ const NEXT = {
   verify: 'Run `spec verify`, complete verification.md (skill: spec-verify), then `spec advance`.',
   done: 'Archive with `spec archive` (skill: spec-archive).',
   blocked: 'Blocked. A human resolves the reason and runs `spec unblock`.',
+  withdrawn: 'Withdrawn; nothing further to do.',
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -590,7 +591,8 @@ function cmdList(opts) {
     else console.error(`${relDir(dir)}: ${r.error}`);
   }
   if (!ts.length) return console.log('No tickets.');
-  const rows = ts.map(t => [t.id, t.archived ? 'archived' : t.meta.status + (t.meta.awaiting ? ' (awaiting approval)' : ''),
+  const rows = ts.map(t => [t.id,
+    t.archived ? (t.meta.status === 'withdrawn' ? 'withdrawn' : 'archived') : t.meta.status + (t.meta.awaiting ? ' (awaiting approval)' : ''),
     t.meta.autopilot ? 'auto' : '', progress(t), t.meta.title]);
   const w = [0, 1, 2, 3].map(i => Math.max(...rows.map(r => r[i].length)));
   rows.forEach(r => console.log(r.map((c, i) => (i < 4 ? c.padEnd(w[i]) : c)).join('  ')));
@@ -636,7 +638,7 @@ function cmdStatus(t, opts = {}) {
   const m = t.meta;
   console.log(`${t.id} — ${m.title}`);
   console.log(`  dir:       ${path.relative(ROOT, t.dir).replace(/\\/g, '/')}`);
-  console.log(`  status:    ${m.status}${m.awaiting ? ` (awaiting human approval of ${m.awaiting})` : ''}${m.status === 'blocked' ? ` — ${m.blocked_reason}` : ''}`);
+  console.log(`  status:    ${m.status}${m.awaiting ? ` (awaiting human approval of ${m.awaiting})` : ''}${m.status === 'blocked' ? ` — ${m.blocked_reason}` : ''}${m.status === 'withdrawn' ? ` — withdrawn from ${m.withdrawn_from}: ${m.withdrawn_reason}` : ''}`);
   console.log(`  autopilot: ${m.autopilot ? 'on' : 'off'}`);
   console.log(`  modules:   ${m.modules.join(', ') || '(none)'}${verifyModules(t).length > m.modules.length ? `  → verified with ${verifyModules(t).join(', ')}` : ''}`);
   console.log(`  approvals: ${m.approvals.join(', ') || '(none)'}`);
@@ -827,16 +829,47 @@ function cmdVerify(t, opts) {
 
 function cmdArchive(t) {
   if (t.meta.status !== 'done') fail(`${t.id} is at ${t.meta.status}; only done tickets can be archived`);
+  t.meta.autopilot = false;
+  logTo(t, 'archived');
+  const target = moveToArchive(t);
+  console.log(`${t.id} archived to ${relDir(target)}`);
+}
+
+/**
+ * Closes a ticket that will not be implemented (SPEC-0040): superseded, merged or dropped. It keeps
+ * its documents and history in the archive, where gates, ci and the hooks no longer see it. A done
+ * ticket is archived instead. The PreToolUse hook reserves this for humans, like approve.
+ */
+function cmdWithdraw(t, reason) {
+  if (!reason.trim()) fail(`usage: ${CLI} withdraw <id> "<reason>"`);
+  if (t.archived) fail(`${t.id} is already archived`);
+  if (t.meta.status === 'done') fail(`${t.id} is done; archive it with \`${CLI} archive ${t.id}\``);
+  // A previous withdraw that could not move the folder; moving it is a manual fix.
+  if (t.meta.status === 'withdrawn') fail(`${t.id} is already withdrawn but still in specs/changes; move its folder to specs/archive`);
+  // Checked before anything is written, so a failed move cannot leave a half-withdrawn ticket.
+  const target = path.join(ARCHIVE, path.basename(t.dir));
+  if (fs.existsSync(target)) fail(`${relDir(target)} already exists; nothing was changed`);
+  const from = t.meta.status === 'blocked' ? (t.meta.blocked_from || 'proposal') : t.meta.status;
+  const oneLine = reason.replace(/\r?\n/g, ' ');
+  Object.assign(t.meta, {
+    status: 'withdrawn', withdrawn_from: from, withdrawn_reason: oneLine,
+    awaiting: '', autopilot: false, blocked_from: '', blocked_reason: '',
+  });
+  logTo(t, `withdrawn: ${oneLine}`);
+  moveToArchive(t);
+  console.log(`${t.id} withdrawn (was ${from}) and moved to ${relDir(target)}`);
+}
+
+/** Saves the ticket and moves it to specs/archive, without its run logs and autopilot state. */
+function moveToArchive(t) {
   const evDir = path.join(t.dir, 'evidence');
   if (fs.existsSync(evDir)) fs.readdirSync(evDir).filter(f => f.endsWith('.log')).forEach(f => fs.rmSync(path.join(evDir, f)));
   fs.rmSync(path.join(t.dir, '.autopilot.json'), { force: true });
-  t.meta.autopilot = false;
-  logTo(t, 'archived');
   saveTicket(t);
   fs.mkdirSync(ARCHIVE, { recursive: true });
   const target = path.join(ARCHIVE, path.basename(t.dir));
   fs.renameSync(t.dir, target);
-  console.log(`${t.id} archived to ${path.relative(ROOT, target).replace(/\\/g, '/')}`);
+  return target;
 }
 
 function cmdCi(opts) {
@@ -882,8 +915,11 @@ async function hookPreTool() {
   const autopilot = activeTickets().filter(t => t.meta.autopilot && !['done', 'blocked'].includes(t.meta.status));
 
   if (typeof ti.command === 'string') {
-    if (/spec\.mjs["']?\s+approve\b/.test(ti.command)) {
-      deny('Approvals are a human gate. Do not run `spec approve`; ask the requester to review and run it in their own terminal.');
+    const human = ti.command.match(/spec\.mjs["']?\s+(approve|withdraw)\b/);
+    if (human) {
+      deny(human[1] === 'approve'
+        ? 'Approvals are a human gate. Do not run `spec approve`; ask the requester to review and run it in their own terminal.'
+        : "Withdrawing a ticket is the requester's decision. Do not run `spec withdraw`; block the ticket with the reason and ask the requester.");
     }
     return;
   }
@@ -950,6 +986,7 @@ const HELP = `OMS spec workflow — ${CLI} <command>
   approve [id] [stage] [--by name]     human only: record approval, then advance
   reopen <id> <stage> "<reason>"       move back to an earlier stage
   block <id> "<reason>" | unblock <id>
+  withdraw <id> "<reason>"             human only: close a ticket that will not be done and archive it
   wait <id> [--interval s]             block until the ticket is no longer awaiting approval or blocked
   autopilot <id> on|off                let the Stop hook keep the agent going until done
   set <id> <${SETTABLE.join('|')}> <value>
@@ -977,6 +1014,8 @@ async function main() {
     case 'block': return cmdBlock(ticket(), args.slice(1).join(' '));
     case 'unblock': return cmdUnblock(ticket());
     case 'wait': return cmdWait(ticket(), opts);
+    // Resolves archived tickets too, so withdrawing one fails as "already archived", not "no match".
+    case 'withdraw': return cmdWithdraw(resolveTicket(args[0], { includeArchive: true }), args.slice(1).join(' '));
     case 'autopilot': return cmdAutopilot(ticket(), args[1]);
     case 'set': return cmdSet(ticket(), args[1], args.slice(2).join(' ') || undefined);
     case 'note': return cmdNote(ticket(), args.slice(1).join(' '));

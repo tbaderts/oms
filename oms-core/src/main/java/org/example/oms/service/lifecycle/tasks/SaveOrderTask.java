@@ -12,10 +12,11 @@ import lombok.RequiredArgsConstructor;
 /**
  * Saves an existing order after a lifecycle change.
  *
- * <p>{@code saveAndFlush} makes a {@code txNr} conflict surface here, inside the pipeline, rather
- * than at commit. The orchestrator turns it into a failed result carrying the exception, and the
- * processor rethrows it so that the caller retries (Kafka) or sees a 409 (REST) instead of a
- * business refusal.
+ * <p>The order's version is set when its event is appended; a concurrent writer surfaces there, as
+ * an {@code OptimisticLockingFailureException} from the appender (SPEC-0027). The orchestrator turns
+ * it into a failed result carrying the exception, and the processor rethrows it so that the caller
+ * retries (Kafka) or sees a 409 (REST) instead of a business refusal. Lifecycle commands also hold
+ * the order's row lock, so such a conflict is rare here.
  */
 @Component
 @RequiredArgsConstructor

@@ -1,0 +1,27 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "name": "OrderExpireCmd",
+  "doc": "The order's time in force ran out (FIX ExecutionReport ExecType=C).",
+  "fields": [
+    {
+      "name": "header",
+      "type": "org.example.common.model.msg.CommandHeader",
+      "doc": "Identity, causality and origin of this command."
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "The order this command applies to."
+    },
+    {
+      "name": "text",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Expiry reason."
+    }
+  ]
+}

@@ -28,7 +28,6 @@ import org.example.common.model.cmd.OrdType;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.model.cmd.Side;
 import org.example.common.model.cmd.TimeInForce;
-import org.example.common.model.msg.CommandMessage;
 import org.example.common.model.msg.ExecutionCreateCmd;
 import org.example.common.model.msg.OrderAcceptCmd;
 import org.example.common.model.msg.OrderCancelCmd;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.test.web.servlet.MockMvc;
@@ -78,7 +76,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     @Autowired private ConsumerFactory<Object, Object> consumerFactory;
     @Autowired private WebApplicationContext webApplicationContext;
 
-    private KafkaTemplate<String, CommandMessage> commands;
+    private KafkaTemplate<String, Object> commands;
 
     @BeforeEach
     void setUp() {
@@ -86,8 +84,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         orderEventRepository.deleteAll();
         orderRepository.deleteAll();
         commands =
-                new KafkaTemplate<>(
-                        new DefaultKafkaProducerFactory<>(producerFactory.getConfigurationProperties()));
+                TestCommands.commandTemplate(producerFactory);
     }
 
     // AC-1
@@ -153,7 +150,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     void reject_orderRejWithReasonAndNoExecutions() throws Exception {
         String orderId = createOrder(OrdType.MARKET, null, "100", null);
 
-        send(orderId, new OrderRejectCmd("OrderRejectCmd", "1.0.0", orderId, "Unknown symbol ZZZZ", null));
+        send(orderId, new OrderRejectCmd(TestCommands.header(), orderId, "Unknown symbol ZZZZ"));
 
         awaitUntil(() -> state(orderId) == State.REJ, "order REJ");
         Order order = order(orderId);
@@ -170,9 +167,9 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     void reject_reasonReachesOrdersTopicAndQueryApi() throws Exception {
         String orderId = createOrder(OrdType.MARKET, null, "100", null);
 
-        try (Consumer<Object, Object> orders = consumerFactory.createConsumer("it-" + UUID.randomUUID(), null)) {
+        try (Consumer<Object, Object> orders = consumerFactory.createConsumer("it-" + UUID.randomUUID(), null, null, TestCommands.avroValues())) {
             orders.subscribe(List.of("orders"));
-            send(orderId, new OrderRejectCmd("OrderRejectCmd", "1.0.0", orderId, "Unknown symbol ZZZZ", null));
+            send(orderId, new OrderRejectCmd(TestCommands.header(), orderId, "Unknown symbol ZZZZ"));
 
             OrderMessage published = awaitOrderMessage(orders, orderId, m -> m.getRejectReason() != null);
             assertEquals("Unknown symbol ZZZZ", published.getRejectReason());
@@ -193,7 +190,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         String orderId = createOrder(OrdType.LIMIT, "165.00", "100", TimeInForce.IMMEDIATE_OR_CANCEL);
 
         send(orderId, accept(orderId));
-        send(orderId, new OrderCancelCmd("OrderCancelCmd", "1.0.0", orderId, "IOC remainder cancelled", null));
+        send(orderId, new OrderCancelCmd(TestCommands.header(), orderId, "IOC remainder cancelled"));
 
         awaitUntil(() -> state(orderId) == State.CXL, "order CXL");
         Order order = order(orderId);
@@ -211,7 +208,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         send(orderId, accept(orderId));
         awaitUntil(() -> state(orderId) == State.LIVE, "order LIVE");
 
-        try (Consumer<Object, Object> orders = consumerFactory.createConsumer("it-" + UUID.randomUUID(), null)) {
+        try (Consumer<Object, Object> orders = consumerFactory.createConsumer("it-" + UUID.randomUUID(), null, null, TestCommands.avroValues())) {
             orders.subscribe(List.of("orders"));
 
             mockMvc()
@@ -231,7 +228,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
                     "expected an OrderMessage with cancelState PCXL on the orders topic");
         }
 
-        send(orderId, new OrderCancelCmd("OrderCancelCmd", "1.0.0", orderId, null, null));
+        send(orderId, new OrderCancelCmd(TestCommands.header(), orderId, null));
 
         awaitUntil(() -> state(orderId) == State.CXL, "order CXL");
         Order cancelled = order(orderId);
@@ -247,8 +244,8 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     void cancelRequestThenCancelReject_orderStaysLiveWithCancelStateRej() throws Exception {
         String orderId = createOrder(OrdType.LIMIT, "165.00", "100", null);
         send(orderId, accept(orderId));
-        send(orderId, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, null));
-        send(orderId, new OrderCancelRejectCmd("OrderCancelRejectCmd", "1.0.0", orderId, "Unknown order", null));
+        send(orderId, new OrderCancelRequestCmd(TestCommands.header(), orderId));
+        send(orderId, new OrderCancelRejectCmd(TestCommands.header(), orderId, "Unknown order"));
 
         awaitUntil(() -> cancelState(orderId) == CancelState.REJ, "cancelState REJ");
         Order order = order(orderId);
@@ -273,14 +270,14 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         // every duplicate and its arrival proves the duplicates have been processed.
         String key = "dup-" + live;
         send(key, accept(live));
-        send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", live, null));
-        send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", live, null));
-        send(key, new OrderCancelRejectCmd("OrderCancelRejectCmd", "1.0.0", live, "Too late", null));
-        send(key, new OrderCancelRejectCmd("OrderCancelRejectCmd", "1.0.0", live, "Too late", null));
-        send(key, new OrderCancelCmd("OrderCancelCmd", "1.0.0", live, null, null));
-        send(key, new OrderCancelCmd("OrderCancelCmd", "1.0.0", live, null, null));
-        send(key, new OrderRejectCmd("OrderRejectCmd", "1.0.0", unack, "Unknown symbol", null));
-        send(key, new OrderRejectCmd("OrderRejectCmd", "1.0.0", unack, "Unknown symbol", null));
+        send(key, new OrderCancelRequestCmd(TestCommands.header(), live));
+        send(key, new OrderCancelRequestCmd(TestCommands.header(), live));
+        send(key, new OrderCancelRejectCmd(TestCommands.header(), live, "Too late"));
+        send(key, new OrderCancelRejectCmd(TestCommands.header(), live, "Too late"));
+        send(key, new OrderCancelCmd(TestCommands.header(), live, null));
+        send(key, new OrderCancelCmd(TestCommands.header(), live, null));
+        send(key, new OrderRejectCmd(TestCommands.header(), unack, "Unknown symbol"));
+        send(key, new OrderRejectCmd(TestCommands.header(), unack, "Unknown symbol"));
         send(key, accept(sentinel));
 
         awaitUntil(() -> state(sentinel) == State.LIVE, "sentinel LIVE");
@@ -306,15 +303,15 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     void replayedCancelRequestAndReject_afterProcessing_haveNoSecondEffect() throws Exception {
         String orderId = createOrder(OrdType.LIMIT, "165.00", "100", null);
         send(orderId, accept(orderId));
-        send(orderId, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CR-1"));
-        send(orderId, new OrderCancelRejectCmd("OrderCancelRejectCmd", "1.0.0", orderId, "Unknown order", "CXLREJ-1"));
+        send(orderId, new OrderCancelRequestCmd(TestCommands.header("CR-1"), orderId));
+        send(orderId, new OrderCancelRejectCmd(TestCommands.header("CXLREJ-1"), orderId, "Unknown order"));
         awaitUntil(() -> cancelState(orderId) == CancelState.REJ, "cancelState REJ");
         long txNr = order(orderId).getTxNr();
 
         // The replay, then a genuinely new request with a new id, which must still be applied.
-        send(orderId, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CR-1"));
-        send(orderId, new OrderCancelRejectCmd("OrderCancelRejectCmd", "1.0.0", orderId, "Unknown order", "CXLREJ-1"));
-        send(orderId, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CR-2"));
+        send(orderId, new OrderCancelRequestCmd(TestCommands.header("CR-1"), orderId));
+        send(orderId, new OrderCancelRejectCmd(TestCommands.header("CXLREJ-1"), orderId, "Unknown order"));
+        send(orderId, new OrderCancelRequestCmd(TestCommands.header("CR-2"), orderId));
 
         awaitUntil(() -> cancelState(orderId) == CancelState.PCXL, "the new request applied");
         assertEquals(
@@ -335,7 +332,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         send(orderId, fill(orderId, 2, "60", "100", "0"));
         awaitUntil(() -> state(orderId) == State.FILLED, "order FILLED");
 
-        Properties fromStart = new Properties();
+        Properties fromStart = TestCommands.avroValues();
         fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         List<ConsumerRecord<Object, Object>> executionRecords = new ArrayList<>();
         List<ConsumerRecord<Object, Object>> orderRecords = new ArrayList<>();
@@ -426,11 +423,13 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         String sentinel = createOrder(OrdType.MARKET, null, "100", null);
         String key = "dup-k-" + orderId;
         send(key, accept(orderId));
-        send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CK-1"));
+        send(key, new OrderCancelRequestCmd(TestCommands.header("CK-1"), orderId));
         awaitUntil(() -> cancelState(orderId) == CancelState.PCXL, "cancel request applied");
         long txNr = order(orderId).getTxNr();
         List<Event> eventsBefore = events(orderId);
 
+        // Dead letters are the original bytes (SPEC-0025), not necessarily Avro: read them as bytes,
+        // the consumer factory's default. Only the key matters here.
         Properties fromStart = new Properties();
         fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         try (Consumer<Object, Object> dlt =
@@ -438,8 +437,8 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
             dlt.subscribe(List.of("commands.DLT"));
 
             // One key, one partition: the sentinel is consumed strictly after both duplicates.
-            send(key, new OrderCancelRequestCmd("OrderCancelRequestCmd", "1.0.0", orderId, "CK-1"));
-            send(key, new OrderCancelCmd("OrderCancelCmd", "1.0.0", orderId, null, "CK-1"));
+            send(key, new OrderCancelRequestCmd(TestCommands.header("CK-1"), orderId));
+            send(key, new OrderCancelCmd(TestCommands.header("CK-1"), orderId, null));
             send(key, accept(sentinel));
             awaitUntil(() -> state(sentinel) == State.LIVE, "sentinel LIVE");
 
@@ -491,7 +490,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     }
 
     private static OrderAcceptCmd accept(String orderId) {
-        return new OrderAcceptCmd("OrderAcceptCmd", "1.0.0", orderId);
+        return new OrderAcceptCmd(TestCommands.header(), orderId);
     }
 
     /** The ExecutionCreateCmd the simulator sends for one slice: execType F at the reference price. */
@@ -508,7 +507,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
                         .setLastMkt("XSIM")
                         .setTransactTime(Instant.now())
                         .build();
-        return new ExecutionCreateCmd("ExecutionCreateCmd", "1.0.0", execution);
+        return new ExecutionCreateCmd(TestCommands.header(), execution);
     }
 
     private static BigDecimal scale4(String value) {
@@ -516,7 +515,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     }
 
     private void send(String key, Object command) throws Exception {
-        commands.send("commands", key, new CommandMessage(command)).get(10, TimeUnit.SECONDS);
+        commands.send("commands", key, command).get(10, TimeUnit.SECONDS);
     }
 
     private MockMvc mockMvc() {

@@ -71,6 +71,21 @@ public interface OrderMapper {
     org.example.common.model.cmd.Execution toCmdExecution(
             org.example.common.model.msg.Execution message);
 
+    /**
+     * Maps an order received over Kafka to the command model, for the same reason as
+     * {@link #toCmdExecution}: Jackson's {@code convertValue} fails on Avro records. Order creation
+     * over Kafka used that and could never succeed; found by SPEC-0039.
+     */
+    @Mapping(target = "sendingTime", source = "sendingTime", qualifiedByName = "isoToOffset")
+    @Mapping(target = "expireTime", source = "expireTime", qualifiedByName = "isoToOffset")
+    org.example.common.model.cmd.Order toCmdOrder(org.example.common.model.msg.Order message);
+
+    /** The Avro order carries its timestamps as ISO-8601 strings. */
+    @Named("isoToOffset")
+    public static OffsetDateTime isoToOffset(String value) {
+        return value == null || value.isBlank() ? null : OffsetDateTime.parse(value);
+    }
+
     @Named("offsetToInstant")
     public static Instant offsetToInstant(OffsetDateTime odt) {
         return odt == null ? null : odt.toInstant();

@@ -13,13 +13,13 @@
     {
       "name": "lastQty",
       "doc": "Quantity filled by this execution.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
       "name": "lastPx",
       "doc": "Price of this execution.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
@@ -111,12 +111,12 @@
     {
       "name": "price",
       "doc": "Order limit price.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
       "name": "orderQty",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
@@ -132,19 +132,19 @@
     {
       "name": "cumQty",
       "doc": "Order's cumulative executed quantity after this execution.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
       "name": "leavesQty",
       "doc": "Order's remaining open quantity after this execution.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {
       "name": "avgPx",
       "doc": "Average price across the order's fills. Not currently computed by oms-core; null until it is.",
-      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 4}],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },
     {

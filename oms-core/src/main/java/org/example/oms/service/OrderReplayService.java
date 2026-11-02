@@ -34,11 +34,17 @@ public class OrderReplayService {
         return replayAt(orderId, Long.MAX_VALUE);
     }
 
-    /** The order as it stood after the given version. */
+    /**
+     * The order as it stood after the given version. Its version is the event's: snapshots written
+     * before the order version became the event version (SPEC-0027) carry an older counter.
+     */
     public Optional<Order> replayAt(String orderId, long version) {
         return orderEventRepository
                 .findFirstByOrderIdAndVersionLessThanEqualOrderByVersionDesc(orderId, version)
-                .map(OrderEvent::getOrderSnapshot);
+                // A copy: the stored snapshot is part of the append-only log and is never changed.
+                .map(event -> event.getOrderSnapshot() == null
+                        ? null
+                        : event.getOrderSnapshot().toBuilder().txNr(event.getVersion()).build());
     }
 
     /** The full ordered history of an order. */

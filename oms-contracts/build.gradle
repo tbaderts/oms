@@ -40,6 +40,13 @@ configurations {
     }
 }
 
+// Schema registration (SPEC-0025): see the registerSchemas task below.
+sourceSets {
+    registry {
+        java.srcDir 'src/registry/java'
+    }
+}
+
 repositories {
     mavenCentral()
     maven { url = uri("https://packages.confluent.io/maven/") }
@@ -74,6 +81,14 @@ dependencies {
     // Only for the schema-compatibility tests: they guard P-04 at the one place every schema lives.
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // The schema registrar (SPEC-0025). Its own source set keeps the registry client out of the
+    // published jar; every service already depends on it through kafka-avro-serializer.
+    registryImplementation sourceSets.main.output
+    registryImplementation 'org.apache.avro:avro:1.12.1'
+    registryImplementation 'io.confluent:kafka-schema-registry-client:7.9.9'
+    testImplementation sourceSets.registry.output
+    testImplementation 'io.confluent:kafka-avro-serializer:7.9.9'
 }
 
 tasks.named('test') {
@@ -158,4 +173,26 @@ tasks.register('verifyContracts') {
 
 tasks.named('check') {
     dependsOn 'verifyContracts'
+}
+
+// ---------------------------------------------------------------------------
+// Schema registration (SPEC-0025). The services run with auto.register.schemas=false, so every
+// subject they write must be registered first: one per command record on `commands`
+// (TopicRecordNameStrategy) and the three event subjects oms-core publishes. Every subject is
+// checked for compatibility before any is registered.
+//
+//   ./gradlew registerSchemas -PregistryUrl=http://schema-registry:8081
+//
+// The docker-compose dev setup keeps auto-registration on and needs no run.
+// ---------------------------------------------------------------------------
+
+tasks.register('registerSchemas', JavaExec) {
+    group = 'contracts'
+    description = 'Registers the command and event schemas with a Schema Registry.'
+    classpath = sourceSets.registry.runtimeClasspath
+    mainClass = 'org.example.common.contracts.registry.SchemaRegistrar'
+    args = [
+        project.findProperty('registryUrl') ?: System.getenv('REGISTRY_URL') ?: 'http://localhost:8081',
+        file('src/main/avro').absolutePath
+    ]
 }

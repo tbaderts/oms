@@ -5,8 +5,7 @@ import java.time.Instant;
 import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.model.cmd.OrderAcceptCmd;
-import org.example.common.state.OrderStateMachineConfig;
-import org.example.common.state.StateMachine;
+import org.example.common.state.OrderStateMachines;
 import org.example.oms.model.Event;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.service.OrderEventAppender;
@@ -35,7 +34,7 @@ public class OrderAcceptCommandProcessor {
     private final OrderRepository orderRepository;
     private final OrderEventAppender orderEventAppender;
     private final OrderSlaRecorder slaRecorder;
-    private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
+    private final OrderStateMachines stateMachines;
 
     /**
      * Moves an order to LIVE.
@@ -61,7 +60,7 @@ public class OrderAcceptCommandProcessor {
         }
 
         State currentState = order.getState() != null ? order.getState() : State.NEW;
-        if (!stateMachine.isValidTransition(currentState, State.LIVE)) {
+        if (!stateMachines.forOrder(order).isValidTransition(currentState, State.LIVE)) {
             return failure(
                     orderId,
                     String.format(

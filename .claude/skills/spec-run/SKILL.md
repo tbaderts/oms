@@ -56,6 +56,9 @@ Repeat until the ticket is `done`, `awaiting` approval, or `blocked`:
   earlier stage and fix the document first.
 - **Block with a useful reason:** what is blocked, what you tried, what decision or resource you
   need. `spec block <id> "<reason>"`, then stop.
+- **Never withdraw a ticket.** If it looks obsolete (superseded, merged, already done elsewhere),
+  block it with that reason; withdrawing (`spec withdraw`) is the requester's decision, and the hook
+  denies it to agents.
 
 ## Report when stopping
 
@@ -72,7 +75,7 @@ When done, `spec autopilot <id> off`.
 
 When stopping for approval or a block, after the report run `spec wait <id>` with the Bash tool's
 `run_in_background` and end your turn. Don't poll it; you are re-invoked when it exits, which is
-when a human approves, unblocks, reopens or archives the ticket. Then:
+when a human approves, unblocks, reopens, withdraws or archives the ticket. Then:
 - read its output: the new stage and the log lines written meanwhile (approvals, notes with the
   human's decision, the unblock);
 - if the ticket is still awaiting or blocked (the wait was interrupted), start the wait again;

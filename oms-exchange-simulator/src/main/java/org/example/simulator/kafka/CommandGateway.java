@@ -7,7 +7,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.example.common.model.msg.CommandMessage;
+import org.apache.avro.specific.SpecificRecord;
 import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.ExecutionCreateCmd;
 import org.example.common.model.msg.OrderAcceptCmd;
@@ -15,6 +15,7 @@ import org.example.common.model.msg.OrderCancelCmd;
 import org.example.common.model.msg.OrderCancelRejectCmd;
 import org.example.common.model.msg.OrderRejectCmd;
 import org.example.simulator.config.SimulatorProperties;
+import org.example.simulator.engine.Cause;
 import org.example.simulator.engine.CommandSink;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -22,39 +23,44 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Sends the venue's answers to oms-core as commands on the commands topic.
+ * Sends the venue's answers to oms-core as commands on the commands topic: each the bare command
+ * record, under its own Schema Registry subject, with the header built from the OMS message it
+ * answers (SPEC-0025).
  *
  * <p>Every record is keyed by orderId, so all of one order's commands land on one partition and
  * oms-core applies them in the order they were sent: the ack always before the fills. Sends block
  * until the broker acknowledges them, which keeps that order even across retries.
  *
- * <p>Quantities and prices are set to scale 4, the scale of the Avro decimal fields; Avro rejects a
- * BigDecimal whose scale differs from the schema's.
+ * <p>Quantities and prices are set to scale 8, the scale of the Avro decimal fields (decimal(18,8),
+ * SPEC-0039); Avro rejects a BigDecimal with more decimals than the schema.
  */
 @Component
 @Slf4j
 public class CommandGateway implements CommandSink {
 
-    static final String VERSION = "1.0.0";
-    private static final int DECIMAL_SCALE = 4;
+    private static final int DECIMAL_SCALE = 8; // decimal(18,8), the contract precision (SPEC-0039)
     private static final String EXEC_TYPE_TRADE = "F";
     private static final long SEND_TIMEOUT_SECONDS = 10;
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final SimulatorProperties properties;
+    private final CommandHeaders headers;
 
-    public CommandGateway(KafkaTemplate<String, Object> kafkaTemplate, SimulatorProperties properties) {
+    public CommandGateway(
+            KafkaTemplate<String, Object> kafkaTemplate, SimulatorProperties properties, CommandHeaders headers) {
         this.kafkaTemplate = kafkaTemplate;
         this.properties = properties;
+        this.headers = headers;
     }
 
     @Override
-    public void accept(String orderId) {
-        send(orderId, new OrderAcceptCmd("OrderAcceptCmd", VERSION, orderId));
+    public void accept(Cause cause, String orderId) {
+        send(orderId, new OrderAcceptCmd(headers.build(cause, null), orderId));
     }
 
     @Override
     public void fill(
+            Cause cause,
             String orderId,
             String execId,
             BigDecimal lastQty,
@@ -73,28 +79,28 @@ public class CommandGateway implements CommandSink {
                         .setLastMkt(properties.lastMkt())
                         .setTransactTime(Instant.now())
                         .build();
-        send(orderId, new ExecutionCreateCmd("ExecutionCreateCmd", VERSION, execution));
+        send(orderId, new ExecutionCreateCmd(headers.build(cause, null), execution));
     }
 
     @Override
-    public void reject(String orderId, String reason, String commandId) {
-        send(orderId, new OrderRejectCmd("OrderRejectCmd", VERSION, orderId, reason, commandId));
+    public void reject(Cause cause, String orderId, String reason, String commandId) {
+        send(orderId, new OrderRejectCmd(headers.build(cause, commandId), orderId, reason));
     }
 
     @Override
-    public void cancel(String orderId, String reason, String commandId) {
-        send(orderId, new OrderCancelCmd("OrderCancelCmd", VERSION, orderId, reason, commandId));
+    public void cancel(Cause cause, String orderId, String reason, String commandId) {
+        send(orderId, new OrderCancelCmd(headers.build(cause, commandId), orderId, reason));
     }
 
     @Override
-    public void cancelReject(String orderId, String reason, String commandId) {
-        send(orderId, new OrderCancelRejectCmd("OrderCancelRejectCmd", VERSION, orderId, reason, commandId));
+    public void cancelReject(Cause cause, String orderId, String reason, String commandId) {
+        send(orderId, new OrderCancelRejectCmd(headers.build(cause, commandId), orderId, reason));
     }
 
-    private void send(String orderId, Object command) {
+    private void send(String orderId, SpecificRecord command) {
         try {
             kafkaTemplate
-                    .send(properties.commandTopic(), orderId, new CommandMessage(command))
+                    .send(properties.commandTopic(), orderId, command)
                     .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             log.debug("Sent {} for order {}", command.getClass().getSimpleName(), orderId);
         } catch (InterruptedException e) {

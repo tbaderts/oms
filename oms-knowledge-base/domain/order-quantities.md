@@ -23,7 +23,10 @@ sources:
 | Execution applied | `cumQty` = previous `cumQty` + `lastQty`; `leavesQty` = `orderQty` − `cumQty`; a fill that would make `cumQty` exceed `orderQty` is refused |
 | Cancel or reject | `leavesQty` = 0, `cumQty` unchanged (what traded stays traded) |
 
-Quantities are `BigDecimal`, scaled with HALF_UP rounding.
+Quantities are `BigDecimal` with at most 10 integer and 8 decimal digits, `NUMERIC(18,8)` in the
+database and `decimal(18,8)` on the wire (SPEC-0039). `cumQty` and `leavesQty` are sums and
+differences at that scale and are never rounded (`CalculateOrderQuantitiesTask` uses
+`RoundingMode.UNNECESSARY`).
 
 ## Not maintained yet
 

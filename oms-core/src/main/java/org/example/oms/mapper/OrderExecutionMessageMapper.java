@@ -3,6 +3,7 @@ package org.example.oms.mapper;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
@@ -36,7 +37,11 @@ public class OrderExecutionMessageMapper {
                 .setExecType(execution.getExecType())
                 .setLastCapacity(execution.getLastCapacity())
                 .setLastMkt(execution.getLastMkt())
-                .setTransactTime(execution.getTransactTime())
+                // timestamp-millis on the wire; truncated here so everything built from this record
+                // (the projection row included) holds what the topic carries.
+                .setTransactTime(execution.getTransactTime() != null
+                        ? execution.getTransactTime().truncatedTo(ChronoUnit.MILLIS)
+                        : null)
                 .setOrderId(order.getOrderId())
                 .setRootOrderId(OrderMessageMapper.rootOrderIdOf(order))
                 .setParentOrderId(order.getParentOrderId())

@@ -108,9 +108,8 @@ class AvroMessageMapperTest {
     }
 
     /**
-     * Fractional quantities are the reason the new fields are declared at scale 4: the OMS targets
-     * FX and digital assets, where a fill of 0.1234 is ordinary. At the scale 2 used by the older
-     * fields this throws rather than rounding.
+     * Fractional quantities must survive encoding: every price and quantity is decimal(18,8)
+     * (SPEC-0039), and a value with more decimals than the schema throws rather than rounding.
      */
     @Test
     void fractionalQuantities_surviveEncodingAtTheContractScale() throws Exception {

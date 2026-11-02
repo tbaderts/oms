@@ -65,7 +65,7 @@ magenta are below 3:1 contrast, so they are only used next to their legend label
 |--------|--------|
 | ID | `id` |
 | Title | `title`, with `type` and `modules` |
-| Stage | `status` badge (archived / blocked highlighted), after a dot in the stage colour |
+| Stage | `status` badge (archived / blocked highlighted; a withdrawn ticket shows `withdrawn`, with its reason as tooltip and in the detail), after a dot in the stage colour |
 | Owner | `owner` |
 | Tasks | ticked/total from `tasks.md`, with progress bar |
 | Flags | awaiting approval, blocked (reason as tooltip), autopilot |
@@ -139,6 +139,7 @@ read-only.
 | Approve… (only when awaiting; explicit confirmation) | `approve <id> <awaiting> --by <git user.name>` |
 | Reopen… (earlier stage + reason) | `reopen <id> <stage> "<reason>"` |
 | Block… (reason) / Unblock | `block <id> "<reason>"` / `unblock <id>` |
+| Withdraw… (reason required; not for done tickets) | `withdraw <id> "<reason>"` (SPEC-0040): the ticket is archived as withdrawn |
 | Note… | `note <id> "<text>"` |
 | Autopilot on/off | `autopilot <id> on` / `off` |
 

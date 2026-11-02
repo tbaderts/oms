@@ -5,6 +5,14 @@ import { summary } from './ticket-fixtures';
 const ALL = { mineOnly: false, stage: '', module: '', text: '' };
 
 describe('spec-tickets lib', () => {
+  // SPEC-0040: a withdrawn ticket sits at the stage it was withdrawn from, and is not in progress.
+  it('withdrawn tickets: stage index of their withdrawn-from stage, outside the in-progress view', () => {
+    const withdrawn = summary('SPEC-0009', { status: 'withdrawn', archived: true, withdrawnFrom: 'implement', withdrawnReason: 'x' });
+    expect(stageIndex(withdrawn)).toBe(3);
+    expect(filterTickets([withdrawn, summary('SPEC-0001', { status: 'design' })], { ...ALL, user: '', stage: 'in-progress' }).map((t) => t.id))
+      .toEqual(['SPEC-0001']);
+  });
+
   it('filterTickets mine-only, all, and no-user fallback', () => {
     const tickets = [
       summary('SPEC-0001', { owner: 'Alice', title: 'Reject zero qty', modules: ['oms-core'], status: 'design' }),

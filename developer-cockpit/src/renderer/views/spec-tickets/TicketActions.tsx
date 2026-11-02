@@ -11,7 +11,7 @@ import { useDocEditorStore } from '@/stores/docEditor';
 import { ApproveDialog } from './ApproveDialog';
 import { ActionOutput } from './ActionOutput';
 
-type Prompt = 'note' | 'block' | 'reopen' | 'approve' | null;
+type Prompt = 'note' | 'block' | 'reopen' | 'withdraw' | 'approve' | null;
 
 /** Every button runs one `spec.mjs` command; the CLI decides what is allowed. */
 export function TicketActions({ ticket }: { ticket: SpecTicketSummary }) {
@@ -75,6 +75,9 @@ export function TicketActions({ ticket }: { ticket: SpecTicketSummary }) {
         ) : (
           !done && <Button size="sm" variant="outline" onClick={() => open('block')} disabled={running}>Block…</Button>
         )}
+        {!done && (
+          <Button size="sm" variant="outline" onClick={() => open('withdraw')} disabled={running}>Withdraw…</Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => open('note')} disabled={running}>Note…</Button>
         <div className="ml-auto flex items-center gap-2">
           <Switch
@@ -97,11 +100,17 @@ export function TicketActions({ ticket }: { ticket: SpecTicketSummary }) {
         onConfirm={() => submit(() => run({ kind: 'approve', id }))}
       />
 
-      <Dialog open={prompt === 'note' || prompt === 'block' || prompt === 'reopen'} onOpenChange={(o) => !o && close()}>
+      <Dialog open={prompt === 'note' || prompt === 'block' || prompt === 'reopen' || prompt === 'withdraw'} onOpenChange={(o) => !o && close()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {prompt === 'note' ? `Add a note to ${id}` : prompt === 'block' ? `Block ${id}` : `Reopen ${id}`}
+              {prompt === 'note'
+                ? `Add a note to ${id}`
+                : prompt === 'block'
+                  ? `Block ${id}`
+                  : prompt === 'withdraw'
+                    ? `Withdraw ${id}`
+                    : `Reopen ${id}`}
             </DialogTitle>
           </DialogHeader>
           {prompt === 'reopen' && (
@@ -127,6 +136,11 @@ export function TicketActions({ ticket }: { ticket: SpecTicketSummary }) {
             {prompt === 'note' && <Button onClick={() => submit(() => run({ kind: 'note', id, text }))}>Add note</Button>}
             {prompt === 'block' && <Button variant="destructive" onClick={() => submit(() => run({ kind: 'block', id, reason: text }))}>Block ticket</Button>}
             {prompt === 'reopen' && <Button onClick={() => submit(() => run({ kind: 'reopen', id, stage: reopenTo, reason: text }))}>Reopen ticket</Button>}
+            {prompt === 'withdraw' && (
+              <Button variant="destructive" disabled={!text.trim()} onClick={() => submit(() => run({ kind: 'withdraw', id, reason: text }))}>
+                Withdraw ticket
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

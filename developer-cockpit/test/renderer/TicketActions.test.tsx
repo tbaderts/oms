@@ -65,6 +65,28 @@ describe('TicketActions', () => {
     await waitFor(() => expect(api.run).toHaveBeenCalledWith({ kind: 'reopen', id: 'SPEC-0001', stage: 'design', reason: 'redo design' }));
   });
 
+  // SPEC-0040 AC-5
+  it('Withdraw… asks for a reason and runs the action; not offered when done or archived', async () => {
+    const api = mockCockpit();
+    const { unmount } = render(<TicketActions ticket={detail('SPEC-0001', { status: 'design' })} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Withdraw…' }));
+    const confirm = screen.getByRole('button', { name: 'Withdraw ticket' }) as HTMLButtonElement;
+    expect(confirm.disabled, 'no reason yet').toBe(true);
+    fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'Superseded by SPEC-0039' } });
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(api.run).toHaveBeenCalledWith({ kind: 'withdraw', id: 'SPEC-0001', reason: 'Superseded by SPEC-0039' }));
+    unmount();
+
+    const done = render(<TicketActions ticket={detail('SPEC-0002', { status: 'done' })} />);
+    expect(screen.queryByRole('button', { name: 'Withdraw…' })).toBeNull();
+    done.unmount();
+
+    render(<TicketActions ticket={detail('SPEC-0003', { status: 'withdrawn', archived: true })} />);
+    expect(screen.queryByRole('button', { name: 'Withdraw…' })).toBeNull();
+  });
+
   it('approve needs confirmation and is hidden unless awaiting', async () => {
     const api = mockCockpit();
     const { unmount } = render(<TicketActions ticket={detail('SPEC-0001')} />);

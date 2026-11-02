@@ -34,7 +34,19 @@ public enum LifecycleAction {
     CANCEL_REQUEST(null, CancelState.PCXL, Event.CXL_REQUEST, false, ReasonEffect.CLEAR),
 
     /** OrderCancelReject (35=9): the market refused the cancel request; the order stays live. */
-    CANCEL_REJECT(null, CancelState.REJ, Event.CXL_REJ, false, ReasonEffect.SET);
+    CANCEL_REJECT(null, CancelState.REJ, Event.CXL_REJ, false, ReasonEffect.SET),
+
+    /**
+     * ExecutionReport ExecType=C: the order's time in force ran out, reported by the venue or by the
+     * OMS's own expiry step. Nothing stays open; the cancel state is left as it was (SPEC-0029).
+     */
+    EXPIRE(State.EXP, null, Event.EXP, true, ReasonEffect.NONE),
+
+    /**
+     * Close the order: nothing more happens to it. An administrative close of a live order, or the
+     * end-of-day close of a finished one, whose open quantity is already zero (SPEC-0029).
+     */
+    CLOSE(State.CLOSED, null, Event.CLOSE, true, ReasonEffect.NONE);
 
     private final State targetState;
     private final CancelState resultingCancelState;

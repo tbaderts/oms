@@ -35,5 +35,5 @@ sources:
 | State / cancel state | See [Order State](order-state.md) |
 | STP | Straight-through processing: no manual step between order and execution |
 | Trade blotter | The real-time UI view of orders and executions |
-| txNr | The order's optimistic-lock version |
+| txNr | The order's version: the version of its latest event, also its optimistic lock (SPEC-0027) |
 | Venue | A market or broker an order is sent to |

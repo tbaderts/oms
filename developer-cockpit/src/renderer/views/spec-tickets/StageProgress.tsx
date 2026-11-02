@@ -5,6 +5,9 @@ import { cn } from '@/lib/utils';
 import { stageIndex } from '@/lib/spec-tickets';
 
 export function StageBadge({ ticket }: { ticket: SpecTicketSummary }) {
+  if (ticket.status === 'withdrawn') {
+    return <Badge variant="outline" title={ticket.withdrawnReason}>withdrawn</Badge>;
+  }
   if (ticket.archived) return <Badge variant="outline">archived</Badge>;
   if (ticket.status === 'blocked') return <Badge variant="destructive">blocked</Badge>;
   return <Badge variant={ticket.status === 'done' ? 'secondary' : 'default'}>{ticket.status}</Badge>;

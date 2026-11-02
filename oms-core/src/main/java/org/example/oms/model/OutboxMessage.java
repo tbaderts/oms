@@ -75,9 +75,9 @@ public class OutboxMessage {
     /**
      * The event-log version this message corresponds to, published as the Avro {@code eventId}.
      *
-     * <p>Carried explicitly rather than read from the order's {@code txNr}: Hibernate only increments
-     * the entity version at flush, so at staging time {@code txNr} still holds the pre-update value
-     * and two consecutive events would publish the same id.
+     * <p>It equals the order's {@code txNr} at staging time (SPEC-0027: the order's version is the
+     * version of its latest event). It is carried on the row so the publisher needs neither the
+     * order row nor a join, and rows of the old {@code ORDER_EXECUTION} kind keep working.
      */
     @Column(name = "aggregate_version", nullable = false)
     private long aggregateVersion;
@@ -112,7 +112,19 @@ public class OutboxMessage {
     /** Records a failed publication attempt so the relay can back off and operators can triage. */
     public void recordFailure(String error) {
         this.attempts++;
-        this.lastError = error == null ? null : error.substring(0, Math.min(error.length(), 2000));
+        this.lastError = truncate(error);
+    }
+
+    /**
+     * Records a transient failure (the broker or the schema registry unreachable): visible to
+     * operators, but it costs no attempt, so an outage cannot exhaust the retry budget (SPEC-0026).
+     */
+    public void recordTransientFailure(String error) {
+        this.lastError = truncate(error);
+    }
+
+    private static String truncate(String error) {
+        return error == null ? null : error.substring(0, Math.min(error.length(), 2000));
     }
 
     @Override

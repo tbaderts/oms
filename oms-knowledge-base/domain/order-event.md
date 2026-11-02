@@ -25,16 +25,20 @@ itself. The log is the audit trail and the source for replay.
 | Field | Meaning |
 |---|---|
 | `orderId`, `version` | The order and a contiguous per-order sequence starting at 1; unique `(order_id, version)` (`uq_order_events_order_id_version`) |
-| `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ` |
+| `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, `EXP`, `CLOSE` (SPEC-0029) |
 | `transaction` | The command that caused it, as received over REST or Kafka (fills included). Null only for events recorded by internal callers that have no command |
 | `commandId` (`command_id`) | The command's `commandId`, when it has one (the four lifecycle commands). Unique per order (`uq_order_events_order_id_command_id`); it is what [de-duplication](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md) looks up. Null otherwise; rows written before the column existed were backfilled from `transaction` |
 | `resultingState`, `orderSnapshot` | The state and the full order after the change |
 | `timeStamp` | When it was recorded |
 
-`OrderEventAppender` is the only writer: it assigns the next version, writes the event and stages
-an [outbox message](outbox-message.md) in the caller's transaction. Because every event carries a
-snapshot, `OrderReplayService` reconstructs the order at any version with a single lookup and can
-check that the log has no gaps.
+`OrderEventAppender` is the only writer. It takes the next version from the order itself
+(`txNr + 1`, no query), sets it on the order, writes the event and stages an
+[outbox message](outbox-message.md) in the caller's transaction (SPEC-0027). The order's `txNr` is
+therefore always the version of its latest event. A concurrent writer that took the same version
+makes the insert fail on `uq_order_events_order_id_version`, and the appender reports it as a
+concurrent modification. Because every event carries a snapshot, `OrderReplayService`
+reconstructs the order at any version with a single lookup, with the event's version as `txNr`,
+and can check that the log has no gaps.
 
 ## Related
 

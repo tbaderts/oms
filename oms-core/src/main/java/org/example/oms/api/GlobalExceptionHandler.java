@@ -9,7 +9,7 @@ import java.util.stream.Collectors;
 
 import org.example.common.state.StateTransitionException;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -68,6 +70,40 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, problem, headers, HttpStatus.BAD_REQUEST, request);
     }
 
+    /**
+     * Query and path parameters that break the contract (e.g. {@code limit} outside 1..5000). The
+     * generated API interfaces are {@code @Validated}, so these arrive as constraint violations
+     * rather than binding errors; they get the same validation-failed body as request bodies, keyed
+     * by parameter name.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
+        Map<String, List<String>> errors = ex.getConstraintViolations().stream()
+                .collect(Collectors.groupingBy(
+                        GlobalExceptionHandler::parameterName,
+                        TreeMap::new,
+                        Collectors.mapping(ConstraintViolation::getMessage, Collectors.toList())));
+        log.warn("Validation failed for parameters: {}", errors.keySet());
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Validation failed for one or more fields");
+        problem.setType(URI.create("urn:oms:error:validation-failed"));
+        problem.setTitle("Validation Failed");
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("errorCode", "OMS-VAL-002");
+        problem.setProperty("errors", errors);
+        return problem;
+    }
+
+    /**
+     * "getExecutions.limit" → "limit": the method name means nothing to the caller. Only that first
+     * segment goes, so a nested path keeps its context ("execute.cmd.order.price" → "cmd.order.price").
+     */
+    private static String parameterName(ConstraintViolation<?> violation) {
+        String path = violation.getPropertyPath().toString();
+        return path.substring(path.indexOf('.') + 1);
+    }
+
     @ExceptionHandler(StateTransitionException.class)
     public ProblemDetail handleStateTransition(StateTransitionException ex) {
         log.warn("Invalid state transition: {}", ex.getMessage());
@@ -98,11 +134,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Two commands changed the same order concurrently and one lost. The command is safe to retry —
-     * say so, rather than reporting an internal error.
+     * Two commands changed the same order concurrently and one lost: an optimistic conflict on the
+     * order's version, or a lock failure or deadlock between them (SPEC-0027). The command is safe
+     * to retry — say so, rather than reporting an internal error.
      */
-    @ExceptionHandler(OptimisticLockingFailureException.class)
-    public ProblemDetail handleOptimisticLocking(OptimisticLockingFailureException ex) {
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ProblemDetail handleOptimisticLocking(ConcurrencyFailureException ex) {
         log.warn("Concurrent modification: {}", ex.getMessage());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,

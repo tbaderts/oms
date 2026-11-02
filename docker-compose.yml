@@ -14,6 +14,8 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/postgres
       KAFKA_BROKERS: broker:29092
       REGISTRY_URL: http://schema-registry:8081
+      # Local runs register schemas as they go; elsewhere oms-contracts' registerSchemas does (SPEC-0025).
+      KAFKA_AUTO_REGISTER_SCHEMAS: "true"
       # Compose-only overrides: container telemetry goes to the Alloy agent (SPEC-0032),
       # which forwards traces to Tempo. Host-native bootRun keeps oms-core/.env's
       # localhost:4317, which is Alloy's host port too. Sample every local request.
@@ -71,6 +73,8 @@ services:
     environment:
       KAFKA_BROKERS: broker:29092
       REGISTRY_URL: http://schema-registry:8081
+      # Local runs register schemas as they go; elsewhere oms-contracts' registerSchemas does (SPEC-0025).
+      KAFKA_AUTO_REGISTER_SCHEMAS: "true"
       SIMULATOR_FILL_SLICES: ${SIMULATOR_FILL_SLICES:-1}
       SIMULATOR_FILL_DELAY: ${SIMULATOR_FILL_DELAY:-0ms}
     ports:

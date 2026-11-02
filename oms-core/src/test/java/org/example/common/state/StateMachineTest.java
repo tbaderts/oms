@@ -18,8 +18,18 @@ class StateMachineTest {
 
     @BeforeEach
     void setUp() {
-        standardMachine = OrderStateMachineConfig.createStandard();
-        simplifiedMachine = OrderStateMachineConfig.createSimplified();
+        standardMachine = OrderStateMachineConfig.createProduct();
+        // A second configuration, built here: the framework runs any configuration; the OMS runs
+        // only the product one (SPEC-0029).
+        simplifiedMachine = new StateMachine<>(StateMachineConfig.builder(State.class)
+                .addInitialState(State.NEW)
+                .addTransitions(State.NEW, State.LIVE, State.REJ)
+                .addTransitions(State.LIVE, State.FILLED, State.CXL, State.REJ)
+                .addTransition(State.FILLED, State.CLOSED)
+                .addTransition(State.CXL, State.CLOSED)
+                .addTransition(State.REJ, State.CLOSED)
+                .addTerminalState(State.CLOSED)
+                .build());
     }
 
     @Nested
@@ -46,26 +56,26 @@ class StateMachineTest {
         }
 
         @Test
-        @DisplayName("Should allow valid transitions from UNACK to LIVE or REJ")
+        @DisplayName("Should allow valid transitions from UNACK to LIVE, REJ or EXP")
         void testValidTransitionsFromUnack() {
             assertTrue(standardMachine.isValidTransition(State.UNACK, State.LIVE));
             assertTrue(standardMachine.isValidTransition(State.UNACK, State.REJ));
 
             Set<State> validTransitions = standardMachine.getValidTransitions(State.UNACK);
-            assertEquals(2, validTransitions.size());
+            assertEquals(3, validTransitions.size()); // and EXP (SPEC-0029)
             assertTrue(validTransitions.contains(State.LIVE));
             assertTrue(validTransitions.contains(State.REJ));
         }
 
         @Test
-        @DisplayName("Should allow valid transitions from LIVE to FILLED, CXL, or REJ")
+        @DisplayName("Should allow valid transitions from LIVE to FILLED, CXL, REJ, EXP or CLOSED")
         void testValidTransitionsFromLive() {
             assertTrue(standardMachine.isValidTransition(State.LIVE, State.FILLED));
             assertTrue(standardMachine.isValidTransition(State.LIVE, State.CXL));
             assertTrue(standardMachine.isValidTransition(State.LIVE, State.REJ));
 
             Set<State> validTransitions = standardMachine.getValidTransitions(State.LIVE);
-            assertEquals(3, validTransitions.size());
+            assertEquals(5, validTransitions.size()); // and EXP, CLOSED (SPEC-0029)
             assertTrue(validTransitions.contains(State.FILLED));
             assertTrue(validTransitions.contains(State.CXL));
             assertTrue(validTransitions.contains(State.REJ));
@@ -246,14 +256,14 @@ class StateMachineTest {
         @Test
         @DisplayName("Should identify terminal states")
         void testTerminalStates() {
+            // SPEC-0029: CLOSED is the only terminal state; an expired order is closed at end of day.
             assertTrue(standardMachine.isTerminalState(State.CLOSED));
-            assertTrue(standardMachine.isTerminalState(State.EXP));
+            assertFalse(standardMachine.isTerminalState(State.EXP));
             assertFalse(standardMachine.isTerminalState(State.LIVE));
 
             Set<State> terminalStates = standardMachine.getTerminalStates();
-            assertEquals(2, terminalStates.size());
+            assertEquals(1, terminalStates.size());
             assertTrue(terminalStates.contains(State.CLOSED));
-            assertTrue(terminalStates.contains(State.EXP));
         }
     }
 

@@ -29,7 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
 
-    private static final int QUANTITY_SCALE = 4;
+    /**
+     * decimal(18,8), the precision of every quantity in the OMS (SPEC-0039). Sums and differences of
+     * inputs at this scale never need rounding, so any rounding would be a bug: UNNECESSARY makes it
+     * fail instead of silently changing a quantity.
+     */
+    private static final int QUANTITY_SCALE = 8;
 
     @Override
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
@@ -55,8 +60,8 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
 
         BigDecimal newLeavesQty = orderQty.subtract(newCumQty);
 
-        context.setCalculatedCumQty(newCumQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
-        context.setCalculatedLeavesQty(newLeavesQty.setScale(QUANTITY_SCALE, RoundingMode.HALF_UP));
+        context.setCalculatedCumQty(newCumQty.setScale(QUANTITY_SCALE, RoundingMode.UNNECESSARY));
+        context.setCalculatedLeavesQty(newLeavesQty.setScale(QUANTITY_SCALE, RoundingMode.UNNECESSARY));
 
         log.info(
                 "Quantity calculations completed - orderId={}, previousCumQty={}, lastQty={}, "

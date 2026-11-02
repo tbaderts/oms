@@ -7,8 +7,7 @@ import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskResult;
-import org.example.common.state.OrderStateMachineConfig;
-import org.example.common.state.StateMachine;
+import org.example.common.state.OrderStateMachines;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.service.sla.OrderSlaRecorder;
 import org.springframework.stereotype.Component;
@@ -43,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SetOrderStateTask implements Task<OrderTaskContext> {
 
     private final OrderSlaRecorder slaRecorder;
-    private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
+    private final OrderStateMachines stateMachines;
 
     @Override
     public TaskResult execute(OrderTaskContext context) {
@@ -51,7 +50,7 @@ public class SetOrderStateTask implements Task<OrderTaskContext> {
 
         State currentState = order.getState() != null ? order.getState() : State.NEW;
 
-        if (!stateMachine.isValidTransition(currentState, State.UNACK)) {
+        if (!stateMachines.forOrder(order).isValidTransition(currentState, State.UNACK)) {
             context.markValidationFailed(
                     String.format("Invalid state transition from %s to UNACK", currentState));
             return TaskResult.failed(getName(),

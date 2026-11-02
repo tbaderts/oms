@@ -2,11 +2,11 @@
 id: SPEC-0025
 title: Remodel the commands topic in Avro
 type: refactor
-status: proposal
+status: done
 awaiting:
 autopilot: false
-modules: [oms-contracts, oms-core, oms-exchange-simulator, oms-knowledge-base]
-approvals: []
+modules: [oms-contracts, oms-core, oms-exchange-simulator, oms-knowledge-base, developer-cockpit]
+approvals: [proposal, design]
 owner: Toni Badertscher
 created: 2026-10-30
 blocked_from:
@@ -25,3 +25,20 @@ Roadmap ticket H of the architecture review (oms-core/docs/architecture-review-2
 ## Log
 
 - 2026-10-30 created
+- 2026-11-01 18:29 — autopilot on
+- 2026-11-01 18:30 — proposal gate passed; awaiting human approval
+- 2026-11-01 18:31 — proposal approved by Toni Badertscher
+- 2026-11-01 18:31 — proposal → design
+- 2026-11-01 18:39 — design gate passed; awaiting human approval (policy exceptions: P-04)
+- 2026-11-01 18:40 — design approved by Toni Badertscher
+- 2026-11-01 18:40 — design → plan
+- 2026-11-01 18:41 — plan → implement
+- 2026-11-01 18:41 — set modules = oms-contracts, oms-core, oms-exchange-simulator, oms-knowledge-base, developer-cockpit
+- 2026-11-01 19:18 — verify run: fail
+- 2026-11-01 19:22 — verify run: pass
+- 2026-11-01 19:22 — implement → verify
+- 2026-11-01 19:31 — reopened at implement: Review: host-native runs (oms-core/.env, simulator bootRun) default to auto.register.schemas=false and stall on a fresh registry; plus minor review fixes
+- 2026-11-01 19:36 — verify run: pass
+- 2026-11-01 19:36 — implement → verify
+- 2026-11-01 19:37 — verify → done
+- 2026-11-01 19:37 — autopilot off

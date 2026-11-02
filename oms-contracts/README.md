@@ -9,7 +9,7 @@ This is a plain Java library — no Spring Boot, no `bootJar`, nothing to run.
 
 Before this module, all three service modules carried byte-identical copies of the three OpenAPI
 specs, and two carried copies of the Avro schemas. Keeping them aligned was a manual step that
-nobody could enforce, and it had already failed: `CommandMessage.avsc` declared three command types
+nobody could enforce, and it had already failed: the command envelope schema declared three command types
 in oms-core and six in oms-streaming-service — the same record name, the same schema registry, two
 different schemas.
 
@@ -32,7 +32,8 @@ source without this module having an opinion.
 
 ```text
 src/main/openapi/     oms-cmd-api.yml, oms-query-api.yml, schema.yml
-src/main/avro/        27 .avsc files -> org.example.common.model.msg
+src/main/avro/        30 .avsc files -> org.example.common.model.msg
+src/registry/java/    SchemaRegistrar, run by `registerSchemas`; not in the published jar
 ```
 
 ## Consumers
@@ -55,6 +56,21 @@ on its own with `cd <module> && ./gradlew build`. The root composite picks it up
 For Avro, remember the schemas are a **wire contract** against a shared registry. Adding a field
 requires a `"default"` for the change to stay backward compatible; renaming or removing one is a
 breaking change regardless of what the compiler says.
+
+## Registering schemas
+
+The services run with `auto.register.schemas=false` (SPEC-0025), so the schemas they write are
+registered from here:
+
+```bash
+./gradlew registerSchemas -PregistryUrl=http://<registry>:8081   # default: $REGISTRY_URL, then localhost:8081
+```
+
+It registers one subject per command record (`commands-<record full name>`, the
+`TopicRecordNameStrategy` subjects of the `commands` topic) and the event subjects
+`oms_orders-value`, `oms_executions-value` and `oms_order_executions-value`. Every subject is
+checked for compatibility first; if any is incompatible the task fails naming it, and nothing is
+registered. The docker-compose setup keeps auto-registration on, so local runs need no step.
 
 ## Guard
 

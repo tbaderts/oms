@@ -1,0 +1,99 @@
+package org.example.oms.service;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
+import java.sql.SQLException;
+
+import org.example.common.model.Order;
+import org.example.common.model.State;
+import org.example.oms.mapper.AvroPayloadCodec;
+import org.example.oms.model.Event;
+import org.example.oms.model.OrderEvent;
+import org.example.oms.repository.OrderEventRepository;
+import org.example.oms.repository.OutboxRepository;
+import org.hibernate.exception.ConstraintViolationException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
+
+/**
+ * SPEC-0027: the event version is the order's own version. The appender takes the next one from the
+ * order, sets it on the order and finds a concurrent writer through the event log's unique version.
+ */
+@ExtendWith(MockitoExtension.class)
+class OrderEventAppenderTest {
+
+    @Mock private OrderEventRepository orderEventRepository;
+    @Mock private OutboxRepository outboxRepository;
+
+    private OrderEventAppender appender;
+
+    @BeforeEach
+    void setUp() {
+        appender = new OrderEventAppender(
+                orderEventRepository, outboxRepository, "oms_orders", "oms_executions", new AvroPayloadCodec());
+    }
+
+    // AC-2
+    @Test
+    void appendsTheOrdersNextVersionWithoutQuerying() {
+        Order order = order(4L);
+
+        long version = appender.appendOrderEvent(order, Event.ACK, null);
+
+        assertEquals(5L, version);
+        assertEquals(5L, order.getTxNr(), "the order carries the version of its latest event");
+        ArgumentCaptor<OrderEvent> event = ArgumentCaptor.forClass(OrderEvent.class);
+        verify(orderEventRepository).saveAndFlush(event.capture());
+        assertEquals(5L, event.getValue().getVersion());
+        assertEquals(5L, event.getValue().getOrderSnapshot().getTxNr(), "the snapshot is the order after the event");
+        verifyNoMoreInteractions(orderEventRepository);
+    }
+
+    // AC-3
+    @Test
+    void versionConflictBecomesOptimisticLockingFailure() {
+        when(orderEventRepository.saveAndFlush(any())).thenThrow(violation("uq_order_events_order_id_version"));
+
+        OptimisticLockingFailureException conflict = assertThrows(
+                OptimisticLockingFailureException.class, () -> appender.appendOrderEvent(order(2L), Event.ACK, null));
+
+        assertEquals(true, conflict.getMessage().contains("ORD-1"), conflict.getMessage());
+    }
+
+    // AC-3: a repeated commandId keeps its own meaning.
+    @Test
+    void otherConstraintViolationsPropagate() {
+        DataIntegrityViolationException duplicate = violation("uq_order_events_order_id_command_id");
+        when(orderEventRepository.saveAndFlush(any())).thenThrow(duplicate);
+
+        DataIntegrityViolationException thrown = assertThrows(
+                DataIntegrityViolationException.class, () -> appender.appendOrderEvent(order(2L), Event.ACK, null));
+
+        assertSame(duplicate, thrown);
+    }
+
+    private static Order order(long txNr) {
+        return Order.builder().orderId("ORD-1").state(State.LIVE).txNr(txNr).build();
+    }
+
+    private static DataIntegrityViolationException violation(String constraint) {
+        return new DataIntegrityViolationException(
+                "could not execute statement",
+                new ConstraintViolationException(
+                        "duplicate key value violates unique constraint \"" + constraint + "\"",
+                        new SQLException("duplicate key value violates unique constraint \"" + constraint + "\"", "23505"),
+                        constraint));
+    }
+}

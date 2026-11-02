@@ -1,6 +1,8 @@
 package org.example.oms.service;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -8,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionException;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -49,8 +51,7 @@ class MessagePublisherTest {
                         orderMessageMapper,
                         executionMessageMapper,
                         orderExecutionMessageMapper,
-                        payloadCodec,
-                        10);
+                        payloadCodec);
     }
 
     // SPEC-0020: a projection's message is decoded from the generic payload and sent with the row's key.
@@ -80,7 +81,7 @@ class MessagePublisherTest {
                         CompletableFuture.completedFuture(
                                 sendResult("oms_order_executions", "ROOT-9")));
 
-        messagePublisher.publish(message);
+        messagePublisher.publishAsync(message).join();
 
         verify(kafkaTemplate).send("oms_order_executions", "ROOT-9", record);
     }
@@ -111,7 +112,7 @@ class MessagePublisherTest {
                         CompletableFuture.completedFuture(
                                 sendResult("oms_order_executions", "ROOT-1")));
 
-        messagePublisher.publish(message);
+        messagePublisher.publishAsync(message).join();
 
         verify(kafkaTemplate).send("oms_order_executions", "ROOT-1", avro);
     }
@@ -127,7 +128,7 @@ class MessagePublisherTest {
                         .createdAt(Instant.now())
                         .build();
 
-        assertThrows(IllegalStateException.class, () -> messagePublisher.publish(message));
+        assertThrows(IllegalStateException.class, () -> messagePublisher.publishAsync(message));
     }
 
     @Test
@@ -140,7 +141,7 @@ class MessagePublisherTest {
         when(kafkaTemplate.send(eq("oms_orders"), eq("ORD-1"), any()))
                 .thenReturn(CompletableFuture.completedFuture(sendResult("oms_orders", "ORD-1")));
 
-        messagePublisher.publish(message);
+        messagePublisher.publishAsync(message).join();
 
         verify(kafkaTemplate).send("oms_orders", "ORD-1", avro);
     }
@@ -168,7 +169,7 @@ class MessagePublisherTest {
                 .thenReturn(
                         CompletableFuture.completedFuture(sendResult("oms_executions", "EX-1")));
 
-        messagePublisher.publish(message);
+        messagePublisher.publishAsync(message).join();
 
         verify(kafkaTemplate).send("oms_executions", "EX-1", avro);
     }
@@ -189,7 +190,25 @@ class MessagePublisherTest {
         failed.completeExceptionally(new RuntimeException("Kafka unavailable"));
         when(kafkaTemplate.send(eq("oms_orders"), eq("ORD-2"), any())).thenReturn(failed);
 
-        assertThrows(ExecutionException.class, () -> messagePublisher.publish(message));
+        CompletableFuture<?> result = messagePublisher.publishAsync(message);
+        assertTrue(result.isCompletedExceptionally(), "the failure reaches the relay");
+        assertThrows(CompletionException.class, result::join);
+    }
+
+    /** SPEC-0026: the send is not awaited here; the relay awaits it, so several can be in flight. */
+    @Test
+    void publishAsync_returnsBeforeTheBrokerAcknowledges() {
+        Order order = Order.builder().orderId("ORD-3").build();
+        OutboxMessage message = orderOutbox(order);
+        when(orderMessageMapper.toOrderMessage(order, 7L)).thenReturn(org.mockito.Mockito.mock(OrderMessage.class));
+        CompletableFuture<SendResult<String, Object>> pending = new CompletableFuture<>();
+        when(kafkaTemplate.send(eq("oms_orders"), eq("ORD-3"), any())).thenReturn(pending);
+
+        CompletableFuture<?> result = messagePublisher.publishAsync(message);
+
+        assertFalse(result.isDone(), "not awaited");
+        pending.complete(sendResult("oms_orders", "ORD-3"));
+        assertTrue(result.isDone() && !result.isCompletedExceptionally(), "completes with the acknowledgement");
     }
 
     private OutboxMessage orderOutbox(Order order) {

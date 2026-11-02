@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Query API
-  version: 1.0.0
+  version: 2.1.0
   description: |
     Query (read-only) API for searching Orders with dynamic filtering, pagination, and sorting.
     
@@ -117,8 +117,9 @@ paths:
       summary: Fills with the order as of each fill
       description: |
         One entry per applied fill, from the order-execution projection, oldest first
-        (`transactTime`, then storage order). Filters combine with AND. Returns an empty array when
-        nothing matches.
+        (`transactTime`, or when the fill was recorded if it has none; then storage order). Filters
+        combine with AND; the time filters apply to `transactTime` only, so fills without one never
+        match them. Returns an empty array when nothing matches.
       tags:
         - Executions
       parameters:
@@ -210,16 +211,24 @@ components:
           type: string
         price:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         orderQty:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         settlCurrency:
           type: string
         exDestination:
           type: string
         lastQty:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         lastPx:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         execType:
           type: string
         lastCapacity:
@@ -232,10 +241,16 @@ components:
           x-java-type: java.time.Instant
         cumQty:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         leavesQty:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         avgPx:
           type: number
+          description: At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         state:
           type: string
         orderVersion:
@@ -249,7 +264,7 @@ components:
     OrderEventType:
       type: string
       description: The kind of change an event-log entry records.
-      enum: [NEW_ORDER, ACK, PARTIAL_FILL, FILL, CXL, REJ, CXL_REQUEST, CXL_REJ]
+      enum: [NEW_ORDER, ACK, PARTIAL_FILL, FILL, CXL, REJ, CXL_REQUEST, CXL_REJ, EXP, CLOSE]
     OrderEventDto:
       type: object
       description: One entry of an order's event log.
@@ -331,22 +346,28 @@ components:
           description: Leg enum
         orderQty:
           type: number
-          description: BigDecimal represented as number
+          description: BigDecimal represented as number. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         cashOrderQty:
           type: number
-          description: BigDecimal represented as number
+          description: BigDecimal represented as number. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         placeQty:
           type: number
-          description: How much of the order quantity is placed in the market
+          description: How much of the order quantity is placed in the market. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         cumQty:
           type: number
-          description: Currently executed quantity for chain of orders
+          description: Currently executed quantity for chain of orders. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         leavesQty:
           type: number
-          description: Quantity open for further execution
+          description: Quantity open for further execution. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         allocQty:
           type: number
-          description: Quantity allocated to client
+          description: Quantity allocated to client. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         positionEffect:
           type: string
           description: PositionEffect enum
@@ -359,7 +380,8 @@ components:
           type: string
         strikePrice:
           type: number
-          description: BigDecimal represented as number
+          description: BigDecimal represented as number. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         priceType:
           type: string
           description: PriceType enum
@@ -371,10 +393,12 @@ components:
           $ref: 'schema.yml#/components/schemas/OrdType'
         price:
           type: number
-          description: BigDecimal represented as number
+          description: BigDecimal represented as number. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         stopPx:
           type: number
-          description: BigDecimal represented as number
+          description: BigDecimal represented as number. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         securityId:
           type: string
         side:

@@ -32,7 +32,8 @@ export const stageFilterAccent = (stage: StageFilter): string =>
 /** A ticket is in a stage view: a stage (or blocked), or one of the tiles' cross-stage views. */
 function inStageView(ticket: SpecTicketSummary, stage: StageFilter): boolean {
   if (!stage) return true;
-  if (stage === 'in-progress') return ticket.status !== 'done';
+  // Archived tickets are done or withdrawn (SPEC-0040), so neither is in progress.
+  if (stage === 'in-progress') return ticket.status !== 'done' && !ticket.archived;
   if (stage === 'awaiting') return !!ticket.awaiting;
   return ticket.status === stage;
 }
@@ -110,9 +111,13 @@ export function filterTickets(tickets: SpecTicketSummary[], f: TicketFilter): Sp
     && (!text || t.id.toLowerCase().includes(text) || t.title.toLowerCase().includes(text)));
 }
 
-/** Position 0–5 in the stage sequence; a blocked ticket sits at the stage it was blocked from. */
+/**
+ * Position 0–5 in the stage sequence; a blocked ticket sits at the stage it was blocked from, a
+ * withdrawn one at the stage it was withdrawn from (SPEC-0040).
+ */
 export function stageIndex(ticket: SpecTicketSummary): number {
-  const stage = ticket.status === 'blocked' ? ticket.blockedFrom : ticket.status;
+  const stage =
+    ticket.status === 'blocked' ? ticket.blockedFrom : ticket.status === 'withdrawn' ? ticket.withdrawnFrom : ticket.status;
   return Math.max(0, SPEC_STAGES.indexOf(stage as SpecStage));
 }
 

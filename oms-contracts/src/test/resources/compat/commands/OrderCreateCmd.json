@@ -1,0 +1,357 @@
+{
+  "type" : "record",
+  "name" : "OrderCreateCmd",
+  "namespace" : "org.example.common.model.msg",
+  "doc" : "",
+  "fields" : [ {
+    "name" : "header",
+    "type" : {
+      "type" : "record",
+      "name" : "CommandHeader",
+      "doc" : "Shared by every command, as its first field. Replaces the type and version fields repeated per record; the record name is the type.",
+      "fields" : [ {
+        "name" : "commandId",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Identity of this command, unique per order. The lifecycle commands are refused as duplicates when their id was already applied."
+      }, {
+        "name" : "correlationId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "The root order this command belongs to.",
+        "default" : null
+      }, {
+        "name" : "causationId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "The event that caused it, as orderId:eventId.",
+        "default" : null
+      }, {
+        "name" : "sentAt",
+        "type" : {
+          "type" : "long",
+          "logicalType" : "timestamp-micros"
+        },
+        "doc" : "When the producer sent it."
+      }, {
+        "name" : "producer",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Service name, for diagnosis."
+      }, {
+        "name" : "version",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Command API version.",
+        "default" : "1.0.0"
+      } ]
+    },
+    "doc" : "Identity, causality and origin of this command."
+  }, {
+    "name" : "order",
+    "type" : {
+      "type" : "record",
+      "name" : "Order",
+      "doc" : "",
+      "fields" : [ {
+        "name" : "orderId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Business order identifier",
+        "default" : null
+      }, {
+        "name" : "parentOrderId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Parent order identifier for child orders",
+        "default" : null
+      }, {
+        "name" : "rootOrderId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Root order identifier in order hierarchy",
+        "default" : null
+      }, {
+        "name" : "sessionId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Trading session identifier",
+        "default" : null
+      }, {
+        "name" : "clOrdId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Client order identifier",
+        "default" : null
+      }, {
+        "name" : "sendingTime",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Time when order was sent",
+        "default" : null
+      }, {
+        "name" : "account",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Trading account",
+        "default" : null
+      }, {
+        "name" : "origClOrdId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Original client order identifier for amendments/cancels",
+        "default" : null
+      }, {
+        "name" : "execInst",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "ExecInst",
+          "doc" : "Execution instructions",
+          "symbols" : [ "NO_CROSS", "OK_TO_CROSS", "MID_PEG" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "handlInst",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "HandlInst",
+          "doc" : "Handling instructions",
+          "symbols" : [ "AUTO", "BROKER_INTERVENTION_OK", "MANUAL" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "securityIdSource",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "SecurityIDSource",
+          "doc" : "Source of security identifier",
+          "symbols" : [ "ISIN", "RIC", "EXCHANGE_SYMBOL", "BLOOMBERG_SYMBOL" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "orderQty",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Order quantity",
+        "default" : null
+      }, {
+        "name" : "cashOrderQty",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Cash order quantity",
+        "default" : null
+      }, {
+        "name" : "positionEffect",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "PositionEffect",
+          "doc" : "Position effect (OPEN/CLOSE)",
+          "symbols" : [ "OPEN", "CLOSE" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "securityDesc",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Security description",
+        "default" : null
+      }, {
+        "name" : "securityType",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Type of security",
+        "default" : null
+      }, {
+        "name" : "maturityMonthYear",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Maturity month and year for derivatives",
+        "default" : null
+      }, {
+        "name" : "strikePrice",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Strike price for options",
+        "default" : null
+      }, {
+        "name" : "priceType",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "PriceType",
+          "doc" : "Price type",
+          "symbols" : [ "PERCENTAGE", "PER_UNIT", "FIXED_AMOUNT", "DISCOUNT", "PREMIUM", "SPREAD", "YIELD" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "putOrCall",
+        "type" : [ "null", "int" ],
+        "doc" : "Put or Call indicator (1=Put, 2=Call)",
+        "default" : null
+      }, {
+        "name" : "underlyingSecurityType",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Underlying security type",
+        "default" : null
+      }, {
+        "name" : "ordType",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "OrdType",
+          "doc" : "Order type",
+          "symbols" : [ "MARKET", "LIMIT", "STOP", "STOP_LIMIT", "MARKET_ON_CLOSE" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "price",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Order price",
+        "default" : null
+      }, {
+        "name" : "stopPx",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Stop price",
+        "default" : null
+      }, {
+        "name" : "securityId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Security identifier",
+        "default" : null
+      }, {
+        "name" : "side",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "Side",
+          "doc" : "Order side",
+          "symbols" : [ "BUY", "SELL", "SELL_SHORT", "SUBSCRIBE", "REDEEM" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "symbol",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Trading symbol",
+        "default" : null
+      }, {
+        "name" : "timeInForce",
+        "type" : [ "null", {
+          "type" : "enum",
+          "name" : "TimeInForce",
+          "doc" : "Time in force",
+          "symbols" : [ "DAY", "GOOD_TILL_CANCEL", "AT_THE_OPENING", "IMMEDIATE_OR_CANCEL", "FILL_OR_KILL", "GOOD_TILL_CROSSING", "GOOD_TILL_DATE", "AT_THE_CLOSE" ]
+        } ],
+        "doc" : "",
+        "default" : null
+      }, {
+        "name" : "exDestination",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Execution destination",
+        "default" : null
+      }, {
+        "name" : "settlCurrency",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Settlement currency",
+        "default" : null
+      }, {
+        "name" : "expireTime",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Order expiration time",
+        "default" : null
+      }, {
+        "name" : "securityExchange",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Security exchange",
+        "default" : null
+      }, {
+        "name" : "text",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "Free form text",
+        "default" : null
+      } ]
+    },
+    "doc" : "The order to create."
+  } ]
+}

@@ -13,3 +13,9 @@ databaseChangeLog:
       file: db/changelog/006-order-event-command-id.yaml
   - include:
       file: db/changelog/007-projections.yaml
+  - include:
+      file: db/changelog/008-decimal-precision.yaml
+  - include:
+      file: db/changelog/009-outbox-aggregate-index.yaml
+  - include:
+      file: db/changelog/010-unify-order-version.yaml

@@ -145,6 +145,38 @@ class ExchangeEngineTest {
         assertEquals(List.of("ACCEPT", "CANCEL"), sink.types());
     }
 
+    // SPEC-0025 AC-5: the accept and fills answer the new order, the cancel answers the request.
+    @Test
+    void answersNameTheMessageTheyRespondTo() {
+        engine = engine(2, Duration.ZERO);
+        OrderMessage order = market("O1", Side.BUY, "100");
+        order.setRootOrderId("ROOT-1");
+        OrderMessage request = update(update(order, State.LIVE, null), State.LIVE, CancelState.PCXL);
+
+        engine.onOrderMessage(order);
+        engine.onOrderMessage(request);
+        engine.flush();
+
+        Cause newOrder = new Cause("ROOT-1", "O1", 1L);
+        assertEquals(List.of("ACCEPT", "FILL", "FILL", "CANCEL_REJECT"), sink.types());
+        assertEquals(List.of(newOrder, newOrder, newOrder, new Cause("ROOT-1", "O1", 3L)),
+                sink.sent().stream().map(Sent::cause).toList());
+    }
+
+    // SPEC-0029 AC-6: once the OMS has finished the order (here: expired it), the venue stops working it.
+    @Test
+    void finalStateStopsTheOrder() throws Exception {
+        engine = engine(4, Duration.ofMillis(300));
+        OrderMessage order = market("O1", Side.BUY, "100");
+
+        engine.onOrderMessage(order);
+        awaitTypes(List.of("ACCEPT", "FILL"));
+        engine.onOrderMessage(update(order, State.EXP, null));
+        Thread.sleep(1_500);
+
+        assertEquals(List.of("ACCEPT", "FILL"), sink.types(), "no fill after the order expired");
+    }
+
     // AC-7, with fills racing the cancel (order-lifecycle.md §9.2)
     @Test
     void cancelRequestDuringSlicing_cancelsOnlyTheRemainder() throws Exception {
@@ -347,7 +379,7 @@ class ExchangeEngineTest {
     }
 
     private static BigDecimal qty(String value) {
-        return new BigDecimal(value).setScale(4);
+        return new BigDecimal(value).setScale(FillSlicer.QUANTITY_SCALE);
     }
 
     private static void assertQty(String expected, BigDecimal actual) {

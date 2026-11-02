@@ -19,7 +19,7 @@ const get = (obj: unknown, p: string) => p.split('.').reduce<any>((o, k) => o?.[
 
 describe('buildTemplate', () => {
   it('template for every command type has the type and all required properties and passes the check', () => {
-    expect(catalog.commandTypes).toHaveLength(7);
+    expect(catalog.commandTypes).toHaveLength(9);
     for (const type of catalog.commandTypes) {
       const template = buildTemplate(type, schema(type));
       expect(template.type, type).toBe(type);

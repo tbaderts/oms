@@ -10,6 +10,7 @@ sources:
   - resource: "repo:oms-core/src/main/resources/application.yml"
   - resource: "repo:oms-core/src/main/java/org/example/oms/config/CommandListener.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/config/KafkaConsumerConfig.java"
+  - resource: "repo:oms-core/src/main/java/org/example/oms/config/CommandDecoder.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OutboxRelay.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OrderEventAppender.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/MessagePublisher.java"
@@ -18,11 +19,18 @@ sources:
 # Kafka Topics
 
 Topic names are configured in oms-core `application.yml` (`kafka.*-topic`, overridable by
-environment variables). Messages are Avro, registered in the Schema Registry.
+environment variables). Messages are Avro, registered in the Schema Registry by oms-contracts'
+`registerSchemas`; the services run with `auto.register.schemas=false`, except in the docker-compose
+setup ([Avro Messages](avro-messages.md#subjects-and-registration)).
+
+| Topic | Subject strategy | Subjects |
+|---|---|---|
+| `commands` | `TopicRecordNameStrategy` | one per command record, e.g. `commands-org.example.common.model.msg.OrderAcceptCmd` |
+| `oms_orders`, `oms_executions`, `oms_order_executions` | `TopicNameStrategy` | `<topic>-value` |
 
 | Topic (default) | Direction | Key | Content | Consumers / producers |
 |---|---|---|---|---|
-| `commands` (`COMMAND_TOPIC`) | in | the producer's `orderId` | `CommandMessage` wrapping any command | `CommandListener`; produced by the exchange simulator and other clients |
+| `commands` (`COMMAND_TOPIC`) | in | the producer's `orderId` | each command as its own record, starting with a `CommandHeader`; subject `commands-<record full name>` | `CommandListener`; produced by the exchange simulator and other clients |
 | `oms_orders` (`ORDER_TOPIC`) | out | `rootOrderId` | `OrderMessage`, the order after each change; `eventId` is the order's event-log version | streaming service, exchange simulator |
 | `oms_executions` (`EXECUTION_TOPIC`) | out | `rootOrderId` | `Execution`, with `rootOrderId` and `orderVersion` | other consumers (no longer read by the streaming service) |
 | `oms_order_executions` (`ORDER_EXECUTION_TOPIC`) | out | `rootOrderId` | `OrderExecution`: one fill with the order as of that fill, `orderVersion` and `tradeDate` | streaming service; booking (planned) |
@@ -41,6 +49,11 @@ environment variables). Messages are Avro, registered in the Schema Registry.
   from the payload).
 - A command that keeps failing is retried with exponential back-off and then sent to
   `<topic>.DLT`; refused lifecycle commands are acknowledged, not retried
-  ([NFR-005](../non-functional-requirements/NFR-005-dead-letter-failed-commands.md)).
+  ([NFR-005](../non-functional-requirements/NFR-005-dead-letter-failed-commands.md)). A record
+  that cannot be decoded, or a command type oms-core has no handler for, goes to `commands.DLT`
+  without retries. oms-core reads command values as bytes and decodes them itself, so every dead
+  letter is the record exactly as it arrived, schema id included, and can be replayed as is
+  (SPEC-0025). Each command is counted in `oms.commands.consumed` by record `type` and `outcome`
+  (`applied`, `refused`, `failed`, per attempt; type `undecodable` when it could not be read).
 
 Messages: [Avro Messages](avro-messages.md).

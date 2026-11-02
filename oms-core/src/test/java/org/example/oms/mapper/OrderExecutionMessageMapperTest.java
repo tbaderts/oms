@@ -79,6 +79,18 @@ class OrderExecutionMessageMapperTest {
         assertEquals(LocalDate.of(2026, 10, 31), decoded.getTradeDate());
     }
 
+    /**
+     * The record carries timestamp-millis on the wire. A REST fill may send microseconds; the
+     * record (and so the projection row built from it) holds the same milliseconds the topic does.
+     */
+    @Test
+    void transactTimeIsTruncatedToMillis() {
+        OrderExecution record = mapper.toOrderExecutionMessage(
+                execution(Instant.parse("2026-10-30T23:30:00.123456Z")), order().build(), 1L, STAGED_AT);
+
+        assertEquals(Instant.parse("2026-10-30T23:30:00.123Z"), record.getTransactTime());
+    }
+
     private static Order.OrderBuilder<?, ?> order() {
         return Order.builder()
                 .orderId("ORD-1")

@@ -152,8 +152,8 @@ class OrderLifecycleIntegrationTest {
         Optional<Order> updated = orderRepository.findByOrderId("ORD-LIFE-1");
         assertTrue(updated.isPresent());
                 assertEquals(State.FILLED, updated.get().getState());
-                assertEquals(new BigDecimal("10.0000"), updated.get().getCumQty());
-                assertEquals(new BigDecimal("0.0000"), updated.get().getLeavesQty());
+                assertEquals(0, new BigDecimal("10").compareTo(updated.get().getCumQty()));
+                assertEquals(0, BigDecimal.ZERO.compareTo(updated.get().getLeavesQty()));
     }
 
     // SPEC-0018 AC-6: each lifecycle event stores its command's commandId; a command without one is

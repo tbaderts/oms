@@ -19,7 +19,9 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class SetOrderStateTaskTest {
 
     private final SetOrderStateTask task =
-            new SetOrderStateTask(new OrderSlaRecorder(new SimpleMeterRegistry(), Clock.systemUTC()));
+            new SetOrderStateTask(
+                    new OrderSlaRecorder(new SimpleMeterRegistry(), Clock.systemUTC()),
+                    new org.example.common.state.OrderStateMachines());
 
     /**
      * order-lifecycle.md §8.1: a NEW or UNACK order has nothing executed and everything open. Leaving

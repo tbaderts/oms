@@ -64,6 +64,20 @@ Shortcuts used in `verify:` lines:
   - verify: `node tools/okf-check/okf-check.mjs oms-knowledge-base` reports 0 errors
 - [x] **T-12** Run spec verify
   - verify: `node specs/tools/spec.mjs verify SPEC-0020` exits 0
+- [x] **T-13** `ProjectTaskTest#aFailingStageFailsTheTask` (red: an exception from `OrderEventAppender.stageMessage` escapes without the projection context), then stage inside the guarded block so any projection or staging failure is logged with projection, `orderId`, `execId`, version (review finding 1b) (AC-2)
+  - files: oms-core/src/test/java/org/example/oms/service/execution/tasks/ProjectTaskTest.java, oms-core/src/main/java/org/example/oms/service/execution/tasks/ProjectTask.java
+  - verify: `gt ProjectTaskTest` passes
+- [x] **T-14** `OrderExecutionMessageMapperTest#transactTimeIsTruncatedToMillis` (red: a microsecond `transactTime` stays in the record, so the view row holds microseconds while the topic carries milliseconds), then truncate `transactTime` to milliseconds in `OrderExecutionMessageMapper` (review finding 2) (AC-1)
+  - files: oms-core/src/test/java/org/example/oms/mapper/OrderExecutionMessageMapperTest.java, oms-core/src/main/java/org/example/oms/mapper/OrderExecutionMessageMapper.java
+  - verify: `gt OrderExecutionMessageMapperTest` and `gt ProjectionIntegrationTest` pass
+- [x] **T-15** `ExecutionViewQueryIntegrationTest#fillWithoutTransactTime_sortsByProjectionTime` (red: it sorts after later fills), then order by `COALESCE(transactTime, projectedAt)`, `id`; state in the contract description that time filters apply to `transactTime` only (review finding 3) (AC-5)
+  - files: oms-core/src/test/java/org/example/oms/integration/ExecutionViewQueryIntegrationTest.java, oms-core/src/main/java/org/example/oms/service/OrderExecutionViewQueryService.java, oms-contracts/src/main/openapi/oms-query-api.yml
+  - verify: `gt ExecutionViewQueryIntegrationTest` passes and `cd oms-contracts && ./gradlew build` passes
+- [x] **T-16** Missing tests (review finding 5): `ProjectionRebuildIntegrationTest#unmatchedFillEvent_failsAndLeavesTheViewUnchanged`, `#unknownAction_is400`; `ExecutionViewQueryIntegrationTest#limitOutOfBounds_is400` (AC-5, AC-6)
+  - files: oms-core/src/test/java/org/example/oms/integration/ProjectionRebuildIntegrationTest.java, oms-core/src/test/java/org/example/oms/integration/ExecutionViewQueryIntegrationTest.java
+  - verify: `gt ProjectionRebuildIntegrationTest` and `gt ExecutionViewQueryIntegrationTest` pass
+- [x] **T-17** Run spec verify again
+  - verify: `node specs/tools/spec.mjs verify SPEC-0020` exits 0
 
 ## Notes
 
@@ -88,3 +102,14 @@ Shortcuts used in `verify:` lines:
     failed with a 201); the code was restored.
   - T-8: `AbstractFillFlowIntegrationTest` holds the order and fill helpers the three projection
     test classes share, instead of a third copy.
+- T-13 to T-17 were added after the independent review: projection staging failures were not
+  logged with context, the view kept microsecond `transactTime` while the topic carries
+  milliseconds, fills without `transactTime` sorted last, and four paths had no test. T-16's
+  `limitOutOfBounds_is400` found a real defect: a parameter outside its bounds answered 500,
+  because the generated interfaces are `@Validated` and `GlobalExceptionHandler` had no handler for
+  `ConstraintViolationException`; it now answers the validation-failed 400 (`error-handling.md`
+  updated). The rebuild endpoint answers 500 with the error when a fill event has no execution
+  (the rebuild rolls back).
+- The precision finding (a REST fill with more than 4 decimals fails Avro encoding inside the fill
+  transaction) is not fixed here, by the requester's decision of 2026-11-01: SPEC-0039 unifies
+  decimal(18,8) across database, Avro and OpenAPI and rejects more precise values at the boundary.

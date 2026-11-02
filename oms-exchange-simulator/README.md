@@ -21,7 +21,7 @@ How orders are evaluated, and every configuration option, are described in
 
 ```bash
 # Standalone, against Kafka and Schema Registry on localhost
-./gradlew bootRun
+KAFKA_AUTO_REGISTER_SCHEMAS=true ./gradlew bootRun
 
 # With the rest of the stack
 ./gradlew bootJar
@@ -29,6 +29,10 @@ cd .. && docker compose up -d --build exchange-simulator
 ```
 
 oms-core must run with `KAFKA_ENABLED=true` so that it publishes orders and consumes commands.
+
+The simulator does not register Avro schemas by default (SPEC-0025): standalone, either set
+`KAFKA_AUTO_REGISTER_SCHEMAS=true` as above or run `./gradlew registerSchemas` in oms-contracts first.
+Docker compose sets the variable.
 
 ## Configuration
 

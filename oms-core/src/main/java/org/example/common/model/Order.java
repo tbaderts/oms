@@ -20,7 +20,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -54,11 +53,17 @@ public class Order implements Serializable {
     private String rootOrderId;
 
     /**
-     * Optimistic-locking version. Incremented by Hibernate on every update, which makes concurrent
-     * read-modify-write of the fill quantities fail loudly instead of silently losing one of them.
-     * Also serves as the per-order sequence published to Kafka as {@code eventId}.
+     * The order's version: the version of its latest event in {@code order_events}, 0 before the
+     * first (SPEC-0027). Published to Kafka as {@code eventId}/{@code orderVersion}.
+     *
+     * <p>Set only by {@code OrderEventAppender}, which takes the next version from here and appends
+     * the event in the same transaction. That is also the optimistic lock: two writers that read the
+     * same version both try to append the next one, and the event log's unique
+     * {@code (order_id, version)} lets only one commit, so concurrent read-modify-write of the fill
+     * quantities fails loudly instead of losing one of them. Every write of an order must therefore
+     * append an event.
      */
-    @Version
+    @Setter
     @Column(nullable = false)
     private long txNr;
 

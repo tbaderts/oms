@@ -54,7 +54,7 @@ const MAX_DOCUMENT_BYTES = 1024 * 1024;
 const RECENT_LOG = 20;
 // Module names as in specs/config.json; the CLI checks that they exist.
 const MODULE_PATTERN = /^\w[\w.-]*$/;
-const ACTION_KINDS = ['new', 'advance', 'approve', 'reopen', 'block', 'unblock', 'note', 'autopilot'];
+const ACTION_KINDS = ['new', 'advance', 'approve', 'reopen', 'block', 'unblock', 'withdraw', 'note', 'autopilot'];
 
 export class SpecTicketsService {
   private cli: SpecCli;
@@ -201,6 +201,10 @@ export class SpecTicketsService {
         return { argv: ['block', a.id, a.reason ?? ''] };
       case 'unblock':
         return { argv: ['unblock', a.id] };
+      case 'withdraw':
+        assertText(a.reason, 'reason');
+        assertNoFlag(a.reason, 'reason');
+        return { argv: ['withdraw', a.id, a.reason] };
       case 'note':
         assertNoFlag(a.text, 'note');
         return { argv: ['note', a.id, a.text ?? ''] };
@@ -281,6 +285,8 @@ function toSummary(t: CliTicket): SpecTicketSummary {
     created: str(m.created),
     blockedFrom: str(m.blocked_from),
     blockedReason: str(m.blocked_reason),
+    withdrawnFrom: str(m.withdrawn_from),
+    withdrawnReason: str(m.withdrawn_reason),
     archived: t.archived === true,
     dir: t.dir,
     tasks: t.tasks ?? { done: 0, total: 0 },

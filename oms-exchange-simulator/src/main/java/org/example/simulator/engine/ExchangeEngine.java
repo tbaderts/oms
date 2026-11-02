@@ -1,9 +1,11 @@
 package org.example.simulator.engine;
 
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -62,6 +64,10 @@ public class ExchangeEngine {
      */
     private final Map<String, SimOrder> orders;
 
+    /** States after which nothing more happens to an order in the OMS (SPEC-0029). */
+    private static final Set<State> FINAL_STATES =
+            EnumSet.of(State.FILLED, State.CXL, State.REJ, State.EXP, State.CLOSED);
+
     public ExchangeEngine(
             OrderEvaluator evaluator,
             SimulatorProperties properties,
@@ -119,10 +125,21 @@ public class ExchangeEngine {
                 // Not an order this venue was sent (or one it has forgotten since a restart).
                 order.done = true;
                 if (cancelState == CancelState.PCXL) {
-                    send(() -> sink.cancelReject(orderId, "Unknown order", commandId(orderId, "CXLREJ", message)), metrics::cancelReject, "cancel reject", orderId);
+                    send(() -> sink.cancelReject(Cause.of(message), orderId, "Unknown order", commandId(orderId, "CXLREJ", message)), metrics::cancelReject, "cancel reject", orderId);
                 }
             }
             order.lastCancelState = cancelState;
+            return;
+        }
+
+        if (FINAL_STATES.contains(message.getState())) {
+            // The OMS finished the order (expired, closed, cancelled, rejected, filled): stop working
+            // it, so no scheduled fill follows (SPEC-0029).
+            if (!known.done) {
+                log.info("Order {} is {} in the OMS; no longer working it", orderId, message.getState());
+            }
+            known.done = true;
+            known.lastCancelState = cancelState;
             return;
         }
 
@@ -134,12 +151,13 @@ public class ExchangeEngine {
 
     private void newOrder(SimOrder order, OrderMessage message) {
         metrics.orderReceived();
+        order.cause = Cause.of(message);
         Evaluation evaluation = evaluator.evaluate(message);
 
         if (!evaluation.accepted()) {
             order.done = true;
             log.info("Rejecting order {}: {}", order.orderId, evaluation.rejectReason());
-            send(() -> sink.reject(order.orderId, evaluation.rejectReason(), commandId(order.orderId, "REJ", message)), metrics::reject, "reject", order.orderId);
+            send(() -> sink.reject(order.cause, order.orderId, evaluation.rejectReason(), commandId(order.orderId, "REJ", message)), metrics::reject, "reject", order.orderId);
             return;
         }
 
@@ -150,13 +168,13 @@ public class ExchangeEngine {
                 evaluation.marketable(),
                 evaluation.ioc(),
                 evaluation.fillPrice());
-        send(() -> sink.accept(order.orderId), metrics::ack, "accept", order.orderId);
+        send(() -> sink.accept(order.cause, order.orderId), metrics::ack, "accept", order.orderId);
 
         if (evaluation.marketable()) {
             scheduleFills(order, evaluation.fillPrice());
         } else if (evaluation.ioc()) {
             order.done = true;
-            send(() -> sink.cancel(order.orderId, "IOC order not marketable", commandId(order.orderId, "CXL", message)), metrics::cancel, "cancel", order.orderId);
+            send(() -> sink.cancel(order.cause, order.orderId, "IOC order not marketable", commandId(order.orderId, "CXL", message)), metrics::cancel, "cancel", order.orderId);
         }
         // Otherwise the order rests until a cancel request arrives.
     }
@@ -194,17 +212,17 @@ public class ExchangeEngine {
         BigDecimal cum = order.cumQty;
         BigDecimal leaves = order.leavesQty;
         log.info("Filling order {}: execId={}, lastQty={}, lastPx={}, leaves={}", order.orderId, execId, qty, price, leaves);
-        send(() -> sink.fill(order.orderId, execId, qty, price, cum, leaves), metrics::execution, "fill", order.orderId);
+        send(() -> sink.fill(order.cause, order.orderId, execId, qty, price, cum, leaves), metrics::execution, "fill", order.orderId);
     }
 
     private void cancelRequest(SimOrder order, OrderMessage request) {
         if (order.isOpen()) {
             order.done = true;
             log.info("Cancelling order {} on request: {} open", order.orderId, order.leavesQty);
-            send(() -> sink.cancel(order.orderId, "Cancelled on request", commandId(order.orderId, "CXL", request)), metrics::cancel, "cancel", order.orderId);
+            send(() -> sink.cancel(Cause.of(request), order.orderId, "Cancelled on request", commandId(order.orderId, "CXL", request)), metrics::cancel, "cancel", order.orderId);
         } else {
             log.info("Refusing cancel request for order {}: nothing open", order.orderId);
-            send(() -> sink.cancelReject(order.orderId, "Too late to cancel", commandId(order.orderId, "CXLREJ", request)), metrics::cancelReject, "cancel reject", order.orderId);
+            send(() -> sink.cancelReject(Cause.of(request), order.orderId, "Too late to cancel", commandId(order.orderId, "CXLREJ", request)), metrics::cancelReject, "cancel reject", order.orderId);
         }
     }
 

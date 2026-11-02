@@ -1,0 +1,34 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0027: an order's tx_nr becomes the version of its latest event. It was
+  # Hibernate's optimistic-lock counter, which started at 0 and drifted from the
+  # event log; the appender now sets it to the version of each event it appends.
+  # Existing orders get the highest version in their log, 0 without events, so
+  # the next event follows the log. The old counter values are not kept: no
+  # event, message or report depends on them (approved in the proposal).
+  #
+  # Upgrade: stop every instance of the old code before this runs. An old
+  # instance would keep creating orders at tx_nr 0 with event 1, which the new
+  # code, taking the next version from tx_nr, could never append to.
+  #
+  # The tag marks the schema just before this change; the migration test
+  # migrates to it, inserts legacy rows, then applies the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 021-tag-before-unified-order-version
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-010-unified-order-version
+  - changeSet:
+      id: 022-unify-order-version
+      author: oms
+      changes:
+        - sql:
+            sql: >-
+              UPDATE orders o SET tx_nr = COALESCE(
+                (SELECT MAX(e.version) FROM order_events e WHERE e.order_id = o.order_id), 0)
+      rollback:
+        # The old counters are gone; the unified values remain valid starting points.
+        - sql:
+            sql: SELECT 1

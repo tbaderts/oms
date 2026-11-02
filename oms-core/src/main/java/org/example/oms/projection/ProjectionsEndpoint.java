@@ -32,7 +32,13 @@ public class ProjectionsEndpoint {
         if (!rebuilder.exists(name)) {
             return new WebEndpointResponse<>(Map.of("error", "Unknown projection: " + name), WebEndpointResponse.STATUS_NOT_FOUND);
         }
-        int rows = rebuilder.rebuild(name);
-        return new WebEndpointResponse<>(Map.of("projection", name, "rows", rows));
+        try {
+            int rows = rebuilder.rebuild(name);
+            return new WebEndpointResponse<>(Map.of("projection", name, "rows", rows));
+        } catch (IllegalStateException e) {
+            // The rebuild rolled back; the projection still holds its rows from before.
+            return new WebEndpointResponse<>(
+                    Map.of("projection", name, "error", e.getMessage()), WebEndpointResponse.STATUS_INTERNAL_SERVER_ERROR);
+        }
     }
 }

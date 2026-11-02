@@ -18,6 +18,8 @@ final class SimOrder {
     boolean done;
     /** The cancel state last seen from the OMS; a change into PCXL is a new cancel request. */
     CancelState lastCancelState;
+    /** The new-order message, which the accept, the fills and an IOC cancel answer (SPEC-0025). */
+    Cause cause;
 
     SimOrder(String orderId) {
         this.orderId = orderId;

@@ -1,6 +1,7 @@
 export const SPEC_STAGES = ['proposal', 'design', 'plan', 'implement', 'verify', 'done'] as const;
 export type SpecStage = (typeof SPEC_STAGES)[number];
-export type SpecTicketStatus = SpecStage | 'blocked';
+/** `withdrawn`: closed without being done (SPEC-0040); such tickets are always archived. */
+export type SpecTicketStatus = SpecStage | 'blocked' | 'withdrawn';
 
 export const SPEC_DOCUMENTS = ['proposal', 'design', 'tasks', 'verification'] as const;
 export type SpecDocument = (typeof SPEC_DOCUMENTS)[number];
@@ -48,6 +49,10 @@ export interface SpecTicketSummary {
   owner: string;
   created: string;
   blockedFrom: string;
+  /** Stage the ticket was at when withdrawn (SPEC-0040), else empty. */
+  withdrawnFrom: string;
+  /** Why it was withdrawn, else empty. */
+  withdrawnReason: string;
   blockedReason: string;
   archived: boolean;
   dir: string;
@@ -110,6 +115,7 @@ export type SpecAction =
   | { kind: 'reopen'; id: string; stage: SpecStage; reason: string }
   | { kind: 'block'; id: string; reason: string }
   | { kind: 'unblock'; id: string }
+  | { kind: 'withdraw'; id: string; reason: string }
   | { kind: 'note'; id: string; text: string }
   | { kind: 'autopilot'; id: string; on: boolean };
 

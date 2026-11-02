@@ -12,7 +12,7 @@
     },
     {
       "name": "quantity",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "",
       "default": null
     },

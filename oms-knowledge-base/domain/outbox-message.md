@@ -22,14 +22,17 @@ change and the message exist, or neither does.
 
 | Field | Meaning |
 |---|---|
-| `id` | Primary key; the relay publishes in id order, which preserves per-order ordering |
+| `id` | Primary key; the relay publishes each aggregate's rows (same `topic` and `aggregateId`) in id order, which preserves per-order ordering |
 | `aggregateType` | `ORDER`, `EXECUTION`, `PROJECTION` (a message staged by a [projection](../oms-concepts/projections.md), SPEC-0020), or `ORDER_EXECUTION` (rows staged before SPEC-0020); selects the message and the payload columns read |
 | `aggregateId` | The Kafka key: the order's `rootOrderId`, or its own `orderId` when it has none |
-| `aggregateVersion` | The event-log version that produced the message (`eventId` / `orderVersion` on the wire) |
+| `aggregateVersion` | The event-log version that produced the message (`eventId` / `orderVersion` on the wire); equal to the order's `txNr` at staging (SPEC-0027) |
 | `topic` | Target topic (`oms_orders`, `oms_executions` or `oms_order_executions`) |
 | `orderPayload`, `executionPayload` | The order and/or execution to publish; `EXECUTION` and `ORDER_EXECUTION` rows carry both |
 | `payloadType`, `payload` | For `PROJECTION` rows: the Avro record's schema full name and its binary encoding |
-| `createdAt`, `attempts`, `lastError` | Bookkeeping for retries; after `kafka.outbox.max-attempts` (default 10) a message is no longer retried and stays in the table for investigation |
+| `createdAt`, `attempts`, `lastError` | Bookkeeping for retries. After `kafka.outbox.max-attempts` (default 10) a message is no longer retried and stays in the table for investigation; the later messages of its aggregate stay too, held behind it (SPEC-0026). `createdAt` of the oldest pending message feeds `oms.outbox.oldest.age` |
+
+The index `idx_outbox_topic_aggregate_id` (changelog 009) serves the relay's check for a held
+aggregate. How the relay claims, sends and retries: [Event Publication](../capabilities/event-publication.md#the-relay-spec-0026).
 
 ## Related
 

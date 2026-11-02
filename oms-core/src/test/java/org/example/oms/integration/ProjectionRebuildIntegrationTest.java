@@ -70,6 +70,37 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
                 "the rebuild published nothing");
     }
 
+    /** A fill event without its execution fails the rebuild, which rolls back: the view is as before. */
+    @Test
+    void unmatchedFillEvent_failsAndLeavesTheViewUnchanged() throws Exception {
+        String orderId = createLiveOrder();
+        String execId = orderId + "-LOST";
+        assertEquals(201, postFill(execId, orderId, "10", "2026-10-31T12:00:00Z"));
+        org.example.common.model.Execution lost = executionRepository.findAll().stream()
+                .filter(e -> execId.equals(e.getExecID()))
+                .findFirst()
+                .orElseThrow();
+        long rowsBefore = viewRepository.count();
+        Map<String, List<Object>> before = rows(List.of(orderId));
+        executionRepository.delete(lost);
+        try {
+            mockMvc().perform(post("/actuator/projections/order_execution_view/rebuild"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString(orderId)));
+
+            assertEquals(rowsBefore, viewRepository.count(), "the cleared rows are back after the rollback");
+            assertEquals(before, rows(List.of(orderId)));
+        } finally {
+            // Later rebuilds in this shared database need every fill event to have its execution.
+            executionRepository.save(lost.toBuilder().id(null).build());
+        }
+    }
+
+    @Test
+    void unknownAction_is400() throws Exception {
+        mockMvc().perform(post("/actuator/projections/order_execution_view/refresh")).andExpect(status().isBadRequest());
+    }
+
     @Test
     void unknownProjection_is404() throws Exception {
         mockMvc().perform(post("/actuator/projections/no_such_view/rebuild")).andExpect(status().isNotFound());
@@ -97,7 +128,7 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     private List<OrderExecution> consumeOrderExecutions(List<String> orders, int expected) {
-        Properties fromStart = new Properties();
+        Properties fromStart = TestCommands.avroValues();
         fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         List<OrderExecution> records = new ArrayList<>();
         try (Consumer<Object, Object> consumer =

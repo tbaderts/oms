@@ -73,6 +73,9 @@ function TicketDetailBody({ detail }: { detail: SpecTicketDetail }) {
             {detail.approvals.length > 0 && <> · approved: {detail.approvals.join(', ')}</>}
           </div>
           <StageProgress ticket={detail} />
+          {detail.status === 'withdrawn' && (
+            <p className="text-sm text-muted-foreground">Withdrawn at {detail.withdrawnFrom}: {detail.withdrawnReason}</p>
+          )}
           {detail.status === 'blocked' && (
             <p className="text-sm text-destructive">Blocked at {detail.blockedFrom}: {detail.blockedReason}</p>
           )}

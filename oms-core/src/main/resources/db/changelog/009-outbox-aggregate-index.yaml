@@ -1,0 +1,23 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0026: the relay holds every row of an aggregate (topic and Kafka key)
+  # behind a row that exhausted its attempts. The claim query checks for such a
+  # row per candidate with NOT EXISTS on (topic, aggregate_id); this index
+  # serves that probe.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 020-outbox-topic-aggregate-index
+      author: oms
+      changes:
+        - createIndex:
+            tableName: outbox
+            indexName: idx_outbox_topic_aggregate_id
+            columns:
+              - column:
+                  name: topic
+              - column:
+                  name: aggregate_id
+      rollback:
+        - dropIndex:
+            tableName: outbox
+            indexName: idx_outbox_topic_aggregate_id

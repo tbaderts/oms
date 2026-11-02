@@ -4,7 +4,9 @@ import static org.example.simulator.engine.TestOrders.limit;
 import static org.example.simulator.engine.TestOrders.market;
 import static org.example.simulator.engine.TestOrders.order;
 import static org.example.simulator.engine.TestOrders.update;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,7 +26,7 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.example.common.model.msg.CancelState;
-import org.example.common.model.msg.CommandMessage;
+import org.example.common.model.msg.CommandHeader;
 import org.example.common.model.msg.ExecutionCreateCmd;
 import org.example.common.model.msg.OrdType;
 import org.example.common.model.msg.OrderAcceptCmd;
@@ -43,6 +45,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.example.simulator.AbstractKafkaIntegrationTest;
 
+import io.confluent.kafka.schemaregistry.testutil.MockSchemaRegistry;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 
@@ -92,20 +95,29 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         commands.close();
     }
 
-    // AC-1
+    // AC-1; SPEC-0025 AC-5: bare records keyed by orderId (awaitCommands matches the key), each
+    // with a header naming the order tree, the event answered and the simulator.
     @Test
     void unackOrder_producesAckThenSingleFill() throws Exception {
         String orderId = newOrderId();
+        OrderMessage order = market(orderId, Side.BUY, "100");
+        order.setRootOrderId("ROOT-" + orderId);
 
-        publish(market(orderId, Side.BUY, "100"));
+        publish(order);
 
         List<Object> sent = awaitCommands(orderId, 2, Duration.ofSeconds(10));
-        assertInstanceOf(OrderAcceptCmd.class, sent.get(0));
+        OrderAcceptCmd accept = assertInstanceOf(OrderAcceptCmd.class, sent.get(0));
         ExecutionCreateCmd fill = assertInstanceOf(ExecutionCreateCmd.class, sent.get(1));
-        assertEquals("ExecutionCreateCmd", fill.getType());
+        for (CommandHeader header : List.of(accept.getHeader(), fill.getHeader())) {
+            assertDoesNotThrow(() -> UUID.fromString(header.getCommandId()));
+            assertEquals("ROOT-" + orderId, header.getCorrelationId());
+            assertEquals(orderId + ":1", header.getCausationId());
+            assertEquals("oms-exchange-simulator", header.getProducer());
+        }
+        assertEquals(orderId, accept.getOrderId());
         assertEquals(orderId + "-F1", fill.getExecution().getExecId());
-        assertEquals(new BigDecimal("100.0000"), fill.getExecution().getLastQty());
-        assertEquals(new BigDecimal("170.0000"), fill.getExecution().getLastPx());
+        assertEquals(0, new BigDecimal("100").compareTo(fill.getExecution().getLastQty()));
+        assertEquals(0, new BigDecimal("170").compareTo(fill.getExecution().getLastPx()));
         assertEquals("F", fill.getExecution().getExecType());
         assertEquals(2, awaitCommands(orderId, 3, Duration.ofSeconds(1)).size(), "nothing after the fill");
     }
@@ -151,6 +163,20 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         assertEquals(orderId, cancel.getOrderId());
     }
 
+    // SPEC-0025 AC-5
+    @Test
+    void commandsUseOneSubjectPerRecord() throws Exception {
+        String orderId = newOrderId();
+
+        publish(market(orderId, Side.BUY, "100"));
+        assertEquals(2, awaitCommands(orderId, 2, Duration.ofSeconds(10)).size());
+
+        var subjects = MockSchemaRegistry.getClientForScope(REGISTRY.substring("mock://".length())).getAllSubjects();
+        assertTrue(subjects.contains("commands-org.example.common.model.msg.OrderAcceptCmd"), subjects.toString());
+        assertTrue(subjects.contains("commands-org.example.common.model.msg.ExecutionCreateCmd"), subjects.toString());
+        assertFalse(subjects.contains("commands-value"), subjects.toString());
+    }
+
     // ----------------------------------------------------------------------------------------
 
     private static String newOrderId() {
@@ -170,10 +196,9 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         List<Object> found = new ArrayList<>(seen.getOrDefault(orderId, List.of()));
         while (found.size() < expected && System.nanoTime() < deadline) {
             for (ConsumerRecord<String, Object> record : commands.poll(Duration.ofMillis(200))) {
-                CommandMessage message = (CommandMessage) record.value();
-                seen.computeIfAbsent(record.key(), k -> new ArrayList<>()).add(message.getCommand());
+                seen.computeIfAbsent(record.key(), k -> new ArrayList<>()).add(record.value());
                 if (orderId.equals(record.key())) {
-                    found.add(message.getCommand());
+                    found.add(record.value());
                 }
             }
         }

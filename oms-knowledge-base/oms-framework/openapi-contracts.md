@@ -30,6 +30,17 @@ This specification documents the OpenAPI-based API contracts for the Order Manag
 
 ---
 
+### Decimal precision
+
+Every price and quantity in both contracts (command `Order`, `Execution`; query `OrderDto`,
+`ExecutionViewDto`) has at most 10 integer digits and 8 decimal places, the precision of the
+database (`NUMERIC(18,8)`) and the Avro messages (`decimal(18,8)`) (SPEC-0039). The bound is
+declared on each field with `x-field-extra-annotation:
+"@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"`, so the generated models carry
+`@Digits` and a request that exceeds it gets the `validation-failed` 400 naming the field (e.g.
+`order.price`). The decimals count as written: `1.000000000` has 9. Versions since then: command
+API 3.0.0, query API 2.0.0.
+
 ## 2. API Contract Files
 
 ### 2.1 File Locations

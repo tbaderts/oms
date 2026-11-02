@@ -2,7 +2,7 @@
 id: SPEC-0028
 title: Use decimals for quantities in Order.avsc
 type: fix
-status: proposal
+status: withdrawn
 awaiting:
 autopilot: false
 modules: [oms-contracts, oms-core, oms-exchange-simulator, oms-knowledge-base]
@@ -11,6 +11,8 @@ owner: Toni Badertscher
 created: 2026-10-30
 blocked_from:
 blocked_reason:
+withdrawn_from: proposal
+withdrawn_reason: changes implemented by SPEC-0039
 ---
 
 # SPEC-0028 — Use decimals for quantities in Order.avsc
@@ -25,3 +27,5 @@ Address finding 9 of the architecture review (oms-core/docs/architecture-review-
 ## Log
 
 - 2026-10-30 created
+- 2026-11-01 06:35 — Superseded by SPEC-0039 (decimal(18,8) for every price and quantity, Order.avsc included; BREAKING change done with its consumers). To be withdrawn once the withdraw command exists (SPEC-0040).
+- 2026-11-02 05:55 — withdrawn: changes implemented by SPEC-0039

@@ -72,13 +72,13 @@
     },
     {
       "name": "orderQty",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "Order quantity",
       "default": null
     },
     {
       "name": "cashOrderQty",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "Cash order quantity",
       "default": null
     },
@@ -108,7 +108,7 @@
     },
     {
       "name": "strikePrice",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "Strike price for options",
       "default": null
     },
@@ -138,13 +138,13 @@
     },
     {
       "name": "price",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "Order price",
       "default": null
     },
     {
       "name": "stopPx",
-      "type": ["null", "double"],
+      "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "doc": "Stop price",
       "default": null
     },

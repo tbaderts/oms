@@ -94,6 +94,27 @@ describe('useSpecTicketsStore', () => {
     expect(api.list).toHaveBeenCalled();
   });
 
+  // SPEC-0040: a withdrawn ticket moves to the archive; the open detail stays, now showing it withdrawn.
+  it('keeps a withdrawn ticket open by showing archived tickets', async () => {
+    const api = mockCockpit();
+    await useSpecTicketsStore.getState().load();
+    await useSpecTicketsStore.getState().select('SPEC-0001');
+    const withdrawn = summary('SPEC-0001', { status: 'withdrawn', archived: true, withdrawnFrom: 'design', withdrawnReason: 'gone' });
+    api.run.mockResolvedValue({ exitCode: 0, stdout: 'SPEC-0001 withdrawn', stderr: '', awaitingApproval: false });
+    api.list.mockImplementation(async (includeArchived: boolean) => ({
+      user: 'Alice', errors: [], tickets: includeArchived ? [withdrawn] : [],
+    }));
+    api.get.mockResolvedValue(detail('SPEC-0001', { status: 'withdrawn', archived: true, withdrawnFrom: 'design', withdrawnReason: 'gone' }));
+
+    await useSpecTicketsStore.getState().run({ kind: 'withdraw', id: 'SPEC-0001', reason: 'gone' });
+
+    const state = useSpecTicketsStore.getState();
+    expect(state.showArchived).toBe(true);
+    expect(state.selectedId).toBe('SPEC-0001');
+    expect(state.detail?.status).toBe('withdrawn');
+    expect(state.lastResult?.stdout).toContain('withdrawn');
+  });
+
   it('keeps an action error visible across the refresh that follows', async () => {
     const api = mockCockpit();
     api.run.mockRejectedValueOnce(new Error('spec CLI failed: spawn EPERM'));

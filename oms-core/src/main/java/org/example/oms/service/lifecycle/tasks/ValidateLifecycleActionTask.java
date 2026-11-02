@@ -7,12 +7,12 @@ import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskResult;
-import org.example.common.state.OrderStateMachineConfig;
-import org.example.common.state.StateMachine;
+import org.example.common.state.OrderStateMachines;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.service.lifecycle.LifecycleAction;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -26,10 +26,11 @@ import lombok.extern.slf4j.Slf4j;
  * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle</a>
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class ValidateLifecycleActionTask implements Task<OrderTaskContext> {
 
-    private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
+    private final OrderStateMachines stateMachines;
 
     @Override
     public TaskResult execute(OrderTaskContext context) {
@@ -39,12 +40,13 @@ public class ValidateLifecycleActionTask implements Task<OrderTaskContext> {
 
         boolean allowed =
                 switch (action) {
-                    case REJECT, CANCEL -> stateMachine.isValidTransition(state, action.getTargetState());
+                    case REJECT, CANCEL, EXPIRE, CLOSE -> stateMachines.forOrder(order).isValidTransition(state, action.getTargetState());
                     case CANCEL_REQUEST ->
                             state == State.LIVE
                                     && isPositive(order.getLeavesQty())
                                     && order.getCancelState() != CancelState.PCXL;
-                    case CANCEL_REJECT -> order.getCancelState() == CancelState.PCXL;
+                    // A pending cancel survives expiry and close; a CLOSED order still takes nothing more.
+                    case CANCEL_REJECT -> order.getCancelState() == CancelState.PCXL && state != State.CLOSED;
                 };
 
         if (!allowed) {

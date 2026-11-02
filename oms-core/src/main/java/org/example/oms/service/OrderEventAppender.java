@@ -5,10 +5,6 @@ import java.time.Instant;
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.cmd.Command;
-import org.example.common.model.cmd.OrderCancelCmd;
-import org.example.common.model.cmd.OrderCancelRejectCmd;
-import org.example.common.model.cmd.OrderCancelRequestCmd;
-import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.Event;
@@ -18,6 +14,8 @@ import org.example.oms.projection.StagedMessage;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OutboxRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -81,9 +79,12 @@ public class OrderEventAppender {
      * @return the version assigned to the appended event
      */
     public long appendOrderEvent(Order order, Event event, Command command) {
-        long version = nextVersion(order.getOrderId());
+        // The order's version is the version of its latest event (SPEC-0027): the next one is taken
+        // from the order and set on it, so the row, the snapshot and the message all carry it.
+        long version = order.getTxNr() + 1;
+        order.setTxNr(version);
 
-        orderEventRepository.save(
+        OrderEvent appended =
                 OrderEvent.builder()
                         .orderId(order.getOrderId())
                         .version(version)
@@ -93,7 +94,19 @@ public class OrderEventAppender {
                         .resultingState(order.getState())
                         .orderSnapshot(order)
                         .timeStamp(Instant.now())
-                        .build());
+                        .build();
+        try {
+            // Flushed here so a concurrent writer surfaces now, as the conflict it is.
+            orderEventRepository.saveAndFlush(appended);
+        } catch (DataIntegrityViolationException e) {
+            if (isVersionConflict(e)) {
+                throw new OptimisticLockingFailureException(
+                        "Order " + order.getOrderId() + " was modified concurrently (event version "
+                                + version + " already exists)",
+                        e);
+            }
+            throw e;
+        }
 
         outboxRepository.save(
                 OutboxMessage.builder()
@@ -161,27 +174,32 @@ public class OrderEventAppender {
     }
 
     /**
-     * The command's commandId, or null when it has none. Only the lifecycle commands carry one; this
-     * is the single place that decides which, for both storing and deduplicating.
+     * The command's commandId, or null when it has none. Every command may carry one (SPEC-0025: the
+     * Kafka header always does), and it is stored for each; only the lifecycle pipeline refuses a
+     * repeated one, through {@code DeduplicateCommandTask}.
      */
     public static String commandIdOf(Command command) {
-        return switch (command) {
-            case OrderRejectCmd cmd -> cmd.getCommandId();
-            case OrderCancelCmd cmd -> cmd.getCommandId();
-            case OrderCancelRequestCmd cmd -> cmd.getCommandId();
-            case OrderCancelRejectCmd cmd -> cmd.getCommandId();
-            case null, default -> null;
-        };
+        return command == null ? null : command.getCommandId();
     }
 
     /**
-     * Next sequence number for the order's stream.
-     *
-     * <p>A race here produces two events claiming the same version; the unique constraint on
-     * {@code (order_id, version)} rejects the loser and its whole command is rolled back and
-     * retried, which is the intended behaviour.
+     * Whether the insert lost a race for the next version: two writers read the order at the same
+     * version, and the unique {@code (order_id, version)} lets only the first commit. The loser's
+     * whole command is rolled back and reported as a concurrent modification (409, or a Kafka
+     * retry), as Hibernate's {@code @Version} check did before. Other violations, such as a repeated
+     * {@code command_id}, keep their own meaning.
      */
-    private long nextVersion(String orderId) {
-        return orderEventRepository.findMaxVersionByOrderId(orderId).orElse(0L) + 1;
+    private static boolean isVersionConflict(DataIntegrityViolationException e) {
+        for (Throwable cause = e; cause != null && cause.getCause() != cause; cause = cause.getCause()) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                    && violation.getConstraintName() != null) {
+                return VERSION_CONSTRAINT.equalsIgnoreCase(violation.getConstraintName());
+            }
+        }
+        // No constraint name reported: fall back to the driver's message, which names it on Postgres.
+        String detail = e.getMostSpecificCause().getMessage();
+        return detail != null && detail.contains(VERSION_CONSTRAINT);
     }
+
+    private static final String VERSION_CONSTRAINT = "uq_order_events_order_id_version";
 }

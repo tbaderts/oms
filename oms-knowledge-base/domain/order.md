@@ -25,9 +25,17 @@ the OMS: every command targets one order, and every state change of an order is 
   (used inside `OrderCreateCmd`) carries only what a client sends: identity, instrument and
   economics. State, cancel state, `txNr`, `leg`, `transactTime`, `cumQty`/`leavesQty`,
   `rejectReason` and the SLA checkpoints are entity-only; the published view is `OrderMessage`.
-- **Optimistic locking**: `txNr` is the JPA `@Version`. A concurrent update fails with an
-  optimistic-lock exception instead of overwriting (see
-  [NFR-002](../non-functional-requirements/NFR-002-optimistic-concurrency.md)).
+- **Version and optimistic locking**: `txNr` is the version of the order's latest event in
+  `order_events`, 0 before the first. It is 1 after creation and equals `eventId`/`orderVersion`
+  on Kafka and `eventVersion` in the Query API (SPEC-0027). `OrderEventAppender` sets it: it takes
+  `txNr + 1` for the next event and appends that event in the same transaction. The event log's
+  unique `(order_id, version)` is the optimistic lock. Two commands that read the same version both
+  try to append the next one; only one commits, and the other fails with an optimistic-lock
+  exception instead of overwriting (see
+  [NFR-002](../non-functional-requirements/NFR-002-optimistic-concurrency.md)). Every write of an
+  order must therefore append an event. Upgrading to this version: stop every instance of the old
+  code before the migration (`010-unify-order-version`) runs. An old instance would keep creating
+  orders at `txNr` 0 with event 1, which the new code could never append to.
 - **Idempotent creation**: unique constraint `uq_orders_session_cl_ord_id` on
   `(session_id, cl_ord_id)`; a second create with the same client order id in the same session
   is refused (see [FR-004](../functional-requirements/FR-004-reject-duplicate-client-order-id.md)).

@@ -32,7 +32,6 @@ import org.example.common.model.cmd.OrdType;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.model.cmd.Side;
 import org.example.common.model.cmd.TimeInForce;
-import org.example.common.model.msg.CommandMessage;
 import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.ExecutionCreateCmd;
 import org.example.common.model.msg.OrderAcceptCmd;
@@ -51,7 +50,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.test.web.servlet.MockMvc;
@@ -86,13 +84,12 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
     @Autowired private ConsumerFactory<Object, Object> consumerFactory;
     @Autowired private WebApplicationContext webApplicationContext;
 
-    private KafkaTemplate<String, CommandMessage> commands;
+    private KafkaTemplate<String, Object> commands;
 
     @BeforeEach
     void setUp() {
         commands =
-                new KafkaTemplate<>(
-                        new DefaultKafkaProducerFactory<>(producerFactory.getConfigurationProperties()));
+                TestCommands.commandTemplate(producerFactory);
     }
 
     // AC-2
@@ -287,7 +284,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
         // Since SPEC-0020 the projection stages it as a generic payload: the encoded record.
         var snapshot = event(orderId, version).getOrderSnapshot();
         var record = orderExecutionMessageMapper.toOrderExecutionMessage(fill, snapshot, version, Instant.now());
-        messagePublisher.publish(OutboxMessage.builder()
+        messagePublisher.publishAsync(OutboxMessage.builder()
                 .id(-1L)
                 .aggregateType(OutboxMessage.AggregateType.PROJECTION)
                 .aggregateId(OrderEventAppender.partitionKey(snapshot))
@@ -296,7 +293,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
                 .payloadType(record.getSchema().getFullName())
                 .payload(payloadCodec.encode(record))
                 .createdAt(Instant.now())
-                .build());
+                .build()).get(10, TimeUnit.SECONDS);
 
         List<ConsumerRecord<Object, Object>> delivered = orderExecutions(
                 consumeUntil(List.of(ORDER_EXECUTIONS), rs -> orderExecutions(rs, orderId).size() == 2), orderId);
@@ -353,7 +350,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
                         new OrderCreateCmd().type("OrderCreateCmd").order(order), Instant.now());
         assertTrue(result.isSuccess(), result.getErrorMessage());
         String orderId = result.getOrderId();
-        send(orderId, new OrderAcceptCmd("OrderAcceptCmd", "1.0.0", orderId));
+        send(orderId, new OrderAcceptCmd(TestCommands.header(), orderId));
         awaitUntil(() -> state(orderId) == State.LIVE, orderId + " LIVE");
         return orderId;
     }
@@ -382,17 +379,17 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
                         .setLastMkt("XSIM")
                         .setTransactTime(Instant.now())
                         .build();
-        return new ExecutionCreateCmd("ExecutionCreateCmd", "1.0.0", execution);
+        return new ExecutionCreateCmd(TestCommands.header(), execution);
     }
 
     private void send(String key, Object command) throws Exception {
-        commands.send("commands", key, new CommandMessage(command)).get(10, TimeUnit.SECONDS);
+        commands.send("commands", key, command).get(10, TimeUnit.SECONDS);
     }
 
     /** Reads the topics from the earliest offset until {@code done} holds for everything read so far. */
     private List<ConsumerRecord<Object, Object>> consumeUntil(
             List<String> topics, Predicate<List<ConsumerRecord<Object, Object>>> done) {
-        Properties fromStart = new Properties();
+        Properties fromStart = TestCommands.avroValues();
         fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         List<ConsumerRecord<Object, Object>> records = new ArrayList<>();
         try (Consumer<Object, Object> consumer =

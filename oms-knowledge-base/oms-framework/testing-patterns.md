@@ -662,39 +662,32 @@ abstract class AbstractKafkaPostgresIntegrationTest {
 
 ### Concrete Test Using Base Class
 
+Commands are produced as the exchange simulator produces them (SPEC-0025): the bare command record
+with a `CommandHeader`, under its own subject. `TestCommands` builds both; the base class turns
+on schema auto-registration (`KAFKA_AUTO_REGISTER_SCHEMAS=true`), because the mock registry starts
+empty.
+
 ```java
-package org.example.oms.integration;
-
-import org.example.oms.repository.OrderRepository;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 class CommandListenerKafkaIntegrationTest extends AbstractKafkaPostgresIntegrationTest {
 
-    @Autowired
-    private OrderRepository orderRepository;
-
-    @Autowired
-    private KafkaTemplate<String, CommandMessage> kafkaTemplate;
+    @Autowired private OrderRepository orderRepository;
+    @Autowired private ProducerFactory<Object, Object> producerFactory;
 
     @Test
-    void kafkaListener_shouldProcessOrderCommand() throws Exception {
-        // Given: Command message
-        CommandMessage message = CommandMessage.builder()
-            .commandType("ORDER_CREATE")
-            .payload("{\"orderId\":\"ORD-1\"}")
-            .build();
+    void kafkaOrderAcceptCommand_isConsumedAndTransitionsOrderToLive() throws Exception {
+        OrderAcceptCmd command = new OrderAcceptCmd(TestCommands.header(), "ORD-KAFKA-ACCEPT-1");
 
-        // When: Message is sent to Kafka
-        kafkaTemplate.send("commands", "ORD-1", message).get();
+        TestCommands.commandTemplate(producerFactory)   // TopicRecordNameStrategy
+            .send("commands", "ORD-KAFKA-ACCEPT-1", command).get(10, TimeUnit.SECONDS);
 
-        // Then: Order is created (wait for async processing)
-        await().atMost(5, TimeUnit.SECONDS).until(() ->
-            orderRepository.findByOrderId("ORD-1").isPresent()
-        );
+        // then wait until the order is LIVE
     }
 }
 ```
+
+oms-core's consumer factory reads values as bytes (for `CommandDecoder`). A test that reads the
+event topics through it passes `TestCommands.avroValues()` as consumer overrides to get Avro
+records.
 
 ### Supported Containers
 

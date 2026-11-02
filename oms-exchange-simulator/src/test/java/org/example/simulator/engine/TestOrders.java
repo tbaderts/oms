@@ -36,8 +36,8 @@ public final class TestOrders {
         message.setTimeInForce(tif);
         message.setState(State.UNACK);
         message.setEventId(1L);
-        message.setCumQty(BigDecimal.ZERO.setScale(4));
-        message.setLeavesQty(message.getOrderQty() != null ? message.getOrderQty().setScale(4) : null);
+        message.setCumQty(BigDecimal.ZERO.setScale(FillSlicer.QUANTITY_SCALE));
+        message.setLeavesQty(message.getOrderQty() != null ? message.getOrderQty().setScale(FillSlicer.QUANTITY_SCALE) : null);
         return message;
     }
 

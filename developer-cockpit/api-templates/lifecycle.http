@@ -85,3 +85,29 @@ content-type: application/json
   "commandId": "{{$guid}}",
   "text": "Too late to cancel"
 }
+
+###
+# @name Expire (ExecType=C)
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderExpireCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}",
+  "text": "Time in force expired"
+}
+
+###
+# @name Close
+POST {{baseUrl}}/api/command/execute HTTP/1.1
+content-type: application/json
+
+{
+  "type": "OrderCloseCmd",
+  "version": "1.0.0",
+  "orderId": "{{orderId}}",
+  "commandId": "{{$guid}}",
+  "text": "Closed by operations"
+}

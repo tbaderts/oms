@@ -1,0 +1,105 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0039: one precision for every price and quantity, decimal(18,8)
+  # (10 integer and 8 decimal digits), in the database as in the Avro and
+  # OpenAPI contracts.
+  #
+  # The columns were unconstrained NUMERIC. Casting to NUMERIC(18,8) would
+  # round a value with more decimals silently, so the changeset first checks
+  # every column and fails, naming it, if any stored value does not fit. In
+  # Postgres the check and the type changes run in one transaction: on failure
+  # no column changes.
+  #
+  # The tag marks the schema just before this change; the migration test
+  # migrates to it, seeds rows, then applies the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 018-tag-before-decimal-precision
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-008-decimal-precision
+  - changeSet:
+      id: 019-decimal-precision
+      author: oms
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              DO $$
+              DECLARE
+                target text[];
+                offending bigint;
+              BEGIN
+                FOREACH target SLICE 1 IN ARRAY ARRAY[
+                  ['orders', 'order_qty'], ['orders', 'cash_order_qty'], ['orders', 'place_qty'],
+                  ['orders', 'cum_qty'], ['orders', 'leaves_qty'], ['orders', 'alloc_qty'],
+                  ['orders', 'strike_price'], ['orders', 'price'], ['orders', 'stop_px'],
+                  ['executions', 'avg_px'], ['executions', 'cum_qty'], ['executions', 'last_px'],
+                  ['executions', 'last_qty'], ['executions', 'leaves_qty'], ['executions', 'day_order_qty'],
+                  ['executions', 'day_cum_qty'], ['executions', 'day_avg_px'],
+                  ['order_execution_view', 'price'], ['order_execution_view', 'order_qty'],
+                  ['order_execution_view', 'last_qty'], ['order_execution_view', 'last_px'],
+                  ['order_execution_view', 'cum_qty'], ['order_execution_view', 'leaves_qty'],
+                  ['order_execution_view', 'avg_px']
+                ]
+                LOOP
+                  EXECUTE format(
+                    'SELECT count(*) FROM %I WHERE scale(%I) > 8 OR abs(%I) >= 1e10',
+                    target[1], target[2], target[2]) INTO offending;
+                  IF offending > 0 THEN
+                    RAISE EXCEPTION 'decimal precision check failed: %.% has % value(s) beyond NUMERIC(18,8)',
+                      target[1], target[2], offending;
+                  END IF;
+                END LOOP;
+              END
+              $$;
+        - modifyDataType: { tableName: orders, columnName: order_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: cash_order_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: place_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: cum_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: leaves_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: alloc_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: strike_price, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: price, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: orders, columnName: stop_px, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: avg_px, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: cum_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: last_px, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: last_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: leaves_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: day_order_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: day_cum_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: executions, columnName: day_avg_px, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: price, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: order_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: last_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: last_px, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: cum_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: leaves_qty, newDataType: "NUMERIC(18,8)" }
+        - modifyDataType: { tableName: order_execution_view, columnName: avg_px, newDataType: "NUMERIC(18,8)" }
+      rollback:
+        - modifyDataType: { tableName: orders, columnName: order_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: cash_order_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: place_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: cum_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: leaves_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: alloc_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: strike_price, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: price, newDataType: NUMERIC }
+        - modifyDataType: { tableName: orders, columnName: stop_px, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: avg_px, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: cum_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: last_px, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: last_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: leaves_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: day_order_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: day_cum_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: executions, columnName: day_avg_px, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: price, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: order_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: last_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: last_px, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: cum_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: leaves_qty, newDataType: NUMERIC }
+        - modifyDataType: { tableName: order_execution_view, columnName: avg_px, newDataType: NUMERIC }

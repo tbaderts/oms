@@ -1,0 +1,88 @@
+{
+  "type" : "record",
+  "name" : "QuoteCreateCmd",
+  "namespace" : "org.example.common.model.msg",
+  "doc" : "",
+  "fields" : [ {
+    "name" : "header",
+    "type" : {
+      "type" : "record",
+      "name" : "CommandHeader",
+      "doc" : "Shared by every command, as its first field. Replaces the type and version fields repeated per record; the record name is the type.",
+      "fields" : [ {
+        "name" : "commandId",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Identity of this command, unique per order. The lifecycle commands are refused as duplicates when their id was already applied."
+      }, {
+        "name" : "correlationId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "The root order this command belongs to.",
+        "default" : null
+      }, {
+        "name" : "causationId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "The event that caused it, as orderId:eventId.",
+        "default" : null
+      }, {
+        "name" : "sentAt",
+        "type" : {
+          "type" : "long",
+          "logicalType" : "timestamp-micros"
+        },
+        "doc" : "When the producer sent it."
+      }, {
+        "name" : "producer",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Service name, for diagnosis."
+      }, {
+        "name" : "version",
+        "type" : {
+          "type" : "string",
+          "avro.java.string" : "String"
+        },
+        "doc" : "Command API version.",
+        "default" : "1.0.0"
+      } ]
+    },
+    "doc" : "Identity, causality and origin of this command."
+  }, {
+    "name" : "quote",
+    "type" : {
+      "type" : "record",
+      "name" : "Quote",
+      "doc" : "",
+      "fields" : [ {
+        "name" : "quoteRequestId",
+        "type" : [ "null", {
+          "type" : "string",
+          "avro.java.string" : "String"
+        } ],
+        "doc" : "ID of the associated quote request",
+        "default" : null
+      }, {
+        "name" : "price",
+        "type" : [ "null", {
+          "type" : "bytes",
+          "logicalType" : "decimal",
+          "precision" : 18,
+          "scale" : 8
+        } ],
+        "doc" : "Price of the quote",
+        "default" : null
+      } ]
+    },
+    "doc" : "The quote to create."
+  } ]
+}

@@ -17,7 +17,6 @@ import org.example.common.model.cmd.OrdType;
 import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.model.cmd.Side;
 import org.example.common.model.cmd.TimeInForce;
-import org.example.common.model.msg.CommandMessage;
 import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.ExecutionCreateCmd;
 import org.example.common.model.msg.OrderAcceptCmd;
@@ -27,7 +26,6 @@ import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,11 +46,11 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
     @Autowired ProducerFactory<Object, Object> producerFactory;
     @Autowired WebApplicationContext webApplicationContext;
 
-    private KafkaTemplate<String, CommandMessage> commands;
+    private KafkaTemplate<String, Object> commands;
 
     @BeforeEach
     void setUpCommands() {
-        commands = new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(producerFactory.getConfigurationProperties()));
+        commands = TestCommands.commandTemplate(producerFactory);
     }
 
     String createLiveOrder() throws Exception {
@@ -76,19 +74,24 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
         var result = orderCreateCommandProcessor.process(new OrderCreateCmd().type("OrderCreateCmd").order(order), Instant.now());
         assertTrue(result.isSuccess(), result.getErrorMessage());
         String orderId = result.getOrderId();
-        send(orderId, new OrderAcceptCmd("OrderAcceptCmd", "1.0.0", orderId));
+        send(orderId, new OrderAcceptCmd(TestCommands.header(), orderId));
         awaitUntil(() -> state(orderId) == State.LIVE, orderId + " LIVE");
         return orderId;
     }
 
-    /** Posts a fill over REST and returns the HTTP status. */
+    /** Posts a fill at 170 over REST and returns the HTTP status. */
     int postFill(String execId, String orderId, String lastQty, String transactTime) throws Exception {
+        return postFill(execId, orderId, lastQty, transactTime, "170");
+    }
+
+    /** Posts a fill over REST and returns the HTTP status. */
+    int postFill(String execId, String orderId, String lastQty, String transactTime, String lastPx) throws Exception {
         return mockMvc()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
-                                + "\"lastQty\":" + lastQty + ",\"lastPx\":170,"
+                                + "\"lastQty\":" + lastQty + ",\"lastPx\":" + lastPx + ","
                                 + "\"execType\":\"F\",\"lastMkt\":\"XSIM\""
                                 + (transactTime != null ? ",\"transactTime\":\"" + transactTime + "\"" : "")
                                 + "}}"))
@@ -107,11 +110,11 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
                 .setLastMkt("XSIM")
                 .setTransactTime(Instant.now())
                 .build();
-        return new ExecutionCreateCmd("ExecutionCreateCmd", "1.0.0", execution);
+        return new ExecutionCreateCmd(TestCommands.header(), execution);
     }
 
     void send(String key, Object command) throws Exception {
-        commands.send("commands", key, new CommandMessage(command)).get(10, TimeUnit.SECONDS);
+        commands.send("commands", key, command).get(10, TimeUnit.SECONDS);
     }
 
     long executionCount(String orderId) {

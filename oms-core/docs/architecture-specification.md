@@ -411,7 +411,7 @@ sequenceDiagram
 | A recorded event is never lost before publication | `OutboxRelay` retries until the broker accepts; exhausted rows stay in the table and raise `oms.outbox.stuck` |
 | An order's events arrive in order | Relay drains by primary key, which is commit order; messages are keyed by `orderId` |
 | A duplicate command is not applied twice | Unique on `(session_id, cl_ord_id)` for orders, `(order_id, execid)` for executions |
-| Concurrent updates cannot silently overwrite | `Order.txNr` is the JPA `@Version` column |
+| Concurrent updates cannot silently overwrite | `Order.txNr` is the version of the order's latest event; the unique `(order_id, version)` on `order_events` lets only one of two concurrent commands commit (SPEC-0027) |
 
 ### 6.2 Read Path (Query Side)
 
@@ -533,8 +533,8 @@ Order {
     String clOrdId;        // Client order ID (FIX Tag 11)
 
     // Concurrency and sequencing
-    long txNr;             // @Version. Optimistic lock, and the per-order
-                           // sequence published to Kafka as eventId
+    long txNr;             // Version of the latest event (SPEC-0027), set by
+                           // OrderEventAppender; published to Kafka as eventId
 
     // Core Attributes
     String symbol;
@@ -560,9 +560,11 @@ Two details that are easy to get wrong and expensive to fix afterwards:
 - **`state` and `cancelState` must stay `@Enumerated(EnumType.STRING)`.** They were persisted as
   ordinals until changeset `007`. With ordinal persistence, inserting a value anywhere but the end of
   the `State` enum silently relabels every stored order, and `ddl-auto: validate` cannot detect it.
-- **`txNr` is the `@Version` column.** Hibernate increments it at flush, so its value is stale while
-  a command is still executing. Anything that needs the sequence *during* the transaction — the
-  outbox message, the published `eventId` — takes it from the event-log version instead.
+- **`txNr` is the version of the order's latest event** (SPEC-0027; before, a separate JPA
+  `@Version` counter). `OrderEventAppender` sets it to the next version when it appends the event,
+  so the row, the snapshot, the outbox message and the published `eventId` carry the same number.
+  The event log's unique `(order_id, version)` is the optimistic lock, so every write of an order
+  must append an event.
 
 *Not yet implemented:* `avgPx` on the order, and the grouping fields (`groupOrderId`,
 `isGroupedOrder`, `memberCount`) described in earlier drafts of this document. Average price is

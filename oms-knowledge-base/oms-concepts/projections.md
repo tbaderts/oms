@@ -28,7 +28,7 @@ needs only an order snapshot and a fill, it can be rebuilt from the event log at
 - Messages a projection returns are staged by `OrderEventAppender.stageMessage` as `PROJECTION`
   outbox rows with a generic payload: `payload_type` is the Avro record's schema name, `payload`
   its binary Avro encoding. The relay publishes them like any other row
-  ([Event Publication](../capabilities/event-publication.md)). Pending `PROJECTION` rows must be
+  ([Event Publication](../capabilities/event-publication.md)). Pending `PROJECTION` rows (see the deployment steps in [Avro Messages](../interfaces/avro-messages.md#precision-and-versions)) must be
   published before a deployment that changes their record's schema.
 
 ## order_execution_view

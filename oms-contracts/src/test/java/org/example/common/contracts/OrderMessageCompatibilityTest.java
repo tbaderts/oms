@@ -13,8 +13,8 @@ import org.example.common.model.msg.OrderMessage;
 import org.junit.jupiter.api.Test;
 
 /**
- * Guards P-04 for the order stream. The baseline is the resolved schema as it stood before
- * SPEC-0003; replace it only when a new version has actually been released.
+ * Guards P-04 for the order stream. The baseline is the resolved schema of the major version
+ * released in SPEC-0039 (decimal(18,8)); replace it only when a new version has actually been released.
  *
  * <p>Both directions matter here: oms-core may publish the new schema while oms-streaming-service
  * or other consumers still read with the old one, and the reverse during a rollback.

@@ -23,6 +23,8 @@ import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.OrderCancelCmd;
 import org.example.common.model.cmd.OrderCancelRejectCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
+import org.example.common.model.cmd.OrderCloseCmd;
+import org.example.common.model.cmd.OrderExpireCmd;
 import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.common.orchestration.TaskOrchestrator;
 import org.example.oms.model.Event;
@@ -71,7 +73,7 @@ class OrderLifecycleCommandProcessorTest {
                         new TaskOrchestrator(),
                         new LoadOrderTask(orderRepository),
                         new DeduplicateCommandTask(orderEventRepository),
-                        new ValidateLifecycleActionTask(),
+                        new ValidateLifecycleActionTask(new org.example.common.state.OrderStateMachines()),
                         new ApplyLifecycleActionTask(),
                         new SaveOrderTask(orderRepository),
                         new PublishOrderEventTask(orderEventAppender));
@@ -243,6 +245,97 @@ class OrderLifecycleCommandProcessorTest {
     void reject_onTerminal_refused(State state) {
         givenOrder(order(state, null, "100", "100", "0"));
         assertRefused(new OrderRejectCmd(ORDER_ID, "OrderRejectCmd"));
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // Expiry and close (SPEC-0029)
+    // ----------------------------------------------------------------------------------------
+
+    @ParameterizedTest
+    @EnumSource(value = State.class, names = {"LIVE", "UNACK"})
+    void expire_onOpenOrder_movesToExpClosingOpenQuantityAndKeepingCumQty(State state) {
+        givenOrder(order(state, CancelState.PCXL, "100", "40", "60"));
+        OrderExpireCmd command = new OrderExpireCmd(ORDER_ID, "OrderExpireCmd").text("Time in force expired");
+
+        OrderLifecycleResult result = processor.process(command, Instant.now());
+
+        assertTrue(result.isSuccess(), result.getErrorMessage());
+        Order saved = savedOrder();
+        assertEquals(State.EXP, saved.getState());
+        assertEquals(0, BigDecimal.ZERO.compareTo(saved.getLeavesQty()));
+        assertEquals(0, new BigDecimal("40").compareTo(saved.getCumQty()));
+        assertEquals(CancelState.PCXL, saved.getCancelState(), "the cancel state is left as it was");
+        assertNull(saved.getRejectReason(), "an expiry is not a refusal");
+        verify(orderEventAppender).appendOrderEvent(any(), eq(Event.EXP), eq(command));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = State.class, names = {"NEW", "FILLED", "CXL", "REJ", "EXP", "CLOSED"})
+    void expire_onFinishedOrNewOrder_refused(State state) {
+        givenOrder(order(state, null, "100", "100", "0"));
+        assertRefused(new OrderExpireCmd(ORDER_ID, "OrderExpireCmd"));
+    }
+
+    @Test
+    void close_onLiveOrder_closesOpenQuantity() {
+        givenOrder(order(State.LIVE, null, "100", "40", "60"));
+        OrderCloseCmd command = new OrderCloseCmd(ORDER_ID, "OrderCloseCmd").text("Closed by operations");
+
+        OrderLifecycleResult result = processor.process(command, Instant.now());
+
+        assertTrue(result.isSuccess(), result.getErrorMessage());
+        Order saved = savedOrder();
+        assertEquals(State.CLOSED, saved.getState());
+        assertEquals(0, BigDecimal.ZERO.compareTo(saved.getLeavesQty()));
+        assertEquals(0, new BigDecimal("40").compareTo(saved.getCumQty()));
+        assertEquals(CLIENT_TEXT, saved.getText(), "the reason stays in the event's command, not on the order");
+        verify(orderEventAppender).appendOrderEvent(any(), eq(Event.CLOSE), eq(command));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = State.class, names = {"FILLED", "CXL", "REJ", "EXP"})
+    void close_onFinishedOrder_keepsQuantities(State state) {
+        givenOrder(order(state, null, "100", "40", "0"));
+        OrderCloseCmd command = new OrderCloseCmd(ORDER_ID, "OrderCloseCmd").text("End of day");
+
+        OrderLifecycleResult result = processor.process(command, Instant.now());
+
+        assertTrue(result.isSuccess(), result.getErrorMessage());
+        Order saved = savedOrder();
+        assertEquals(State.CLOSED, saved.getState());
+        assertEquals(0, new BigDecimal("40").compareTo(saved.getCumQty()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(saved.getLeavesQty()));
+        verify(orderEventAppender).appendOrderEvent(any(), eq(Event.CLOSE), eq(command));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = State.class, names = {"NEW", "UNACK", "CLOSED"})
+    void close_onNewUnackOrClosedOrder_refused(State state) {
+        givenOrder(order(state, null, "100", "0", "100"));
+        assertRefused(new OrderCloseCmd(ORDER_ID, "OrderCloseCmd"));
+    }
+
+    // Review: a pending cancel survives expiry and close; a CLOSED order still takes no cancel reject.
+    @Test
+    void cancelReject_onClosedOrderWithPendingCancel_refused() {
+        givenOrder(order(State.CLOSED, CancelState.PCXL, "100", "40", "0"));
+        assertRefused(new OrderCancelRejectCmd(ORDER_ID, "OrderCancelRejectCmd").text("Too late"));
+    }
+
+    @Test
+    void cancelReject_onExpiredOrderWithPendingCancel_isStillRecorded() {
+        givenOrder(order(State.EXP, CancelState.PCXL, "100", "40", "0"));
+        OrderCancelRejectCmd command = new OrderCancelRejectCmd(ORDER_ID, "OrderCancelRejectCmd").text("Too late");
+
+        assertTrue(processor.process(command, Instant.now()).isSuccess());
+        assertEquals(CancelState.REJ, savedOrder().getCancelState());
+        assertEquals(State.EXP, savedOrder().getState());
+    }
+
+    @Test
+    void expireAndClose_areLifecycleCommands() {
+        assertTrue(OrderLifecycleCommandProcessor.supports(new OrderExpireCmd(ORDER_ID, "OrderExpireCmd")));
+        assertTrue(OrderLifecycleCommandProcessor.supports(new OrderCloseCmd(ORDER_ID, "OrderCloseCmd")));
     }
 
     @Test

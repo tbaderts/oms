@@ -7,11 +7,11 @@ import org.example.common.model.State;
 import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
-import org.example.common.state.OrderStateMachineConfig;
-import org.example.common.state.StateMachine;
+import org.example.common.state.OrderStateMachines;
 import org.example.oms.model.OrderTaskContext;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -29,10 +29,11 @@ import lombok.extern.slf4j.Slf4j;
  * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - State Determination</a>
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class DetermineOrderStateTask implements Task<OrderTaskContext> {
 
-    private final StateMachine<State> stateMachine = OrderStateMachineConfig.createStandard();
+    private final OrderStateMachines stateMachines;
 
     @Override
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
@@ -60,7 +61,7 @@ public class DetermineOrderStateTask implements Task<OrderTaskContext> {
         // the state machine to validate — and asking it anyway fails, because LIVE -> LIVE is
         // correctly absent from the lifecycle model. This is why partial fills previously failed at
         // this task and were dropped without ever reaching persistence.
-        if (newState != currentState && !stateMachine.isValidTransition(currentState, newState)) {
+        if (newState != currentState && !stateMachines.forOrder(order).isValidTransition(currentState, newState)) {
             throw new TaskExecutionException(
                     getName(),
                     String.format("Invalid state transition from %s to %s", currentState, newState));

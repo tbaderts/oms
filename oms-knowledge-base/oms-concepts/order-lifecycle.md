@@ -20,7 +20,7 @@ updated: "2026-02-14T00:00:00Z"
 
 This specification provides a unified reference for order state transitions throughout the complete order lifecycle in the Order Management System (OMS). It consolidates state machine mechanics, business workflows, and FIX protocol semantics into a single authoritative document.
 
-**Scope:** From order creation (NEW) to terminal states (FILLED, CXL, REJ, CLOSED, EXP).
+**Scope:** From order creation (NEW) to the finished states (FILLED, CXL, REJ, EXP) and the terminal state CLOSED. As built, only CLOSED is terminal: finished orders are closed at end of day (SPEC-0029).
 
 **Purpose:** Enable developers to understand and implement order lifecycle logic correctly by providing:
 - Complete state diagram with all transitions
@@ -69,6 +69,12 @@ public enum State {
 ---
 
 ## 3. Complete State Diagram
+
+> **As built (SPEC-0029).** The OMS runs one product state machine (`OrderStateMachineConfig.product()`,
+> obtained through `OrderStateMachines.forOrder(order)`):
+> NEW→UNACK; UNACK→LIVE, REJ, EXP; LIVE→FILLED, CXL, REJ, EXP, CLOSED; FILLED, CXL, REJ, EXP→CLOSED.
+> CLOSED is the only terminal state. The diagram below is the full specification; see
+> [Order State](../domain/order-state.md) for the differences.
 
 ```mermaid
 stateDiagram-v2
@@ -336,6 +342,11 @@ ids from the OMS event it answers, so its answers are replay-safe.
 
 ### 4.10 LIVE → EXP (Time-in-Force Expired)
 
+> **As built (SPEC-0029).** `OrderExpireCmd` (ExecType=C) from LIVE or UNACK. The OMS expires GTD
+> orders when `expireTime` passes and DAY orders at end of day itself, without a cancel to the venue;
+> IOC remainders are cancelled by the venue (`OrderCancelCmd`). See
+> [Order Expiry and Close](../capabilities/order-expiry-and-close.md).
+
 **Business Trigger:** Order expires per time-in-force rules
 
 **Conditions:**
@@ -350,6 +361,9 @@ ids from the OMS event it answers, so its answers are replay-safe.
 - Generate expiration notice to client
 
 ### 4.11 LIVE → CLOSED (Administrative Close)
+
+> **As built (SPEC-0029).** `OrderCloseCmd` closes a LIVE order, and end of day closes every finished
+> order (FILLED, CXL, REJ, EXP). CLOSED means nothing more happens to the order.
 
 **Business Trigger:** Manual administrative action
 
@@ -450,6 +464,11 @@ NEW → UNACK → EXP (no liquidity, order expires)
 ```
 
 ### 5.5 GTD Order - Day End Expiration
+
+> **As built (SPEC-0029).** The OMS does not send a cancel request at expiry: its GTD expiry step
+> moves the order to EXP when `expireTime` passes and publishes it, and the venue (the simulator)
+> stops working it on the published final state. With a real venue, a fill crossing that expiry
+> would be refused; see the known gaps in [Order Expiry and Close](../capabilities/order-expiry-and-close.md).
 
 ```mermaid
 sequenceDiagram

@@ -1,26 +1,18 @@
 {
   "namespace": "org.example.common.model.msg",
   "type": "record",
-  "doc": "",
   "name": "ExecutionWhackCmd",
+  "doc": "",
   "fields": [
     {
-      "name": "type",
-      "type": "string",
-      "doc": "Command type discriminator"
-    },
-    {
-      "name": "version",
-      "type": ["null", "string"],
-      "doc": "Command API version",
-      "default": null
+      "name": "header",
+      "type": "org.example.common.model.msg.CommandHeader",
+      "doc": "Identity, causality and origin of this command."
     },
     {
       "name": "executionId",
-      "type": ["null", "string"],
-      "doc": "",
-      "default": null
+      "type": "string",
+      "doc": "The execution to whack."
     }
   ]
-
 }

@@ -15,6 +15,8 @@ const ALL_TYPES = [
   'OrderCancelCmd',
   'OrderCancelRequestCmd',
   'OrderCancelRejectCmd',
+  'OrderExpireCmd',
+  'OrderCloseCmd',
 ];
 
 describe('ApiCatalogService', () => {
@@ -41,7 +43,7 @@ describe('ApiCatalogService', () => {
     expect(order.required).toContain('sessionId');
     expect(order.properties!.sessionId.minLength).toBe(1);
     const spec = yaml.load(fs.readFileSync(path.join(REPO_ROOT, OPENAPI[0], 'oms-cmd-api.yml'), 'utf8')) as { info: { version: string } };
-    expect(spec.info.version).toBe('2.0.0');
+    expect(spec.info.version).toBe('3.2.0');
   });
 
   it('bundles allOf and refs into self-contained schemas', () => {

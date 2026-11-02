@@ -54,6 +54,7 @@ From any terminal:
 node specs/tools/spec.mjs list
 node specs/tools/spec.mjs status SPEC-0003
 node specs/tools/spec.mjs approve SPEC-0003        # humans only, the hook blocks agents
+node specs/tools/spec.mjs withdraw SPEC-0028 "Superseded by SPEC-0039"   # humans only
 node specs/tools/spec.mjs check --all              # audit the whole repo against rules.json
 ```
 
@@ -83,8 +84,8 @@ Dashboard. They show your tickets (owner = `git config user.name`), stage, gate 
 progress, evidence freshness and the documents, and refresh live when files under `specs/` change.
 The current stage's document can be edited there, with the gate re-checked as you type
 (`gate --draft`), and tasks can be ticked at the implement stage; `ticket.md` stays CLI-only.
-Its buttons run the same CLI commands (new, advance, reopen, block/unblock, note, autopilot,
-approve), so every rule above applies unchanged. **Approve** there is a human action: it asks for
+Its buttons run the same CLI commands (new, advance, reopen, block/unblock, withdraw, note,
+autopilot, approve), so every rule above applies unchanged. **Approve** there is a human action: it asks for
 confirmation, is only offered while a stage is awaiting approval, and records the git user as
 approver. The cockpit's WebSocket and AI features cannot trigger it. See
 `developer-cockpit/spec/03-features.md` §1.
@@ -118,6 +119,17 @@ pieces of evidence before `done`:
 4. **Goal assessment.** The result is compared with the requester's original words in `ticket.md`,
    not only with the ACs the agent wrote.
 
+## Withdrawing a ticket
+
+A ticket that will not be implemented (superseded by another, merged, or dropped) is closed with
+`spec withdraw <id> "<reason>"`, at any stage before `done` (SPEC-0040). The ticket gets status
+`withdrawn`, keeps the stage it was at (`withdrawn_from`) and the reason (`withdrawn_reason`,
+also in its log), loses autopilot and any pending approval, and moves to `specs/archive` at once.
+It then takes no part in gates, `spec ci` or the hooks; `spec list --all` and `spec status` still
+show it. A `done` ticket is archived instead. Withdrawing is the requester's decision, like
+approving: the PreToolUse hook blocks it for agents, which block a ticket they think is obsolete
+and say why. There is no un-withdraw command; move the folder back and edit `ticket.md` by hand.
+
 ## Human gates and autonomy
 
 You choose how much autonomy to give in `specs/config.json`:
@@ -141,7 +153,7 @@ You choose how much autonomy to give in `specs/config.json`:
 
 | Hook | Always | Only while a ticket is on autopilot |
 |---|---|---|
-| PreToolUse | blocks edits to `build/generated*` (P-03), to stray `src/main/{openapi,avro}` outside oms-contracts (P-01), to `ticket.md` and `evidence/`; blocks `spec approve` from the agent | blocks code edits in `oms-*` modules before the plan gate passes; blocks edits to policies, templates, tools and config |
+| PreToolUse | blocks edits to `build/generated*` (P-03), to stray `src/main/{openapi,avro}` outside oms-contracts (P-01), to `ticket.md` and `evidence/`; blocks `spec approve` and `spec withdraw` from the agent | blocks code edits in `oms-*` modules before the plan gate passes; blocks edits to policies, templates, tools and config |
 | Stop | — | refuses to let the agent stop before the ticket is done, awaiting approval or blocked |
 
 The hooks are guardrails against an agent drifting, not a security boundary. A determined shell

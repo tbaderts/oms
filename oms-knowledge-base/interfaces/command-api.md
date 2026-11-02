@@ -24,7 +24,14 @@ Defined in `oms-contracts/src/main/openapi/oms-cmd-api.yml` as `POST /execute`; 
 | OrderAcceptCmd | [Order Acceptance](../capabilities/order-acceptance.md) | 200 |
 | ExecutionCreateCmd | [Execution Processing](../capabilities/execution-processing.md) | 201 |
 | OrderCancelRequestCmd, OrderCancelCmd, OrderCancelRejectCmd | [Order Cancellation](../capabilities/order-cancellation.md) | 200 |
+| OrderExpireCmd, OrderCloseCmd (API 3.2.0, SPEC-0029) | [Order Expiry and Close](../capabilities/order-expiry-and-close.md) | 200 |
 | OrderRejectCmd | [Order Rejection](../capabilities/order-rejection.md) | 200 |
+
+Every command has the base fields of `Command` (API 3.1.0, SPEC-0025): `type`, `version`, and the
+optional `commandId` (at most 64 characters, unique per order; a lifecycle command whose id the
+order already applied is refused as a duplicate), `correlationId` (the root order), `causationId`
+(the event that caused it, `orderId:eventId`) and `sentAt` (date-time). They are the fields of the
+Kafka `CommandHeader`, and the event log stores them with the command whichever way it arrived.
 
 A command refused by its processor returns 400 with `CommandResult` status `FAILED` and a message.
 A body with an unknown `type` cannot be read and is rejected with 400 before the controller.

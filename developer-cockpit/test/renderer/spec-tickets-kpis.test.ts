@@ -24,6 +24,15 @@ describe('kpis', () => {
     });
   });
 
+  // SPEC-0040 AC-5: withdrawn tickets are archived, so they count nowhere.
+  it('withdrawn tickets are not counted', () => {
+    const tickets = [
+      summary('SPEC-0001', { status: 'design' }),
+      summary('SPEC-0002', { status: 'withdrawn', archived: true, withdrawnFrom: 'proposal', withdrawnReason: 'x' }),
+    ];
+    expect(kpis(tickets)).toMatchObject({ active: 1, inProgress: 1, blocked: 0, done: 0 });
+  });
+
   it('gives zeros and no completion for an empty portfolio', () => {
     expect(kpis([])).toEqual({
       active: 0, inProgress: 0, awaiting: 0, blocked: 0, done: 0, tasksDone: 0, tasksTotal: 0, completionPct: null,

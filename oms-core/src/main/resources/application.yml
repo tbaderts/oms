@@ -23,19 +23,22 @@ spring:
     show-sql: false
   kafka:
     properties:
-      auto.register.schemas: true
+      # Schemas are registered by `registerSchemas` in oms-contracts (SPEC-0025); docker-compose and
+      # the test bases set KAFKA_AUTO_REGISTER_SCHEMAS=true so local runs need no registration step.
+      auto.register.schemas: ${KAFKA_AUTO_REGISTER_SCHEMAS:false}
     bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
     consumer:
       properties:
         specific.avro.reader: true
         spring.deserializer:
           key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
-          value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
         schema.registry:
           url: ${REGISTRY_URL:http://localhost:8081}
       group-id: orders-group
       key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      # Commands are read as bytes and decoded by CommandDecoder (SPEC-0025), so a record that cannot
+      # be handled is dead-lettered with its original bytes.
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
       auto-offset-reset: earliest
     producer:
       acks: all
@@ -49,6 +52,10 @@ spring:
         # meant lowering `acks` for throughput would silently disable both.
         enable.idempotence: true
         max.in.flight.requests.per.connection: 5
+        # A send that blocks inside the producer (topic metadata, a full buffer) fails within the
+        # outbox drain (kafka.outbox.drain-timeout-ms, 30 s). Being retriable, it costs the row no
+        # attempt (SPEC-0026). Applies to every producer built from these properties.
+        max.block.ms: 10000
         schema.registry:
           url: ${REGISTRY_URL:http://localhost:8081}
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -61,7 +68,6 @@ kafka:
   # One record per fill with the order it changed, keyed by rootOrderId (SPEC-0019).
   order-execution-topic: ${ORDER_EXECUTION_TOPIC:oms_order_executions}
   command-topic: ${COMMAND_TOPIC:commands}
-  send-timeout-seconds: ${KAFKA_SEND_TIMEOUT_SECONDS:10}
   consumer:
     # Failed commands retry with backoff, then land on <topic>.DLT rather than being dropped.
     retry-attempts: ${KAFKA_RETRY_ATTEMPTS:4}
@@ -72,6 +78,18 @@ kafka:
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:200}
     batch-size: ${OUTBOX_BATCH_SIZE:100}
     max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
+    # How long one drain awaits the acknowledgements of its batch (SPEC-0026). Each aggregate's rows
+    # are sent one after another, so a chain can need several round trips.
+    drain-timeout-ms: ${OUTBOX_DRAIN_TIMEOUT_MS:30000}
+
+oms:
+  # Expiry and end of day (SPEC-0029). GTD orders expire when their expiry time passes; at end of
+  # day DAY orders expire and every finished order is closed. No trading calendar: daily.
+  end-of-day:
+    enabled: ${OMS_END_OF_DAY_ENABLED:true}
+    time: ${OMS_END_OF_DAY_TIME:17:00}
+    zone: ${OMS_END_OF_DAY_ZONE:America/New_York}
+    gtd-poll-interval-ms: ${OMS_GTD_POLL_INTERVAL_MS:60000}
 
 management:
   endpoint:
@@ -95,6 +113,11 @@ tracing:
   url: ${TRACING_URL:http://localhost:4317}
 
 logging:
+  # The command ids join the trace ids in the correlation block (SPEC-0025): every line logged while
+  # a Kafka command is processed names its commandId and correlationId, set in the MDC by
+  # CommandListener; empty on other lines.
+  pattern:
+    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-},%X{commandId:-},%X{correlationId:-}] "
   level:
     org.hibernate.SQL: INFO
     org.springframework.transaction: INFO

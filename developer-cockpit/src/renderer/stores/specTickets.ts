@@ -124,6 +124,8 @@ export const useSpecTicketsStore = create<SpecTicketsState>((set, get) => ({
     try {
       const lastResult = await window.cockpit.specTickets.run(action);
       set({ lastResult });
+      // A withdrawn ticket moves to the archive; show archived tickets so it stays open, as withdrawn.
+      if (action.kind === 'withdraw' && lastResult.exitCode === 0) set({ showArchived: true });
       if (action.kind === 'new' && lastResult.exitCode === 0) {
         created = lastResult.stdout.match(/Created (SPEC-\d{4})/)?.[1] ?? null;
       }

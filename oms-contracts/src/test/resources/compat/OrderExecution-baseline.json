@@ -24,7 +24,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Quantity filled by this execution.",
@@ -38,7 +38,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Price of this execution.",
@@ -244,7 +244,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Order limit price.",
@@ -258,7 +258,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "default": null
@@ -293,7 +293,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Order's cumulative executed quantity after this execution.",
@@ -307,7 +307,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Order's remaining open quantity after this execution.",
@@ -321,7 +321,7 @@
           "type": "bytes",
           "logicalType": "decimal",
           "precision": 18,
-          "scale": 4
+          "scale": 8
         }
       ],
       "doc": "Average price across the order's fills. Not currently computed by oms-core; null until it is.",

@@ -1,0 +1,27 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "name": "OrderCloseCmd",
+  "doc": "Close the order; nothing more happens to it (administrative or end of day).",
+  "fields": [
+    {
+      "name": "header",
+      "type": "org.example.common.model.msg.CommandHeader",
+      "doc": "Identity, causality and origin of this command."
+    },
+    {
+      "name": "orderId",
+      "type": "string",
+      "doc": "The order this command applies to."
+    },
+    {
+      "name": "text",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null,
+      "doc": "Close reason."
+    }
+  ]
+}

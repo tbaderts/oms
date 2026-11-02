@@ -8,6 +8,7 @@ import org.example.common.orchestration.TaskOrchestrator.PipelineResult;
 import org.example.common.orchestration.TaskPipeline;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.repository.OrderRepository;
+import org.example.oms.service.PipelineResults;
 import org.example.oms.service.execution.tasks.CalculateOrderQuantitiesTask;
 import org.example.oms.service.execution.tasks.DetermineOrderStateTask;
 import org.example.oms.service.execution.tasks.PersistExecutionTask;
@@ -97,6 +98,8 @@ public class ExecutionCommandProcessor {
                     "ExecutionProcessingPipeline failed for orderId={}, execId={}, rolling back",
                     execution.getOrderId(),
                     execution.getExecID());
+            // Another command changed the order first: a retry, not a refusal (SPEC-0027).
+            PipelineResults.rethrowConcurrencyFailure(result);
         }
 
         return createResult(result, context);

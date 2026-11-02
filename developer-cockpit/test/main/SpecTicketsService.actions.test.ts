@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SpecTicketsService } from '../../src/main/services/SpecTicketsService';
@@ -99,6 +99,23 @@ describe('SpecTicketsService actions', () => {
     await expect(svc.runAction({ kind: 'reopen', id: 'SPEC-0001', stage: 'nowhere' as never, reason: 'x' }))
       .rejects.toThrow('unknown stage');
     expect(ws.readTicket('changes/SPEC-0001-a')).toBe(before);
+  });
+
+  // SPEC-0040 AC-5: the cockpit withdraws through the CLI, with a reason it validates first.
+  it('withdraw requires a reason and runs spec withdraw', async () => {
+    ws = createWorkspace();
+    ws.writeTicket('changes/SPEC-0001-a', ticketMeta('SPEC-0001'));
+    const svc = new SpecTicketsService(ws.root);
+    const cli = (svc as unknown as { cli: { run: (argv: string[]) => Promise<unknown> } }).cli;
+    const run = vi.spyOn(cli, 'run').mockResolvedValue({ exitCode: 0, stdout: 'withdrawn', stderr: '' });
+
+    await expect(svc.runAction({ kind: 'withdraw', id: 'SPEC-0001', reason: '' })).rejects.toThrow('reason');
+    await expect(svc.runAction({ kind: 'withdraw', id: 'SPEC-0001', reason: '--why' })).rejects.toThrow('must not start with --');
+    expect(run).not.toHaveBeenCalled();
+
+    const result = await svc.runAction({ kind: 'withdraw', id: 'SPEC-0001', reason: 'Superseded by SPEC-0039' });
+    expect(result.exitCode).toBe(0);
+    expect(run).toHaveBeenCalledWith(['withdraw', 'SPEC-0001', 'Superseded by SPEC-0039']);
   });
 
   it('text starting with -- is rejected before the CLI', async () => {

@@ -1,0 +1,7 @@
+# Test-only overrides, read by Spring Boot from classpath:/config/ on top of the main
+# application.yml, for every Spring test context.
+oms:
+  end-of-day:
+    # The scheduler would expire and close orders at 17:00 New York time on the wall clock; tests
+    # call EndOfDayService and OrderExpiryService directly, with explicit instants (SPEC-0029).
+    enabled: false

@@ -15,6 +15,8 @@ export function summary(id: string, overrides: Partial<SpecTicketSummary> = {}):
     created: '2026-10-24',
     blockedFrom: '',
     blockedReason: '',
+    withdrawnFrom: '',
+    withdrawnReason: '',
     archived: false,
     dir: `specs/changes/${id}-x`,
     tasks: { done: 0, total: 0 },

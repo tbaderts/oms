@@ -15,6 +15,7 @@ Back to the [knowledge base index](../index.md).
 - [Order Cancellation](order-cancellation.md) — Client cancel requests and the market's cancel confirmations and refusals.
 - [Order Capture](order-capture.md) — Taking a new client order into the OMS: validation, identity, initial state, persistence and the first event.
 - [Order Query](order-query.md) — Reading orders, executions, event logs and entity metadata.
+- [Order Expiry and Close](order-expiry-and-close.md) — Orders expiring when their time in force runs out, and orders being closed administratively or at end of day.
 - [Order Rejection](order-rejection.md) — The market refusing an order, and what the OMS records about the refusal.
 - [Order SLA Monitoring](order-sla-monitoring.md) — Timestamping order checkpoints and exposing latency metrics for service-level monitoring.
 - [Real-time Streaming](real-time-streaming.md) — Pushing live orders and executions to the trade blotter over RSocket, after an initial snapshot.

@@ -1,0 +1,41 @@
+{
+  "namespace": "org.example.common.model.msg",
+  "type": "record",
+  "name": "CommandHeader",
+  "doc": "Shared by every command, as its first field. Replaces the type and version fields repeated per record; the record name is the type.",
+  "fields": [
+    {
+      "name": "commandId",
+      "type": "string",
+      "doc": "Identity of this command, unique per order. The lifecycle commands are refused as duplicates when their id was already applied."
+    },
+    {
+      "name": "correlationId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "The root order this command belongs to."
+    },
+    {
+      "name": "causationId",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "The event that caused it, as orderId:eventId."
+    },
+    {
+      "name": "sentAt",
+      "type": {"type": "long", "logicalType": "timestamp-micros"},
+      "doc": "When the producer sent it."
+    },
+    {
+      "name": "producer",
+      "type": "string",
+      "doc": "Service name, for diagnosis."
+    },
+    {
+      "name": "version",
+      "type": "string",
+      "default": "1.0.0",
+      "doc": "Command API version."
+    }
+  ]
+}

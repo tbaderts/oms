@@ -49,8 +49,8 @@ Back to the [knowledge base index](../index.md).
 
 ## Event Publication
 
-- [FR-023 Publish staged messages in commit order](FR-023-relay-outbox-in-order.md) — The outbox relay publishes staged messages to Kafka in primary-key order and removes each one once sent. *(must, implemented)*
-- [FR-024 Retry failed publication](FR-024-retry-failed-publication.md) — A message that fails to publish stays in the outbox with its attempt count; the batch stops at the first failure; after max attempts it is no longer retried. *(must, implemented)*
+- [FR-023 Publish staged messages in commit order](FR-023-relay-outbox-in-order.md) — The outbox relay publishes each aggregate's staged messages to Kafka in primary-key order, one after another, and removes each one once acknowledged. *(must, implemented)*
+- [FR-024 Retry failed publication](FR-024-retry-failed-publication.md) — A message that fails to publish stays in the outbox with its attempt count and holds back only its own aggregate; after max attempts it is no longer retried and holds its aggregate until an operator acts. *(must, implemented)*
 
 ## Real-time Streaming
 

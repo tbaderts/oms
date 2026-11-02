@@ -1,12 +1,9 @@
 package org.example.oms.service;
 
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.example.common.model.Order;
-import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.repository.OrderEventRepository.OrderVersion;
 import org.example.oms.repository.OrderRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -14,7 +11,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -34,17 +30,16 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderQueryService {
 
     private final OrderRepository repository;
-    private final OrderEventRepository orderEventRepository;
 
     /**
-     * Searches orders and reads each one's latest event-log version.
+     * Searches orders, each with its latest event-log version.
      *
-     * <p>REPEATABLE_READ runs both queries against one Postgres snapshot. An order row and its event
-     * are committed together, so the version always belongs to the state on the page; otherwise a
-     * streaming subscriber could pair a newer version with an older state and drop the live event
-     * that carries the newer state.
+     * <p>The version is the order row's own (SPEC-0027): the appender sets it with the event, in one
+     * transaction, so it always belongs to the state on the page. A streaming subscriber therefore
+     * never pairs a newer version with an older state and drops the live event that carries the
+     * newer state.
      */
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(readOnly = true)
     public OrderSearchResult search(Map<String, String> params, Integer page, Integer size, String sort) {
         log.info(
                 "Searching orders with params: {}, page: {}, size: {}, sort: {}",
@@ -55,13 +50,11 @@ public class OrderQueryService {
         Pageable pageable = buildPageable(page, size, sort);
         Specification<Order> spec = OrderSpecifications.dynamic(params);
         Page<Order> orders = repository.findAll(spec, pageable);
-        List<String> orderIds = orders.getContent().stream().map(Order::getOrderId).toList();
+        // An order without events (version 0) has no eventVersion, as before.
         Map<String, Long> eventVersions =
-                orderIds.isEmpty()
-                        ? Map.of()
-                        : orderEventRepository.findLatestVersions(orderIds).stream()
-                                .collect(Collectors.toMap(
-                                        OrderVersion::getOrderId, OrderVersion::getVersion));
+                orders.getContent().stream()
+                        .filter(order -> order.getTxNr() > 0)
+                        .collect(Collectors.toMap(Order::getOrderId, Order::getTxNr));
         return new OrderSearchResult(orders, eventVersions);
     }
 

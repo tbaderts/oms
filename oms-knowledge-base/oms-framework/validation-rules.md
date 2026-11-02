@@ -430,6 +430,15 @@ public class OrderRequiredFieldsRule implements ValidationRule<Order> {
 
 ---
 
+### 3.1a Decimal precision (as built, SPEC-0039)
+
+Prices and quantities have at most 10 integer digits and 8 decimal places everywhere: the API
+refuses more with `validation-failed` (generated `@Digits(integer = 10, fraction = 8)`), the Avro
+schemas cannot carry more, and the database columns are `NUMERIC(18,8)`. Quantities calculated from
+fills (`cumQty`, `leavesQty`) are sums and differences at that scale and are never rounded
+(`CalculateOrderQuantitiesTask` uses `RoundingMode.UNNECESSARY`). Tick sizes per venue are not
+validated.
+
 ### 3.2 Quantity Validation Rules
 
 ```java

@@ -7,7 +7,6 @@ import java.util.List;
 import org.example.oms.model.OrderExecutionView;
 import org.example.oms.repository.OrderExecutionViewRepository;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,7 +16,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Reads the order-execution projection for the query API (SPEC-0020). Filters combine with AND;
- * results are oldest first by transactTime, then by storage order.
+ * results are oldest first by transactTime (projection time for fills without one), then by storage
+ * order. The time filters apply to transactTime only.
  */
 @Service
 @RequiredArgsConstructor
@@ -45,9 +45,15 @@ public class OrderExecutionViewQueryService {
             if (to != null) {
                 predicates.add(cb.lessThan(root.get("transactTime"), to));
             }
+            // Oldest first; a fill without transactTime sorts by when it was projected. Not on the
+            // count query that paging also runs, where an ORDER BY does not belong.
+            if (!Long.class.equals(query.getResultType())) {
+                query.orderBy(
+                        cb.asc(cb.coalesce(root.<Instant>get("transactTime"), root.<Instant>get("projectedAt"))),
+                        cb.asc(root.get("id")));
+            }
             return cb.and(predicates.toArray(Predicate[]::new));
         };
-        Sort oldestFirst = Sort.by(Sort.Order.asc("transactTime"), Sort.Order.asc("id"));
-        return repository.findAll(filters, PageRequest.of(0, limit, oldestFirst)).getContent();
+        return repository.findAll(filters, PageRequest.of(0, limit)).getContent();
     }
 }

@@ -56,6 +56,6 @@ class FillSlicerTest {
     }
 
     private static BigDecimal qty(String value) {
-        return new BigDecimal(value).setScale(4);
+        return new BigDecimal(value).setScale(FillSlicer.QUANTITY_SCALE);
     }
 }

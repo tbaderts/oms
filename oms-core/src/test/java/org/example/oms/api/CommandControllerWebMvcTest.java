@@ -18,6 +18,7 @@ import org.example.common.model.cmd.OrderCancelRequestCmd;
 import org.example.oms.service.lifecycle.LifecycleAction;
 import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.example.oms.mapper.OrderMapper;
@@ -178,6 +179,26 @@ class CommandControllerWebMvcTest {
         verify(orderCreateCommandProcessor, never()).process(any(), any());
     }
 
+    /**
+     * SPEC-0039 AC-4: prices and quantities carry at most 10 integer and 8 decimal digits, the
+     * precision of every layer; a more precise value is refused before any processor runs.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "{\"type\":\"OrderCreateCmd\",\"version\":\"3.0.0\",\"order\":{\"sessionId\":\"S1\",\"clOrdId\":\"C1\",\"symbol\":\"AAPL\",\"account\":\"A1\",\"ordType\":\"LIMIT\",\"orderQty\":1,\"price\":170.123456789,\"side\":\"BUY\"}} | order.price",
+        "{\"type\":\"ExecutionCreateCmd\",\"version\":\"3.0.0\",\"execution\":{\"execId\":\"E1\",\"orderId\":\"O1\",\"lastQty\":1,\"lastPx\":170.123456789}} | execution.lastPx",
+        "{\"type\":\"ExecutionCreateCmd\",\"version\":\"3.0.0\",\"execution\":{\"execId\":\"E1\",\"orderId\":\"O1\",\"lastQty\":12345678901,\"lastPx\":170}} | execution.lastQty"
+    })
+    void overPrecisePrice_isRejected(String body, String field) throws Exception {
+        mockMvc.perform(post("/api/command/execute").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("urn:oms:error:validation-failed"))
+                .andExpect(jsonPath("$.errors['" + field + "']").isNotEmpty());
+
+        verify(orderCreateCommandProcessor, never()).process(any(), any());
+        verify(executionCommandProcessor, never()).process(any(), any());
+    }
+
     @Test
     void lifecycleCommand_concurrentUpdate_returns409() throws Exception {
         when(orderLifecycleCommandProcessor.process(any(), any()))
@@ -187,5 +208,18 @@ class CommandControllerWebMvcTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"OrderCancelCmd\",\"orderId\":\"ORD-202\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    // SPEC-0027 review: a lock failure (deadlock with another command) is a retryable conflict too.
+    @Test
+    void lifecycleCommand_lockFailure_returns409Retryable() throws Exception {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenThrow(new org.springframework.dao.CannotAcquireLockException("deadlock detected"));
+
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"OrderCancelCmd\",\"orderId\":\"ORD-203\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.retryable").value(true));
     }
 }

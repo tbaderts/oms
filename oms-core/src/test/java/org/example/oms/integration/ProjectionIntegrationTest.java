@@ -123,7 +123,7 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     /** The order's OrderExecution records on the real topic, read from the earliest offset. */
     private List<OrderExecution> consumeUntil(Predicate<List<OrderExecution>> done, String orderId) {
-        Properties fromStart = new Properties();
+        Properties fromStart = TestCommands.avroValues();
         fromStart.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         List<OrderExecution> records = new ArrayList<>();
         try (Consumer<Object, Object> consumer =

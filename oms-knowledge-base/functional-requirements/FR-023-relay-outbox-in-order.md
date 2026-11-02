@@ -1,7 +1,7 @@
 ---
 type: Requirement
 title: "Publish staged messages in commit order"
-description: "The outbox relay publishes staged messages to Kafka in primary-key order and removes each one once sent."
+description: "The outbox relay publishes each aggregate's staged messages to Kafka in primary-key order, one after another, and removes each one once acknowledged."
 tags: [functional, event-publication]
 status: draft
 id: "FR-023"
@@ -17,6 +17,11 @@ sources:
 ---
 # Publish staged messages in commit order
 
-Polling every `kafka.outbox.poll-interval-ms` (default 200 ms) in batches; id order preserves the order of each order's transitions on its partition.
+The relay polls every `kafka.outbox.poll-interval-ms` (default 200 ms) and works in batches.
+
+- **Within an aggregate** (one topic and key, so one partition), messages are sent in id order.
+  Each is sent only after the broker acknowledged the previous one, which preserves the order of
+  each order's transitions on its partition.
+- **Different aggregates** are in flight together, with no order between them (SPEC-0026).
 
 Capability: [event-publication](../capabilities/event-publication.md).

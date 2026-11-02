@@ -22,5 +22,9 @@ public enum Event {
     /** Client asked for the open quantity to be cancelled; cancelState is now PCXL. */
     CXL_REQUEST,
     /** Market refused a cancel request; cancelState is now REJ and the order stays live. */
-    CXL_REJ
+    CXL_REJ,
+    /** The order's time in force ran out; state EXP, nothing open (SPEC-0029). */
+    EXP,
+    /** The order was closed: nothing more happens to it; state CLOSED (SPEC-0029). */
+    CLOSE
 }

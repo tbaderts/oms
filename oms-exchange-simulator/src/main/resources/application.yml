@@ -29,6 +29,11 @@ spring:
         enable.idempotence: true
         schema.registry:
           url: ${REGISTRY_URL:http://localhost:8081}
+        # One subject per command record, commands-<record full name> (SPEC-0025). Schemas are
+        # registered by `registerSchemas` in oms-contracts; docker-compose and the test base set
+        # KAFKA_AUTO_REGISTER_SCHEMAS=true so local runs need no registration step.
+        value.subject.name.strategy: io.confluent.kafka.serializers.subject.TopicRecordNameStrategy
+        auto.register.schemas: ${KAFKA_AUTO_REGISTER_SCHEMAS:false}
 
 server:
   port: ${SERVER_PORT:8094}

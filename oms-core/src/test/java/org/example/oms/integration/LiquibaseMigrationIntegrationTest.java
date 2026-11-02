@@ -1,6 +1,10 @@
 package org.example.oms.integration;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.example.oms.OmsApplication;
 import org.junit.jupiter.api.Test;
@@ -90,6 +94,35 @@ class LiquibaseMigrationIntegrationTest {
                         + "where table_schema = 'public' and table_name = 'order_execution_view' and column_name = 'order_version'",
                 String.class);
         assertEquals("NO", nullable);
+    }
+
+    /** SPEC-0039: every price and quantity column has the one precision of every layer. */
+    @Test
+    void priceAndQuantityColumnsAreNumeric18By8() {
+        Map<String, List<String>> columns = Map.of(
+                "orders", List.of("order_qty", "cash_order_qty", "place_qty", "cum_qty", "leaves_qty", "alloc_qty",
+                        "strike_price", "price", "stop_px"),
+                "executions", List.of("avg_px", "cum_qty", "last_px", "last_qty", "leaves_qty", "day_order_qty",
+                        "day_cum_qty", "day_avg_px"),
+                "order_execution_view", List.of("price", "order_qty", "last_qty", "last_px", "cum_qty", "leaves_qty",
+                        "avg_px"));
+        columns.forEach((table, names) -> names.forEach(column -> assertEquals(
+                "18,8",
+                jdbcTemplate.queryForObject(
+                        "select numeric_precision || ',' || numeric_scale from information_schema.columns "
+                                + "where table_schema = 'public' and table_name = ? and column_name = ?",
+                        String.class, table, column),
+                () -> table + "." + column)));
+    }
+
+    /** SPEC-0026: the relay's held-aggregate check probes the outbox by topic and aggregate id. */
+    @Test
+    void outboxHasTopicAggregateIndex() {
+        String definition = jdbcTemplate.queryForObject(
+                "select coalesce(max(indexdef), '') from pg_indexes "
+                        + "where schemaname = 'public' and tablename = 'outbox' and indexname = 'idx_outbox_topic_aggregate_id'",
+                String.class);
+        assertTrue(definition.contains("(topic, aggregate_id)"), () -> "index definition: " + definition);
     }
 
     private void assertTableExists(String tableName) {

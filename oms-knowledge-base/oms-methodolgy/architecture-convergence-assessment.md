@@ -140,8 +140,9 @@ flowchart LR
   command, the resulting state and a full snapshot of the order.
 - **Loading:** read the current row. "Replay" reads the snapshot on the event at the requested
   version, so there is no folding of events.
-- **Concurrency:** optimistic locking on the order (`txNr`) plus a unique `(order_id, version)`
-  constraint on the event log.
+- **Concurrency:** the order's version (`txNr`) is the version of its latest event; the unique
+  `(order_id, version)` constraint on the event log is the optimistic lock (SPEC-0027; before, a
+  separate JPA `@Version` counter).
 - **Command handling:** a task pipeline (validate → set state → persist → publish) with a
   configurable state machine.
 - **Publication:** transactional outbox, drained to Kafka by a relay. Messages carry the full order
@@ -301,7 +302,7 @@ This is the most important design discussion and is independent of framework cho
 
 | | A | B |
 |---|---|---|
-| Mechanism | `txNr` optimistic lock on the order + unique `(order_id, version)` on events | Unique `(aggregate_id, sequence)` in the event store |
+| Mechanism | Unique `(order_id, version)` on events; the order's `txNr` is that version (SPEC-0027) | Unique `(aggregate_id, sequence)` in the event store |
 | Conflict handling | Transaction rollback and retry | Exception, retry policy in the command bus |
 | Global ordering | Per-order version only | Global sequence (global index) used by event processors |
 | Scaling commands across instances | Any instance can handle any order (database arbitrates) | Without Axon Server: routing by aggregate id is needed for caching and fewer conflicts *(confirm how it's done)* |

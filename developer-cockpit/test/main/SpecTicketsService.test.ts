@@ -27,7 +27,7 @@ describe('SpecTicketsService', () => {
     expect(active.tickets[0]).toEqual({
       id: 'SPEC-0001', title: 'Alpha', type: 'fix', status: 'design', awaiting: 'design', autopilot: true,
       modules: ['oms-core', 'oms-contracts'], approvals: ['proposal'], owner: 'Alice',
-      created: '2026-10-24', blockedFrom: '', blockedReason: '', archived: false,
+      created: '2026-10-24', blockedFrom: '', blockedReason: '', withdrawnFrom: '', withdrawnReason: '', archived: false,
       dir: 'specs/changes/SPEC-0001-alpha', tasks: { done: 1, total: 3 }, acs: ['AC-1', 'AC-2'],
       recentLog: ['2026-10-24 created'],
     });

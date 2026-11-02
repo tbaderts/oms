@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Command API
-  version: 2.0.0
+  version: 3.2.0
   description: Command API for submitting commands to oms
 
 paths:
@@ -58,6 +58,8 @@ components:
           OrderCancelCmd: '#/components/schemas/OrderCancelCmd'
           OrderCancelRequestCmd: '#/components/schemas/OrderCancelRequestCmd'
           OrderCancelRejectCmd: '#/components/schemas/OrderCancelRejectCmd'
+          OrderExpireCmd: '#/components/schemas/OrderExpireCmd'
+          OrderCloseCmd: '#/components/schemas/OrderCloseCmd'
       required:
         - type
       properties:
@@ -67,6 +69,22 @@ components:
         version:
           type: string
           description: Command API version
+        commandId:
+          type: string
+          maxLength: 64
+          description: Identity of this command, unique per order; a lifecycle command already applied to the order is refused as a duplicate
+        correlationId:
+          type: string
+          maxLength: 255
+          description: The root order this command belongs to
+        causationId:
+          type: string
+          maxLength: 255
+          description: The event that caused this command, as orderId:eventId
+        sentAt:
+          type: string
+          format: date-time
+          description: When the sender sent the command
 
     OrderCreateCmd:
       allOf:
@@ -110,10 +128,6 @@ components:
             orderId:
               type: string
               minLength: 1
-            commandId:
-              type: string
-              maxLength: 64
-              description: Identity of this command; a command already applied to the order is refused as a duplicate
             text:
               type: string
               maxLength: 255
@@ -130,10 +144,6 @@ components:
             orderId:
               type: string
               minLength: 1
-            commandId:
-              type: string
-              maxLength: 64
-              description: Identity of this command; a command already applied to the order is refused as a duplicate
             text:
               type: string
               maxLength: 255
@@ -150,10 +160,6 @@ components:
             orderId:
               type: string
               minLength: 1
-            commandId:
-              type: string
-              maxLength: 64
-              description: Identity of this command; a command already applied to the order is refused as a duplicate
 
     OrderCancelRejectCmd:
       description: Market refused a cancel request (FIX OrderCancelReject 35=9).
@@ -166,14 +172,42 @@ components:
             orderId:
               type: string
               minLength: 1
-            commandId:
-              type: string
-              maxLength: 64
-              description: Identity of this command; a command already applied to the order is refused as a duplicate
             text:
               type: string
               maxLength: 255
               description: Cancel reject reason
+
+    OrderExpireCmd:
+      description: The order's time in force ran out (FIX ExecutionReport ExecType=C).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            text:
+              type: string
+              maxLength: 255
+              description: Expiry reason
+
+    OrderCloseCmd:
+      description: Close the order; nothing more happens to it (administrative close, or end of day for a finished order).
+      allOf:
+        - $ref: '#/components/schemas/Command'
+        - type: object
+          required:
+            - orderId
+          properties:
+            orderId:
+              type: string
+              minLength: 1
+            text:
+              type: string
+              maxLength: 255
+              description: Close reason
 
     Order:
       type: object
@@ -229,11 +263,13 @@ components:
           description: Source of security identifier
         orderQty:
           type: number
-          description: Order quantity
+          description: Order quantity. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
           exclusiveMinimum: 0
         cashOrderQty:
           type: number
-          description: Cash order quantity
+          description: Cash order quantity. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         positionEffect:
           allOf:
             - $ref: 'schema.yml#/components/schemas/PositionEffect'
@@ -249,7 +285,8 @@ components:
           description: Maturity month and year for derivatives
         strikePrice:
           type: number
-          description: Strike price for options
+          description: Strike price for options. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         priceType:
           allOf:
             - $ref: 'schema.yml#/components/schemas/PriceType'
@@ -266,10 +303,12 @@ components:
           description: Order type (MARKET, LIMIT, etc.)
         price:
           type: number
-          description: Order price
+          description: Order price. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         stopPx:
           type: number
-          description: Stop price
+          description: Stop price. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         securityId:
           type: string
           description: Security identifier
@@ -317,16 +356,20 @@ components:
           minLength: 1
         lastQty:
           type: number
-          description: Quantity filled by this execution (FIX LastQty, tag 32)
+          description: Quantity filled by this execution (FIX LastQty, tag 32). At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         lastPx:
           type: number
-          description: Price of this execution (FIX LastPx, tag 31)
+          description: Price of this execution (FIX LastPx, tag 31). At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         cumQty:
           type: number
-          description: Order's cumulative executed quantity after this execution, as reported by the market
+          description: Order's cumulative executed quantity after this execution, as reported by the market. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         leavesQty:
           type: number
-          description: Order's open quantity after this execution, as reported by the market
+          description: Order's open quantity after this execution, as reported by the market. At most 10 integer digits and 8 decimal places
+          x-field-extra-annotation: "@jakarta.validation.constraints.Digits(integer = 10, fraction = 8)"
         execType:
           type: string
           description: FIX ExecType (tag 150), e.g. F for a trade

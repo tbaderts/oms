@@ -1,26 +1,18 @@
 {
   "namespace": "org.example.common.model.msg",
   "type": "record",
-  "doc": "",
   "name": "OrderCreateCmd",
+  "doc": "",
   "fields": [
     {
-      "name": "type",
-      "type": "string",
-      "doc": "Command type discriminator"
-    },
-    {
-      "name": "version",
-      "type": ["null", "string"],
-      "doc": "Command API version",
-      "default": null
+      "name": "header",
+      "type": "org.example.common.model.msg.CommandHeader",
+      "doc": "Identity, causality and origin of this command."
     },
     {
       "name": "order",
-      "type": ["null", "org.example.common.model.msg.Order"],
-      "doc": "",
-      "default": null
+      "type": "org.example.common.model.msg.Order",
+      "doc": "The order to create."
     }
   ]
-
 }

@@ -50,7 +50,8 @@ class OrderAcceptCommandProcessorTest {
                 new OrderAcceptCommandProcessor(
                         orderRepository,
                         orderEventAppender,
-                        new OrderSlaRecorder(new SimpleMeterRegistry(), Clock.systemUTC()));
+                        new OrderSlaRecorder(new SimpleMeterRegistry(), Clock.systemUTC()),
+                        new org.example.common.state.OrderStateMachines());
     }
 
     @Test
