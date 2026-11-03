@@ -1,5 +1,7 @@
-﻿# SPEC-0032 LGTM stack smoke test (AC-1..AC-8 of
-# specs/changes/SPEC-0032-migrate-lgtm-stack-to-alloy-mimir-tempo).
+﻿# LGTM stack smoke test: SPEC-0032's AC-1..AC-3, AC-6 and AC-8 (the stack itself), and SPEC-0033's
+# AC-6 (the services report over OTLP), labelled S33-AC-6. SPEC-0033 replaced SPEC-0032's AC-4
+# (oms-core scrape), AC-5 (oms-core stdout in Loki) and AC-7 (TRACING_URL). SPEC-0038's AC-4..AC-6
+# (dashboards, their queries, the Grafana MCP server) are labelled S38-AC-n.
 # Stack: Grafana, Loki, Tempo 3, Mimir and the Alloy telemetry agent.
 # Run from anywhere; it locates the repo root itself.
 #   powershell -File oms-core/scripts/lgtm-smoke-test.ps1 [-AdminPassword <GF_SECURITY_ADMIN_PASSWORD>]
@@ -18,7 +20,7 @@ Set-Location $RepoRoot
 
 $LgtmServices = @('grafana', 'loki', 'tempo', 'mimir', 'alloy')
 $ObsoleteServices = @('promtail', 'prometheus', 'jaeger')
-$AppServices = @('postgres', 'oms-core')
+$AppServices = @('postgres', 'broker', 'schema-registry', 'alloy', 'oms-core', 'exchange-simulator', 'streaming-service', 'mcp-server')
 # Minimum image versions (AC-1)
 $MinImages = [ordered]@{
     'alloy'   = @{ Repo = 'grafana/alloy';   Min = '1.21.3' }
@@ -30,7 +32,7 @@ $MinImages = [ordered]@{
 
 function Get-UnixNanos { [int64][DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() * 1000000 }
 
-# Set by Remove-ObsoleteContainers once promtail is gone; AC-5's marker query starts here
+# Set by Remove-ObsoleteContainers once promtail is gone; the Loki queries start here
 $LogsSinceNs = Get-UnixNanos
 
 function Add-Result {
@@ -225,52 +227,173 @@ function Check-GrafanaDatasources {
     }
 }
 
-# ---- AC-4: alloy scrapes oms-core into mimir ----
-function Check-MimirScrape {
-    Write-Host '  [AC-4] alloy scrape of oms-core lands in mimir'
-    & docker compose up -d @AppServices *> $null
-    Add-Result 'AC-4' 'docker compose up -d postgres oms-core' ($LASTEXITCODE -eq 0) "exit=$LASTEXITCODE"
-
-    $query = @{ query = 'up{job="oms-core"}' }
-    $ok = Wait-Until {
-        $r = Invoke-RestMethod -Uri 'http://localhost:9009/prometheus/api/v1/query' -Body $query -TimeoutSec 10 -ErrorAction Stop
-        @($r.data.result | Where-Object { $_.value[1] -eq '1' }).Count -gt 0
-    } 90 'mimir up{job="oms-core"} == 1'
-
-    $detail = ''
-    try {
-        $r = Invoke-RestMethod -Uri 'http://localhost:9009/prometheus/api/v1/query' -Body $query -TimeoutSec 10
-        $detail = (@($r.data.result) | ForEach-Object { "$($_.metric.instance)=$($_.value[1])" }) -join ', '
-    } catch { $detail = $_.Exception.Message }
-    Add-Result 'AC-4' 'up{job="oms-core"} has a sample with value 1' $ok $detail
+# ---- SPEC-0033 AC-6: the services push traces, metrics and logs over OTLP ----
+# Replaces SPEC-0032's AC-4 (the oms-core scrape), AC-5 (oms-core stdout in Loki) and AC-7
+# (TRACING_URL). One order through oms-core and the simulator gives a trace that both report in.
+function Invoke-Loki {
+    param([string]$Query)
+    $body = @{ query = $Query; start = "$LogsSinceNs"; limit = '100' }
+    $r = Invoke-RestMethod -Uri 'http://localhost:3100/loki/api/v1/query_range' -Body $body -TimeoutSec 10 -ErrorAction Stop
+    @($r.data.result)
 }
 
-# ---- AC-5: alloy ships this compose project's container logs to loki ----
-function Check-LokiLabels {
-    Write-Host '  [AC-5] alloy -> loki container log flow'
-    $uri = 'http://localhost:3100/loki/api/v1/label/compose_service/values'
+function Invoke-Mimir {
+    param([string]$Query)
+    $r = Invoke-RestMethod -Uri 'http://localhost:9009/prometheus/api/v1/query' -Body @{ query = $Query } -TimeoutSec 10 -ErrorAction Stop
+    @($r.data.result)
+}
+
+function Check-ServiceTelemetry {
+    Write-Host '  [S33-AC-6] oms-core and the exchange simulator report over OTLP'
+    & docker compose up -d @AppServices *> $null
+    Add-Result 'S33-AC-6' "docker compose up -d $($AppServices -join ' ')" ($LASTEXITCODE -eq 0) "exit=$LASTEXITCODE"
+
+    # compose service -> OTLP service.name
+    $services = [ordered]@{ 'oms-core' = 'oms-core'; 'exchange-simulator' = 'oms-exchange-simulator' }
+
+    foreach ($svc in $services.Keys) {
+        $enabled = (& docker compose exec -T $svc printenv OTLP_EXPORT_ENABLED) -join ''
+        $endpoint = (& docker compose exec -T $svc printenv OTLP_ENDPOINT) -join ''
+        $legacy = (& docker compose exec -T $svc printenv TRACING_URL) -join ''
+        $ok = ($enabled -eq 'true') -and ($endpoint -eq 'http://alloy:4318') -and ($legacy -eq '')
+        Add-Result 'S33-AC-6' "$svc OTLP_EXPORT_ENABLED=true, OTLP_ENDPOINT=http://alloy:4318, no TRACING_URL" $ok `
+            "enabled='$enabled' endpoint='$endpoint' TRACING_URL='$legacy'"
+    }
+
+    $up = Wait-Until { (Get-HttpStatus 'http://localhost:8090/actuator/health') -eq 200 } 120 'oms-core healthy'
+    Add-Result 'S33-AC-6' 'oms-core /actuator/health 200' $up
+
+    # A market order: the simulator acks and fills it over Kafka
+    $orderId = ''
+    try {
+        $order = '{"type":"OrderCreateCmd","version":"1.0.0","order":{"sessionId":"SES-SMOKE","clOrdId":"CL-smoke-' + (New-HexId 12) + '","symbol":"AAPL","account":"ACC-SMOKE","ordType":"MARKET","orderQty":10,"side":"BUY"}}'
+        $orderId = (Invoke-RestMethod -Uri 'http://localhost:8090/api/command/execute' -Method Post -ContentType 'application/json' `
+            -Body $order -TimeoutSec 10 -ErrorAction Stop).id
+    } catch { }
+    Add-Result 'S33-AC-6' 'order created through oms-core' ($orderId -ne '' -and $null -ne $orderId) "orderId=$orderId"
+
+    # Logs: oms-core's record of the simulator's ack, with its trace id
+    $script:SmokeTraceId = ''
+    $coreLog = Wait-Until {
+        $streams = Invoke-Loki "{service_name=`"oms-core`"} |= `"Processed OrderAcceptCmd`" |= `"$orderId`" | trace_id != `"`""
+        $ids = @($streams | ForEach-Object { $_.stream.trace_id } | Where-Object { $_ })
+        if ($ids.Count -gt 0) { $script:SmokeTraceId = $ids[0]; $true } else { $false }
+    } 90 "loki has oms-core's log of the ack for $orderId, with a trace_id"
+    Add-Result 'S33-AC-6' 'oms-core logs in loki by service_name, with trace_id' $coreLog "trace_id=$SmokeTraceId"
+
+    $simLog = Wait-Until {
+        @(Invoke-Loki "{service_name=`"oms-exchange-simulator`"} |= `"$orderId`" | trace_id = `"$SmokeTraceId`"").Count -gt 0
+    } 60 "loki has the simulator's log for $orderId in trace $SmokeTraceId"
+    Add-Result 'S33-AC-6' 'oms-exchange-simulator logs in loki by service_name, in the same trace' $simLog "trace_id=$SmokeTraceId"
+
+    $copies = @()
+    try { $copies = @(Invoke-Loki '{compose_service=~"oms-core|exchange-simulator"}') } catch { }
+    Add-Result 'S33-AC-6' 'no copy of their stdout in loki (compose_service streams empty)' ($copies.Count -eq 0) "streams=$($copies.Count)"
+
+    # Traces: the trace holds spans of both services
+    $trace = Wait-Until {
+        $resp = Invoke-WebRequest -Uri "http://localhost:3200/api/v2/traces/$SmokeTraceId" -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        ($resp.StatusCode -eq 200) -and ($resp.Content -match '"oms-core"') -and ($resp.Content -match '"oms-exchange-simulator"')
+    } 60 "tempo returns trace $SmokeTraceId with spans of both services"
+    Add-Result 'S33-AC-6' 'tempo trace spans oms-core and oms-exchange-simulator' $trace "trace_id=$SmokeTraceId"
+
+    # Metrics: pushed with the resource attributes as labels; the old scrape is gone
+    foreach ($name in @($services.Values) + @('oms-streaming-service', 'oms-mcp-server')) {
+        $ok = Wait-Until { @(Invoke-Mimir "count({service_name=`"$name`"})").Count -gt 0 } 90 "mimir has series with service_name=$name"
+        Add-Result 'S33-AC-6' "mimir series with service_name=$name" $ok
+    }
+    $scraped = @()
+    try { $scraped = @(Invoke-Mimir 'timestamp(up{job="oms-core"}) > time() - 60') } catch { }
+    Add-Result 'S33-AC-6' 'no fresh up{job="oms-core"} sample (scrape removed)' ($scraped.Count -eq 0) "series=$($scraped.Count)"
+
+    # Infrastructure containers still have their stdout shipped (the broker: postgres runs as a user
+    # that cannot write to its PID 1 stdout)
+    $marker = "spec0033-log-marker-$(New-HexId 12)"
+    & docker compose exec -T broker sh -c "echo $marker > /proc/1/fd/1" *> $null
+    Add-Result 'S33-AC-6' 'marker written to broker container stdout' ($LASTEXITCODE -eq 0) "marker=$marker"
+    $infra = Wait-Until {
+        @(Invoke-Loki "{compose_service=`"broker`"} |= `"$marker`"" | ForEach-Object { $_.values } | Where-Object { $_[1] -eq $marker }).Count -gt 0
+    } 90 "loki returns the fresh broker line '$marker'"
+    Add-Result 'S33-AC-6' 'infrastructure container log shipped to loki by alloy' $infra "marker=$marker"
+}
+
+
+# ---- SPEC-0038: dashboards provisioned, their queries return data, the Grafana MCP server ----
+# Runs after Check-ServiceTelemetry, whose order gives the order-flow metrics something to count.
+function Invoke-Mcp {
+    param([string]$Json)
+    $resp = Invoke-WebRequest -Uri 'http://localhost:8096/mcp' -Method Post -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop `
+        -ContentType 'application/json' -Headers @{ Accept = 'application/json, text/event-stream' } -Body $Json
+    # A JSON body, or an SSE stream whose data: lines carry the JSON-RPC message
+    $text = [string]$resp.Content
+    if ($text.TrimStart().StartsWith('{')) { return $text }
+    (($text -split "`n") | Where-Object { $_ -like 'data:*' } | ForEach-Object { $_.Substring(5).Trim() }) -join "`n"
+}
+
+function Check-Dashboards {
+    Write-Host '  [S38] OMS dashboards and the Grafana MCP server'
+    & docker compose up -d grafana grafana-mcp *> $null
+    Add-Result 'S38-AC-4' 'docker compose up -d grafana grafana-mcp' ($LASTEXITCODE -eq 0) "exit=$LASTEXITCODE"
+
+    # AC-4: provisioned from the repository, in folder OMS
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:$AdminPassword"))
+    $headers = @{ Authorization = "Basic $encoded" }
+    $script:found = @()
     $ok = Wait-Until {
-        $labels = Invoke-RestMethod -Uri $uri -TimeoutSec 10 -ErrorAction Stop
-        @($labels.data) -contains 'oms-core'
-    } 90 'label compose_service has value oms-core'
+        $resp = Invoke-RestMethod -Uri 'http://localhost:3000/api/search?type=dash-db&query=OMS' -Headers $headers -TimeoutSec 10 -ErrorAction Stop
+        $script:found = @(@($resp) | Where-Object { $_.folderTitle -eq 'OMS' } | ForEach-Object { $_.uid })
+        ($script:found -contains 'oms-overview') -and ($script:found -contains 'oms-services')
+    } 60 'grafana lists oms-overview and oms-services in folder OMS'
+    Add-Result 'S38-AC-4' 'dashboards oms-overview and oms-services provisioned in folder OMS' $ok "uids=$($script:found -join ',')"
 
-    $detail = ''
-    try { $detail = (@((Invoke-RestMethod -Uri $uri -TimeoutSec 10).data)) -join ', ' } catch { $detail = $_.Exception.Message }
-    Add-Result 'AC-5' 'compose_service=oms-core in loki' $ok $detail
+    # AC-5: every Mimir query of both dashboards returns data
+    foreach ($file in @('oms-overview.json', 'oms-services.json')) {
+        $dashboard = Get-Content -Raw -Path (Join-Path $RepoRoot "oms-core\grafana\dashboards\$file") | ConvertFrom-Json
+        foreach ($panel in @($dashboard.panels)) {
+            foreach ($target in @($panel.targets)) {
+                if ($target.datasource.uid -ne 'oms-mimir' -or -not $target.expr) { continue }
+                $expr = $target.expr.Replace('$__rate_interval', '1m').Replace('$service_name', 'oms-core')
+                # A fallback (" or on() vector(0)") always yields a series; for oms-core, which has
+                # HTTP and a Kafka consumer, the query must return data without it too.
+                # The server-errors query has no series without errors, so it is checked without the
+                # outcome filter: that still proves the metric name resolves.
+                $expr = $expr.Replace(' or on() vector(0)', '').Replace(', outcome="SERVER_ERROR"', '')
+                $script:series = 0
+                $hasData = Wait-Until {
+                    $script:series = @(Invoke-Mimir $expr).Count
+                    $script:series -gt 0
+                } 90 "$file '$($panel.title)' returns data"
+                Add-Result 'S38-AC-5' "$file / $($panel.title) [$($target.refId)]" $hasData "series=$script:series expr=$expr"
+            }
+        }
+    }
+    foreach ($eventType in @('NEW_ORDER', 'ACK', 'FILL')) {
+        $counted = Wait-Until {
+            @(Invoke-Mimir "oms_order_events{service_name=`"oms-core`", event=`"$eventType`"} > 0").Count -gt 0
+        } 90 "oms_order_events{event=$eventType} > 0"
+        Add-Result 'S38-AC-5' "oms_order_events counts $eventType" $counted
+    }
 
-    # Label values ignore start/end, so they cannot tell Alloy's logs from promtail's
-    # leftovers. Prove a fresh line: write a unique marker to oms-core's own stdout
-    # (PID 1, i.e. the container log) after promtail is gone, and find it in Loki.
-    $marker = "spec0032-log-marker-$(New-HexId 12)"
-    & docker compose exec -T oms-core sh -c "echo $marker > /proc/1/fd/1" *> $null
-    Add-Result 'AC-5' 'marker written to oms-core container stdout' ($LASTEXITCODE -eq 0) "marker=$marker"
+    # AC-6: the MCP server answers, offers the dashboard search and finds both dashboards
+    $initialized = Wait-Until {
+        $r = Invoke-Mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"lgtm-smoke-test","version":"1"}}}'
+        $null -ne ($r | ConvertFrom-Json).result.capabilities.tools
+    } 60 'grafana-mcp answers initialize'
+    Add-Result 'S38-AC-6' 'MCP initialize on localhost:8096/mcp' $initialized
 
-    $markerQuery = @{ query = "{compose_service=`"oms-core`"} |= `"$marker`""; start = "$LogsSinceNs" }
-    $markerOk = Wait-Until {
-        $r = Invoke-RestMethod -Uri 'http://localhost:3100/loki/api/v1/query_range' -Body $markerQuery -TimeoutSec 10 -ErrorAction Stop
-        @($r.data.result | ForEach-Object { $_.values } | Where-Object { $_[1] -eq $marker }).Count -gt 0
-    } 90 "loki returns the fresh oms-core line '$marker'"
-    Add-Result 'AC-5' 'fresh oms-core container log line shipped to loki by alloy' $markerOk "marker=$marker"
+    $tools = @()
+    try { $tools = @((Invoke-Mcp '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | ConvertFrom-Json).result.tools | ForEach-Object { $_.name }) } catch { }
+    Add-Result 'S38-AC-6' 'tools/list contains search_dashboards' ($tools -contains 'search_dashboards') "tools=$($tools.Count)"
+
+    $text = ''
+    try {
+        $r = Invoke-Mcp '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_dashboards","arguments":{"query":"OMS"}}}' | ConvertFrom-Json
+        $text = (@($r.result.content) | ForEach-Object { $_.text }) -join ' '
+    } catch { $text = $_.Exception.Message }
+    Add-Result 'S38-AC-6' 'search_dashboards("OMS") returns both uids' (($text -match 'oms-overview') -and ($text -match 'oms-services'))
+
+    $mcpJson = Get-Content -Raw -Path (Join-Path $RepoRoot '.mcp.json') | ConvertFrom-Json
+    Add-Result 'S38-AC-6' '.mcp.json registers grafana at http://localhost:8096/mcp' ($mcpJson.mcpServers.grafana.url -eq 'http://localhost:8096/mcp')
 }
 
 # ---- AC-6: host OTLP endpoint (formerly jaeger's) delivers traces to tempo ----
@@ -293,15 +416,6 @@ function Check-HostTracePath {
         ($resp.StatusCode -eq 200) -and ($resp.Content -match 'spec0032-smoke')
     } 60 "tempo returns trace $traceId"
     Add-Result 'AC-6' 'tempo GET /api/v2/traces/<traceId> = 200 with the posted span' $ok "traceId=$traceId"
-}
-
-# ---- AC-7: compose oms-core sends OTLP to alloy and samples everything ----
-function Check-CoreTracingEnv {
-    Write-Host '  [AC-7] oms-core tracing env'
-    $url = (& docker compose exec -T oms-core printenv TRACING_URL) -join ''
-    Add-Result 'AC-7' 'oms-core TRACING_URL=http://alloy:4317' ($url -eq 'http://alloy:4317') "got: '$url'"
-    $prob = (& docker compose exec -T oms-core printenv MANAGEMENT_TRACING_SAMPLING_PROBABILITY) -join ''
-    Add-Result 'AC-7' 'oms-core MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0' ($prob -eq '1.0') "got: '$prob'"
 }
 
 # ---- AC-8: OTLP logs reach loki and OTLP metrics reach mimir through alloy ----
@@ -348,7 +462,7 @@ function Check-OtlpLogsAndMetrics {
 $script:Results = New-Object System.Collections.Generic.List[object]
 $script:ProjectName = $null
 
-Write-Host '== SPEC-0032 LGTM stack smoke test =='
+Write-Host '== LGTM stack smoke test (SPEC-0032, SPEC-0033, SPEC-0038) =='
 Check-Config
 Remove-ObsoleteContainers
 Wait-StackHealthy
@@ -356,15 +470,14 @@ Wait-StackHealthy
 Check-HostTracePath
 Check-OtlpLogsAndMetrics
 Check-GrafanaDatasources
-Check-MimirScrape
-Check-LokiLabels
-Check-CoreTracingEnv
+Check-ServiceTelemetry
+Check-Dashboards
 
 Write-Host ''
 Write-Host '== summary =='
 $failedAcs = @($Results | Where-Object { -not $_.Pass } | ForEach-Object { $_.Ac } | Sort-Object -Unique)
 if ($failedAcs.Count -eq 0) {
-    Write-Host 'ALL CHECKS PASS (AC-1..AC-8)'
+    Write-Host 'ALL CHECKS PASS'
     exit 0
 } else {
     Write-Host ("FAILED ACs: {0}" -f ($failedAcs -join ', '))

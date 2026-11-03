@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -16,7 +17,9 @@ import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.repository.OrderEventRepository;
+import org.example.oms.repository.OrderRepository;
 import org.example.oms.repository.OutboxRepository;
+import org.example.oms.service.metrics.OrderFlowMetrics;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
  * SPEC-0027: the event version is the order's own version. The appender takes the next one from the
@@ -42,7 +47,8 @@ class OrderEventAppenderTest {
     @BeforeEach
     void setUp() {
         appender = new OrderEventAppender(
-                orderEventRepository, outboxRepository, "oms_orders", "oms_executions", new AvroPayloadCodec());
+                orderEventRepository, outboxRepository, "oms_orders", "oms_executions", new AvroPayloadCodec(),
+                new OrderFlowMetrics(new SimpleMeterRegistry(), mock(OrderRepository.class)));
     }
 
     // AC-2

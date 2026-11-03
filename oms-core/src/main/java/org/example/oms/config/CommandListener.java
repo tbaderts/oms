@@ -209,7 +209,7 @@ public class CommandListener {
         if (result.isSuccess()) {
             log.info(
                     "Processed ExecutionCreateCmd from Kafka: execId={}, orderId={}",
-                    result.getExecution().getExecID(),
+                    result.getExecution().getExecId(),
                     result.getOrder().getOrderId());
         } else {
             log.warn(

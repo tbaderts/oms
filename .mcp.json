@@ -11,6 +11,10 @@
     "oms": {
       "type": "http",
       "url": "http://localhost:8091/mcp"
+    },
+    "grafana": {
+      "type": "http",
+      "url": "http://localhost:8096/mcp"
     }
   }
 }

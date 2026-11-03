@@ -60,7 +60,9 @@ The ones worth knowing:
 | `EXECUTION_TOPIC` | `oms_executions` | Fills are published here |
 | `COMMAND_TOPIC` | `commands` | Inbound commands; failures go to `commands.DLT` |
 | `OUTBOX_POLL_INTERVAL_MS` | `200` | Relay poll interval, i.e. added publish latency |
-| `TRACING_ENABLED` | `false` | OTLP export |
+| `OTLP_EXPORT_ENABLED` | `false` | Traces, metrics and logs over OTLP (SPEC-0033) |
+| `OTLP_ENDPOINT` | `http://localhost:4318` | OTLP/HTTP base URL, the Alloy agent |
+| `TRACING_SAMPLING_PROBABILITY` | `0.1` | Share of traces sampled |
 
 With `KAFKA_ENABLED=false` the service still records events and stages outbox rows; they simply stay
 staged until a relay runs.

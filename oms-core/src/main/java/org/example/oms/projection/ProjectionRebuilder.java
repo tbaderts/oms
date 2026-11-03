@@ -113,7 +113,7 @@ public class ProjectionRebuilder {
     private static Execution match(OrderEvent fill, int position, List<Execution> executions) {
         Optional<String> execId = execIdOf(fill);
         Optional<Execution> match = execId.isPresent()
-                ? executions.stream().filter(e -> execId.get().equals(e.getExecID())).findFirst()
+                ? executions.stream().filter(e -> execId.get().equals(e.getExecId())).findFirst()
                 : position < executions.size() ? Optional.of(executions.get(position)) : Optional.empty();
         return match.orElseThrow(() -> new IllegalStateException(String.format(
                 "No execution for fill event v%d of order %s (execId %s)",

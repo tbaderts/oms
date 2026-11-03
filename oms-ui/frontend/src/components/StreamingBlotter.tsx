@@ -18,6 +18,7 @@ import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
 import { convertFiltersToState, convertFiltersFromState } from '../services/filterUtils';
+import { rowIdOf } from '../services/rowId';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
@@ -66,10 +67,10 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   // Convert Map to array for AG Grid
   const data = useMemo(() => Array.from(dataMap.values()), [dataMap]);
 
-  // Get row ID for AG Grid (enables efficient updates)
+  // Get row ID for AG Grid (enables efficient updates): the row's business key
   const getRowId = useCallback((params: GetRowIdParams) => {
-    return params.data.orderId || params.data.id;
-  }, []);
+    return rowIdOf(domainObject, params.data);
+  }, [domainObject]);
 
   // Initialize streaming service with config
   useEffect(() => {
@@ -245,16 +246,16 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
   const handleExecutionEvent = useCallback((event: ExecutionEvent) => {
     const execution = event.execution;
-    const execId = execution.execId || execution.id;
-    
-    if (!execId) {
-      console.warn('[StreamingBlotter] Execution event missing execId:', event);
+
+    if (!execution.execId || !execution.orderId) {
+      console.warn('[StreamingBlotter] Execution event missing orderId or execId:', event);
       return;
     }
 
+    // Keyed like the grid rows: execId is unique per order only
     setDataMap(prev => {
       const newMap = new Map(prev);
-      newMap.set(execId, execution as any);
+      newMap.set(rowIdOf('Execution', execution), execution as any);
       return newMap;
     });
 

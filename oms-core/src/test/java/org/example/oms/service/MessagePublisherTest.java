@@ -91,7 +91,7 @@ class MessagePublisherTest {
     void publish_stillSendsLegacyOrderExecutionRows() throws Exception {
         Instant stagedAt = Instant.parse("2026-10-31T09:00:00Z");
         Order order = Order.builder().orderId("ORD-1").rootOrderId("ROOT-1").build();
-        Execution execution = Execution.builder().execID("EX-1").orderId("ORD-1").build();
+        Execution execution = Execution.builder().execId("EX-1").orderId("ORD-1").build();
         OutboxMessage message =
                 OutboxMessage.builder()
                         .id(3L)
@@ -148,7 +148,7 @@ class MessagePublisherTest {
 
     @Test
     void publish_sendsExecutionPayloadToExecutionTopic() throws Exception {
-        Execution execution = Execution.builder().execID("EX-1").orderId("ORD-1").build();
+        Execution execution = Execution.builder().execId("EX-1").orderId("ORD-1").build();
         OutboxMessage message =
                 OutboxMessage.builder()
                         .id(2L)

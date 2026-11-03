@@ -114,7 +114,7 @@ codes, OrdRejReason (103) and CxlRejReason (102), are not modelled yet.
 The `ExecutionCreateCmd` execution carries `execId`, `orderId`, `lastQty`, `lastPx`, `cumQty`,
 `leavesQty`, `execType`, `lastMkt`, `lastCapacity` and `transactTime`. oms-core recomputes cumQty
 and leavesQty itself and does not trust the venue's values. A redelivered fill is refused by the
-unique constraint on `(orderId, execID)`.
+unique constraint on `(orderId, execId)`.
 
 ---
 
@@ -219,7 +219,7 @@ public class ValidateExecutionTask implements Task<OrderTaskContext> {
 **Validation Checks:**
 1. ✅ Execution present in context
 2. ✅ Order present in context
-3. ✅ Required fields: `orderId`, `execID`, `lastQty`, `lastPx`
+3. ✅ Required fields: `orderId`, `execId`, `lastQty`, `lastPx`
 4. ✅ `lastQty > 0`
 5. ✅ `lastPx > 0`
 6. ✅ Order state must be `LIVE`
@@ -422,7 +422,7 @@ public class PublishExecutionEventTask implements Task<OrderTaskContext> {
 
         ExecutionEvent event = ExecutionEvent.builder()
             .eventId(UUID.randomUUID().toString())
-            .executionId(execution.getExecID())
+            .executionId(execution.getExecId())
             .orderId(order.getOrderId())
             .lastQty(execution.getLastQty())
             .lastPx(execution.getLastPx())
@@ -827,7 +827,7 @@ public class ExecutionWhackService {
         // Audit trail
         auditService.logWhack(AuditRecord.builder()
             .action("EXECUTION_WHACK")
-            .executionId(execution.getExecID())
+            .executionId(execution.getExecId())
             .orderId(order.getOrderId())
             .reason(request.getReason())
             .approvedBy(request.getApprovedBy())

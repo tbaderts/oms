@@ -9,6 +9,7 @@ import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
 import { convertFiltersToState, convertFiltersFromState } from '../services/filterUtils';
+import { rowIdOf } from '../services/rowId';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
@@ -236,6 +237,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
           theme={omsGridTheme}
           rowData={data}
           columnDefs={columnDefs}
+          getRowId={(params) => rowIdOf(domainObject, params.data)}
           defaultColDef={{
             sortable: true,
             filter: true,

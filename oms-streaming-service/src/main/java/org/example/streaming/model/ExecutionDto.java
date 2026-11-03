@@ -25,7 +25,6 @@ public class ExecutionDto {
 
     private String execId;
     private String orderId;
-    private String executionId;
     
     private BigDecimal lastQty;
     private BigDecimal lastPx;

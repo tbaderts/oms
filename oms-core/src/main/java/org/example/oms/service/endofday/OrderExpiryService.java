@@ -15,6 +15,7 @@ import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,6 +44,13 @@ public class OrderExpiryService {
     private final OrderRepository orderRepository;
     private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     private final MeterRegistry meterRegistry;
+
+    /** Registers this step's counters at 0, so their series exist before the first run (SPEC-0038). */
+    @PostConstruct
+    void registerMeters() {
+        meterRegistry.counter("oms.end-of-day.orders", "step", STEP);
+        meterRegistry.counter("oms.end-of-day.failures", "step", STEP);
+    }
 
     /** The orders one expiry pass expired, and how many it could not. */
     public record Expiry(List<String> expired, int failed) {}

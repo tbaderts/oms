@@ -48,6 +48,10 @@ dependencies {
 	// Local embeddings via Ollama (indexing + query embedding only)
 	implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
 
+	// Traces, metrics and logs over OTLP (SPEC-0033), as in oms-core.
+	implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
+	implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.28.1-alpha'
+
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testCompileOnly 'org.projectlombok:lombok'

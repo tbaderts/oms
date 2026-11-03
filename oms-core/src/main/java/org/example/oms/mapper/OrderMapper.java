@@ -52,9 +52,7 @@ public interface OrderMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "creationDate", ignore = true)
-    @Mapping(target = "executionId", ignore = true)
     @Mapping(target = "avgPx", ignore = true)
-    @Mapping(target = "execID", source = "execId")
     @Mapping(target = "transactTime", source = "transactTime", qualifiedByName = "offsetToInstant")
     @Mapping(target = "dayOrderQty", ignore = true)
     @Mapping(target = "dayCumQty", ignore = true)

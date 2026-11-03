@@ -1,0 +1,606 @@
+{
+  "uid": "oms-overview",
+  "title": "OMS Overview",
+  "description": "What the OMS does with orders, and the pipeline that carries it (SPEC-0038).",
+  "tags": [
+    "oms",
+    "spec-0038"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Order events / s",
+      "description": "oms.order.events: every event appended to order_events, counted after commit.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (event) (rate(oms_order_events{service_name=\"oms-core\"}[$__rate_interval]))",
+          "legendFormat": "{{event}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "bargauge",
+      "title": "Orders by state",
+      "description": "oms.orders.by_state: orders currently in each state, read from the orders table.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (state) (oms_orders_by_state{service_name=\"oms-core\"})",
+          "legendFormat": "{{state}}",
+          "instant": true,
+          "range": false
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Fills / s by side",
+      "description": "oms.executions.quantity count: fills applied.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (side) (rate(oms_executions_quantity_count{service_name=\"oms-core\"}[$__rate_interval]))",
+          "legendFormat": "{{side}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Filled quantity / s by side",
+      "description": "oms.executions.quantity total: quantity filled.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (side) (rate(oms_executions_quantity_sum{service_name=\"oms-core\"}[$__rate_interval]))",
+          "legendFormat": "{{side}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Commands consumed / s",
+      "description": "Kafka commands by type and outcome (applied, refused, failed).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (type, outcome) (rate(oms_commands_consumed{service_name=\"oms-core\"}[$__rate_interval]))",
+          "legendFormat": "{{type}} {{outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Order SLA latency p99",
+      "description": "SLA timers (oms.order.*), 99th percentile.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(oms_order_time_to_ack_bucket{service_name=\"oms-core\"}[$__rate_interval])))",
+          "legendFormat": "time_to_ack",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(oms_order_oms_processing_time_bucket{service_name=\"oms-core\"}[$__rate_interval])))",
+          "legendFormat": "oms_processing_time",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(oms_order_market_round_trip_bucket{service_name=\"oms-core\"}[$__rate_interval])))",
+          "legendFormat": "market_round_trip",
+          "range": true
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(oms_order_time_to_market_bucket{service_name=\"oms-core\"}[$__rate_interval])))",
+          "legendFormat": "time_to_market",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Outbox pending",
+      "description": "Outbox rows still to be published.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum(oms_outbox_pending{service_name=\"oms-core\"})",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Outbox stuck",
+      "description": "Outbox rows that used up their attempts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum(oms_outbox_stuck{service_name=\"oms-core\"})",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Outbox oldest pending age",
+      "description": "Age of the oldest outbox row still to be published.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "max(oms_outbox_oldest_age{service_name=\"oms-core\"})",
+          "legendFormat": "oldest",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "End of day (last 24 h)",
+      "description": "Orders expired and closed by the end-of-day steps, and failures.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 24,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (step) (increase(oms_end_of_day_orders{service_name=\"oms-core\"}[1d]))",
+          "legendFormat": "{{step}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (step) (increase(oms_end_of_day_failures{service_name=\"oms-core\"}[1d]))",
+          "legendFormat": "{{step}} failures",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "logs",
+      "title": "oms-core warnings and errors",
+      "description": "Log records exported over OTLP (SPEC-0033).",
+      "datasource": {
+        "type": "loki",
+        "uid": "oms-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 10
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "oms-loki"
+          },
+          "expr": "{service_name=\"oms-core\"} | severity_text=~\"WARN|ERROR\"",
+          "queryType": "range"
+        }
+      ]
+    }
+  ]
+}

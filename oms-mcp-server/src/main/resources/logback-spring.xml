@@ -21,6 +21,13 @@
         </encoder>
     </appender>
 
+    <!-- Every record over OTLP, with the MDC and trace ids (SPEC-0033); writes nothing to stdout.
+         OpenTelemetryLogging connects it to the SDK at startup; with export off it drops records. -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureMdcAttributes>*</captureMdcAttributes>
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+    </appender>
+
     <!-- Reduce noise from some verbose libraries -->
     <logger name="io.grpc" level="WARN"/>
     <logger name="io.netty" level="WARN"/>
@@ -33,16 +40,18 @@
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
+            <appender-ref ref="OTEL"/>
         </root>
     </springProfile>
 
-    <!-- MCP and default profiles use ONLY file logging to keep stdout clean -->
+    <!-- MCP and default profiles log to the file and OTLP only, to keep stdout clean -->
     <springProfile name="mcp,default">
         <logger name="org.springframework.ai.mcp" level="DEBUG"/>
         <logger name="org.example" level="DEBUG"/>
         
         <root level="INFO">
             <appender-ref ref="FILE"/>
+            <appender-ref ref="OTEL"/>
         </root>
     </springProfile>
 </configuration>

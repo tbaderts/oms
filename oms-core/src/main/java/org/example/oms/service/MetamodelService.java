@@ -160,19 +160,23 @@ public class MetamodelService {
         return EntityMetadataDto.builder()
                 .name("Execution")
                 .displayName("Executions")
-                .primaryKey("id")
+                // A fill is identified by its business key (orderId, execId), as an order is by
+                // orderId; the surrogate id stays selectable but is no default (SPEC-0041). The
+                // streaming ExecutionDto must carry every default column: oms-streaming-service's
+                // OrderExecutionMapperTest holds a copy of this list, so change both together.
+                .primaryKey("execId")
                 .fields(fields)
                 .defaultColumns(
                         List.of(
-                                "id",
+                                "execId",
                                 "orderId",
-                                "executionId",
-                                "execID",
                                 "execType",
                                 "lastQty",
                                 "lastPx",
                                 "cumQty",
-                                "avgPx"))
+                                "leavesQty",
+                                "avgPx",
+                                "transactTime"))
                 .defaultSort("transactTime,DESC")
                 .build();
     }

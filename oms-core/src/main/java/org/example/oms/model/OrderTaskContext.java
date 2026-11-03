@@ -59,6 +59,9 @@ public class OrderTaskContext extends TaskContext {
     /** Calculated leaves quantity from execution processing. */
     private BigDecimal calculatedLeavesQty;
 
+    /** Calculated average price of the order's fills, including this one (SPEC-0041). */
+    private BigDecimal calculatedAvgPx;
+
     /** The new order state determined by execution processing. */
     private State newOrderState;
 

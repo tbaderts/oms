@@ -37,7 +37,7 @@ class OrderMapperExecutionTest {
 
         Execution execution = mapper.toExecution(command);
 
-        assertEquals("ORD-1-F1", execution.getExecID());
+        assertEquals("ORD-1-F1", execution.getExecId());
         assertEquals("ORD-1", execution.getOrderId());
         assertEquals(0, new BigDecimal("33").compareTo(execution.getLastQty()));
         assertEquals(0, new BigDecimal("170").compareTo(execution.getLastPx()));

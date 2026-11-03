@@ -1,0 +1,7 @@
+# The image builds from source; host build output and installed deps would only bloat the context
+.gradle
+build
+bin
+frontend/node_modules
+frontend/build
+frontend/coverage

@@ -114,7 +114,7 @@ class OrderExecutionMessageMapperTest {
     private static Execution execution(Instant transactTime) {
         return Execution.builder()
                 .orderId("ORD-1")
-                .execID("EX-1")
+                .execId("EX-1")
                 .lastQty(new BigDecimal("40.0000"))
                 .lastPx(new BigDecimal("101.5000"))
                 .cumQty(new BigDecimal("40.0000"))

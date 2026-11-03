@@ -3,15 +3,12 @@ package org.example.oms.config;
 import java.time.Clock;
 import java.time.Duration;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.config.MeterFilter;
 import io.micrometer.core.instrument.distribution.DistributionStatisticConfig;
-import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -20,12 +17,6 @@ public class OmsConfig {
 
     /** Prefix of the order SLA latency timers. */
     private static final String SLA_METER_PREFIX = "oms.order.";
-
-    @Bean
-    @ConditionalOnProperty(prefix = "tracing", name = "enabled", havingValue = "true")
-    public OtlpGrpcSpanExporter otlpGrpcSpanExporter(@Value("${tracing.url}") String url) {
-        return OtlpGrpcSpanExporter.builder().setEndpoint(url).build();
-    }
 
     /**
      * Injectable clock, so anything that stamps a timestamp can be tested against a fixed instant

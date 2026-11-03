@@ -124,7 +124,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
             Order asOfFill = fillEvent.getOrderSnapshot();
             org.example.common.model.Execution fill =
                     executionRepository.findAll().stream()
-                            .filter(e -> oe.getExecId().equals(e.getExecID()))
+                            .filter(e -> oe.getExecId().equals(e.getExecId()))
                             .findFirst()
                             .orElseThrow();
 
@@ -278,7 +278,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
         // The row as OrderEventAppender staged it: the order as of the fill and the fill itself.
         long version = 3L;
         org.example.common.model.Execution fill = executionRepository.findAll().stream()
-                .filter(e -> execId.equals(e.getExecID()))
+                .filter(e -> execId.equals(e.getExecId()))
                 .findFirst()
                 .orElseThrow();
         // Since SPEC-0020 the projection stages it as a generic payload: the encoded record.

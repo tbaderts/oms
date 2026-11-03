@@ -24,7 +24,7 @@ import org.testcontainers.utility.DockerImageName;
  * first class's stopped containers, and every database call failed.
  */
 @SpringBootTest(classes = OmsApplication.class)
-abstract class AbstractKafkaPostgresIntegrationTest {
+public abstract class AbstractKafkaPostgresIntegrationTest {
 
     static final PostgreSQLContainer<?> postgres =
             new PostgreSQLContainer<>("postgres:16-alpine")

@@ -1,9 +1,10 @@
 // Grafana Alloy — the single telemetry agent of the OMS LGTM stack (SPEC-0032).
 // Bind-mounted by docker-compose.yml at /etc/alloy/config.alloy.
-// OTLP in on 4317 (gRPC) / 4318 (HTTP), published on the host too, so host-native
-// bootRun (oms-core/.env TRACING_URL=http://localhost:4317) and compose services
-// (http://alloy:4317) report to the same place. Traces go to Tempo, metrics to
-// Mimir, logs to Loki.
+// OTLP in on 4317 (gRPC) / 4318 (HTTP), published on the host too. The Spring services
+// push traces, metrics and logs over OTLP/HTTP (SPEC-0033): compose services to
+// http://alloy:4318, host-native runs to http://localhost:4318 (OTLP_ENDPOINT, with
+// OTLP_EXPORT_ENABLED=true). Traces go to Tempo, metrics to Mimir, logs to Loki.
+// Infrastructure containers, which do not speak OTLP, still have their stdout shipped.
 
 // ---- OTLP in ----
 otelcol.receiver.otlp "default" {
@@ -54,21 +55,6 @@ otelcol.exporter.otlphttp "loki" {
 	}
 }
 
-// ---- oms-core actuator scrape; SPEC-0033 removes it once the app pushes OTLP ----
-prometheus.scrape "oms_core" {
-	job_name        = "oms-core"
-	targets         = [{"__address__" = "oms-core:8090"}]
-	metrics_path    = "/actuator/prometheus"
-	scrape_interval = "15s"
-	forward_to      = [prometheus.remote_write.mimir.receiver]
-}
-
-prometheus.remote_write "mimir" {
-	endpoint {
-		url = "http://mimir:9009/api/v1/push"
-	}
-}
-
 // ---- container logs of this compose project (Promtail's former job) ----
 // Read through the read-only /var/run/docker.sock mount; the label filter
 // restricts discovery to compose services.
@@ -84,6 +70,14 @@ discovery.docker "compose" {
 
 discovery.relabel "compose" {
 	targets = []
+
+	// The OMS services send their logs over OTLP (SPEC-0033); shipping their stdout too
+	// would put every line in Loki twice.
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		regex         = "oms-core|streaming-service|exchange-simulator|mcp-server"
+		action        = "drop"
+	}
 
 	rule {
 		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]

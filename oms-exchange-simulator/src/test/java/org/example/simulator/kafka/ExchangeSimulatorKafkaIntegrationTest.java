@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +24,8 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.example.common.model.msg.CancelState;
@@ -175,6 +178,32 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         assertTrue(subjects.contains("commands-org.example.common.model.msg.OrderAcceptCmd"), subjects.toString());
         assertTrue(subjects.contains("commands-org.example.common.model.msg.ExecutionCreateCmd"), subjects.toString());
         assertFalse(subjects.contains("commands-value"), subjects.toString());
+    }
+
+    // SPEC-0033 AC-3: the venue's answers continue the trace of the OrderMessage they answer,
+    // across the hop from the listener to the engine thread.
+    @Test
+    void commandsCarryTheOrdersTrace() throws Exception {
+        String orderId = newOrderId();
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        var record = new ProducerRecord<String, Object>("orders", orderId, market(orderId, Side.BUY, "100"));
+        record.headers().add("traceparent", ("00-" + traceId + "-00f067aa0ba902b7-01").getBytes(StandardCharsets.UTF_8));
+        orders.send(record).get(10, TimeUnit.SECONDS);
+
+        List<String> traceparents = new ArrayList<>();
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (traceparents.size() < 2 && System.nanoTime() < deadline) {
+            for (ConsumerRecord<String, Object> sent : commands.poll(Duration.ofMillis(200))) {
+                if (orderId.equals(sent.key())) {
+                    Header header = sent.headers().lastHeader("traceparent");
+                    traceparents.add(header == null ? "none" : new String(header.value(), StandardCharsets.UTF_8));
+                }
+            }
+        }
+        assertEquals(2, traceparents.size(), "accept and fill: " + traceparents);
+        for (String traceparent : traceparents) {
+            assertTrue(traceparent.startsWith("00-" + traceId + "-"), traceparent);
+        }
     }
 
     // ----------------------------------------------------------------------------------------

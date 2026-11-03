@@ -8,6 +8,7 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.Hibernate;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,10 +37,15 @@ public class Execution implements Serializable {
     private Long id;
 
     private String orderId;
-    private String executionId;
     private BigDecimal avgPx;
     private BigDecimal cumQty;
-    private String execID;
+
+    /**
+     * The venue's execution id, unique per order. Named {@code execId} as in the command, Avro and
+     * query contracts; the column keeps its original name (SPEC-0041).
+     */
+    @Column(name = "execid")
+    private String execId;
     private String lastCapacity;
     private String lastMkt;
     private BigDecimal lastPx;

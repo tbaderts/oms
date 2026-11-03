@@ -1,7 +1,7 @@
 ---
 type: Domain Concept
 title: "Execution"
-description: "A fill reported by a venue against an order, persisted in the executions table and unique per order and execID."
+description: "A fill reported by a venue against an order, persisted in the executions table, identified by (orderId, execId) and carrying the order's average price as of that fill."
 tags: [execution, fill, entity]
 status: draft
 entity: "Execution"
@@ -23,17 +23,19 @@ price (`lastPx`). Applying it changes the order's quantities and possibly its st
 
 - Table `executions`, entity `org.example.common.model.Execution`, index on `order_id`.
 - **Uniqueness**: constraint `uq_executions_order_id_execid` on `(order_id, execid)`, and
-  `PersistExecutionTask` checks `existsByOrderIdAndExecID` first, so a redelivered execution is
+  `PersistExecutionTask` checks `existsByOrderIdAndExecId` first, so a redelivered execution is
   refused without changing anything ([FR-017](../functional-requirements/FR-017-reject-duplicate-execution.md)).
 
 ## Fields
 
 | Field | Meaning |
 |---|---|
-| `orderId`, `executionId`, `execID`, `secondaryExecID` | Order it belongs to; OMS and venue identifiers |
+| `orderId`, `execId` | The business key of a fill: the order it belongs to and the venue's execution id, unique per order only (column `execid`; the Java field was `execID` before SPEC-0041) |
+| `id`, `secondaryExecID` | Database surrogate key (never the identity: the blotters key rows by `orderId` + `execId`); secondary venue id, not populated. The `execution_id` column is unmapped since SPEC-0041 |
 | `lastQty`, `lastPx` | Quantity and price of this fill |
 | `cumQty`, `leavesQty` | Order totals after this fill, as computed by the OMS |
-| `avgPx`, `dayOrderQty`, `dayCumQty`, `dayAvgPx` | Values as carried by the report; the OMS does not compute an average price |
+| `avgPx` | The order's volume-weighted average price after this fill: Σ(lastQty × lastPx) over its applied fills ÷ `cumQty`, scale 8, HALF_EVEN, computed by `CalculateOrderQuantitiesTask` (SPEC-0041). Null for fills stored before SPEC-0041 |
+| `dayOrderQty`, `dayCumQty`, `dayAvgPx` | Not populated |
 | `execType`, `lastCapacity`, `lastMkt` | FIX ExecType, capacity and venue of the fill |
 | `transactTime`, `creationDate` | Venue time of the fill; time the OMS stored it |
 

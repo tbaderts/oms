@@ -226,7 +226,7 @@ cd oms-contracts && ./gradlew build
 JPA entities in oms-core:
 
 - **Order** - Order state, versioned with `txNr` for optimistic locking
-- **Execution** - Fills, unique on `(orderId, execID)`
+- **Execution** - Fills, unique on `(orderId, execId)`; each carries the order's `avgPx` as of that fill
 - **OrderEvent** - The append-only event log
 - **OutboxMessage** - Messages staged for Kafka
 
@@ -314,13 +314,27 @@ When oms-core is running (host-native bootRun on 8090; containers map to the sam
 - Prometheus metrics: `http://localhost:8090/actuator/prometheus`
 - Swagger UI: `http://localhost:8090/swagger-ui.html`
 
-LGTM observability stack from the root `docker-compose.yml` (SPEC-0031, SPEC-0032):
+LGTM observability stack from the root `docker-compose.yml` (SPEC-0031, SPEC-0032, SPEC-0033):
 - Grafana: `http://localhost:3000` (admin / `$GF_SECURITY_ADMIN_PASSWORD`, default `secret`);
   datasources Mimir/Loki/Tempo are provisioned at startup, with trace→log/metric links
 - Alloy (telemetry agent): OTLP `localhost:4317` (gRPC) / `localhost:4318` (HTTP), UI
-  `http://localhost:12345`. Host-native `bootRun` (`TRACING_URL=http://localhost:4317`) and the
-  compose `oms-core` (`http://alloy:4317`) both report here. Alloy also scrapes
-  `oms-core:8090/actuator/prometheus` (job `oms-core`) and ships all compose containers' logs
+  `http://localhost:12345`.
+  - oms-core, oms-streaming-service, oms-exchange-simulator and oms-mcp-server push traces, metrics
+    and logs here over OTLP/HTTP when `OTLP_EXPORT_ENABLED=true`.
+  - Compose sets that, with `OTLP_ENDPOINT=http://alloy:4318`. Host-native runs are off by default,
+    with the endpoint `http://localhost:4318`.
+  - Alloy ships the infrastructure containers' stdout to Loki, not the four services' stdout: their
+    logs arrive over OTLP.
+- Everything is labelled `service_name` (`oms-core`, `oms-exchange-simulator`, …): Loki streams,
+  Tempo traces and Mimir series (also `job="oms/<service>"`). Nothing scrapes
+  `/actuator/prometheus` any more.
+- Dashboards (SPEC-0038): "OMS Overview" (`oms-overview`) and "OMS Services" (`oms-services`) in
+  the OMS folder, provisioned read-only from `oms-core/grafana/dashboards/*.json`. oms-core's
+  order-flow metrics: `oms_order_events{event}`, `oms_orders_by_state{state}`,
+  `oms_executions_quantity_*{side}`.
+- Grafana MCP server: compose service `grafana-mcp` on `http://localhost:8096/mcp`, registered in
+  `.mcp.json` as `grafana`. It can search and query Grafana and draft dashboards. Keep a drafted
+  dashboard by exporting its JSON into `oms-core/grafana/dashboards/`.
 - Mimir: `http://localhost:9009` (Prometheus API under `/prometheus`)
 - Loki: `http://localhost:3100`
 - Tempo: `http://localhost:3200` (API only; OTLP arrives in-network from Alloy)

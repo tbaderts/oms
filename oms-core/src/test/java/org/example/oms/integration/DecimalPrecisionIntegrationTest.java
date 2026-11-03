@@ -75,7 +75,7 @@ class DecimalPrecisionIntegrationTest extends AbstractFillFlowIntegrationTest {
         // The REST fill is applied first, so its cumulative and remaining quantities are known.
         BigDecimal restLeaves = ORDER_QTY.subtract(REST_QTY);
         for (Execution e : executionRepository.findAll().stream().filter(e -> orderId.equals(e.getOrderId())).toList()) {
-            boolean rest = e.getExecID().equals(restExec);
+            boolean rest = e.getExecId().equals(restExec);
             assertExact(PRICE, e.getLastPx(), "executions.last_px");
             assertExact(rest ? REST_QTY : KAFKA_QTY, e.getLastQty(), "executions.last_qty");
             assertExact(rest ? REST_QTY : cum, e.getCumQty(), "executions.cum_qty");

@@ -58,7 +58,7 @@ public class ProjectTask implements Task<OrderTaskContext> {
                         "Projection {} failed - orderId={}, execId={}, version={}",
                         projection.name(),
                         order.getOrderId(),
-                        execution.getExecID(),
+                        execution.getExecId(),
                         version,
                         e);
                 throw new TaskExecutionException(getName(), "Projection " + projection.name() + " failed", e);

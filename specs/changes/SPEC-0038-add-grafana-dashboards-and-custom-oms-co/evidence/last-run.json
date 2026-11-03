@@ -1,0 +1,29 @@
+{
+  "ranAt": "2026-11-02T16:19:31.366Z",
+  "result": "pass",
+  "modules": [
+    "oms-core",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "829d9658d06a3d66",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-core/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-exchange-simulator/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-mcp-server/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-streaming-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base fa21abbb)"
+  },
+  "commands": [
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-core-1.log"
+    }
+  ]
+}

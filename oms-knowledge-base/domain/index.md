@@ -4,7 +4,7 @@ The business objects and value sets of the OMS as built, and the glossary.
 
 Back to the [knowledge base index](../index.md).
 
-- [Execution](execution.md) — A fill reported by a venue against an order, persisted in the executions table and unique per order and execID.
+- [Execution](execution.md) — A fill reported by a venue against an order, persisted in the executions table, identified by (orderId, execId) and carrying the order's average price as of that fill.
 - [Glossary](glossary.md) — Definitions of the OMS domain and technical terms used across the knowledge base.
 - [Order](order.md) — The order aggregate: identity, instrument, economics, quantities, state and SLA timestamps, persisted in the orders table.
 - [Order Event](order-event.md) — Append-only log entry recording each order state change with a per-order version, the command, the resulting state and a snapshot of the order.

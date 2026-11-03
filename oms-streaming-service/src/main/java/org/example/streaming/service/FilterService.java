@@ -72,7 +72,6 @@ public class FilterService {
     private static final Map<String, Function<ExecutionDto, Object>> EXECUTION_ACCESSORS = Map.ofEntries(
             Map.entry("execId", e -> e.getExecId()),
             Map.entry("orderId", e -> e.getOrderId()),
-            Map.entry("executionId", e -> e.getExecutionId()),
             Map.entry("lastQty", e -> e.getLastQty()),
             Map.entry("lastPx", e -> e.getLastPx()),
             Map.entry("cumQty", e -> e.getCumQty()),

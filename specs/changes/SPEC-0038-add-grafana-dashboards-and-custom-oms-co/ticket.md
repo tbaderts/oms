@@ -2,11 +2,11 @@
 id: SPEC-0038
 title: Add Grafana dashboards and custom oms-core metrics
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-core, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-10-31
 blocked_from:
@@ -25,3 +25,14 @@ I guess we haven't created dashboards yet and the best way to do that would be v
 ## Log
 
 - 2026-10-31 created
+- 2026-11-02 15:52 — autopilot on
+- 2026-11-02 15:54 — proposal gate passed; awaiting human approval
+- 2026-11-02 15:56 — proposal approved by Toni Badertscher
+- 2026-11-02 15:56 — proposal → design
+- 2026-11-02 15:58 — design → plan
+- 2026-11-02 15:59 — plan → implement
+- 2026-11-02 16:11 — verify run: pass
+- 2026-11-02 16:19 — verify run: pass
+- 2026-11-02 16:19 — implement → verify
+- 2026-11-02 16:19 — verify → done
+- 2026-11-02 16:19 — autopilot off

@@ -363,7 +363,6 @@ Each execution event in the stream will look like:
   "execution": {
     "execId": "EXEC-001",
     "orderId": "ORD-12345",
-    "executionId": "EXEC-001",
     "lastQty": 500,
     "lastPx": 45.50,
     "cumQty": 500,

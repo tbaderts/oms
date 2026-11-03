@@ -21,8 +21,10 @@ sources:
 ---
 # Apply fills to LIVE orders
 
-Required: orderId, execID, positive lastQty and lastPx, and the order in LIVE (an execution before
+Required: orderId, execId, positive lastQty and lastPx, and the order in LIVE (an execution before
 the acknowledgement is refused). `cumQty` += `lastQty`; `leavesQty` = `orderQty` − `cumQty`;
-FILLED when `leavesQty` = 0. The execution and the updated order are persisted in one transaction.
+FILLED when `leavesQty` = 0. The fill records the order's average price `avgPx` = Σ(lastQty × lastPx) ÷
+`cumQty` over the applied fills, scale 8, HALF_EVEN (SPEC-0041). The execution and the updated order
+are persisted in one transaction.
 
 Capability: [execution-processing](../capabilities/execution-processing.md).

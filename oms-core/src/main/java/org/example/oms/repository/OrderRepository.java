@@ -54,6 +54,9 @@ public interface OrderRepository
 
     boolean existsBySessionIdAndClOrdId(String sessionId, String clOrdId);
 
+    /** Orders currently in this state, for the orders-by-state gauge (SPEC-0038). */
+    long countByState(State state);
+
     /** Open orders with this time in force whose expiry time has passed (SPEC-0029, GTD expiry). */
     @Query("select o.orderId from Order o where o.state in :states and o.timeInForce = :timeInForce "
             + "and o.expireTime <= :now order by o.id")

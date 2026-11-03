@@ -19,6 +19,8 @@ import org.example.simulator.metrics.SimulatorMetrics;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
+import io.micrometer.context.ContextScheduledExecutorService;
+
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,12 +52,16 @@ public class ExchangeEngine {
     private final SimulatorProperties properties;
     private final CommandSink sink;
     private final SimulatorMetrics metrics;
+    /**
+     * Wrapped so that each task runs in the context it was submitted from: the answers to an order
+     * continue the trace of the OrderMessage that caused them (SPEC-0033).
+     */
     private final ScheduledExecutorService thread =
-            Executors.newSingleThreadScheduledExecutor(runnable -> {
+            ContextScheduledExecutorService.wrap(Executors.newSingleThreadScheduledExecutor(runnable -> {
                 Thread t = new Thread(runnable, "exchange-engine");
                 t.setDaemon(true);
                 return t;
-            });
+            }));
 
     /**
      * Engine-thread only. Insertion-ordered and capped at {@code maxTrackedOrders}: the oldest

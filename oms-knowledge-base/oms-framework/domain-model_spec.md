@@ -454,8 +454,7 @@ public class Execution implements Serializable {
 |-------|------|---------|-------------|
 | `id` | `Long` | N/A | Internal database primary key |
 | `orderId` | `String` | 37 | Order ID (links to Order) |
-| `executionId` | `String` | N/A | Internal execution ID |
-| `execID` | `String` | 17 | Unique execution ID from exchange |
+| `execId` | `String` | 17 | Execution ID from the exchange, unique per order (column `execid`) |
 | `execType` | `String` | 150 | Execution type (NEW, FILL, CANCEL, etc.) |
 | `lastQty` | `BigDecimal` | 32 | Quantity of this execution |
 | `lastPx` | `BigDecimal` | 31 | Price of this execution |
@@ -500,8 +499,7 @@ public class Execution implements Serializable {
 
     // Linkage to order
     private String orderId;              // FIX Tag 37
-    private String executionId;          // Internal ID
-    private String execID;               // FIX Tag 17 - Exchange execution ID
+    private String execId;               // FIX Tag 17 - Exchange execution ID, unique per order
 
     // Execution details
     private String execType;             // FIX Tag 150 - NEW, FILL, CANCEL, etc.

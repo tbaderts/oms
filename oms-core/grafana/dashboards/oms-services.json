@@ -1,0 +1,505 @@
+{
+  "uid": "oms-services",
+  "title": "OMS Services",
+  "description": "Runtime health of each OMS service, by service_name (SPEC-0038).",
+  "tags": [
+    "oms",
+    "spec-0038"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "service_name",
+        "label": "Service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "oms-mimir"
+        },
+        "query": {
+          "query": "label_values(jvm_memory_used{service_namespace=\"oms\"}, service_name)",
+          "refId": "service_name"
+        },
+        "definition": "label_values(jvm_memory_used{service_namespace=\"oms\"}, service_name)",
+        "current": {
+          "text": "oms-core",
+          "value": "oms-core"
+        },
+        "refresh": 1,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP requests / s",
+      "description": "Server requests by URI.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (uri) (rate(http_server_requests_count{service_name=\"$service_name\"}[$__rate_interval])) or on() vector(0)",
+          "legendFormat": "{{uri}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP server errors / s",
+      "description": "5xx responses.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum(rate(http_server_requests_count{service_name=\"$service_name\", outcome=\"SERVER_ERROR\"}[$__rate_interval])) or on() vector(0)",
+          "legendFormat": "errors",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP latency p95",
+      "description": "Server request latency.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_bucket{service_name=\"$service_name\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "JVM memory used",
+      "description": "Heap and non-heap memory in use.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum by (area) (jvm_memory_used{service_name=\"$service_name\"})",
+          "legendFormat": "{{area}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU usage",
+      "description": "Recent CPU usage of the JVM process.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "max(process_cpu_usage{service_name=\"$service_name\"})",
+          "legendFormat": "process",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Live threads",
+      "description": "Live JVM threads.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 8,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "max(jvm_threads_live{service_name=\"$service_name\"})",
+          "legendFormat": "threads",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Kafka records consumed / s",
+      "description": "All Kafka consumers of the service; 0 for a service without one.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "sum(rate(kafka_consumer_fetch_manager_records_consumed_total{service_name=\"$service_name\"}[$__rate_interval])) or on() vector(0)",
+          "legendFormat": "records",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Kafka consumer lag by topic",
+      "description": "Largest partition lag per topic; 0 for a service without a consumer.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "oms-mimir"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "oms-mimir"
+          },
+          "expr": "max by (topic) (kafka_consumer_fetch_manager_records_lag{service_name=\"$service_name\"}) or on() vector(0)",
+          "legendFormat": "{{topic}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Warnings and errors",
+      "description": "Log records exported over OTLP.",
+      "datasource": {
+        "type": "loki",
+        "uid": "oms-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 10
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "oms-loki"
+          },
+          "expr": "{service_name=\"$service_name\"} | severity_text=~\"WARN|ERROR\"",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Recent traces",
+      "description": "Traces in Tempo; open one to follow it across services.",
+      "datasource": {
+        "type": "tempo",
+        "uid": "oms-tempo"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "oms-tempo"
+          },
+          "queryType": "traceql",
+          "query": "{resource.service.name=\"$service_name\"}",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskExecutionException;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
+import org.example.oms.repository.ExecutionRepository;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>cumQty = previous cumQty + execution.lastQty
  *   <li>leavesQty = orderQty - cumQty
+ *   <li>avgPx = (sum of lastQty × lastPx over the applied fills + this fill's) / cumQty
  * </ul>
  *
  * <p>The calculated values are stored in the typed context fields for subsequent tasks to use.
@@ -35,6 +37,18 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
      * fail instead of silently changing a quantity.
      */
     private static final int QUANTITY_SCALE = 8;
+
+    /**
+     * Same decimal(18,8) as quantities, but an average is a quotient and generally needs rounding:
+     * HALF_EVEN, so rounding errors do not drift in one direction (SPEC-0041).
+     */
+    private static final int PRICE_SCALE = 8;
+
+    private final ExecutionRepository executionRepository;
+
+    public CalculateOrderQuantitiesTask(ExecutionRepository executionRepository) {
+        this.executionRepository = executionRepository;
+    }
 
     @Override
     public TaskResult execute(OrderTaskContext context) throws TaskExecutionException {
@@ -63,14 +77,24 @@ public class CalculateOrderQuantitiesTask implements Task<OrderTaskContext> {
         context.setCalculatedCumQty(newCumQty.setScale(QUANTITY_SCALE, RoundingMode.UNNECESSARY));
         context.setCalculatedLeavesQty(newLeavesQty.setScale(QUANTITY_SCALE, RoundingMode.UNNECESSARY));
 
+        // Summed from the stored fills rather than carried as a running average, so it stays exact
+        // and also covers orders whose earlier fills were recorded before avgPx was computed.
+        BigDecimal notional =
+                executionRepository
+                        .sumNotionalByOrderId(order.getOrderId())
+                        .add(lastQty.multiply(execution.getLastPx()));
+        BigDecimal newAvgPx = notional.divide(newCumQty, PRICE_SCALE, RoundingMode.HALF_EVEN);
+        context.setCalculatedAvgPx(newAvgPx);
+
         log.info(
                 "Quantity calculations completed - orderId={}, previousCumQty={}, lastQty={}, "
-                        + "newCumQty={}, newLeavesQty={}",
+                        + "newCumQty={}, newLeavesQty={}, avgPx={}",
                 order.getOrderId(),
                 previousCumQty,
                 lastQty,
                 newCumQty,
-                newLeavesQty);
+                newLeavesQty,
+                newAvgPx);
 
         return TaskResult.success(getName(), "Order quantities calculated successfully");
     }

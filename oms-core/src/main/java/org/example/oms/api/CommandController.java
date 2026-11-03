@@ -122,7 +122,7 @@ public class CommandController implements ExecuteApi {
                 return ResponseEntity.status(HttpStatus.CREATED)
                         .body(
                                 CommandResult.builder()
-                                        .id(result.getExecution().getExecID())
+                                        .id(result.getExecution().getExecId())
                                         .status(CommandStatus.OK)
                                         .message("Execution processed successfully")
                                         .build());

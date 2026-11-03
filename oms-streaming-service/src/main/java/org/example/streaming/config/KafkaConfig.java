@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
+import io.micrometer.observation.ObservationRegistry;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
 
@@ -64,14 +65,8 @@ public class KafkaConfig {
      * <p>Consumes OrderMessage Avro records from the orders topic.
      */
     @Bean
-    public KafkaReceiver<String, OrderMessage> orderMessageReceiver() {
-        Map<String, Object> props = consumerProperties();
-        
-        ReceiverOptions<String, OrderMessage> receiverOptions = ReceiverOptions
-                .<String, OrderMessage>create(props)
-                .subscription(java.util.Collections.singleton(ordersTopic));
-        
-        return KafkaReceiver.create(receiverOptions);
+    public KafkaReceiver<String, OrderMessage> orderMessageReceiver(ObservationRegistry observationRegistry) {
+        return KafkaReceiver.create(this.<OrderMessage>receiverOptions(ordersTopic, observationRegistry));
     }
 
     /**
@@ -81,13 +76,17 @@ public class KafkaConfig {
      * needs no join with the orders stream (SPEC-0019).
      */
     @Bean
-    public KafkaReceiver<String, OrderExecution> orderExecutionReceiver() {
-        Map<String, Object> props = consumerProperties();
+    public KafkaReceiver<String, OrderExecution> orderExecutionReceiver(ObservationRegistry observationRegistry) {
+        return KafkaReceiver.create(this.<OrderExecution>receiverOptions(orderExecutionsTopic, observationRegistry));
+    }
 
-        ReceiverOptions<String, OrderExecution> receiverOptions = ReceiverOptions
-                .<String, OrderExecution>create(props)
-                .subscription(java.util.Collections.singleton(orderExecutionsTopic));
-
-        return KafkaReceiver.create(receiverOptions);
+    /**
+     * Options for one topic. Each received record is observed: its consumer span continues the trace
+     * of the oms-core producer, from the record's {@code traceparent} header (SPEC-0033).
+     */
+    <V> ReceiverOptions<String, V> receiverOptions(String topic, ObservationRegistry observationRegistry) {
+        return ReceiverOptions.<String, V>create(consumerProperties())
+                .subscription(java.util.Collections.singleton(topic))
+                .withObservation(observationRegistry);
     }
 }

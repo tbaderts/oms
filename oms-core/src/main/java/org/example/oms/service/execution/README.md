@@ -36,7 +36,7 @@ graph LR
 
 **Validations**:
 - Execution and order must be present in context
-- Required fields: orderId, execID, lastQty, lastPx
+- Required fields: orderId, execId, lastQty, lastPx
 - lastQty and lastPx must be positive
 - Order must be in LIVE state
 
@@ -154,32 +154,29 @@ public void handleExecutionReport(Execution execution) {
 ### Unit Testing Individual Tasks
 
 ```java
+// See CalculateOrderQuantitiesTaskTest. The task reads the notional of the fills already applied
+// from ExecutionRepository to compute avgPx (SPEC-0041).
 @Test
-public void testCalculateOrderQuantitiesTask() {
-    // Given
+void secondFillAveragesThePrice() throws Exception {
+    ExecutionRepository executions = mock(ExecutionRepository.class);
+    when(executions.sumNotionalByOrderId("ORD-1")).thenReturn(new BigDecimal("400")); // 40 @ 10
+
     Order order = Order.builder()
-        .orderQty(new BigDecimal("1000"))
-        .cumQty(new BigDecimal("300"))
-        .avgPx(new BigDecimal("100.00"))
+        .orderId("ORD-1")
+        .orderQty(new BigDecimal("100"))
+        .cumQty(new BigDecimal("40"))
         .build();
-    
-    Execution execution = Execution.builder()
-        .lastQty(new BigDecimal("200"))
-        .lastPx(new BigDecimal("100.50"))
-        .build();
-    
     OrderTaskContext context = new OrderTaskContext(order);
-    context.setExecution(execution);
-    
-    CalculateOrderQuantitiesTask task = new CalculateOrderQuantitiesTask();
-    
-    // When
-    TaskResult result = task.execute(context);
-    
-    // Then
+    context.setExecution(Execution.builder()
+        .lastQty(new BigDecimal("60"))
+        .lastPx(new BigDecimal("11"))
+        .build());
+
+    TaskResult result = new CalculateOrderQuantitiesTask(executions).execute(context);
+
     assertTrue(result.isSuccess());
-    assertEquals(new BigDecimal("500"), context.get("calculatedCumQty").get());
-    assertEquals(new BigDecimal("500"), context.get("calculatedLeavesQty").get());
+    assertEquals(new BigDecimal("100.00000000"), context.getCalculatedCumQty());
+    assertEquals(new BigDecimal("10.60000000"), context.getCalculatedAvgPx());
 }
 ```
 

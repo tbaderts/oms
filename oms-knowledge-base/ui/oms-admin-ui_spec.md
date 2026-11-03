@@ -185,6 +185,24 @@ Domain-specific blotter components that configure the base `Blotter` component:
 - `QuoteRequestBlotter.tsx`: Quote requests view (feature-flagged)
 - `ExecutionBlotter.tsx`: Executions view
 
+**Row identity (SPEC-0041).** Rows are keyed by their business key, never by the database `id`.
+The same `rowIdOf` (`services/rowId.ts`) is used for the AG Grid row id in REST and streaming mode,
+and for the streaming blotter's row map:
+
+- Orders: `orderId`.
+- Executions: `orderId` + `execId`. A venue's `execId` is unique per order only, so two orders' fills
+  with the same `execId` are two rows, and every fill of one order is its own row.
+
+**Executions columns.** The Execution metamodel (`/api/v1/metamodel/Execution`) has
+`primaryKey: execId`, which is pinned. Its default columns are
+`execId, orderId, execType, lastQty, lastPx, cumQty, leavesQty, avgPx, transactTime`. Each of these
+is present on the REST feed (`/api/executions`) and on the streaming `ExecutionDto`, so no default
+column is empty because of a naming mismatch.
+- The surrogate `id` can still be selected, in REST mode only, as on orders.
+- `execID` and `executionId` no longer exist.
+- `avgPx` is the order's volume-weighted average price as of the fill (see
+  [Execution](../domain/execution.md)).
+
 ### 7. Detail Panel (`DetailPanel.tsx`)
 
 Expandable row detail for viewing complex nested objects:

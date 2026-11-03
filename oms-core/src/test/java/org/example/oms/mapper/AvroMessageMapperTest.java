@@ -62,7 +62,7 @@ class AvroMessageMapperTest {
         Instant transactTime = Instant.parse("2026-08-17T09:30:00Z");
         Execution execution =
                 Execution.builder()
-                        .execID("EX-1")
+                        .execId("EX-1")
                         .orderId("ORD-1")
                         .lastQty(new BigDecimal("4.0000"))
                         .lastPx(new BigDecimal("101.2500"))
@@ -99,7 +99,7 @@ class AvroMessageMapperTest {
      */
     @Test
     void executionMessage_withoutOrder_usesTheOrderIdAsRoot() throws Exception {
-        Execution execution = Execution.builder().execID("EX-2").orderId("ORD-2").build();
+        Execution execution = Execution.builder().execId("EX-2").orderId("ORD-2").build();
 
         var decoded = roundTrip(executionMessageMapper.toExecutionMessage(execution, null, 3L));
 

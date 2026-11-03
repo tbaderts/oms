@@ -119,6 +119,9 @@ java -jar build/libs/oms-ui-0.0.1-SNAPSHOT.jar
 docker compose up -d --build oms-ui   # http://localhost:8080
 ```
 
+The image builds the jar itself (multi-stage `Dockerfile`: Gradle `bootJar` in a JDK stage, then a
+JRE runtime stage), so no host-side Gradle run is needed first.
+
 ## Integration Points
 
 - **oms-core** (REST, `:8090`): `/api/query/search` (orders), `/api/executions`, `/api/v1/metamodel/{entity}` (column/filter metadata)

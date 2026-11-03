@@ -284,7 +284,7 @@ class EventSourcingIntegrationTest {
                         .findFirst()
                         .orElseThrow();
         Execution staged = executionMessage.getExecutionPayload();
-        assertEquals("EX-Q1", staged.getExecID());
+        assertEquals("EX-Q1", staged.getExecId());
         assertEquals(0, new BigDecimal("4.0000").compareTo(staged.getLastQty()));
         assertEquals(0, new BigDecimal("4.0000").compareTo(staged.getCumQty()));
         assertEquals(0, new BigDecimal("6.0000").compareTo(staged.getLeavesQty()));
@@ -338,7 +338,7 @@ class EventSourcingIntegrationTest {
     private Execution execution(String execId, String lastQty) {
         return Execution.builder()
                 .orderId(ORDER_ID)
-                .execID(execId)
+                .execId(execId)
                 .lastQty(new BigDecimal(lastQty))
                 .lastPx(new BigDecimal("100.00"))
                 .build();

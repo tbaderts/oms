@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>Execution must be present in context
  *   <li>Order must be present in context
- *   <li>Required fields: orderId, execID, lastQty, lastPx
+ *   <li>Required fields: orderId, execId, lastQty, lastPx
  *   <li>LastQty must be positive
  *   <li>LastPx must be positive
  *   <li>Order must be in LIVE state
@@ -53,7 +53,7 @@ public class ValidateExecutionTask implements Task<OrderTaskContext> {
             return TaskResult.failed(getName(), "OrderId is required");
         }
 
-        if (execution.getExecID() == null || execution.getExecID().isEmpty()) {
+        if (execution.getExecId() == null || execution.getExecId().isEmpty()) {
             return TaskResult.failed(getName(), "ExecID is required");
         }
 
@@ -89,7 +89,7 @@ public class ValidateExecutionTask implements Task<OrderTaskContext> {
         log.debug(
                 "Execution validation passed for orderId={}, execId={}, lastQty={}, lastPx={}",
                 execution.getOrderId(),
-                execution.getExecID(),
+                execution.getExecId(),
                 execution.getLastQty(),
                 execution.getLastPx());
 

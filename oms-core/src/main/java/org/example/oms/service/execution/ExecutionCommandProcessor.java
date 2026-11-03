@@ -76,7 +76,7 @@ public class ExecutionCommandProcessor {
         log.info(
                 "Processing execution report: orderId={}, execId={}, lastQty={}, lastPx={}",
                 execution.getOrderId(),
-                execution.getExecID(),
+                execution.getExecId(),
                 execution.getLastQty(),
                 execution.getLastPx());
 
@@ -97,7 +97,7 @@ public class ExecutionCommandProcessor {
             log.warn(
                     "ExecutionProcessingPipeline failed for orderId={}, execId={}, rolling back",
                     execution.getOrderId(),
-                    execution.getExecID());
+                    execution.getExecId());
             // Another command changed the order first: a retry, not a refusal (SPEC-0027).
             PipelineResults.rethrowConcurrencyFailure(result);
         }
@@ -119,7 +119,7 @@ public class ExecutionCommandProcessor {
         context.setExecution(execution);
         context.putMetadata("processorType", "ExecutionCommandProcessor");
         context.putMetadata("orderId", order.getOrderId());
-        context.putMetadata("execId", execution.getExecID());
+        context.putMetadata("execId", execution.getExecId());
         return context;
     }
 

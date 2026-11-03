@@ -1,0 +1,16 @@
+# OMS dashboards (SPEC-0038), versioned in oms-core/grafana/dashboards and mounted by
+# docker-compose.yml at /etc/grafana/dashboards. Read-only in the UI: change the JSON in the
+# repository. A dashboard drafted in Grafana (or through the Grafana MCP server) is kept by
+# exporting its JSON into that directory.
+apiVersion: 1
+
+providers:
+  - name: oms
+    folder: OMS
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

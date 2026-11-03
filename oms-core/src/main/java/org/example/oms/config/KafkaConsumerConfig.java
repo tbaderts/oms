@@ -49,6 +49,9 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(commandErrorHandler);
+        // A consumer span per command, continuing the producer's trace from the record headers
+        // (SPEC-0033).
+        factory.getContainerProperties().setObservationEnabled(true);
         return factory;
     }
 
@@ -64,7 +67,9 @@ public class KafkaConsumerConfig {
         // Not a bean: a second ProducerFactory bean would switch off Boot's own, which the outbox uses.
         // Closed here on shutdown instead.
         deadLetterProducerFactory = new DefaultKafkaProducerFactory<>(config);
-        return new KafkaTemplate<>(deadLetterProducerFactory);
+        KafkaTemplate<String, byte[]> template = new KafkaTemplate<>(deadLetterProducerFactory);
+        template.setObservationEnabled(true);
+        return template;
     }
 
     private DefaultKafkaProducerFactory<String, byte[]> deadLetterProducerFactory;

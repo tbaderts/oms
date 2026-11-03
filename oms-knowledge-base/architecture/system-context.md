@@ -43,10 +43,17 @@ flowchart LR
 Infrastructure in the root `docker-compose.yml`: PostgreSQL, Kafka with Schema Registry and
 Control Center, the Grafana LGTM observability stack — Grafana (3000, provisioned with
 Mimir/Loki/Tempo datasources), Mimir (9009, metrics), Loki (3100, logs), Tempo 3 (3200, traces)
-and Grafana Alloy as the single telemetry agent: OTLP on 4317/4318 for both host-native and
-container apps (compose `oms-core` uses `TRACING_URL=http://alloy:4317`), the
-`oms-core:8090/actuator/prometheus` scrape into Mimir, and all compose services' container logs
-into Loki (SPEC-0032) — plus Qdrant (vector store for the MCP index).
+and Grafana Alloy as the single telemetry agent (SPEC-0032) — plus Qdrant (vector store for the
+MCP index).
+
+The four Spring services push traces, metrics and logs over OTLP/HTTP to Alloy, labelled by
+`service_name` (SPEC-0033):
+- the switch is `OTLP_EXPORT_ENABLED`;
+- `OTLP_ENDPOINT` is `http://alloy:4318` in compose and `http://localhost:4318` for host-native
+  runs.
+
+Alloy ships only the infrastructure containers' stdout to Loki. See
+[NFR-007](../non-functional-requirements/NFR-007-observability.md).
 
 Decisions: [Event Sourcing](event-sourcing.md), [Transactional Outbox](transactional-outbox.md),
 [Shared-table CQRS](shared-table-cqrs.md), [Contracts Module](contracts-module.md),

@@ -120,7 +120,6 @@ export interface StreamingOrderDto {
  * Execution DTO from streaming service
  */
 export interface StreamingExecutionDto extends Execution {
-  executionId?: string;
   lastMkt?: string;
   lastCapacity?: string;
   creationDate?: string;

@@ -1,6 +1,7 @@
 package org.example.oms.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ import java.util.function.BooleanSupplier;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.header.Header;
 import org.example.common.model.CancelState;
 import org.example.common.model.Execution;
 import org.example.common.model.Order;
@@ -122,7 +125,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         awaitUntil(() -> state(orderId) == State.FILLED, "order FILLED");
         List<Execution> executions = executions(orderId);
         assertEquals(3, executions.size());
-        assertEquals(3, executions.stream().map(Execution::getExecID).distinct().count());
+        assertEquals(3, executions.stream().map(Execution::getExecId).distinct().count());
         assertQty(
                 "100",
                 executions.stream().map(Execution::getLastQty).reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -455,6 +458,22 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         }
     }
 
+    // SPEC-0033 AC-3: what the outbox publishes carries the W3C trace context, so the venue's
+    // consumer continues oms-core's trace.
+    @Test
+    void publishedOrdersCarryTraceparent() throws Exception {
+        try (Consumer<Object, Object> orders = consumerFactory.createConsumer("it-" + UUID.randomUUID(), null, null, TestCommands.avroValues())) {
+            orders.subscribe(List.of("orders"));
+            String orderId = createOrder(OrdType.MARKET, null, "100", null);
+
+            ConsumerRecord<Object, Object> published = awaitOrderRecord(orders, orderId);
+            Header traceparent = published.headers().lastHeader("traceparent");
+            assertNotNull(traceparent, "the OrderMessage record has no traceparent header");
+            String value = new String(traceparent.value(), StandardCharsets.UTF_8);
+            assertTrue(value.matches("00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}"), value);
+        }
+    }
+
     // ----------------------------------------------------------------------------------------
 
     /** P-05: replaying the event log must reproduce the stored order. */
@@ -559,6 +578,18 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
             Thread.sleep(100);
         }
         throw new AssertionError("Timed out after " + TIMEOUT + " waiting for: " + description);
+    }
+
+    private static ConsumerRecord<Object, Object> awaitOrderRecord(Consumer<Object, Object> consumer, String orderId) {
+        long deadline = System.nanoTime() + TIMEOUT.toNanos();
+        while (System.nanoTime() < deadline) {
+            for (ConsumerRecord<Object, Object> record : consumer.poll(Duration.ofMillis(200))) {
+                if (record.value() instanceof OrderMessage message && orderId.equals(message.getOrderId())) {
+                    return record;
+                }
+            }
+        }
+        throw new AssertionError("No OrderMessage record for " + orderId + " within " + TIMEOUT);
     }
 
     private static OrderMessage awaitOrderMessage(

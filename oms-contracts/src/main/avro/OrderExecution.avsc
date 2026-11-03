@@ -143,7 +143,7 @@
     },
     {
       "name": "avgPx",
-      "doc": "Average price across the order's fills. Not currently computed by oms-core; null until it is.",
+      "doc": "Volume-weighted average price of the order's applied fills up to and including this one: sum(lastQty*lastPx)/cumQty, scale 8, HALF_EVEN. Null for fills recorded before SPEC-0041.",
       "type": ["null", {"type": "bytes", "logicalType": "decimal", "precision": 18, "scale": 8}],
       "default": null
     },

@@ -56,7 +56,7 @@ public class PublishExecutionEventTask implements ConditionalTask<OrderTaskConte
                     event,
                     version,
                     order.getOrderId(),
-                    execution.getExecID(),
+                    execution.getExecId(),
                     execution.getLastQty(),
                     execution.getLastPx(),
                     order.getCumQty(),
@@ -67,13 +67,13 @@ public class PublishExecutionEventTask implements ConditionalTask<OrderTaskConte
                     getName(),
                     String.format(
                             "%s v%d recorded for orderId=%s, execId=%s",
-                            event, version, order.getOrderId(), execution.getExecID()));
+                            event, version, order.getOrderId(), execution.getExecId()));
 
         } catch (Exception e) {
             log.error(
                     "Failed to record execution event for orderId={}, execId={}",
                     order.getOrderId(),
-                    execution.getExecID(),
+                    execution.getExecId(),
                     e);
             throw new TaskExecutionException(getName(), "Failed to record execution event", e);
         }

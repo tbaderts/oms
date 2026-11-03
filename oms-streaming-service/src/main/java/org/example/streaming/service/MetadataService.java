@@ -60,7 +60,6 @@ public class MetadataService {
                 .fields(List.of(
                         field("execId", "String", "Execution ID", true, true),
                         field("orderId", "String", "Associated order ID", true, true),
-                        field("executionId", "String", "External execution ID", true, true),
                         field("execType", "Enum", "Execution type: NEW, FILL, PARTIAL", true, true),
                         field("lastQty", "Decimal", "Last fill quantity", true, true),
                         field("lastPx", "Decimal", "Last fill price", true, true),

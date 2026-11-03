@@ -31,7 +31,7 @@ public class OrderExecutionMessageMapper {
         Instant tradeTime = execution.getTransactTime() != null ? execution.getTransactTime() : stagedAt;
 
         return OrderExecution.newBuilder()
-                .setExecId(execution.getExecID())
+                .setExecId(execution.getExecId())
                 .setLastQty(execution.getLastQty())
                 .setLastPx(execution.getLastPx())
                 .setExecType(execution.getExecType())

@@ -13,6 +13,7 @@ import org.example.oms.model.OutboxMessage;
 import org.example.oms.projection.StagedMessage;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OutboxRepository;
+import org.example.oms.service.metrics.OrderFlowMetrics;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -40,18 +41,21 @@ public class OrderEventAppender {
     private final String orderTopic;
     private final String executionTopic;
     private final AvroPayloadCodec payloadCodec;
+    private final OrderFlowMetrics orderFlowMetrics;
 
     public OrderEventAppender(
             OrderEventRepository orderEventRepository,
             OutboxRepository outboxRepository,
             @Value("${kafka.order-topic:oms_orders}") String orderTopic,
             @Value("${kafka.execution-topic:oms_executions}") String executionTopic,
-            AvroPayloadCodec payloadCodec) {
+            AvroPayloadCodec payloadCodec,
+            OrderFlowMetrics orderFlowMetrics) {
         this.orderEventRepository = orderEventRepository;
         this.outboxRepository = outboxRepository;
         this.orderTopic = orderTopic;
         this.executionTopic = executionTopic;
         this.payloadCodec = payloadCodec;
+        this.orderFlowMetrics = orderFlowMetrics;
     }
 
     /**
@@ -119,6 +123,9 @@ public class OrderEventAppender {
                         .attempts(0)
                         .build());
 
+        // Counted once the transaction commits (SPEC-0038).
+        orderFlowMetrics.recordEvent(event);
+
         log.debug(
                 "Appended {} v{} for order {} and staged it for {}",
                 event,
@@ -136,12 +143,13 @@ public class OrderEventAppender {
      * order state read the orders topic. The fill with its order (the order-executions topic) is
      * staged afterwards by the order-execution projection, through {@link #stageMessage}.
      *
-     * <p>The execution is staged under the order's partition key, not its execID, because the
+     * <p>The execution is staged under the order's partition key, not its execId, because the
      * aggregate id is the Kafka key: all fills of one order tree then land on one partition and are
      * consumed in order.
      */
     public long appendExecutionEvent(Order order, Execution execution, Event event, Command command) {
         long version = appendOrderEvent(order, event, command);
+        orderFlowMetrics.recordFill(order.getSide(), execution.getLastQty());
 
         outboxRepository.save(
                 OutboxMessage.builder()
@@ -157,7 +165,7 @@ public class OrderEventAppender {
 
         log.debug(
                 "Staged execution {} for order {} to {}",
-                execution.getExecID(),
+                execution.getExecId(),
                 order.getOrderId(),
                 executionTopic);
 

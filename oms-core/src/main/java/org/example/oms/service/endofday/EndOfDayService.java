@@ -15,6 +15,7 @@ import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,6 +45,13 @@ public class EndOfDayService {
     private final OrderExpiryService orderExpiryService;
     private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     private final MeterRegistry meterRegistry;
+
+    /** Registers this step's counters at 0, so their series exist before the first run (SPEC-0038). */
+    @PostConstruct
+    void registerMeters() {
+        meterRegistry.counter("oms.end-of-day.orders", "step", STEP);
+        meterRegistry.counter("oms.end-of-day.failures", "step", STEP);
+    }
 
     /** What one end of day did: orders expired, closed, and those that failed (either step). */
     public record EndOfDayResult(int expired, int closed, int failed) {}

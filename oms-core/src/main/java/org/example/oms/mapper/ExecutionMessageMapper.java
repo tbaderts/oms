@@ -31,7 +31,7 @@ public class ExecutionMessageMapper {
         }
 
         return org.example.common.model.msg.Execution.newBuilder()
-                .setExecId(execution.getExecID())
+                .setExecId(execution.getExecId())
                 .setOrderId(execution.getOrderId())
                 .setRootOrderId(order != null ? OrderMessageMapper.rootOrderIdOf(order) : execution.getOrderId())
                 .setOrderVersion(orderVersion)

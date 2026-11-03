@@ -1,7 +1,7 @@
 # Mimir — metrics store of the OMS LGTM stack (SPEC-0032), monolithic single node.
 # Bind-mounted by docker-compose.yml at /etc/mimir/mimir-config.yaml.
 # Classic ingester path with local filesystem storage: no Kafka ingest storage,
-# no object store. Alloy writes here via OTLP (/otlp) and remote_write (/api/v1/push);
+# no object store. Alloy writes here via OTLP (/otlp);
 # Grafana reads the Prometheus API under /prometheus.
 target: all
 # Single tenant "anonymous"; no X-Scope-OrgID header needed
@@ -29,6 +29,12 @@ ingester:
 store_gateway:
   sharding_ring:
     replication_factor: 1
+
+# The services push metrics over OTLP (SPEC-0033). Mimir turns service.namespace/service.name
+# into job="oms/oms-core"; promoting the resource attributes also gives every series
+# service_name, service_namespace and deployment_environment labels, as in Loki and Tempo.
+limits:
+  promote_otel_resource_attributes: "service.name,service.namespace,deployment.environment"
 
 usage_stats:
   enabled: false

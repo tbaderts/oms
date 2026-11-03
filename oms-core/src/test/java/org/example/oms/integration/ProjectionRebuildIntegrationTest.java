@@ -77,7 +77,7 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
         String execId = orderId + "-LOST";
         assertEquals(201, postFill(execId, orderId, "10", "2026-10-31T12:00:00Z"));
         org.example.common.model.Execution lost = executionRepository.findAll().stream()
-                .filter(e -> execId.equals(e.getExecID()))
+                .filter(e -> execId.equals(e.getExecId()))
                 .findFirst()
                 .orElseThrow();
         long rowsBefore = viewRepository.count();

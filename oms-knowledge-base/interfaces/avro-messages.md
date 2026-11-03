@@ -105,7 +105,8 @@ outbox stops publishing and the simulator cannot send.
   `price`, `orderQty`, `settlCurrency`, `exDestination`); the resulting position (`cumQty`,
   `leavesQty`, `avgPx`, `state`); `orderVersion`, equal to the `eventId` of the `OrderMessage` of
   the same change; and `tradeDate`, the UTC date of `transactTime` (of the fill's processing time
-  when it has none). Every field is optional with a `null` default. Consumers deduplicate on
+  when it has none). `avgPx` is the order's volume-weighted average price after the fill (SPEC-0041;
+  also on `Execution`), null for fills stored before then. Every field is optional with a `null` default. Consumers deduplicate on
   `(orderId, execId, orderVersion)`.
 - `Quote`, `QuoteRequest`: schema-only ([Quote and Quote Request](../domain/quote-and-quote-request.md)).
 

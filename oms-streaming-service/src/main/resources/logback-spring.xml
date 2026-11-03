@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Spring Boot's console logging, plus OpenTelemetry's appender (SPEC-0033). The appender exports
+  every record over OTLP, with the MDC as attributes and the trace
+  and span ids of the current span; OpenTelemetryLogging connects it to the SDK at startup. With
+  export off it drops the records.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureMdcAttributes>*</captureMdcAttributes>
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="OTEL"/>
+    </root>
+</configuration>

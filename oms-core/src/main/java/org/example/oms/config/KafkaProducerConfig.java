@@ -21,6 +21,9 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, Object> kafkaTemplate(
             ProducerFactory<String, Object> producerFactory) {
-        return new KafkaTemplate<>(producerFactory);
+        KafkaTemplate<String, Object> template = new KafkaTemplate<>(producerFactory);
+        // A producer span per record, with its W3C trace context in the record headers (SPEC-0033).
+        template.setObservationEnabled(true);
+        return template;
     }
 }

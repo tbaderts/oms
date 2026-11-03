@@ -82,7 +82,7 @@ class ProjectTaskTest {
 
     private static OrderTaskContext context() {
         OrderTaskContext context = new OrderTaskContext(Order.builder().orderId("ORD-1").build());
-        context.setExecution(Execution.builder().orderId("ORD-1").execID("EX-1").build());
+        context.setExecution(Execution.builder().orderId("ORD-1").execId("EX-1").build());
         context.put("eventVersion", 7L);
         return context;
     }

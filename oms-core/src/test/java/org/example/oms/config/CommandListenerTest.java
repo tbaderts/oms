@@ -153,7 +153,7 @@ class CommandListenerTest {
         when(executionCommandProcessor.process(eq(execution), any())).thenReturn(result);
         when(result.isSuccess()).thenReturn(true);
         when(result.getExecution()).thenReturn(resultExecution);
-        when(resultExecution.getExecID()).thenReturn("EX-1");
+        when(resultExecution.getExecId()).thenReturn("EX-1");
         when(result.getOrder()).thenReturn(resultOrder);
         when(resultOrder.getOrderId()).thenReturn("ORD-1");
 
