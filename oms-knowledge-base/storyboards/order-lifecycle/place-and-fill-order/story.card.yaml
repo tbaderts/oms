@@ -14,14 +14,15 @@ kb_links:
   - /domain/order-state.md
 
 # Pinned with SPEC-0014. Re-pin (update every commit) after committed changes to the cited code.
+# Re-pinned to 09bd78e (current HEAD) — the cited files changed in 09bd78e/fa21abb/f1da7d6/ad7c3d0.
 evidence:
   repos:
     - module: oms-core
-      commit: "8dc1ced"
+      commit: "09bd78e"
     - module: oms-exchange-simulator
-      commit: "8dc1ced"
+      commit: "09bd78e"
     - module: oms-streaming-service
-      commit: "8dc1ced"
+      commit: "09bd78e"
   sources:
     - module: oms-core
       path: src/main/java/org/example/oms/service/command/OrderCreateCommandProcessor.java

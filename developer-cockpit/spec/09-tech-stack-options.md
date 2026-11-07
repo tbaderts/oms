@@ -20,7 +20,7 @@ Node.js Server (Express/Fastify)
     +-- Services (TypeScript classes)
     +-- File watchers (chokidar)
     +-- PTY sessions (node-pty)
-    +-- AI SDK (@anthropic-ai/sdk or openai)
+    +-- AI SDK (Vercel AI SDK + MCP — SPEC-0042)
 ```
 
 ### Technology Choices
@@ -45,7 +45,7 @@ Node.js Server (Express/Fastify)
 | **Kubernetes** | @kubernetes/client-node | Official K8s client |
 | **Kafka** | kafkajs | Pure JS Kafka client |
 | **PostgreSQL** | pg | Standard PostgreSQL driver |
-| **AI** | @anthropic-ai/sdk, openai | Official SDKs with streaming support |
+| **AI** | Vercel AI SDK (`ai`) + `@ai-sdk/*` providers + `@modelcontextprotocol/sdk` | Provider-agnostic (Anthropic, OpenAI, local/OpenAI-compatible), built-in multi-step tool-calling loop, MCP tool discovery; supersedes the earlier `@anthropic-ai/sdk`/`openai` naming (SPEC-0042) |
 | **WebSocket** | ws | Lightweight WebSocket server |
 | **Build tool** | Vite | Fast dev server and optimized production builds |
 

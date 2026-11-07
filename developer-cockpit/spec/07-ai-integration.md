@@ -2,6 +2,13 @@
 
 AI capabilities are woven into the Developer Cockpit as first-class features, not add-ons. This document specifies all AI-powered features, the provider abstraction, and the agentic investigation system.
 
+> **Delivered by SPEC-0042 vs. deferred:** The agentic *foundation* is delivered — a provider-agnostic
+> adapter stack (Vercel AI SDK + MCP), the AI Assistant view with a bounded multi-step tool-calling
+> loop, `ai:*` event streaming over the cockpit WebSocket, structured/typed outputs, and cost tracking.
+> **Deferred** to follow-up tickets: the full Investigator (playbooks, environment detection, the
+> infrastructure tool set, the correlation-timeline UI), the per-view single-turn buttons
+> (explain / analyze / narrate / brief), and CLI AI sessions (node-pty).
+
 ---
 
 ## 1. AI Provider Abstraction

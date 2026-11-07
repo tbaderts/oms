@@ -20,7 +20,7 @@ import type {
   StoryboardsConfig,
   TrustTier,
 } from '../../shared/types/storyboards';
-import { expandRoots, toPosix, type ResolvedRoot } from './roots';
+import { expandRoots, safeRealpath, toPosix, type ResolvedRoot } from './roots';
 import { PatchError, assertParses, patchFrontMatter, serialize, validateStepPatch, validateStoryPatch } from './frontMatter';
 import {
   READ_FAILURE_TEXT,
@@ -156,7 +156,9 @@ export class StoryboardService {
   private changeTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly opts: StoryboardServiceOptions) {
-    this.workspace = fs.realpathSync(opts.workspaceRoot);
+    // Fall back to the raw path when it cannot be resolved so a bad workspace root degrades to an
+    // empty catalogue (expandRoots guards it) instead of throwing during construction.
+    this.workspace = safeRealpath(opts.workspaceRoot);
   }
 
   get config(): StoryboardsConfig {

@@ -19,7 +19,11 @@
     "check:storyboards": "tsc -p tsconfig.node.json && node dist/main/storyboards/cli/checkStoryboards.js"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.97",
+    "@ai-sdk/openai": "^4.0.109",
+    "@ai-sdk/openai-compatible": "^3.0.85",
     "@excalidraw/excalidraw": "0.18.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-collapsible": "^1.1.3",
     "@radix-ui/react-dialog": "^1.1.6",
@@ -31,6 +35,7 @@
     "@radix-ui/react-tabs": "^1.1.3",
     "@radix-ui/react-tooltip": "^1.1.8",
     "@xmldom/xmldom": "0.9.12",
+    "ai": "^7.0.163",
     "chokidar": "^4.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -54,6 +59,7 @@
     "unified": "11.0.5",
     "ws": "^8.18.0",
     "yaml": "2.9.1",
+    "zod": "^4.6.7",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

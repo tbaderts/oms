@@ -25,6 +25,18 @@ export function rootIdOf(realDir: string): string {
   return crypto.createHash('sha256').update(realDir.toLowerCase()).digest('hex').slice(0, 12);
 }
 
+/**
+ * Resolves symlinks; a path that cannot be resolved (e.g. it does not exist, or is a foreign
+ * platform path such as `C:\…` on POSIX) is returned unchanged instead of throwing.
+ */
+export function safeRealpath(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
 const isPlainDir = (p: string) => {
   try {
     const st = fs.lstatSync(p);
@@ -40,7 +52,15 @@ const isPlainDir = (p: string) => {
  * root that resolves outside the workspace is dropped.
  */
 export function expandRoots(workspaceRoot: string, patterns: string[]): RootExpansion {
-  const workspace = fs.realpathSync(workspaceRoot);
+  // A missing or unresolvable workspace root (fresh install, moved repo, foreign-platform path)
+  // must degrade to "no roots" rather than throw: the caller runs during app startup, and a throw
+  // here used to take the whole main process down before the window opened.
+  if (!workspaceRoot) return { roots: [], missing: patterns };
+  const workspace = safeRealpath(workspaceRoot);
+  if (!fs.existsSync(workspace)) {
+    console.warn(`[storyboards] workspace root not found, no roots resolved: ${workspaceRoot}`);
+    return { roots: [], missing: patterns };
+  }
   const roots: ResolvedRoot[] = [];
   const missing: string[] = [];
   const seen = new Set<string>();

@@ -10,6 +10,11 @@ export class KbService {
 
   constructor(private kbPath: string) {}
 
+  /** The path this service scans, for callers that rebuild it on a config change. */
+  get searchPath(): string {
+    return this.kbPath;
+  }
+
   async scan(): Promise<void> {
     this.documents = [];
     await this.scanDirectory(this.kbPath, '');

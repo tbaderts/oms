@@ -167,11 +167,11 @@ Full infrastructure visibility without external tools.
 ### Tasks
 
 #### AI Provider
-- [ ] Define `AIAdapter` interface
-- [ ] Implement `AnthropicAdapter` (or `OpenAIAdapter`)
-- [ ] Implement `AIService` with streaming support
-- [ ] Wire AI streaming to WebSocket (`ai:stream` events)
-- [ ] Implement cost tracking (optional)
+- [x] Define `AIAdapter` interface
+- [x] Implement provider adapters (Anthropic, OpenAI, local via Vercel AI SDK — SPEC-0042)
+- [x] Implement `AIService` with streaming support (SPEC-0042)
+- [x] Wire AI streaming to WebSocket (`ai:*` events) (SPEC-0042)
+- [x] Implement cost tracking to `ai-usage.json` (SPEC-0042)
 
 #### Single-Turn Features
 - [ ] Message Bus Explainer -- "Explain" button on expanded messages

@@ -86,6 +86,11 @@ export class EventBus {
     this.listeners.get('*')?.forEach((h) => h(event));
   }
 
+  /** Test-only: delivers an event as if it had arrived over the WebSocket. */
+  emitForTest(event: CockpitEvent): void {
+    this.emit(event);
+  }
+
   disconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;

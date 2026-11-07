@@ -30,7 +30,7 @@ const VIEW_MAP: Record<ViewId, React.LazyExoticComponent<React.FC>> = {
   docker: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Docker" /> })),
   kubernetes: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Kubernetes" /> })),
   monitoring: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Monitoring" /> })),
-  'ai-chat': lazy(() => Promise.resolve({ default: () => <PlaceholderView name="AI Assistant" /> })),
+  'ai-chat': lazy(() => import('@/views/assistant/AssistantView').then((m) => ({ default: m.AssistantView }))),
 };
 
 export function ContentArea() {

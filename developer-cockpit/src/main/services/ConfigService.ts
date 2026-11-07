@@ -44,6 +44,37 @@ function withWorkspaceOverride(config: CockpitConfig): CockpitConfig {
   return root ? { ...config, general: { ...config.general, workspaceRoot: root } } : config;
 }
 
+/**
+ * The nearest ancestor of `startDir` that is a git repository (has a `.git` entry of any kind, so
+ * worktrees and submodules count), resolved to a real path, or `null` when none is found. Bounded
+ * so it cannot walk the whole filesystem.
+ */
+export function detectWorkspaceRoot(startDir: string): string | null {
+  let dir = startDir;
+  for (let depth = 0; depth < 64; depth++) {
+    try {
+      if (fs.lstatSync(path.join(dir, '.git'))) return fs.realpathSync(dir);
+    } catch {
+      // no .git at this level: keep walking up
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+
+/**
+ * An empty workspace root is filled from the repo the app runs inside, so a fresh checkout on any
+ * platform works without manual setup. A non-empty path (the user's explicit choice, even a stale
+ * one) is returned unchanged; the resilience guards downstream make a bad path non-fatal.
+ */
+function resolveWorkspaceRoot(config: CockpitConfig): CockpitConfig {
+  if (config.general.workspaceRoot) return config;
+  const detected = detectWorkspaceRoot(__dirname) ?? '';
+  return detected ? { ...config, general: { ...config.general, workspaceRoot: detected } } : config;
+}
+
 export class ConfigService {
   private config: CockpitConfig = { ...DEFAULT_CONFIG };
   private configFile: string;
@@ -84,7 +115,8 @@ export class ConfigService {
   }
 
   getConfig(): CockpitConfig {
-    return withWorkspaceOverride(this.config);
+    // Precedence: COCKPIT_WORKSPACE_ROOT (env) > an explicitly saved path > auto-detected repo.
+    return resolveWorkspaceRoot(withWorkspaceOverride(this.config));
   }
 
   getConfigDir(): string {

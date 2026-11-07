@@ -10,6 +10,7 @@ import {
   type StoryboardResult,
 } from '../../shared/types/storyboards';
 import type { AiAdapter } from './ai/AiAdapter';
+import { isConfigured } from './ai/AiAdapter';
 import type { StoryboardService } from './StoryboardService';
 
 /** Upper bound for the user prompt of any assist; extracts are cut first. */
@@ -19,7 +20,7 @@ const MAX_EXTRACT_CHARS = 2_000;
 const MAX_INDEX_CHARS = 6_000;
 
 export function aiAvailable(config: AiConfig, env: NodeJS.ProcessEnv = process.env): boolean {
-  return config.provider === 'anthropic' && !!env[config.apiKeyEnvVar];
+  return isConfigured(config, env);
 }
 
 export interface StoryboardAiOptions {

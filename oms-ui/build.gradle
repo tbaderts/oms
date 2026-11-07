@@ -47,7 +47,10 @@ node {
 }
 
 tasks.named('npmInstall') {
-    args = ['--legacy-peer-deps']
+    // Plain `npm install`: npm 7+ must resolve and install peer dependencies
+    // (e.g. ajv@8 for the hoisted ajv-keywords@5). --legacy-peer-deps skips
+    // that, leaving ajv-keywords to resolve to the hoisted ajv@6 and crashing
+    // the webpack build with "Cannot find module 'ajv/dist/compile/codegen'".
 }
 
 // Task to build React app (uses plugin's built-in npmInstall)

@@ -11,6 +11,7 @@ import type {
   TemplateSource,
 } from '../apiExplorer';
 import type { KbDocument, KbCategory, KbSearchResult } from './kb';
+import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
 import type { GitStatus, GitLogEntry, GitDiff, GitBranch, GitBranchResult } from './git';
@@ -147,6 +148,19 @@ export interface CockpitAPI {
     exportPdf(id: string, sequenceSvg: string | undefined): Promise<StoryboardResult<{ savedTo: string | null }>>;
     aiAvailable(): Promise<boolean>;
     aiAssist(kind: AiAssistKind, id: string, stepId: string): Promise<StoryboardResult<{ proposal: AiProposal }>>;
+  };
+
+  // AI Assistant (SPEC-0042). The renderer never sees an API key: it gets an availability boolean,
+  // starts/stops runs by id, and reads the streamed results over the WebSocket `ai:*` events.
+  ai: {
+    /** Whether the configured provider is usable, and why not (AC-3). */
+    available(): Promise<AiStatus>;
+    /** Starts a run; answers immediately, the results stream as `ai:*` events keyed by runId. */
+    run(runId: string, prompt: string, options?: AiRunOptions): Promise<AiRunStartResult>;
+    /** Aborts a run; a no-op (never a throw) when the runId is unknown. */
+    stop(runId: string): Promise<void>;
+    /** The accumulated usage totals for the Settings summary (AC-7). */
+    usage(): Promise<AiUsageSummary>;
   };
 
   // Events

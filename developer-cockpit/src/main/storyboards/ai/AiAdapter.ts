@@ -11,35 +11,52 @@ export interface AiAdapter {
   complete(request: AiRequest): Promise<string>;
 }
 
-const ENDPOINT = 'https://api.anthropic.com/v1/messages';
-const TIMEOUT_MS = 60_000;
+/**
+ * Resolves whether the configured provider can be used, based on the same rules as the
+ * assistant's `forConfig` adapter factory (AC-3): a key for anthropic/openai, a base URL for local.
+ */
+export function isConfigured(config: AiConfig, env: NodeJS.ProcessEnv = process.env): boolean {
+  switch (config.provider) {
+    case 'anthropic':
+    case 'openai':
+      return !!env[config.apiKeyEnvVar];
+    case 'local':
+      return !!config.baseUrl;
+    default:
+      return false;
+  }
+}
 
-/** The Anthropic Messages API through a single fetch from the main process; the key never reaches the renderer. */
-export class AnthropicAdapter implements AiAdapter {
+/**
+ * The single provider stack (D5): resolves the model through the shared adapter factory and
+ * completes via the AI SDK. One provider call for a one-shot; no `fs` import.
+ */
+export class SdkAdapter implements AiAdapter {
+  private model: import('ai').LanguageModel | null = null;
+  private resolved = false;
+
   constructor(
     private readonly config: AiConfig,
     private readonly env: NodeJS.ProcessEnv = process.env,
-    private readonly fetchImpl: typeof fetch = fetch,
   ) {}
 
   async complete({ system, user, maxTokens }: AiRequest): Promise<string> {
-    const key = this.env[this.config.apiKeyEnvVar];
-    if (!key) throw new Error(`${this.config.apiKeyEnvVar} is not set`);
-    const response = await this.fetchImpl(ENDPOINT, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: this.config.model,
-        max_tokens: Math.min(maxTokens, this.config.maxTokens),
-        temperature: this.config.temperature,
-        system,
-        messages: [{ role: 'user', content: user }],
-      }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`AI provider returned ${response.status}: ${text.slice(0, 300)}`);
-    const data = JSON.parse(text) as { content?: { type: string; text?: string }[] };
-    return (data.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+    if (!this.resolved) {
+      const { forConfig } = await import('../../ai/adapters');
+      this.model = forConfig(this.config, this.env);
+      this.resolved = true;
+    }
+    if (!this.model) {
+      throw new Error(`AI not configured: ${this.config.provider} provider is not set up.`);
+    }
+    const { generateText } = await import('ai');
+    const result = await generateText({
+      model: this.model,
+      system,
+      messages: [{ role: 'user', content: user }],
+      maxOutputTokens: maxTokens,
+      temperature: this.config.temperature,
+    } as Parameters<typeof generateText>[0]);
+    return result.text;
   }
 }

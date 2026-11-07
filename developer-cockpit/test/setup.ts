@@ -1,5 +1,9 @@
 import { vi } from 'vitest';
 
+// React 19 requires the act() environment flag so that store-driven re-renders are flushed
+// synchronously in tests (without it, getByText can miss a value that the store already holds).
+(globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
+
 // The real monaco-editor needs a browser (jsdom lacks e.g. document.queryCommandSupported). Tests
 // that render an editor replace `@monaco-editor/react` with a textarea; this stubs the bundled
 // Monaco that src/renderer/lib/monaco.ts hands to its loader.

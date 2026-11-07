@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useConfigStore } from '@/stores/config';
 import type { CockpitConfig } from '@shared/types/config';
+import type { AiUsageSummary as AiUsageSummaryType } from '@shared/types/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -191,13 +192,46 @@ export function SettingsView() {
                   onChange={(e) => updateAi({ model: e.target.value })}
                 />
               </div>
+              {draft.ai.provider === 'local' && (
+                <div className="space-y-2">
+                  <Label htmlFor="aiBaseUrl">Base URL (OpenAI-compatible endpoint)</Label>
+                  <Input
+                    id="aiBaseUrl"
+                    placeholder="http://localhost:8000/v1"
+                    value={draft.ai.baseUrl ?? ''}
+                    onChange={(e) => updateAi({ baseUrl: e.target.value.trim() })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    vLLM: <code>http://host:8000/v1</code> · Ollama: <code>http://localhost:11434/v1</code>.
+                  </p>
+                </div>
+              )}
+              {draft.ai.provider === 'local' && (
+                <div className="space-y-2">
+                  <Label htmlFor="aiApiKey">API Key (optional — e.g. for vLLM with auth enabled)</Label>
+                  <Input
+                    id="aiApiKey"
+                    type="password"
+                    placeholder="sk-…"
+                    value={draft.ai.apiKey ?? ''}
+                    onChange={(e) => updateAi({ apiKey: e.target.value.trim() || undefined })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    If your local server requires a key, paste it here. It takes precedence over the
+                    environment variable below and is never sent to the renderer.
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
-                <Label htmlFor="apiKeyEnv">API Key Environment Variable</Label>
+                <Label htmlFor="apiKeyEnv">API Key Environment Variable (fallback)</Label>
                 <Input
                   id="apiKeyEnv"
                   value={draft.ai.apiKeyEnvVar}
                   onChange={(e) => updateAi({ apiKeyEnvVar: e.target.value })}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Used when no explicit key is set above. The main process reads <code>{draft.ai.apiKeyEnvVar}</code> from the environment.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maxTokens">Max Tokens</Label>
@@ -221,6 +255,7 @@ export function SettingsView() {
                   onChange={(e) => updateAi({ temperature: parseFloat(e.target.value) || 0.7 })}
                 />
               </div>
+              <AiUsageSummary />
             </CardContent>
           </Card>
         </TabsContent>
@@ -413,6 +448,30 @@ export function SettingsView() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/** Shows the accumulated AI usage totals (AC-7). */
+function AiUsageSummary() {
+  const [summary, setSummary] = useState<AiUsageSummaryType | null>(null);
+
+  useEffect(() => {
+    const ai = window.cockpit?.ai;
+    if (!ai) return;
+    ai.usage().then(setSummary).catch(() => {});
+  }, []);
+
+  if (!summary) return null;
+
+  return (
+    <div className="rounded-md border border-border p-3 text-xs" data-testid="ai-usage-summary">
+      <div className="mb-1 font-medium">AI usage</div>
+      <div className="grid grid-cols-3 gap-2">
+        <div><span className="text-muted-foreground">Entries</span><br />{summary.entries}</div>
+        <div><span className="text-muted-foreground">Tokens in</span><br />{summary.totalInput}</div>
+        <div><span className="text-muted-foreground">Tokens out</span><br />{summary.totalOutput}</div>
+      </div>
     </div>
   );
 }

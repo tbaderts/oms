@@ -90,6 +90,12 @@ const api: CockpitAPI = {
     aiAvailable: () => ipcRenderer.invoke('storyboards:aiAvailable'),
     aiAssist: (kind, id, stepId) => ipcRenderer.invoke('storyboards:aiAssist', kind, id, stepId),
   },
+  ai: {
+    available: () => ipcRenderer.invoke('ai:available'),
+    run: (runId, prompt, options) => ipcRenderer.invoke('ai:run', runId, prompt, options),
+    stop: (runId) => ipcRenderer.invoke('ai:stop', runId),
+    usage: () => ipcRenderer.invoke('ai:usage'),
+  },
   events: {
     getWebSocketUrl: () => ipcRenderer.invoke('events:getWebSocketUrl'),
   },

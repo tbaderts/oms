@@ -16,6 +16,16 @@ function minimalStory(id: string, title: string, extra: Record<string, unknown> 
 }
 const onlyStep = md({ id: 'only', title: 'The only step', kind: 'system', from: 'oms', to: 'market' }, STEP_BODY);
 
+describe('StoryboardService', () => {
+  it('does not throw when the workspace root does not exist; the scan degrades to an empty catalogue', () => {
+    // Regression: a bad/foreign workspace root used to throw in the constructor (realpathSync) and
+    // could take the app down during storyboard setup.
+    const svc = new StoryboardService({ workspaceRoot: 'C:\\data\\workspace\\oms', kbPath: 'C:\\data\\workspace\\oms\\oms-knowledge-base', config: DEFAULT_STORYBOARDS_CONFIG });
+    const scan = svc.scan();
+    expect(scan.catalogue).toEqual([]);
+  });
+});
+
 describe('StoryboardService.scan', () => {
   let ws: StoryboardWorkspace;
   afterEach(() => ws?.cleanup());

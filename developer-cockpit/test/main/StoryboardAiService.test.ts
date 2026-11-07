@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { AnthropicAdapter, type AiAdapter, type AiRequest } from '../../src/main/storyboards/ai/AiAdapter';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SdkAdapter, isConfigured, type AiAdapter, type AiRequest } from '../../src/main/storyboards/ai/AiAdapter';
 import { StoryboardAiService, MAX_CONTEXT_CHARS, aiAvailable } from '../../src/main/storyboards/StoryboardAiService';
 import { StoryboardService } from '../../src/main/storyboards/StoryboardService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
@@ -109,11 +109,17 @@ describe('StoryboardAiService', () => {
     expect(await failing.assist('suggestLinks', ID, 'route-to-market')).toMatchObject({ ok: false, code: 'invalid', message: expect.stringContaining('boom') });
   });
 
-  it('is unavailable without the API key, and with another provider', () => {
+  it('is unavailable without the API key; available for anthropic, openai, and local (base URL)', () => {
+    // anthropic: needs the key
     expect(aiAvailable(DEFAULT_CONFIG.ai, {})).toBe(false);
     expect(aiAvailable(DEFAULT_CONFIG.ai, { ANTHROPIC_API_KEY: '' })).toBe(false);
     expect(aiAvailable(DEFAULT_CONFIG.ai, { ANTHROPIC_API_KEY: 'k' })).toBe(true);
-    expect(aiAvailable({ ...DEFAULT_CONFIG.ai, provider: 'openai' }, { ANTHROPIC_API_KEY: 'k' })).toBe(false);
+    // openai: needs its own key (the default apiKeyEnvVar is ANTHROPIC_API_KEY, so use OPENAI_API_KEY)
+    expect(aiAvailable({ ...DEFAULT_CONFIG.ai, provider: 'openai', apiKeyEnvVar: 'OPENAI_API_KEY' }, { ANTHROPIC_API_KEY: 'k' })).toBe(false);
+    expect(aiAvailable({ ...DEFAULT_CONFIG.ai, provider: 'openai', apiKeyEnvVar: 'OPENAI_API_KEY' }, { OPENAI_API_KEY: 'k' })).toBe(true);
+    // local: needs a base URL, no key required
+    expect(aiAvailable({ ...DEFAULT_CONFIG.ai, provider: 'local', baseUrl: '' }, { ANTHROPIC_API_KEY: 'k' })).toBe(false);
+    expect(aiAvailable({ ...DEFAULT_CONFIG.ai, provider: 'local', baseUrl: 'http://localhost:11434/v1' }, {})).toBe(true);
   });
 
   it('has no file-system dependency: the service and adapter never import fs', () => {
@@ -124,25 +130,49 @@ describe('StoryboardAiService', () => {
   });
 });
 
-describe('AnthropicAdapter', () => {
-  it('posts one Messages API request with the configured model and the key from the env var', async () => {
-    const calls: { url: string; init: RequestInit }[] = [];
-    const fakeFetch = (async (url: string, init: RequestInit) => {
-      calls.push({ url, init });
-      return new Response(JSON.stringify({ content: [{ type: 'text', text: 'hello' }] }), { status: 200 });
-    }) as unknown as typeof fetch;
-    const adapter = new AnthropicAdapter(DEFAULT_CONFIG.ai, { ANTHROPIC_API_KEY: 'secret' }, fakeFetch);
-    expect(await adapter.complete({ system: 's', user: 'u', maxTokens: 100 })).toBe('hello');
-    expect(calls[0].url).toBe('https://api.anthropic.com/v1/messages');
-    const headers = calls[0].init.headers as Record<string, string>;
-    expect(headers['x-api-key']).toBe('secret');
-    expect(headers['anthropic-version']).toBe('2023-06-01');
-    const body = JSON.parse(String(calls[0].init.body));
-    expect(body).toMatchObject({ model: DEFAULT_CONFIG.ai.model, max_tokens: 100, system: 's', messages: [{ role: 'user', content: 'u' }] });
+// The SdkAdapter resolves the model through the shared adapter factory (forConfig) and makes
+// exactly one provider call for a one-shot. We stub the provider factory to return a scripted
+// model so the test is deterministic and hits no network.
+vi.mock('../../src/main/ai/adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/main/ai/adapters')>();
+  return { ...actual, forConfig: vi.fn(actual.forConfig) };
+});
+import { forConfig } from '../../src/main/ai/adapters';
+
+describe('SdkAdapter (D5 re-route)', () => {
+  function scriptedModel(text: string) {
+    return {
+      specificationVersion: 'v4', provider: 'fake', modelId: 'm', supportedUrls: {},
+      doGenerate: async () => ({
+        content: [{ type: 'text' as const, text }],
+        finishReason: 'stop' as const,
+        usage: { inputTokens: 10, outputTokens: 5 },
+      }),
+      doStream: async () => ({
+        stream: new ReadableStream({
+          start(c) {
+            c.enqueue({ type: 'text-start', id: 't1' });
+            c.enqueue({ type: 'text-delta', id: 't1', delta: text });
+            c.enqueue({ type: 'text-end', id: 't1' });
+            c.enqueue({ type: 'finish', finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 10 }, outputTokens: { total: 5, text: 5, reasoning: 0 } } });
+            c.close();
+          },
+        }),
+      }),
+    } as unknown as import('ai').LanguageModel;
+  }
+
+  it('resolves the provider through forConfig and makes one provider call', async () => {
+    vi.mocked(forConfig).mockReturnValue(scriptedModel('hello from the SDK'));
+    const adapter = new SdkAdapter(DEFAULT_CONFIG.ai, { ANTHROPIC_API_KEY: 'secret' });
+    const reply = await adapter.complete({ system: 's', user: 'u', maxTokens: 100 });
+    expect(reply).toBe('hello from the SDK');
+    expect(forConfig).toHaveBeenCalledTimes(1);
   });
 
-  it('turns an error response into an error', async () => {
-    const fakeFetch = (async () => new Response('{"error":{"message":"bad key"}}', { status: 401 })) as unknown as typeof fetch;
-    await expect(new AnthropicAdapter(DEFAULT_CONFIG.ai, { ANTHROPIC_API_KEY: 'x' }, fakeFetch).complete({ system: 's', user: 'u', maxTokens: 10 })).rejects.toThrow(/401/);
+  it('throws when the provider is not configured', async () => {
+    vi.mocked(forConfig).mockReturnValue(null);
+    const adapter = new SdkAdapter(DEFAULT_CONFIG.ai, {});
+    await expect(adapter.complete({ system: 's', user: 'u', maxTokens: 10 })).rejects.toThrow(/not configured/);
   });
 });

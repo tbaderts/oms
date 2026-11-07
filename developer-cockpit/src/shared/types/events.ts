@@ -7,7 +7,14 @@ export type EventType =
   | 'git:changed'
   | 'specs:tickets-changed'
   | 'storyboards:changed'
-  | 'connection:status';
+  | 'connection:status'
+  // AI (SPEC-0042): the assistant's streaming events. The payload is the matching `AiEvent`
+  // (see shared/types/ai.ts); the `runId` in the payload scopes each event to a run.
+  | 'ai:message'
+  | 'ai:tool-call'
+  | 'ai:tool-result'
+  | 'ai:done'
+  | 'ai:error';
 
 export interface CockpitEvent<T = unknown> {
   type: EventType;

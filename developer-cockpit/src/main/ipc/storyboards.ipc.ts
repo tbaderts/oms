@@ -11,7 +11,7 @@ import { LinkIndexService } from '../storyboards/LinkIndexService';
 import { EvidenceService } from '../storyboards/EvidenceService';
 import { StoryboardExportService } from '../storyboards/StoryboardExportService';
 import { StoryboardAiService, aiAvailable } from '../storyboards/StoryboardAiService';
-import { AnthropicAdapter } from '../storyboards/ai/AiAdapter';
+import { SdkAdapter } from '../storyboards/ai/AiAdapter';
 import { resolveAsset } from '../storyboards/assets';
 import { kbExtractReader } from '../storyboards/kbExtracts';
 
@@ -74,7 +74,7 @@ export function registerStoryboardsIpc(ipcMain: IpcMain, deps: StoryboardsIpcDep
     const config = deps.configService.getConfig();
     if (!aiAvailable(config.ai, env)) return null;
     return new StoryboardAiService({
-      adapter: new AnthropicAdapter(config.ai, env),
+      adapter: new SdkAdapter(config.ai, env),
       storyboards: rt().service,
       linkIndex: rt().linkIndex,
       extract: kbExtractReader(deps.configService.getKnowledgeBasePath()),

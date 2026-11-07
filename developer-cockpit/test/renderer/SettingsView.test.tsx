@@ -66,4 +66,35 @@ describe('Settings', () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0][0].infrastructure.apiTemplateSources).toEqual(['oms-core/rest.http', 'C:/tmp/mine.http']);
   });
+
+  it('shows the AI usage summary on the AI tab', async () => {
+    window.matchMedia ??= (() => ({ matches: true })) as unknown as typeof window.matchMedia;
+    const usage = vi.fn(async () => ({ entries: 5, totalInput: 1000, totalOutput: 400 }));
+    const save = vi.fn(async (_c: CockpitConfig) => {});
+    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = {
+      config: { save, load: vi.fn(async () => DEFAULT_CONFIG) },
+      ai: { usage },
+    };
+    render(<SettingsView />);
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'AI' }));
+    const summary = await screen.findByTestId('ai-usage-summary');
+    expect(summary.textContent).toContain('AI usage');
+    expect(summary.textContent).toContain('5');
+    expect(summary.textContent).toContain('1000');
+    expect(summary.textContent).toContain('400');
+    expect(usage).toHaveBeenCalled();
+  });
+
+  it('does not crash when the AI namespace is missing (stale preload)', async () => {
+    window.matchMedia ??= (() => ({ matches: true })) as unknown as typeof window.matchMedia;
+    const save = vi.fn(async (_c: CockpitConfig) => {});
+    // Simulate a stale build where preload.ts has not been rebuilt and the `ai` key is absent.
+    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { config: { save, load: vi.fn(async () => DEFAULT_CONFIG) } };
+    render(<SettingsView />);
+
+    // Opening the AI tab must not throw; the usage summary simply stays hidden.
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'AI' }));
+    await waitFor(() => expect(screen.queryByTestId('ai-usage-summary')).toBeNull());
+  });
 });

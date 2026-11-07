@@ -15,6 +15,9 @@ import { registerSpecsIpc } from './ipc/specs.ipc';
 import { registerSpecTicketsIpc } from './ipc/specTickets.ipc';
 import { registerApiExplorerIpc } from './ipc/apiExplorer.ipc';
 import { registerStoryboardsIpc, type StoryboardsIpc } from './ipc/storyboards.ipc';
+import { registerAiIpc, type AiIpc } from './ipc/ai.ipc';
+import { KbService } from './services/KbService';
+import { AiUsageTracker } from './ai/AiUsageTracker';
 import { resolveStoryboardsConfig } from './services/ConfigService';
 import { expandRoots } from './storyboards/roots';
 import { parseAssetUrl, resolveAsset } from './storyboards/assets';
@@ -41,6 +44,8 @@ let configService: ConfigService;
 let watcherService: WatcherService;
 let wsServer: WebSocketServer;
 let storyboards: StoryboardsIpc;
+let aiIpc: AiIpc;
+let aiKb: KbService | null = null;
 
 // COCKPIT_WS_PORT lets an end-to-end run start next to a running cockpit; the page CSP allows any port on 127.0.0.1.
 const WS_PORT = Number(process.env.COCKPIT_WS_PORT) || 9321;
@@ -92,6 +97,11 @@ function registerAllIpc(): void {
   registerConfigIpc(ipcMain, configService, (config) => {
     watcherService.setExtraPaths(extraWatchPaths(config));
     storyboards.reconfigure(configService.getConfig());
+    // A KB root change rebuilds the assistant's KB on its next run (cheap, idempotent scan).
+    if (aiKb && aiKb.searchPath !== configService.getKnowledgeBasePath()) {
+      aiKb = new KbService(configService.getKnowledgeBasePath());
+      void aiKb.scan().catch((err) => console.warn(`[ai] KB scan failed: ${(err as Error).message}`));
+    }
   });
   registerShellIpc(ipcMain);
   registerEventsIpc(ipcMain, WS_PORT);
@@ -102,6 +112,16 @@ function registerAllIpc(): void {
   registerSpecsIpc(ipcMain, configService);
   registerSpecTicketsIpc(ipcMain, configService);
   registerApiExplorerIpc(ipcMain, configService);
+  // The AI assistant's KB follows the configured KB path (rebuilt on a settings change above);
+  // scanning is idempotent, and a search before the scan lands simply returns nothing.
+  const assistantKb = () => (aiKb ??= new KbService(configService.getKnowledgeBasePath()));
+  void assistantKb().scan().catch((err) => console.warn(`[ai] KB scan failed: ${(err as Error).message}`));
+  aiIpc = registerAiIpc(ipcMain, {
+    configService,
+    kb: assistantKb,
+    usage: new AiUsageTracker(configService.getConfigDir()),
+    broadcast: (event) => wsServer.broadcast(event),
+  });
   storyboards = registerStoryboardsIpc(ipcMain, {
     configService,
     broadcast: (event) => wsServer.broadcast(event),

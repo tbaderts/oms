@@ -4,6 +4,9 @@ import * as os from 'os';
 import * as path from 'path';
 import { ConfigService, migrateConfig, resolveStoryboardsConfig } from '../../src/main/services/ConfigService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
+import { REPO_ROOT } from '../fixtures/workspace';
+
+const getWorkspaceRoot = (service: ConfigService) => service.getConfig().general.workspaceRoot;
 
 const LEGACY = { openApiPaths: ['oms-core/src/main/openapi'], avroPaths: ['oms-core/src/main/avro'] };
 
@@ -51,6 +54,39 @@ describe('ConfigService contract paths', () => {
 
     expect(config.specs).toEqual(custom);
     expect(fs.readFileSync(path.join(dir!, 'config.json'), 'utf8')).toBe(before);
+  });
+
+  it('an empty workspace root is filled from the repo the app runs inside', async () => {
+    const saved = { ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: '' } };
+    writeSaved(saved);
+    const before = fs.readFileSync(path.join(dir!, 'config.json'), 'utf8');
+
+    const service = new ConfigService(dir);
+    await service.load();
+
+    // This checkout runs inside the OMS repository, so the effective root is its root.
+    expect(getWorkspaceRoot(service)).toBe(REPO_ROOT);
+    // Auto-detection is resolved at read time and never persisted: the file is untouched.
+    expect(fs.readFileSync(path.join(dir!, 'config.json'), 'utf8')).toBe(before);
+  });
+
+  it('a saved foreign-platform path is left as-is (downstream guards make it non-fatal)', async () => {
+    writeSaved({ ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: 'C:\\data\\workspace\\oms' } });
+    const service = new ConfigService(dir);
+    await service.load();
+    expect(getWorkspaceRoot(service)).toBe('C:\\data\\workspace\\oms');
+  });
+
+  it('the COCKPIT_WORKSPACE_ROOT environment variable wins over the saved value', async () => {
+    writeSaved({ ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: '/somewhere/saved' } });
+    process.env.COCKPIT_WORKSPACE_ROOT = '/somewhere/env';
+    try {
+      const service = new ConfigService(dir);
+      await service.load();
+      expect(getWorkspaceRoot(service)).toBe('/somewhere/env');
+    } finally {
+      delete process.env.COCKPIT_WORKSPACE_ROOT;
+    }
   });
 
   it('migrateConfig is a no-op for current paths', () => {

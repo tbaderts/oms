@@ -99,7 +99,8 @@ services:
       - oms-core
       - alloy
     env_file:
-      - oms-mcp-server/.env
+      - path: oms-mcp-server/.env
+        required: false   # gitignored and optional; everything needed is set in `environment` below
     environment:
       <<: *otlp-env
       # Overrides for in-network container hostnames/paths (oms-mcp-server/.env targets host-native `run-mcp` execution).

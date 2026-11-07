@@ -23,12 +23,28 @@ export interface ScmConfig {
   fetchIntervalSeconds: number;
 }
 
+/** An MCP server the assistant's agent may use as a tool source (SPEC-0042). */
+export interface AiMcpServer {
+  name: string;
+  /** HTTP(S) endpoint of the MCP server's streamable-HTTP transport. */
+  url: string;
+}
+
 export interface AiConfig {
   provider: 'anthropic' | 'openai' | 'local';
   model: string;
   apiKeyEnvVar: string;
+  /**
+   * An explicit API key value. When set, it takes precedence over the `apiKeyEnvVar` lookup,
+   * so a local vLLM server with a non-standard key can be configured without exporting an env var.
+   */
+  apiKey?: string;
   maxTokens: number;
   temperature: number;
+  /** OpenAI-compatible endpoint for the `local` provider (e.g. Ollama `:11434/v1` or a vLLM server). */
+  baseUrl?: string;
+  /** MCP servers exposing tools to the agent. Empty/absent = KB-search tool only. */
+  mcpServers?: AiMcpServer[];
 }
 
 export interface KnowledgeBaseConfig {
@@ -64,7 +80,9 @@ export const LEGACY_SPECS_PATHS: Pick<SpecsConfig, 'openApiPaths' | 'avroPaths'>
 
 export const DEFAULT_CONFIG: CockpitConfig = {
   general: {
-    workspaceRoot: 'C:\\data\\workspace\\oms',
+    // Empty by default: the main process fills it from the git repo the app runs inside, so a
+    // fresh checkout works on any machine. An explicit path saved in Settings always wins.
+    workspaceRoot: '',
     theme: 'dark',
     fontSize: 14,
     sidebarCollapsed: false,
@@ -80,6 +98,9 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     apiKeyEnvVar: 'ANTHROPIC_API_KEY',
     maxTokens: 4096,
     temperature: 0.7,
+    // baseUrl is intentionally absent (the `local` provider has no default endpoint; a missing
+    // baseUrl is a surfaced configuration error, AC-3). mcpServers defaults to "none configured".
+    mcpServers: [],
   },
   knowledgeBase: {
     rootPath: 'oms-knowledge-base',
