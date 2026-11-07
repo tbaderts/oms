@@ -96,6 +96,10 @@ const api: CockpitAPI = {
     stop: (runId) => ipcRenderer.invoke('ai:stop', runId),
     usage: () => ipcRenderer.invoke('ai:usage'),
   },
+  docker: {
+    list: () => ipcRenderer.invoke('docker:list'),
+    logs: (container: string, lines?: number) => ipcRenderer.invoke('docker:logs', container, lines),
+  },
   events: {
     getWebSocketUrl: () => ipcRenderer.invoke('events:getWebSocketUrl'),
   },

@@ -343,6 +343,33 @@ export function SettingsView() {
                   onCheckedChange={(checked) => updateInfra({ dockerEnabled: checked })}
                 />
               </div>
+              {draft.infrastructure.dockerEnabled && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="dockerRefresh">Docker Refresh Interval (seconds)</Label>
+                    <Input
+                      id="dockerRefresh"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={draft.infrastructure.dockerRefreshIntervalSeconds}
+                      onChange={(e) => updateInfra({ dockerRefreshIntervalSeconds: parseInt(e.target.value) || 5 })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dockerPath">Docker CLI Path</Label>
+                    <Input
+                      id="dockerPath"
+                      placeholder="docker"
+                      value={draft.infrastructure.dockerPath ?? ''}
+                      onChange={(e) => updateInfra({ dockerPath: e.target.value.trim() || undefined })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Override if <code>docker</code> is not on your PATH.
+                    </p>
+                  </div>
+                </>
+              )}
               <div className="flex items-center justify-between">
                 <Label htmlFor="k8sEnabled">Kubernetes Enabled</Label>
                 <Switch

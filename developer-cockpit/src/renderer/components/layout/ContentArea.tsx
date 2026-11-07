@@ -27,7 +27,7 @@ const VIEW_MAP: Record<ViewId, React.LazyExoticComponent<React.FC>> = {
   'api-explorer': ApiExplorerView,
   'git-overview': GitOverviewView,
   'branch-manager': BranchManagerView,
-  docker: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Docker" /> })),
+  docker: lazy(() => import('@/views/docker/DockerView').then(m => ({ default: m.DockerView }))),
   kubernetes: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Kubernetes" /> })),
   monitoring: lazy(() => Promise.resolve({ default: () => <PlaceholderView name="Monitoring" /> })),
   'ai-chat': lazy(() => import('@/views/assistant/AssistantView').then((m) => ({ default: m.AssistantView }))),

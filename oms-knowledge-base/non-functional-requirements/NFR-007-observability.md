@@ -120,4 +120,14 @@ Partial:
 
 Policy P-15 governs logging.
 
+## Local container monitoring (developer-cockpit, SPEC-0043)
+
+The developer-cockpit includes a **Docker** view (Infrastructure → Docker) that surfaces local
+container-level observability for the `docker-compose.yml` stack. It polls the Docker daemon via
+the `docker` CLI every 5 seconds (configurable) and displays, per container: status (running,
+restarting, exited, dead), health, CPU, memory, published ports, and uptime. Clicking a container
+name opens a log panel showing the last 200 lines of its combined stdout/stderr. The feature is
+read-only — it never starts, stops, or modifies containers. When the Docker daemon is unreachable,
+the view retains the last known container list and shows a "Connection lost — retrying…" notice.
+
 Capability: [order-sla-monitoring](../capabilities/order-sla-monitoring.md).

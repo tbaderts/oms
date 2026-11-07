@@ -56,6 +56,10 @@ export interface KnowledgeBaseConfig {
 
 export interface InfrastructureConfig {
   dockerEnabled: boolean;
+  /** Seconds between Docker container-list refreshes (default 5). */
+  dockerRefreshIntervalSeconds: number;
+  /** Path to the `docker` CLI. Defaults to `docker` (found on PATH). Override for non-standard installs. */
+  dockerPath?: string;
   kubernetesEnabled: boolean;
   prometheusUrl: string;
   grafanaUrl: string;
@@ -110,6 +114,7 @@ export const DEFAULT_CONFIG: CockpitConfig = {
   },
   infrastructure: {
     dockerEnabled: true,
+    dockerRefreshIntervalSeconds: 5,
     kubernetesEnabled: false,
     prometheusUrl: 'http://localhost:9090',
     grafanaUrl: 'http://localhost:3000',

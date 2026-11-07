@@ -2,11 +2,11 @@
 id: SPEC-0043
 title: Docker monitoring for developer-cockpit
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [developer-cockpit]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -25,3 +25,14 @@ Add Docker container monitoring to developer-cockpit
 ## Log
 
 - 2026-11-07 created
+- 2026-11-07 11:35 — autopilot on
+- 2026-11-07 11:38 — proposal gate passed; awaiting human approval
+- 2026-11-07 11:38 — proposal approved by Toni Badertscher
+- 2026-11-07 11:38 — proposal → design
+- 2026-11-07 11:43 — design → plan
+- 2026-11-07 11:44 — plan → implement
+- 2026-11-07 12:02 — verify run: pass
+- 2026-11-07 12:02 — implement → verify
+- 2026-11-07 12:10 — verify run: pass
+- 2026-11-07 12:16 — verify → done
+- 2026-11-07 12:16 — autopilot off

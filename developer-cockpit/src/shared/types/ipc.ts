@@ -13,6 +13,7 @@ import type {
 import type { KbDocument, KbCategory, KbSearchResult } from './kb';
 import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary } from './ai';
 import type { FsEntry, FsStat } from './fs';
+import type { DockerStats, DockerLogs } from './docker';
 import type { UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
 import type { GitStatus, GitLogEntry, GitDiff, GitBranch, GitBranchResult } from './git';
 import type { SpecFile, SpecValidationResult, CodeGenTask, CodeGenResult, DomainEntity } from './specs';
@@ -161,6 +162,14 @@ export interface CockpitAPI {
     stop(runId: string): Promise<void>;
     /** The accumulated usage totals for the Settings summary (AC-7). */
     usage(): Promise<AiUsageSummary>;
+  };
+
+  // Docker (SPEC-0043): read-only container monitoring from the local Docker daemon.
+  docker: {
+    /** Lists all containers (running + stopped) with status, health, CPU and memory. */
+    list(): Promise<DockerStats>;
+    /** Returns the last `lines` of a container's logs (default 200). */
+    logs(container: string, lines?: number): Promise<DockerLogs>;
   };
 
   // Events

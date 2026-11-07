@@ -16,6 +16,7 @@ import { registerSpecTicketsIpc } from './ipc/specTickets.ipc';
 import { registerApiExplorerIpc } from './ipc/apiExplorer.ipc';
 import { registerStoryboardsIpc, type StoryboardsIpc } from './ipc/storyboards.ipc';
 import { registerAiIpc, type AiIpc } from './ipc/ai.ipc';
+import { registerDockerIpc } from './ipc/docker.ipc';
 import { KbService } from './services/KbService';
 import { AiUsageTracker } from './ai/AiUsageTracker';
 import { resolveStoryboardsConfig } from './services/ConfigService';
@@ -121,6 +122,10 @@ function registerAllIpc(): void {
     kb: assistantKb,
     usage: new AiUsageTracker(configService.getConfigDir()),
     broadcast: (event) => wsServer.broadcast(event),
+  });
+  registerDockerIpc(ipcMain, {
+    configService,
+    dockerPath: configService.getConfig().infrastructure.dockerPath,
   });
   storyboards = registerStoryboardsIpc(ipcMain, {
     configService,
