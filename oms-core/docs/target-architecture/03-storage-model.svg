@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="Storage model: orders and executions hold current state; order_events is the append-only stream per order and everything points at it; command_log records every ask; outbox rows point at events; the two projection tables are derived and rebuildable. A strip shows one order's stream, versions 1 to 5." font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563EB"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16A34A"/></marker>
+  </defs>
+  <rect width="1200" height="720" fill="#FBFBFD"/>
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#0F172A">Storage model: one stream per order, everything else points at it</text>
+  <text x="40" y="62" font-size="13" fill="#475569">Current state is the source of truth; the event log is the audit trail and the rebuild source; read models are derived.</text>
+
+  <!-- Band labels -->
+  <text x="40" y="90" font-size="11" font-weight="700" fill="#134E4A" letter-spacing="1">CURRENT STATE</text>
+  <text x="430" y="90" font-size="11" font-weight="700" fill="#1E3A8A" letter-spacing="1">EVENT LOG · APPEND-ONLY</text>
+  <text x="880" y="90" font-size="11" font-weight="700" fill="#134E4A" letter-spacing="1">CURRENT STATE</text>
+  <text x="40" y="394" font-size="11" font-weight="700" fill="#475569" letter-spacing="1">AUDIT OF EVERY ASK</text>
+  <text x="430" y="394" font-size="11" font-weight="700" fill="#92400E" letter-spacing="1">STAGING FOR KAFKA</text>
+  <text x="880" y="394" font-size="11" font-weight="700" fill="#14532D" letter-spacing="1">READ MODELS · DERIVED</text>
+
+  <!-- orders -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="40" y="100" width="300" height="200" rx="10" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.6"/>
+    <rect x="40" y="100" width="300" height="26" rx="10" fill="#CCFBF1"/><rect x="40" y="116" width="300" height="10" fill="#CCFBF1"/>
+    <text x="52" y="118" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#134E4A">orders</text>
+    <text x="52" y="146">id · order_id ⟨unique⟩</text>
+    <text x="52" y="164">root_order_id · parent_order_id · leg</text>
+    <text x="52" y="182" font-weight="700">tx_nr = version of latest event</text>
+    <text x="52" y="200">state · cancel_state</text>
+    <text x="52" y="218">order_qty · cum_qty · leaves_qty</text>
+    <text x="52" y="236">avg_px · place_qty · alloc_qty</text>
+    <text x="52" y="254">SLA timestamps · reject_reason</text>
+    <text x="52" y="282" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">one row per order, any leg</text>
+  </g>
+
+  <!-- order_events -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="430" y="100" width="380" height="252" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.8"/>
+    <rect x="430" y="100" width="380" height="26" rx="10" fill="#DBEAFE"/><rect x="430" y="116" width="380" height="10" fill="#DBEAFE"/>
+    <text x="442" y="118" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1E3A8A">order_events · the stream of each order, executions included</text>
+    <text x="442" y="146" font-weight="700">id · order_id + version ⟨unique, contiguous from 1⟩</text>
+    <text x="442" y="164">event · <tspan font-weight="700">exec_id</tspan> (set when about one execution)</text>
+    <text x="442" y="182">command_id ⟨unique per order⟩ · correlation_id</text>
+    <text x="442" y="200">causation_id · principal · source · schema_version</text>
+    <text x="442" y="218">transaction (jsonb): the command as received</text>
+    <text x="442" y="236">changes (jsonb): fields that differ from version-1</text>
+    <text x="442" y="254">resulting_state · order_snapshot (jsonb)</text>
+    <text x="442" y="272">time_stamp · root_order_id · monthly partitions</text>
+    <text x="442" y="298" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">events: NEW_ORDER ACK PARTIAL_FILL FILL CXL_REQUEST CXL_REJ</text>
+    <text x="442" y="314" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">CXL REJ EXP CLOSE EXEC_BUST EXEC_CORRECT EXEC_WHACK</text>
+    <text x="442" y="330" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">PLACE and CHILD_* once order trees exist</text>
+  </g>
+
+  <!-- executions -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="880" y="100" width="280" height="200" rx="10" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.6"/>
+    <rect x="880" y="100" width="280" height="26" rx="10" fill="#CCFBF1"/><rect x="880" y="116" width="280" height="10" fill="#CCFBF1"/>
+    <text x="892" y="118" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#134E4A">executions</text>
+    <text x="892" y="146">id · order_id + execid ⟨unique⟩</text>
+    <text x="892" y="164">root_order_id · <tspan font-weight="700">order_version</tspan></text>
+    <text x="892" y="182">status APPLIED|BUSTED|CORRECTED</text>
+    <text x="892" y="200">exec_ref_id · busted_at_version</text>
+    <text x="892" y="218">last_qty · last_px · exec_type</text>
+    <text x="892" y="236">cum_qty · leaves_qty · avg_px</text>
+    <text x="892" y="254">transact_time · last_mkt</text>
+    <text x="892" y="282" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">an entity inside the order aggregate</text>
+  </g>
+
+  <!-- command_log -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="40" y="404" width="300" height="150" rx="10" fill="#FFFFFF" stroke="#64748B" stroke-width="1.6"/>
+    <rect x="40" y="404" width="300" height="26" rx="10" fill="#F1F5F9"/><rect x="40" y="420" width="300" height="10" fill="#F1F5F9"/>
+    <text x="52" y="422" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#334155">command_log</text>
+    <text x="52" y="450">id · command_id · type · order_id</text>
+    <text x="52" y="468">received_at · source · principal</text>
+    <text x="52" y="486">outcome APPLIED|REFUSED|FAILED</text>
+    <text x="52" y="504">reason · event_version (if applied)</text>
+    <text x="52" y="536" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">written in its own transaction, survives a rollback</text>
+  </g>
+
+  <!-- outbox -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="430" y="404" width="380" height="150" rx="10" fill="#FFFFFF" stroke="#D97706" stroke-width="1.6"/>
+    <rect x="430" y="404" width="380" height="26" rx="10" fill="#FEF3C7"/><rect x="430" y="420" width="380" height="10" fill="#FEF3C7"/>
+    <text x="442" y="422" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#78350F">outbox</text>
+    <text x="442" y="450">id · topic · aggregate_id = root order id (Kafka key)</text>
+    <text x="442" y="468">aggregate_type ORDER | EXECUTION | PROJECTION</text>
+    <text x="442" y="486"><tspan font-weight="700">order_id + aggregate_version</tspan>: pointer to the event</text>
+    <text x="442" y="504">payload_type · payload · schema_id (PROJECTION only)</text>
+    <text x="442" y="522">created_at · attempts · last_error</text>
+    <text x="442" y="544" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="11" fill="#475569">deleted on broker ack; a held row keeps its aggregate in order</text>
+  </g>
+
+  <!-- projections -->
+  <g font-family="Consolas, Menlo, monospace" font-size="11.5" fill="#0F172A">
+    <rect x="880" y="404" width="280" height="76" rx="10" fill="#FFFFFF" stroke="#16A34A" stroke-width="1.6"/>
+    <rect x="880" y="404" width="280" height="26" rx="10" fill="#DCFCE7"/><rect x="880" y="420" width="280" height="10" fill="#DCFCE7"/>
+    <text x="892" y="422" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#14532D">order_execution_projection</text>
+    <text x="892" y="450">order_id + execid + order_version</text>
+    <text x="892" y="468">fill + order as of the fill · trade_date</text>
+
+    <rect x="880" y="494" width="280" height="76" rx="10" fill="#FFFFFF" stroke="#16A34A" stroke-width="1.6"/>
+    <rect x="880" y="494" width="280" height="26" rx="10" fill="#DCFCE7"/><rect x="880" y="510" width="280" height="10" fill="#DCFCE7"/>
+    <text x="892" y="512" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#14532D">position_projection</text>
+    <text x="892" y="540">account + symbol + trade_date ⟨unique⟩</text>
+    <text x="892" y="558">net_qty · notional · fill_count</text>
+  </g>
+
+  <!-- Relationship arrows -->
+  <g font-size="11" fill="#1E40AF">
+    <line x1="340" y1="182" x2="428" y2="182" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+    <text x="384" y="170" text-anchor="middle">tx_nr =</text><text x="384" y="196" text-anchor="middle">max(version)</text>
+
+    <line x1="880" y1="164" x2="812" y2="164" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+    <text x="846" y="152" text-anchor="middle">applied at</text><text x="846" y="178" text-anchor="middle">version</text>
+
+    <line x1="620" y1="404" x2="620" y2="354" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+    <text x="630" y="382">pointer: the relay reads the snapshot here</text>
+
+    <line x1="300" y1="404" x2="434" y2="346" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+    <text x="300" y="364">event_version</text>
+  </g>
+  <g font-size="11" fill="#14532D">
+    <line x1="1020" y1="300" x2="1020" y2="402" stroke="#16A34A" stroke-width="2" marker-end="url(#ag)"/>
+    <text x="1028" y="340">derived from</text><text x="1028" y="356">executions +</text><text x="1028" y="372">the snapshot</text>
+    <line x1="810" y1="336" x2="878" y2="440" stroke="#16A34A" stroke-width="2" marker-end="url(#ag)"/>
+  </g>
+
+  <!-- Stream strip -->
+  <text x="40" y="598" font-size="12" font-weight="700" fill="#0F172A">One stream per order: the order_events rows of ORD-7F3A after two fills and the end-of-day close</text>
+  <g font-size="11.5" fill="#0F172A">
+    <rect x="40" y="612" width="180" height="56" rx="8" fill="#EFF6FF" stroke="#93C5FD"/>
+    <text x="52" y="632" font-weight="700">v1 · NEW_ORDER</text><text x="52" y="650" fill="#475569">UNACK · 0 / 100</text>
+    <rect x="265" y="612" width="180" height="56" rx="8" fill="#EFF6FF" stroke="#93C5FD"/>
+    <text x="277" y="632" font-weight="700">v2 · ACK</text><text x="277" y="650" fill="#475569">LIVE · 0 / 100</text>
+    <rect x="490" y="612" width="180" height="56" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/>
+    <text x="502" y="632" font-weight="700">v3 · PARTIAL_FILL</text><text x="502" y="650" fill="#475569">LIVE · 40 / 60</text>
+    <rect x="612" y="616" width="52" height="16" rx="8" fill="#DBEAFE"/><text x="638" y="628" font-size="10" fill="#1E3A8A" text-anchor="middle">EX-1</text>
+    <rect x="715" y="612" width="180" height="56" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/>
+    <text x="727" y="632" font-weight="700">v4 · FILL</text><text x="727" y="650" fill="#475569">FILLED · 100 / 0</text>
+    <rect x="837" y="616" width="52" height="16" rx="8" fill="#DBEAFE"/><text x="863" y="628" font-size="10" fill="#1E3A8A" text-anchor="middle">EX-2</text>
+    <rect x="940" y="612" width="180" height="56" rx="8" fill="#EFF6FF" stroke="#93C5FD"/>
+    <text x="952" y="632" font-weight="700">v5 · CLOSE</text><text x="952" y="650" fill="#475569">CLOSED · 100 / 0</text>
+  </g>
+  <g stroke="#2563EB" stroke-width="2">
+    <line x1="220" y1="640" x2="263" y2="640" marker-end="url(#ab)"/>
+    <line x1="445" y1="640" x2="488" y2="640" marker-end="url(#ab)"/>
+    <line x1="670" y1="640" x2="713" y2="640" marker-end="url(#ab)"/>
+    <line x1="895" y1="640" x2="938" y2="640" marker-end="url(#ab)"/>
+  </g>
+  <text x="1130" y="636" font-size="11" fill="#134E4A">orders.tx_nr</text>
+  <text x="1130" y="652" font-size="11" fill="#134E4A">= 5</text>
+  <text x="40" y="696" font-size="11" fill="#475569">The badge marks exec_id: "every event about EX-1" is an indexed query on this one table. There is no second stream to order against it.</text>
+</svg>

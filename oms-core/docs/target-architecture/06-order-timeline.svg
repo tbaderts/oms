@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 620" width="1300" height="620" role="img" aria-label="Timeline of order ORD-7F3A: version 1 created by the trader, version 2 accepted by the venue, version 3 partial fill of 40 at 171.95, version 4 fill of 60 at 172.00, version 5 closed at end of day. For each version: the command, the rows written, the records published and who reacts." font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <symbol id="user" viewBox="0 0 32 32">
+      <circle cx="16" cy="10" r="6.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+      <path d="M4,30 a12,12 0 0 1 24,0 z" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="venue" viewBox="0 0 32 32">
+      <path d="M3,12 L16,4 L29,12 z" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+      <rect x="6" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="14" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="22" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="3" y="25" width="26" height="4" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="fill" viewBox="0 0 32 32">
+      <ellipse cx="13" cy="22" rx="10" ry="4" fill="#FDE68A" stroke="#92400E" stroke-width="1.4"/>
+      <path d="M3,22 v-5 a10,4 0 0 1 20,0 v5" fill="#FDE68A" stroke="#92400E" stroke-width="1.4"/>
+      <ellipse cx="13" cy="17" rx="10" ry="4" fill="#FEF3C7" stroke="#92400E" stroke-width="1.4"/>
+      <ellipse cx="19" cy="12" rx="10" ry="4" fill="#FDE68A" stroke="#92400E" stroke-width="1.4"/>
+      <path d="M9,12 v-5 a10,4 0 0 1 20,0 v5" fill="#FDE68A" stroke="#92400E" stroke-width="1.4"/>
+      <ellipse cx="19" cy="7" rx="10" ry="4" fill="#FEF3C7" stroke="#92400E" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="flag" viewBox="0 0 32 32">
+      <line x1="8" y1="4" x2="8" y2="30" stroke="#334155" stroke-width="2.4"/>
+      <path d="M9,5 h18 l-5,6 l5,6 h-18 z" fill="#CBD5E1" stroke="#334155" stroke-width="1.4"/>
+    </symbol>
+  </defs>
+  <rect width="1300" height="620" fill="#FBFBFD"/>
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#0F172A">One order, two fills: what each version writes, publishes and triggers</text>
+  <text x="40" y="62" font-size="13" fill="#475569">ORD-7F3A · BUY 100 AAPL LIMIT 172.00 · account ACC-1 · every step is one transaction, one event version, one set of records</text>
+
+  <!-- axis -->
+  <line x1="60" y1="150" x2="1260" y2="150" stroke="#334155" stroke-width="2.5" marker-end="url(#ad)"/>
+  <text x="1262" y="140" font-size="11" fill="#475569" text-anchor="end">time, version</text>
+
+  <!-- row labels -->
+  <g font-size="11" font-weight="700" fill="#475569" letter-spacing="1">
+    <text x="40" y="232">COMMAND</text>
+    <text x="40" y="286">WRITTEN</text>
+    <text x="40" y="428">PUBLISHED</text>
+    <text x="40" y="512">REACTIONS</text>
+  </g>
+  <g stroke="#E2E8F0" stroke-width="1">
+    <line x1="40" y1="206" x2="1260" y2="206"/>
+    <line x1="40" y1="262" x2="1260" y2="262"/>
+    <line x1="40" y1="404" x2="1260" y2="404"/>
+    <line x1="40" y1="488" x2="1260" y2="488"/>
+  </g>
+
+  <!-- Column 1: v1 -->
+  <g>
+    <use href="#user" x="174" y="82" width="32" height="32"/>
+    <circle cx="190" cy="150" r="11" fill="#2563EB"/><text x="190" y="154" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">1</text>
+    <rect x="120" y="168" width="140" height="22" rx="11" fill="#FEF9C3" stroke="#CA8A04"/><text x="190" y="183" font-size="11.5" text-anchor="middle" fill="#713F12" font-weight="700">UNACK · 0 / 100</text>
+    <g font-size="11" fill="#0F172A">
+      <text x="110" y="226" font-weight="700">OrderCreateCmd</text>
+      <text x="110" y="242" fill="#475569">REST, commandId c-100</text>
+      <text x="110" y="256" fill="#475569">principal: trader</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="110" y="272" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="118" y="286">orders INSERT, txNr 1</text>
+      <rect x="110" y="298" width="160" height="20" rx="5" fill="#EFF6FF" stroke="#93C5FD"/><text x="118" y="312">order_events v1 NEW_ORDER</text>
+      <rect x="110" y="324" width="160" height="20" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="118" y="338">outbox ORDER v1</text>
+      <rect x="110" y="350" width="160" height="20" rx="5" fill="#F1F5F9" stroke="#CBD5E1"/><text x="118" y="364">command_log APPLIED</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="110" y="416" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="118" y="430">oms_orders · eventId 1</text>
+    </g>
+    <g font-size="10.5" fill="#475569">
+      <text x="110" y="508">venue adapter sees UNACK,</text>
+      <text x="110" y="522">sends OrderAcceptCmd</text>
+      <text x="110" y="542">blotter: new row, UNACK</text>
+      <text x="110" y="562">UI: 201 with orderId, version 1</text>
+    </g>
+  </g>
+
+  <!-- Column 2: v2 -->
+  <g>
+    <use href="#venue" x="414" y="82" width="32" height="32"/>
+    <circle cx="430" cy="150" r="11" fill="#2563EB"/><text x="430" y="154" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">2</text>
+    <rect x="360" y="168" width="140" height="22" rx="11" fill="#DCFCE7" stroke="#16A34A"/><text x="430" y="183" font-size="11.5" text-anchor="middle" fill="#14532D" font-weight="700">LIVE · 0 / 100</text>
+    <g font-size="11" fill="#0F172A">
+      <text x="350" y="226" font-weight="700">OrderAcceptCmd</text>
+      <text x="350" y="242" fill="#475569">commands topic, header:</text>
+      <text x="350" y="256" fill="#475569">causationId ORD-7F3A:1</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="350" y="272" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="358" y="286">orders UPDATE, txNr 2</text>
+      <rect x="350" y="298" width="160" height="20" rx="5" fill="#EFF6FF" stroke="#93C5FD"/><text x="358" y="312">order_events v2 ACK</text>
+      <rect x="350" y="324" width="160" height="20" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="358" y="338">outbox ORDER v2</text>
+      <rect x="350" y="350" width="160" height="20" rx="5" fill="#F1F5F9" stroke="#CBD5E1"/><text x="358" y="364">command_log APPLIED</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="350" y="416" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="358" y="430">oms_orders · eventId 2</text>
+    </g>
+    <g font-size="10.5" fill="#475569">
+      <text x="350" y="508">venue adapter sees LIVE,</text>
+      <text x="350" y="522">starts slicing fills</text>
+      <text x="350" y="542">blotter: LIVE, marketAckTime</text>
+      <text x="350" y="562">SLA: ack latency recorded</text>
+    </g>
+  </g>
+
+  <!-- Column 3: v3 -->
+  <g>
+    <use href="#fill" x="654" y="82" width="32" height="32"/>
+    <circle cx="670" cy="150" r="11" fill="#2563EB"/><text x="670" y="154" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">3</text>
+    <rect x="600" y="168" width="140" height="22" rx="11" fill="#DCFCE7" stroke="#16A34A"/><text x="670" y="183" font-size="11.5" text-anchor="middle" fill="#14532D" font-weight="700">LIVE · 40 / 60</text>
+    <g font-size="11" fill="#0F172A">
+      <text x="590" y="226" font-weight="700">ExecutionCreateCmd EX-1</text>
+      <text x="590" y="242" fill="#475569">40 @ 171.95, execType F</text>
+      <text x="590" y="256" fill="#475569">causationId ORD-7F3A:2</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="590" y="272" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="598" y="286">executions EX-1 (v3)</text>
+      <rect x="590" y="298" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="598" y="312">orders UPDATE, txNr 3</text>
+      <rect x="590" y="324" width="160" height="20" rx="5" fill="#EFF6FF" stroke="#93C5FD"/><text x="598" y="338">order_events v3, exec EX-1</text>
+      <rect x="590" y="350" width="160" height="20" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="598" y="364">outbox ×3 (v3)</text>
+      <rect x="590" y="376" width="160" height="20" rx="5" fill="#F0FDF4" stroke="#86EFAC"/><text x="598" y="390">2 projections + command_log</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="590" y="416" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="598" y="430">oms_orders · eventId 3</text>
+      <rect x="590" y="440" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="598" y="454">oms_executions · EX-1 v3</text>
+      <rect x="590" y="464" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="598" y="478">oms_order_executions EX-1</text>
+    </g>
+    <g font-size="10.5" fill="#475569">
+      <text x="590" y="508">booking books EX-1</text>
+      <text x="590" y="522">blotter: 40 filled, avgPx 171.95</text>
+      <text x="590" y="542">position ACC-1/AAPL: +40</text>
+      <text x="590" y="562">venue adapter: nothing to do</text>
+    </g>
+  </g>
+
+  <!-- Column 4: v4 -->
+  <g>
+    <use href="#fill" x="894" y="82" width="32" height="32"/>
+    <circle cx="910" cy="150" r="11" fill="#2563EB"/><text x="910" y="154" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">4</text>
+    <rect x="840" y="168" width="140" height="22" rx="11" fill="#DBEAFE" stroke="#2563EB"/><text x="910" y="183" font-size="11.5" text-anchor="middle" fill="#1E3A8A" font-weight="700">FILLED · 100 / 0</text>
+    <g font-size="11" fill="#0F172A">
+      <text x="830" y="226" font-weight="700">ExecutionCreateCmd EX-2</text>
+      <text x="830" y="242" fill="#475569">60 @ 172.00, execType F</text>
+      <text x="830" y="256" fill="#475569">causationId ORD-7F3A:2</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="830" y="272" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="838" y="286">executions EX-2 (v4)</text>
+      <rect x="830" y="298" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="838" y="312">orders UPDATE, txNr 4</text>
+      <rect x="830" y="324" width="160" height="20" rx="5" fill="#EFF6FF" stroke="#93C5FD"/><text x="838" y="338">order_events v4, exec EX-2</text>
+      <rect x="830" y="350" width="160" height="20" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="838" y="364">outbox ×3 (v4)</text>
+      <rect x="830" y="376" width="160" height="20" rx="5" fill="#F0FDF4" stroke="#86EFAC"/><text x="838" y="390">2 projections + command_log</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="830" y="416" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="838" y="430">oms_orders · eventId 4</text>
+      <rect x="830" y="440" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="838" y="454">oms_executions · EX-2 v4</text>
+      <rect x="830" y="464" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="838" y="478">oms_order_executions EX-2</text>
+    </g>
+    <g font-size="10.5" fill="#475569">
+      <text x="830" y="508">booking books EX-2</text>
+      <text x="830" y="522">blotter: FILLED, avgPx 171.98</text>
+      <text x="830" y="542">position ACC-1/AAPL: +100</text>
+      <text x="830" y="562">venue adapter: order done</text>
+    </g>
+  </g>
+
+  <!-- Column 5: v5 -->
+  <g>
+    <use href="#flag" x="1134" y="82" width="32" height="32"/>
+    <circle cx="1150" cy="150" r="11" fill="#2563EB"/><text x="1150" y="154" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="700">5</text>
+    <rect x="1080" y="168" width="140" height="22" rx="11" fill="#F1F5F9" stroke="#64748B"/><text x="1150" y="183" font-size="11.5" text-anchor="middle" fill="#334155" font-weight="700">CLOSED · 100 / 0</text>
+    <g font-size="11" fill="#0F172A">
+      <text x="1070" y="226" font-weight="700">OrderCloseCmd</text>
+      <text x="1070" y="242" fill="#475569">end-of-day scheduler, leader</text>
+      <text x="1070" y="256" fill="#475569">commandId EOD-ORD-7F3A-…</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="1070" y="272" width="160" height="20" rx="5" fill="#F0FDFA" stroke="#5EEAD4"/><text x="1078" y="286">orders UPDATE, txNr 5</text>
+      <rect x="1070" y="298" width="160" height="20" rx="5" fill="#EFF6FF" stroke="#93C5FD"/><text x="1078" y="312">order_events v5 CLOSE</text>
+      <rect x="1070" y="324" width="160" height="20" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="1078" y="338">outbox ORDER v5</text>
+      <rect x="1070" y="350" width="160" height="20" rx="5" fill="#F1F5F9" stroke="#CBD5E1"/><text x="1078" y="364">command_log APPLIED</text>
+    </g>
+    <g font-size="10.5" fill="#0F172A">
+      <rect x="1070" y="416" width="160" height="20" rx="5" fill="#FEF3C7" stroke="#D97706"/><text x="1078" y="430">oms_orders · eventId 5</text>
+    </g>
+    <g font-size="10.5" fill="#475569">
+      <text x="1070" y="508">blotter: CLOSED, evicted later</text>
+      <text x="1070" y="522">venue adapter: ignores</text>
+      <text x="1070" y="542">archival: eligible after</text>
+      <text x="1070" y="556">the retention period</text>
+    </g>
+  </g>
+
+  <text x="40" y="600" font-size="11" fill="#475569">Teal: current state · blue: event log · amber: outbox and Kafka · green: projections · grey: command log. The stream reads v1 to v5 in orders.tx_nr order; every record carries the version it came from.</text>
+</svg>

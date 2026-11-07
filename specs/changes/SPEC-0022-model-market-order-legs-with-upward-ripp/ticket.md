@@ -25,3 +25,4 @@ Roadmap ticket E of the architecture review (oms-core/docs/architecture-review-2
 ## Log
 
 - 2026-10-30 created
+- 2026-11-07 12:48 — The root-first lock comes from SPEC-0048 and the causation and correlation columns from SPEC-0049; design against both.

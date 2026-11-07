@@ -25,3 +25,4 @@ Address finding 14 of the architecture review (oms-core/docs/architecture-review
 ## Log
 
 - 2026-10-30 created
+- 2026-11-07 12:48 — Builds on SPEC-0044 (execution lifecycle in the order event log): exec_id, the EXEC_* event types, the execution status and the FILLED to LIVE transition come from there.

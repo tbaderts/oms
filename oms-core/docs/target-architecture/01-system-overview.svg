@@ -1,0 +1,226 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" width="1200" height="780" role="img" aria-label="OMS target architecture. Clients send commands to oms-core command instances, which write one PostgreSQL transaction per command. The outbox relay publishes to Kafka. A logical replica serves read-only query instances. Kafka serves the venue adapter, the streaming service and the booking adapter." font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563EB"/></marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#D97706"/></marker>
+    <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0F766E"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16A34A"/></marker>
+    <symbol id="db" viewBox="0 0 40 44">
+      <path d="M2,8 v28 a18,6 0 0 0 36,0 v-28" fill="#CCFBF1" stroke="#0F766E" stroke-width="1.6"/>
+      <ellipse cx="20" cy="8" rx="18" ry="6" fill="#99F6E4" stroke="#0F766E" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="topic" viewBox="0 0 140 26">
+      <rect x="1" y="1" width="138" height="24" rx="5" fill="#FEF3C7" stroke="#D97706" stroke-width="1.4"/>
+      <line x1="35" y1="1" x2="35" y2="25" stroke="#D97706" stroke-width="1"/>
+      <line x1="70" y1="1" x2="70" y2="25" stroke="#D97706" stroke-width="1"/>
+      <line x1="105" y1="1" x2="105" y2="25" stroke="#D97706" stroke-width="1"/>
+    </symbol>
+    <symbol id="user" viewBox="0 0 32 32">
+      <circle cx="16" cy="10" r="6.5" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+      <path d="M4,30 a12,12 0 0 1 24,0 z" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="ops" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="11" fill="#F1F5F9" stroke="#64748B" stroke-width="1.6"/>
+      <circle cx="16" cy="16" r="4" fill="#64748B"/>
+      <path d="M16,2 v5 M16,25 v5 M2,16 h5 M25,16 h5 M6,6 l3.5,3.5 M22.5,22.5 l3.5,3.5 M26,6 l-3.5,3.5 M9.5,22.5 l-3.5,3.5" stroke="#64748B" stroke-width="2"/>
+    </symbol>
+    <symbol id="venue" viewBox="0 0 32 32">
+      <path d="M3,12 L16,4 L29,12 z" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+      <rect x="6" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="14" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="22" y="13" width="4" height="12" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+      <rect x="3" y="25" width="26" height="4" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="stream" viewBox="0 0 32 32">
+      <path d="M4,10 q6,-6 12,0 t12,0 M4,17 q6,-6 12,0 t12,0 M4,24 q6,-6 12,0 t12,0" fill="none" stroke="#7C3AED" stroke-width="2.2"/>
+    </symbol>
+    <symbol id="ledger" viewBox="0 0 32 32">
+      <rect x="5" y="3" width="22" height="26" rx="2" fill="#EDE9FE" stroke="#7C3AED" stroke-width="1.6"/>
+      <path d="M10,10 h12 M10,15 h12 M10,20 h8" stroke="#7C3AED" stroke-width="1.8"/>
+      <path d="M19,22 l3,3 l5,-6" fill="none" stroke="#16A34A" stroke-width="2"/>
+    </symbol>
+    <symbol id="chart" viewBox="0 0 32 32">
+      <path d="M4,28 h24 M4,28 v-24" stroke="#64748B" stroke-width="1.8"/>
+      <rect x="8" y="16" width="4" height="12" fill="#CBD5E1"/>
+      <rect x="15" y="10" width="4" height="18" fill="#CBD5E1"/>
+      <rect x="22" y="6" width="4" height="22" fill="#CBD5E1"/>
+    </symbol>
+  </defs>
+
+  <rect width="1200" height="780" fill="#FBFBFD"/>
+  <text x="40" y="42" font-size="20" font-weight="700" fill="#0F172A">OMS target architecture</text>
+  <text x="40" y="64" font-size="13" fill="#475569">Command instances write one transaction per command. The relay publishes. A replica and Kafka serve every read.</text>
+
+  <!-- Left column: clients -->
+  <g>
+    <rect x="40" y="100" width="240" height="70" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.4"/>
+    <use href="#user" x="54" y="118" width="32" height="32"/>
+    <text x="98" y="128" font-size="14" font-weight="700" fill="#0F172A">Trader UI</text>
+    <text x="98" y="148" font-size="12" fill="#475569">oms-ui · POST /api/command</text>
+
+    <rect x="40" y="200" width="240" height="70" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.4"/>
+    <use href="#ops" x="54" y="218" width="32" height="32"/>
+    <text x="98" y="228" font-size="14" font-weight="700" fill="#0F172A">Operators</text>
+    <text x="98" y="248" font-size="12" fill="#475569">Developer Cockpit, actuator</text>
+  </g>
+
+  <!-- Left column bottom: read side -->
+  <g>
+    <rect x="40" y="520" width="240" height="80" rx="10" fill="#FFFFFF" stroke="#16A34A" stroke-width="1.6"/>
+    <rect x="40" y="520" width="240" height="26" rx="10" fill="#DCFCE7"/>
+    <rect x="40" y="536" width="240" height="10" fill="#DCFCE7"/>
+    <text x="52" y="538" font-size="13" font-weight="700" fill="#14532D">oms-core · query instances</text>
+    <text x="52" y="564" font-size="12" fill="#334155">read-only profile, no relay, no listener</text>
+    <text x="52" y="584" font-size="12" fill="#334155">serves Trader UI, MCP server, cockpit</text>
+
+    <rect x="40" y="630" width="240" height="70" rx="10" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.6"/>
+    <use href="#db" x="52" y="643" width="40" height="44"/>
+    <text x="104" y="658" font-size="14" font-weight="700" fill="#0F172A">PostgreSQL replica</text>
+    <text x="104" y="678" font-size="12" fill="#475569">same tables, same projections</text>
+  </g>
+
+  <!-- Center: oms-core command instances -->
+  <g>
+    <rect x="330" y="100" width="460" height="380" rx="12" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.8"/>
+    <rect x="330" y="100" width="460" height="30" rx="12" fill="#DBEAFE"/>
+    <rect x="330" y="118" width="460" height="12" fill="#DBEAFE"/>
+    <text x="346" y="120" font-size="14" font-weight="700" fill="#1E3A8A">oms-core · command instances × N</text>
+
+    <g font-size="12" fill="#0F172A">
+      <rect x="350" y="142" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="159"><tspan font-weight="700">REST command API</tspan><tspan fill="#475569">   POST /api/command, expectedVersion optional</tspan></text>
+
+      <rect x="350" y="176" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="193"><tspan font-weight="700">Kafka command consumer</tspan><tspan fill="#475569">   one thread per partition, DLT after retries</tspan></text>
+
+      <rect x="350" y="210" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="227"><tspan font-weight="700">Command processors</tspan><tspan fill="#475569">   task pipelines, state machines, lock root first</tspan></text>
+
+      <rect x="350" y="244" width="420" height="26" rx="6" fill="#EFF6FF" stroke="#93C5FD"/>
+      <text x="360" y="261"><tspan font-weight="700">OrderEventAppender</tspan><tspan fill="#475569">   event row + outbox rows, same transaction</tspan></text>
+
+      <rect x="350" y="278" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="295"><tspan font-weight="700">Command log</tspan><tspan fill="#475569">   every ask and its outcome, own transaction</tspan></text>
+
+      <rect x="350" y="312" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="329"><tspan font-weight="700">Inline projections</tspan><tspan fill="#475569">   order_execution, position</tspan></text>
+
+      <rect x="350" y="346" width="420" height="26" rx="6" fill="#FFF7ED" stroke="#FDBA74"/>
+      <text x="360" y="363"><tspan font-weight="700">Outbox relay</tspan><tspan fill="#475569">   one leader (advisory lock) or hash-partitioned</tspan></text>
+
+      <rect x="350" y="380" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="397"><tspan font-weight="700">Schedulers, leader only</tspan><tspan fill="#475569">   GTD expiry, end of day</tspan></text>
+
+      <rect x="350" y="414" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
+      <text x="360" y="431"><tspan font-weight="700">Reconciliation sampler</tspan><tspan fill="#475569">   orders vs replay, gauges</tspan></text>
+    </g>
+  </g>
+
+  <!-- Center bottom: PostgreSQL primary -->
+  <g>
+    <rect x="330" y="520" width="460" height="220" rx="12" fill="#FFFFFF" stroke="#0F766E" stroke-width="1.8"/>
+    <rect x="330" y="520" width="460" height="30" rx="12" fill="#CCFBF1"/>
+    <rect x="330" y="538" width="460" height="12" fill="#CCFBF1"/>
+    <text x="346" y="540" font-size="14" font-weight="700" fill="#134E4A">PostgreSQL primary · current state, event log, outbox</text>
+    <use href="#db" x="346" y="566" width="40" height="44"/>
+    <g font-size="12" fill="#0F172A">
+      <rect x="400" y="562" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="410" y="578">orders</text>
+      <rect x="596" y="562" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="606" y="578">executions</text>
+      <rect x="400" y="596" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="410" y="612">order_events</text>
+      <rect x="596" y="596" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="606" y="612">command_log</text>
+      <rect x="400" y="630" width="180" height="24" rx="6" fill="#FFF7ED" stroke="#FDBA74"/><text x="410" y="646">outbox</text>
+      <rect x="596" y="630" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="606" y="646">order_execution_projection</text>
+      <rect x="400" y="664" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="410" y="680">position_projection</text>
+      <rect x="596" y="664" width="180" height="24" rx="6" fill="#F1F5F9" stroke="#CBD5E1"/><text x="606" y="680" fill="#475569">archive: closed orders</text>
+    </g>
+    <text x="346" y="722" font-size="11" fill="#475569">order_events partitioned by month · closed orders archived after retention</text>
+  </g>
+
+  <!-- Right: Kafka -->
+  <g>
+    <rect x="840" y="100" width="320" height="300" rx="12" fill="#FFFFFF" stroke="#D97706" stroke-width="1.8"/>
+    <rect x="840" y="100" width="320" height="30" rx="12" fill="#FEF3C7"/>
+    <rect x="840" y="118" width="320" height="12" fill="#FEF3C7"/>
+    <text x="856" y="120" font-size="14" font-weight="700" fill="#78350F">Kafka · at least once, ordered per key</text>
+
+    <g font-size="11.5" fill="#0F172A">
+      <use href="#topic" x="856" y="142" width="140" height="26"/><text x="866" y="159" font-weight="700">commands</text>
+      <text x="1006" y="159" fill="#475569">in · key orderId</text>
+      <use href="#topic" x="856" y="176" width="140" height="26"/><text x="866" y="193" font-weight="700">commands.DLT</text>
+      <text x="1006" y="193" fill="#475569">poison commands</text>
+
+      <line x1="856" y1="214" x2="1144" y2="214" stroke="#FDE68A"/>
+
+      <use href="#topic" x="856" y="226" width="140" height="26"/><text x="866" y="243" font-weight="700">oms_orders</text>
+      <text x="1006" y="243" fill="#475569">OrderMessage + eventId</text>
+      <use href="#topic" x="856" y="260" width="140" height="26"/><text x="866" y="277" font-weight="700">oms_executions</text>
+      <text x="1006" y="277" fill="#475569">Execution + orderVersion</text>
+      <use href="#topic" x="856" y="294" width="140" height="26"/><text x="866" y="311" font-weight="700">oms_order_executions</text>
+      <text x="1006" y="311" fill="#475569">fill with its order</text>
+      <text x="856" y="344" fill="#475569">out · key rootOrderId · one partition per order tree</text>
+      <text x="856" y="362" fill="#475569">no ordering across topics · consumers dedup on</text>
+      <text x="856" y="380" fill="#475569">(orderId, execId, orderVersion)</text>
+    </g>
+  </g>
+
+  <!-- Right bottom: consumers -->
+  <g font-size="11.5">
+    <rect x="840" y="430" width="320" height="60" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <use href="#venue" x="852" y="444" width="32" height="32"/>
+    <text x="896" y="452" font-size="13" font-weight="700" fill="#0F172A">Venue adapter</text>
+    <text x="896" y="470" fill="#475569">exchange simulator today, FIX gateway later</text>
+
+    <rect x="840" y="510" width="320" height="60" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <use href="#stream" x="852" y="524" width="32" height="32"/>
+    <text x="896" y="532" font-size="13" font-weight="700" fill="#0F172A">Streaming service</text>
+    <text x="896" y="550" fill="#475569">tier-2 projection, RSocket stream to the blotter</text>
+
+    <rect x="840" y="590" width="320" height="60" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <use href="#ledger" x="852" y="604" width="32" height="32"/>
+    <text x="896" y="612" font-size="13" font-weight="700" fill="#0F172A">Booking adapter</text>
+    <text x="896" y="630" fill="#475569">books fills (F), reverses busts (H)</text>
+
+    <rect x="840" y="670" width="320" height="60" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <use href="#chart" x="852" y="684" width="32" height="32"/>
+    <text x="896" y="692" font-size="13" font-weight="700" fill="#475569">Post-trade analytics</text>
+    <text x="896" y="710" fill="#475569">planned, reads all three topics</text>
+  </g>
+
+  <!-- Spine: Kafka reads -->
+  <path d="M1176,400 V700" stroke="#D97706" stroke-width="2" stroke-dasharray="6 4" fill="none"/>
+  <path d="M1176,400 H1160" stroke="#D97706" stroke-width="2" fill="none"/>
+  <line x1="1176" y1="460" x2="1162" y2="460" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <line x1="1176" y1="540" x2="1162" y2="540" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <line x1="1176" y1="620" x2="1162" y2="620" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <line x1="1176" y1="700" x2="1162" y2="700" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <text x="1188" y="560" font-size="11" fill="#92400E" transform="rotate(90 1188 560)">consume</text>
+
+  <!-- Venue produces commands -->
+  <line x1="866" y1="430" x2="866" y2="402" stroke="#7C3AED" stroke-width="2" marker-end="url(#ad)"/>
+  <text x="874" y="420" font-size="11" fill="#5B21B6">produces commands: acks, fills, cancels</text>
+
+  <!-- Arrows: Kafka commands -> consumer row; relay -> out topics -->
+  <line x1="840" y1="155" x2="792" y2="189" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <text x="836" y="178" font-size="11" fill="#92400E" text-anchor="end">consume</text>
+  <line x1="790" y1="359" x2="838" y2="275" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <text x="796" y="330" font-size="11" fill="#92400E">publish</text>
+
+  <!-- Arrows: clients -> core -->
+  <line x1="280" y1="135" x2="348" y2="155" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+  <text x="288" y="128" font-size="11" fill="#1E40AF">commands</text>
+  <line x1="280" y1="235" x2="328" y2="235" stroke="#64748B" stroke-width="2" marker-end="url(#ad)"/>
+  <text x="284" y="228" font-size="11" fill="#475569">actuator</text>
+
+  <!-- Arrows: core -> primary; primary -> replica; replica -> query; query -> UI -->
+  <line x1="560" y1="480" x2="560" y2="518" stroke="#0F766E" stroke-width="2" marker-end="url(#at)"/>
+  <text x="572" y="504" font-size="11" fill="#134E4A">one transaction per command</text>
+  <line x1="330" y1="665" x2="282" y2="665" stroke="#0F766E" stroke-width="2" marker-end="url(#at)"/>
+  <text x="306" y="656" font-size="11" fill="#134E4A" text-anchor="middle">logical replication</text>
+  <line x1="160" y1="630" x2="160" y2="602" stroke="#16A34A" stroke-width="2" marker-end="url(#ag)"/>
+  <text x="170" y="620" font-size="11" fill="#14532D">reads</text>
+  <path d="M40,560 H22 V150 H38" fill="none" stroke="#16A34A" stroke-width="2" marker-end="url(#ag)"/>
+  <text x="14" y="420" font-size="11" fill="#14532D" transform="rotate(-90 14 420)">GET /api/query/*</text>
+
+  <!-- Streaming -> UI note -->
+  <text x="40" y="762" font-size="11" fill="#475569">The streaming service pushes live blotter updates to the Trader UI over RSocket; the UI loads its snapshot from the query instances. Blue: command path · teal: storage · amber: Kafka · violet: consumers · green: read side.</text>
+</svg>

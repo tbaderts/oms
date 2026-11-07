@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="1200" height="660" role="img" aria-label="Publication path: the command transaction stages outbox rows; the outbox relay, one leader, is nudged after each commit, claims rows in id order, sends one chain per topic and key, reads snapshots for pointer rows from order_events and deletes on acknowledgement. Three Kafka topics keyed by root order id put one order tree on one partition. Consumers deduplicate on orderId, execId and orderVersion. An operator can republish from the event log." font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#334155"/></marker>
+    <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#D97706"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563EB"/></marker>
+    <marker id="av" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7C3AED"/></marker>
+    <symbol id="lock" viewBox="0 0 20 24">
+      <rect x="2" y="10" width="16" height="12" rx="2" fill="#FDE68A" stroke="#92400E" stroke-width="1.4"/>
+      <path d="M6,10 v-3 a4,4 0 0 1 8,0 v3" fill="none" stroke="#92400E" stroke-width="1.6"/>
+    </symbol>
+  </defs>
+  <rect width="1200" height="660" fill="#FBFBFD"/>
+  <text x="40" y="40" font-size="20" font-weight="700" fill="#0F172A">Publication: from a committed transaction to every consumer, in order</text>
+  <text x="40" y="62" font-size="13" fill="#475569">At least once, ordered per topic and key, never across topics. Consumers deduplicate on (orderId, execId, orderVersion).</text>
+
+  <!-- commit nudge chip -->
+  <rect x="420" y="80" width="220" height="30" rx="8" fill="#F0FDFA" stroke="#5EEAD4"/>
+  <text x="530" y="100" font-size="12" text-anchor="middle" fill="#134E4A">command transaction COMMITs</text>
+  <line x1="530" y1="110" x2="530" y2="138" stroke="#0F766E" stroke-width="2" marker-end="url(#ad)"/>
+  <text x="540" y="128" font-size="11" fill="#134E4A">nudge</text>
+
+  <!-- order_events chip -->
+  <rect x="40" y="110" width="250" height="56" rx="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="1.6"/>
+  <text x="52" y="132" font-size="13" font-weight="700" fill="#1E3A8A">order_events</text>
+  <text x="52" y="152" font-size="11.5" fill="#475569">(order_id, version) → snapshot</text>
+
+  <!-- outbox card -->
+  <rect x="40" y="210" width="250" height="220" rx="10" fill="#FFFFFF" stroke="#D97706" stroke-width="1.6"/>
+  <rect x="40" y="210" width="250" height="26" rx="10" fill="#FEF3C7"/><rect x="40" y="226" width="250" height="10" fill="#FEF3C7"/>
+  <text x="52" y="228" font-size="13" font-weight="700" fill="#78350F">outbox · staged with the change</text>
+  <g font-family="Consolas, Menlo, monospace" font-size="11" fill="#0F172A">
+    <rect x="52" y="248" width="226" height="24" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="60" y="264">ORDER      ORD-7F3A v3  ptr</text>
+    <rect x="52" y="278" width="226" height="24" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="60" y="294">EXECUTION  ORD-7F3A v3  ptr</text>
+    <rect x="52" y="308" width="226" height="24" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="60" y="324">PROJECTION ORD-7F3A v3  avro</text>
+    <rect x="52" y="338" width="226" height="24" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="60" y="354">ORDER      ORD-7F3A v4  ptr</text>
+    <rect x="52" y="368" width="226" height="24" rx="5" fill="#FFF7ED" stroke="#FDBA74"/><text x="60" y="384">EXECUTION  ORD-7F3A v4  ptr</text>
+    <text x="60" y="414" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" fill="#475569">… id order = staging order per key</text>
+  </g>
+  <!-- republish arrow -->
+  <line x1="165" y1="166" x2="165" y2="208" stroke="#2563EB" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ab)"/>
+  <text x="172" y="192" font-size="11" fill="#1E40AF">operator republish re-stages rows</text>
+
+  <!-- relay card -->
+  <rect x="360" y="140" width="340" height="290" rx="12" fill="#FFFFFF" stroke="#D97706" stroke-width="1.8"/>
+  <rect x="360" y="140" width="340" height="30" rx="12" fill="#FEF3C7"/><rect x="360" y="158" width="340" height="12" fill="#FEF3C7"/>
+  <text x="376" y="160" font-size="14" font-weight="700" fill="#78350F">Outbox relay · exactly one leader</text>
+  <use href="#lock" x="668" y="144" width="20" height="24"/>
+  <g font-size="11.5" fill="#334155">
+    <text x="376" y="194">1. woken by the nudge; polls every 200 ms as fallback</text>
+    <text x="376" y="216">2. claims pending rows in id order, SKIP LOCKED</text>
+    <text x="376" y="238">3. groups by (topic, key): one chain per aggregate,</text>
+    <text x="376" y="254">    all chains in flight together</text>
+    <text x="376" y="276">4. pointer rows: reads the snapshot from order_events</text>
+    <text x="376" y="298">5. sends; deletes the row on broker acknowledgement</text>
+    <text x="376" y="320">6. a failed row holds only its own aggregate;</text>
+    <text x="376" y="336">    transient broker errors cost no attempt</text>
+    <text x="376" y="358">7. advisory lock makes one instance the leader;</text>
+    <text x="376" y="374">    hash(key) % N slices when one leader is the ceiling</text>
+    <text x="376" y="404" fill="#78350F" font-weight="700">gauges: pending · stuck · oldest age · publish latency</text>
+  </g>
+  <line x1="290" y1="300" x2="358" y2="300" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <text x="324" y="292" font-size="11" fill="#92400E" text-anchor="middle">claim</text>
+  <line x1="360" y1="276" x2="292" y2="150" stroke="#2563EB" stroke-width="2" marker-end="url(#ab)"/>
+  <text x="300" y="236" font-size="11" fill="#1E40AF">read</text>
+  <line x1="700" y1="285" x2="758" y2="285" stroke="#D97706" stroke-width="2" marker-end="url(#aa)"/>
+  <text x="729" y="277" font-size="11" fill="#92400E" text-anchor="middle">send</text>
+  <text x="729" y="301" font-size="11" fill="#92400E" text-anchor="middle">await ack</text>
+
+  <!-- Kafka card -->
+  <rect x="760" y="110" width="400" height="320" rx="12" fill="#FFFFFF" stroke="#D97706" stroke-width="1.8"/>
+  <rect x="760" y="110" width="400" height="30" rx="12" fill="#FEF3C7"/><rect x="760" y="128" width="400" height="12" fill="#FEF3C7"/>
+  <text x="776" y="130" font-size="14" font-weight="700" fill="#78350F">Kafka · key = rootOrderId → one partition per tree</text>
+  <g font-size="11.5" fill="#0F172A">
+    <text x="776" y="164" font-weight="700">oms_orders</text><text x="860" y="164" fill="#475569">OrderMessage, eventId = version</text>
+    <rect x="776" y="172" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+    <rect x="896" y="172" width="120" height="26" rx="4" fill="#FDE68A" stroke="#D97706"/><text x="956" y="189" text-anchor="middle" font-size="10.5" fill="#78350F">v1 v2 v3 v4 v5</text>
+    <rect x="1016" y="172" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+
+    <text x="776" y="236" font-weight="700">oms_executions</text><text x="890" y="236" fill="#475569">Execution, orderVersion</text>
+    <rect x="776" y="244" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+    <rect x="896" y="244" width="120" height="26" rx="4" fill="#FDE68A" stroke="#D97706"/><text x="956" y="261" text-anchor="middle" font-size="10.5" fill="#78350F">EX-1 (3) · EX-2 (4)</text>
+    <rect x="1016" y="244" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+
+    <text x="776" y="308" font-weight="700">oms_order_executions</text><text x="930" y="308" fill="#475569">OrderExecution, orderVersion</text>
+    <rect x="776" y="316" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+    <rect x="896" y="316" width="120" height="26" rx="4" fill="#FDE68A" stroke="#D97706"/><text x="956" y="333" text-anchor="middle" font-size="10.5" fill="#78350F">EX-1 (3) · EX-2 (4)</text>
+    <rect x="1016" y="316" width="120" height="26" rx="4" fill="#FFFBEB" stroke="#D97706"/>
+
+    <text x="776" y="372" fill="#475569">partitions 0 · 1 · 2 — ORD-7F3A hashes to partition 1 on every topic</text>
+    <text x="776" y="392" fill="#475569">ordered within a topic; a fill may reach a consumer before the order</text>
+    <text x="776" y="410" fill="#475569">message of the same version, never before an earlier fill</text>
+  </g>
+
+  <!-- Consumers -->
+  <g font-size="11.5">
+    <rect x="40" y="490" width="265" height="130" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <text x="52" y="512" font-size="13" font-weight="700" fill="#0F172A">Venue adapter</text>
+    <text x="52" y="534" fill="#475569">reads oms_orders, acts on market legs</text>
+    <text x="52" y="552" fill="#475569">answers on commands with a header:</text>
+    <text x="52" y="570" fill="#475569">correlationId = root order id</text>
+    <text x="52" y="588" fill="#475569">causationId = orderId:eventId answered</text>
+    <text x="52" y="608" fill="#475569">redelivery safe: state checks + commandId</text>
+
+    <rect x="325" y="490" width="265" height="130" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <text x="337" y="512" font-size="13" font-weight="700" fill="#0F172A">Streaming service</text>
+    <text x="337" y="534" fill="#475569">reads oms_orders, oms_order_executions</text>
+    <text x="337" y="552" fill="#475569">tier-2 projection: bounded in-memory blotter</text>
+    <text x="337" y="570" fill="#475569">dedup (orderId, execId, orderVersion)</text>
+    <text x="337" y="596" fill="#475569">snapshot from the query service, then live</text>
+
+    <rect x="610" y="490" width="265" height="130" rx="10" fill="#FFFFFF" stroke="#7C3AED" stroke-width="1.4"/>
+    <text x="622" y="512" font-size="13" font-weight="700" fill="#0F172A">Booking adapter</text>
+    <text x="622" y="534" fill="#475569">reads oms_order_executions only</text>
+    <text x="622" y="552" fill="#475569">one self-contained record per fill, no lookup</text>
+    <text x="622" y="570" fill="#475569">dedup (orderId, execId, orderVersion)</text>
+    <text x="622" y="596" fill="#475569">execType F books · H reverses · G corrects</text>
+
+    <rect x="895" y="490" width="265" height="130" rx="10" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="907" y="512" font-size="13" font-weight="700" fill="#475569">Post-trade analytics (planned)</text>
+    <text x="907" y="534" fill="#475569">reads all three topics</text>
+    <text x="907" y="552" fill="#475569">keeps its own history; the OMS archives</text>
+    <text x="907" y="570" fill="#475569">closed orders after the retention period</text>
+  </g>
+  <g stroke="#7C3AED" stroke-width="2" font-size="11" fill="#5B21B6">
+    <line x1="800" y1="430" x2="200" y2="488" marker-end="url(#av)"/>
+    <line x1="880" y1="430" x2="470" y2="488" marker-end="url(#av)"/>
+    <line x1="960" y1="430" x2="750" y2="488" marker-end="url(#av)"/>
+    <line x1="1040" y1="430" x2="1030" y2="488" marker-end="url(#av)"/>
+  </g>
+  <line x1="130" y1="488" x2="130" y2="440" stroke="#7C3AED" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#av)"/>
+  <text x="138" y="462" font-size="11" fill="#5B21B6">commands topic → oms-core</text>
+  <text x="40" y="648" font-size="11" fill="#475569">Dashed: the venue adapter's answers travel back on the commands topic, keyed by orderId, and enter the next command transaction.</text>
+</svg>
