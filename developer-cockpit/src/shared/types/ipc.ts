@@ -14,6 +14,7 @@ import type { KbDocument, KbCategory, KbSearchResult } from './kb';
 import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
+import type { MonitorHealthResult, MonitorMetricsResult } from './monitor';
 import type { UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
 import type { GitStatus, GitLogEntry, GitDiff, GitBranch, GitBranchResult } from './git';
 import type { SpecFile, SpecValidationResult, CodeGenTask, CodeGenResult, DomainEntity } from './specs';
@@ -170,6 +171,14 @@ export interface CockpitAPI {
     list(): Promise<DockerStats>;
     /** Returns the last `lines` of a container's logs (default 200). */
     logs(container: string, lines?: number): Promise<DockerLogs>;
+  };
+
+  // Monitoring (SPEC-0053): read-only oms-core actuator endpoints (health + prometheus).
+  monitor: {
+    /** The service state from `/actuator/health`. */
+    health(): Promise<MonitorHealthResult>;
+    /** The raw `/actuator/prometheus` text, possibly truncated. */
+    metrics(): Promise<MonitorMetricsResult>;
   };
 
   // Events
