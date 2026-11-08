@@ -16,6 +16,7 @@ import org.example.common.model.State;
 import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
+import org.example.oms.model.OrderEventSchemaVersion;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.repository.OutboxRepository;
@@ -51,7 +52,8 @@ class OrderEventAppenderTest {
                 new OrderFlowMetrics(new SimpleMeterRegistry(), mock(OrderRepository.class)),
                 mock(org.example.oms.repository.ExecutionRepository.class),
                 new org.example.oms.mapper.OrderExecutionMessageMapper(),
-                "oms_order_executions");
+                "oms_order_executions",
+                mock(OutboxNudge.class));
     }
 
     // AC-2
@@ -108,6 +110,18 @@ class OrderEventAppenderTest {
                 DataIntegrityViolationException.class, () -> appender.appendOrderEvent(order(2L), Event.ACK, null));
 
         assertSame(other, thrown);
+    }
+
+    // SPEC-0024: every appended event records its schema version.
+    @Test
+    void appendsTheCurrentSchemaVersion() {
+        appender.appendOrderEvent(order(4L), Event.ACK, null);
+
+        ArgumentCaptor<OrderEvent> event = ArgumentCaptor.forClass(OrderEvent.class);
+        verify(orderEventRepository).saveAndFlush(event.capture());
+        assertEquals(
+                OrderEventSchemaVersion.CURRENT, event.getValue().getSchemaVersion(),
+                "the event records the schema version that wrote it");
     }
 
     private static Order order(long txNr) {

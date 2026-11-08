@@ -15,6 +15,7 @@ import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
+import org.example.oms.model.OrderEventSchemaVersion;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.projection.StagedMessage;
 import org.example.oms.repository.ExecutionRepository;
@@ -53,6 +54,7 @@ public class OrderEventAppender {
     private final OrderExecutionMessageMapper orderExecutionMessageMapper;
     private final String orderExecutionTopic;
     private final StateMachine<ExecutionStatus> executionStatuses = ExecutionStatusMachineConfig.create();
+    private final OutboxNudge outboxNudge;
 
     public OrderEventAppender(
             OrderEventRepository orderEventRepository,
@@ -63,7 +65,8 @@ public class OrderEventAppender {
             OrderFlowMetrics orderFlowMetrics,
             ExecutionRepository executionRepository,
             OrderExecutionMessageMapper orderExecutionMessageMapper,
-            @Value("${kafka.order-execution-topic:oms_order_executions}") String orderExecutionTopic) {
+            @Value("${kafka.order-execution-topic:oms_order_executions}") String orderExecutionTopic,
+            OutboxNudge outboxNudge) {
         this.orderEventRepository = orderEventRepository;
         this.outboxRepository = outboxRepository;
         this.orderTopic = orderTopic;
@@ -73,6 +76,7 @@ public class OrderEventAppender {
         this.executionRepository = executionRepository;
         this.orderExecutionMessageMapper = orderExecutionMessageMapper;
         this.orderExecutionTopic = orderExecutionTopic;
+        this.outboxNudge = outboxNudge;
     }
 
     /**
@@ -81,7 +85,7 @@ public class OrderEventAppender {
      * the record's schema name, so the publisher needs no column or case per message type.
      */
     public void stageMessage(StagedMessage message) {
-        outboxRepository.save(
+        stage(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.PROJECTION)
                         .aggregateId(message.key())
@@ -123,6 +127,7 @@ public class OrderEventAppender {
                         .execId(execId)
                         .resultingState(order.getState())
                         .orderSnapshot(order)
+                        .schemaVersion(OrderEventSchemaVersion.CURRENT)
                         .timeStamp(Instant.now())
                         .build();
         try {
@@ -141,7 +146,7 @@ public class OrderEventAppender {
             throw e;
         }
 
-        outboxRepository.save(
+        stage(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.ORDER)
                         .aggregateId(partitionKey(order))
@@ -182,7 +187,7 @@ public class OrderEventAppender {
         execution.recordApplied(version, partitionKey(order));
         orderFlowMetrics.recordFill(order.getSide(), execution.getLastQty());
 
-        outboxRepository.save(
+        stage(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.EXECUTION)
                         .aggregateId(partitionKey(order))
@@ -253,6 +258,15 @@ public class OrderEventAppender {
                 effect.getResultingStatus());
 
         return version;
+    }
+
+    /**
+     * Stages a row in the caller's transaction, and asks the relay to drain once it commits
+     * (SPEC-0048), so publication does not wait for the relay's poll.
+     */
+    private void stage(OutboxMessage message) {
+        outboxRepository.save(message);
+        outboxNudge.afterCommit();
     }
 
     /**

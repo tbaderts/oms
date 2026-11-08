@@ -25,7 +25,23 @@ export interface AppConfig {
   appName: string;
   apiBaseUrl: string;
   streamingUrl?: string; // WebSocket URL for RSocket streaming
+  maxStreamingRows?: number; // Rolling-window cap for streaming blotters
   features?: Partial<FeatureFlags>;
+}
+
+/** Default cap for the streaming blotters' rolling window (a few thousand max). */
+export const DEFAULT_MAX_STREAMING_ROWS = 2000;
+
+/**
+ * Sanitize a raw maxStreamingRows value: missing, non-numeric or non-positive
+ * values fall back to the default.
+ */
+export function getMaxStreamingRows(): number {
+  const value = ConfigService.getCachedConfig()?.maxStreamingRows;
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  return DEFAULT_MAX_STREAMING_ROWS;
 }
 
 export class ConfigService {
@@ -68,6 +84,7 @@ export class ConfigService {
         appName: 'OMS Admin Tool',
         apiBaseUrl: '',  // Empty = use relative URLs via proxy in dev
         streamingUrl: DEFAULT_STREAMING_URL,
+        maxStreamingRows: DEFAULT_MAX_STREAMING_ROWS,
         features: DEFAULT_FEATURE_FLAGS,
       };
     }
@@ -90,5 +107,14 @@ export class ConfigService {
    */
   public static getFeatureFlags(): FeatureFlags {
     return { ...DEFAULT_FEATURE_FLAGS, ...(this.config?.features || {}) };
+  }
+
+  /**
+   * Resolve the streaming rolling-window limit from the loaded config.
+   * Missing, non-numeric or non-positive values fall back to the default.
+   * Safe to call before getConfig() — returns the default in that case.
+   */
+  public static getMaxStreamingRows(): number {
+    return getMaxStreamingRows();
   }
 }

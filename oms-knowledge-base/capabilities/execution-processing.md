@@ -31,6 +31,11 @@ The market (today the [exchange simulator](exchange-simulation.md)); operators f
 `CalculateOrderQuantitiesTask` → `DetermineOrderStateTask` → `PersistExecutionTask` →
 `UpdateOrderTask` → `PublishExecutionEventTask` → `ProjectTask`.
 
+The order is loaded under its row **lock** first (SPEC-0048), as lifecycle commands do. Concurrent
+fills on one order, from any instance or path, wait for each other and then apply on top, rather
+than racing for the next event version and failing. The version check stays as the safety net. Once
+order trees exist, the root order is locked first (SPEC-0022).
+
 Since SPEC-0046:
 - **Duplicate commandIds.** A fill whose commandId the order already applied is refused as a
   duplicate, even with a new execId: REST answers 409 `urn:oms:error:duplicate-command`, and Kafka

@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100%;
   padding: 1rem;
-  background: var(--vscode-bg-primary);
+  background: var(--oms-bg);
 }
 
 .blotter-toolbar {
@@ -12,8 +12,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: var(--vscode-bg-tertiary);
-  border: 1px solid var(--vscode-border);
+  background: var(--oms-surface-raised);
+  border: 1px solid var(--oms-border);
   border-radius: 0;
   margin-bottom: 0;
   border-bottom: none;
@@ -32,7 +32,7 @@
       margin: 0;
       font-size: 1rem;
       font-weight: 600;
-      color: var(--vscode-text-bright);
+      color: var(--oms-text-strong);
     }
 
     .record-count {
@@ -45,7 +45,7 @@
       text-transform: uppercase;
       letter-spacing: 0.3px;
       background: rgba(0, 122, 204, 0.2);
-      color: var(--vscode-accent-blue);
+      color: var(--oms-accent);
     }
   }
 
@@ -56,42 +56,42 @@
 
     button {
       padding: 0.4rem 0.875rem;
-      background: var(--vscode-bg-secondary);
-      color: var(--vscode-text-primary);
-      border: 1px solid var(--vscode-border);
+      background: var(--oms-surface);
+      color: var(--oms-text);
+      border: 1px solid var(--oms-border);
       border-radius: 2px;
       cursor: pointer;
       font-size: 0.8125rem;
       transition: all 0.1s;
 
       &:hover {
-        background: var(--vscode-accent-blue);
+        background: var(--oms-accent);
         color: white;
-        border-color: var(--vscode-accent-blue);
+        border-color: var(--oms-accent);
       }
 
       &:active {
-        background: var(--vscode-active-bg);
+        background: var(--oms-accent-active);
       }
 
       &.primary {
-        background: var(--vscode-accent-blue);
+        background: var(--oms-accent);
         color: white;
-        border-color: var(--vscode-accent-blue);
+        border-color: var(--oms-accent);
 
         &:hover {
-          background: var(--vscode-accent-blue-hover);
+          background: var(--oms-accent-hover);
         }
       }
 
       &.filter-active {
         background: rgba(0, 122, 204, 0.15);
-        border-color: var(--vscode-accent-blue);
-        color: var(--vscode-accent-blue);
+        border-color: var(--oms-accent);
+        color: var(--oms-accent);
         position: relative;
 
         &:hover {
-          background: var(--vscode-accent-blue);
+          background: var(--oms-accent);
           color: white;
         }
       }
@@ -106,7 +106,7 @@
         margin-left: 4px;
         font-size: 0.7rem;
         font-weight: 700;
-        background: var(--vscode-accent-blue);
+        background: var(--oms-accent);
         color: white;
         border-radius: 9px;
       }
@@ -118,23 +118,23 @@
       gap: 0.375rem;
       margin-left: 0.5rem;
       font-size: 0.8125rem;
-      color: var(--vscode-text-primary);
+      color: var(--oms-text);
       padding: 0.4rem 0.75rem;
-      background: var(--vscode-bg-secondary);
-      border: 1px solid var(--vscode-border);
+      background: var(--oms-surface);
+      border: 1px solid var(--oms-border);
       border-radius: 2px;
       cursor: pointer;
       transition: all 0.1s;
 
       &:hover {
-        border-color: var(--vscode-accent-blue);
+        border-color: var(--oms-accent);
       }
 
       input[type="checkbox"] {
         cursor: pointer;
         width: 14px;
         height: 14px;
-        accent-color: var(--vscode-accent-blue);
+        accent-color: var(--oms-accent);
       }
     }
   }
@@ -145,18 +145,13 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  background: rgba(244, 71, 71, 0.1);
-  color: var(--vscode-error);
+  background: var(--oms-danger-bg);
+  color: var(--oms-danger);
   border-radius: 0;
   margin: 0;
-  border: 1px solid var(--vscode-border);
-  border-left: 3px solid var(--vscode-error);
+  border: 1px solid var(--oms-border);
+  border-left: 3px solid var(--oms-danger);
   font-size: 0.875rem;
-
-  &::before {
-    content: '⚠️';
-    font-size: 1rem;
-  }
 }
 
 .blotter-grid {
@@ -164,7 +159,7 @@
   min-height: 400px;
   margin-bottom: 0;
   position: relative;
-  border: 1px solid var(--vscode-border);
+  border: 1px solid var(--oms-border);
   border-top: none;
 }
 
@@ -181,15 +176,15 @@
   justify-content: center;
   gap: 0.75rem;
   font-size: 0.875rem;
-  color: var(--vscode-text-primary);
+  color: var(--oms-text);
   z-index: 1000;
 
   &::before {
     content: '';
     width: 24px;
     height: 24px;
-    border: 2px solid var(--vscode-border);
-    border-top-color: var(--vscode-accent-blue);
+    border: 2px solid var(--oms-border);
+    border-top-color: var(--oms-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
@@ -204,16 +199,16 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.625rem 1rem;
-  background: var(--vscode-bg-tertiary);
-  border: 1px solid var(--vscode-border);
+  background: var(--oms-surface-raised);
+  border: 1px solid var(--oms-border);
   border-top: none;
 
   .pagination-info {
     font-size: 0.8125rem;
-    color: var(--vscode-text-secondary);
+    color: var(--oms-text-muted);
 
     .current-page {
-      color: var(--vscode-text-bright);
+      color: var(--oms-text-strong);
       font-weight: 600;
     }
   }
@@ -225,39 +220,39 @@
 
     button {
       padding: 0.375rem 0.75rem;
-      background: var(--vscode-bg-secondary);
-      color: var(--vscode-text-primary);
-      border: 1px solid var(--vscode-border);
+      background: var(--oms-surface);
+      color: var(--oms-text);
+      border: 1px solid var(--oms-border);
       border-radius: 2px;
       cursor: pointer;
       font-size: 0.8125rem;
       transition: all 0.1s;
 
       &:disabled {
-        background: var(--vscode-bg-primary);
-        color: var(--vscode-text-secondary);
+        background: var(--oms-bg);
+        color: var(--oms-text-muted);
         cursor: not-allowed;
         opacity: 0.5;
-        border-color: var(--vscode-border);
+        border-color: var(--oms-border);
       }
 
       &:not(:disabled):hover {
-        background: var(--vscode-accent-blue);
+        background: var(--oms-accent);
         color: white;
-        border-color: var(--vscode-accent-blue);
+        border-color: var(--oms-accent);
       }
 
       &:active {
-        background: var(--vscode-active-bg);
+        background: var(--oms-accent-active);
       }
     }
 
     .page-indicator {
       padding: 0.375rem 0.75rem;
       font-size: 0.8125rem;
-      color: var(--vscode-text-bright);
-      background: var(--vscode-bg-primary);
-      border: 1px solid var(--vscode-border);
+      color: var(--oms-text-strong);
+      background: var(--oms-bg);
+      border: 1px solid var(--oms-border);
       border-radius: 2px;
       min-width: 40px;
       text-align: center;
@@ -268,12 +263,12 @@
 // AG Grid structural overrides (colors/spacing come from theme/agGridTheme.ts via the Theming API)
 .blotter-grid {
   .ag-details-row {
-    background: var(--vscode-bg-secondary);
+    background: var(--oms-surface);
     padding: 0;
   }
 
   .ag-full-width-row {
-    border-bottom: 1px solid var(--vscode-border);
+    border-bottom: 1px solid var(--oms-border);
   }
 
   .ag-group-contracted,
@@ -282,7 +277,7 @@
     
     .ag-icon {
       transition: transform 0.2s;
-      color: var(--vscode-accent-blue);
+      color: var(--oms-accent);
     }
   }
 
@@ -302,6 +297,7 @@
   .streaming-status {
     display: inline-flex;
     align-items: center;
+    gap: 0.375rem;
     padding: 0.25rem 0.625rem;
     font-size: 0.75rem;
     font-weight: 600;
@@ -310,25 +306,43 @@
     letter-spacing: 0.3px;
     margin-left: 0.5rem;
 
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
     &.status-connected {
-      background: rgba(40, 167, 69, 0.2);
-      color: #28a745;
+      background: var(--oms-success-bg);
+      color: var(--oms-success);
+
+      .status-dot { background: var(--oms-success); }
     }
 
     &.status-connecting,
     &.status-reconnecting {
-      background: rgba(255, 193, 7, 0.2);
-      color: #ffc107;
+      background: var(--oms-warning-bg);
+      color: var(--oms-warning);
+
+      .status-dot {
+        background: var(--oms-warning);
+        animation: pulse 1.5s ease-in-out infinite;
+      }
     }
 
     &.status-error {
-      background: rgba(244, 71, 71, 0.2);
-      color: var(--vscode-error);
+      background: var(--oms-danger-bg);
+      color: var(--oms-danger);
+
+      .status-dot { background: var(--oms-danger); }
     }
 
     &.status-disconnected {
-      background: rgba(108, 117, 125, 0.2);
-      color: #6c757d;
+      background: var(--oms-neutral-bg);
+      color: var(--oms-neutral);
+
+      .status-dot { background: var(--oms-neutral); }
     }
   }
 
@@ -337,34 +351,34 @@
     align-items: center;
     gap: 1.5rem;
     padding: 0.5rem 1rem;
-    background: var(--vscode-bg-secondary);
-    border: 1px solid var(--vscode-border);
+    background: var(--oms-surface);
+    border: 1px solid var(--oms-border);
     border-top: none;
     font-size: 0.8125rem;
-    color: var(--vscode-text-secondary);
+    color: var(--oms-text-muted);
 
     .event-count {
       font-weight: 600;
-      color: var(--vscode-text-primary);
+      color: var(--oms-text);
     }
 
     .last-event {
-      color: var(--vscode-text-secondary);
+      color: var(--oms-text-muted);
     }
 
     .loading-indicator {
-      color: var(--vscode-accent-blue);
+      color: var(--oms-accent);
       animation: pulse 1.5s ease-in-out infinite;
     }
   }
 
   .disconnect-button {
     background: rgba(244, 71, 71, 0.1) !important;
-    color: var(--vscode-error) !important;
-    border-color: var(--vscode-error) !important;
+    color: var(--oms-danger) !important;
+    border-color: var(--oms-danger) !important;
 
     &:hover {
-      background: var(--vscode-error) !important;
+      background: var(--oms-danger) !important;
       color: white !important;
     }
   }
@@ -380,17 +394,6 @@
     }
   }
 
-  .mode-switch-button {
-    background: rgba(108, 117, 125, 0.1) !important;
-    color: #6c757d !important;
-    border-color: #6c757d !important;
-
-    &:hover {
-      background: #6c757d !important;
-      color: white !important;
-    }
-  }
-
   .snapshot-toggle {
     margin-left: 0.25rem !important;
   }
@@ -399,7 +402,7 @@
     .retry-button {
       margin-left: auto;
       padding: 0.25rem 0.75rem;
-      background: var(--vscode-error);
+      background: var(--oms-danger);
       color: white;
       border: none;
       border-radius: 2px;

@@ -98,14 +98,14 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="filter-builder-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><span className="modal-icon">🔍</span> Filter Builder</h2>
+          <h2>Filter Builder</h2>
           <button className="close-button" onClick={onClose}>&times;</button>
         </div>
         
         <div className="modal-body">
           <div className="filter-rules">
             <div className="filter-rules-header">
-              <h3><span className="section-icon">📋</span> Filter Rules</h3>
+              <h3>Filter Rules</h3>
               <span className="rule-count">{rules.filter(r => r.field && r.value).length} active</span>
             </div>
             {rules.map(rule => {
@@ -182,8 +182,8 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
                   renderValueInput(rule.value2, (val) => updateRule(rule.id, { value2: val }), 'Value 2')
                 )}
 
-                <button onClick={() => removeRule(rule.id)} className="remove-button">
-                  ✕
+                <button onClick={() => removeRule(rule.id)} className="remove-button" aria-label="Remove rule">
+                  Remove
                 </button>
               </div>
             );

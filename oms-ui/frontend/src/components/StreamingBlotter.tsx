@@ -13,7 +13,8 @@ import {
   StreamingOrderDto,
 } from '../types/streaming';
 import { RSocketStreamingService } from '../services/RSocketStreamingService';
-import { ConfigService, DEFAULT_STREAMING_URL } from '../services/ConfigService';
+import { ConfigService, DEFAULT_STREAMING_URL, DEFAULT_MAX_STREAMING_ROWS, getMaxStreamingRows } from '../services/ConfigService';
+import { evictOldest } from '../services/rollingWindow';
 import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
@@ -27,13 +28,13 @@ import './Blotter.scss';
 interface StreamingBlotterProps {
   domainObject: DomainObjectType;
   streamingUrl?: string;
-  onModeChange?: (mode: 'streaming' | 'rest') => void;
+  maxRows?: number;
 }
 
 const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   domainObject,
   streamingUrl,
-  onModeChange,
+  maxRows: maxRowsProp,
 }) => {
   // Data state - use Map for efficient updates by orderId
   const [dataMap, setDataMap] = useState<Map<string, StreamingOrderDto>>(new Map());
@@ -53,6 +54,10 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
   const [eventCount, setEventCount] = useState(0);
   const [lastEventTime, setLastEventTime] = useState<string | null>(null);
   const [includeSnapshot, setIncludeSnapshot] = useState(true);
+  // Rolling-window cap (SPEC-0054): resolved from config, bounded memory
+  const [maxRows, setMaxRows] = useState(DEFAULT_MAX_STREAMING_ROWS);
+  // Bumped on manual reconnect so the subscribe effect re-runs and re-subscribes (AC-7)
+  const [reconnectTick, setReconnectTick] = useState(0);
 
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
@@ -89,6 +94,19 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
       const service = RSocketStreamingService.getInstance({ wsUrl });
       streamingServiceRef.current = service;
+
+      // Resolve the rolling-window limit: explicit prop > backend config > default
+      if (maxRowsProp !== undefined) {
+        setMaxRows(maxRowsProp);
+      } else {
+        try {
+          await ConfigService.getConfig();
+          setMaxRows(getMaxStreamingRows());
+        } catch (e) {
+          console.warn('[StreamingBlotter] Failed to get config for maxStreamingRows, using default');
+          setMaxRows(DEFAULT_MAX_STREAMING_ROWS);
+        }
+      }
 
       const handleConnectionStateChange = (state: StreamingConnectionState) => {
         setConnectionState(state);
@@ -144,15 +162,18 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     initializeBlotter();
   }, [domainObject]);
 
-  // Save state when it changes (use same key as REST blotter for shared state)
+  // Save state when it changes (use same key as REST blotter for shared state).
+  // Only filters and columns are written: the streaming blotter has no paging, so
+  // writing pageSize/currentPage here would clobber the REST blotter's persisted values.
   useEffect(() => {
     if (initialized) {
+      const saved = stateService.getState(domainObject);
       stateService.saveState(domainObject, {
         filters: convertFiltersToState(filters),
         visibleColumns,
-        sortModel: [],
-        pageSize: 0,
-        currentPage: 0,
+        sortModel: saved?.sortModel || [],
+        pageSize: saved?.pageSize || 0,
+        currentPage: saved?.currentPage || 0,
       });
     }
   }, [filters, visibleColumns, domainObject, initialized]);
@@ -215,7 +236,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         subscriptionRef.current = null;
       }
     };
-  }, [initialized, serviceReady, filters, includeSnapshot, domainObject]);
+  }, [initialized, serviceReady, filters, includeSnapshot, domainObject, reconnectTick]);
 
   const handleOrderEvent = useCallback((event: OrderEvent) => {
     const order = RSocketStreamingService.normalizeOrderEvent(event);
@@ -229,6 +250,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     setDataMap(prev => {
       const newMap = new Map(prev);
       newMap.set(orderId, order);
+      evictOldest(newMap, maxRows);
       return newMap;
     });
 
@@ -242,7 +264,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
         gridApiRef.current.flashCells({ rowNodes: [rowNode] });
       }
     }
-  }, []);
+  }, [maxRows]);
 
   const handleExecutionEvent = useCallback((event: ExecutionEvent) => {
     const execution = event.execution;
@@ -256,12 +278,13 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     setDataMap(prev => {
       const newMap = new Map(prev);
       newMap.set(rowIdOf('Execution', execution), execution as any);
+      evictOldest(newMap, maxRows);
       return newMap;
     });
 
     setEventCount(prev => prev + 1);
     setLastEventTime(new Date().toISOString());
-  }, []);
+  }, [maxRows]);
 
   const handleStreamError = useCallback((error: Error) => {
     console.error('[StreamingBlotter] Stream error:', error);
@@ -300,6 +323,8 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
       setEventCount(0);
       try {
         await streamingServiceRef.current.connect();
+        // Re-subscribe: the subscribe effect re-runs on the tick change
+        setReconnectTick(t => t + 1);
       } catch (err) {
         console.error('[StreamingBlotter] Reconnect failed:', err);
       }
@@ -330,16 +355,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     }
   };
 
-  const getConnectionStatusIcon = (): string => {
-    switch (connectionState) {
-      case 'connected': return '🟢';
-      case 'connecting':
-      case 'reconnecting': return '🟡';
-      case 'error': return '🔴';
-      default: return '⚪';
-    }
-  };
-
   if (!initialized) {
     return (
       <div className="blotter-container">
@@ -356,30 +371,30 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
       {/* Toolbar */}
       <div className="blotter-toolbar">
         <div className="toolbar-left">
-          <span className="toolbar-icon">📡</span>
           <h2>{metadata.displayName}</h2>
           <span className="record-count">{data.length} records</span>
           <span className={`streaming-status ${getConnectionStatusClass()}`}>
-            {getConnectionStatusIcon()} {connectionState}
+            <span className="status-dot" aria-hidden="true" />
+            {connectionState}
           </span>
         </div>
         <div className="toolbar-right">
-          <button 
+          <button
             onClick={() => setShowFilterBuilder(true)}
             className={filters.length > 0 ? 'filter-active' : ''}
           >
-            🔍 Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
+            Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
           </button>
-          <button onClick={() => setShowColumnSelector(true)}>📊 Columns</button>
-          <button onClick={handleAutoSize}>↔️ Auto-Size</button>
-          
+          <button onClick={() => setShowColumnSelector(true)}>Columns</button>
+          <button onClick={handleAutoSize}>Auto-Size</button>
+
           {connectionState === 'connected' ? (
             <button onClick={handleDisconnect} className="disconnect-button">
-              ⏹️ Disconnect
+              Disconnect
             </button>
           ) : (
             <button onClick={handleReconnect} className="connect-button">
-              ▶️ Connect
+              Connect
             </button>
           )}
           
@@ -391,12 +406,6 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
             />
             Include Snapshot
           </label>
-
-          {onModeChange && (
-            <button onClick={() => onModeChange('rest')} className="mode-switch-button">
-              📋 REST Mode
-            </button>
-          )}
         </div>
       </div>
 
@@ -408,7 +417,7 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
             Last event: {new Date(lastEventTime).toLocaleTimeString()}
           </span>
         )}
-        {loading && <span className="loading-indicator">⏳ Loading snapshot...</span>}
+        {loading && <span className="loading-indicator">Loading snapshot...</span>}
       </div>
 
       {/* Error Display */}

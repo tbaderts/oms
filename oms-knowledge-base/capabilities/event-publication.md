@@ -82,6 +82,50 @@ Metrics:
 - `oms.outbox.oldest.age` (`oms_outbox_oldest_age_seconds`): how long the oldest row still to be
   published has waited, 0 when none. A held aggregate makes it grow.
 
+### Several instances (SPEC-0048)
+
+oms-core can run as several instances on one database and one broker.
+
+- **One relay leader.** Only the instance holding the outbox-relay leadership drains the outbox.
+  Leadership is a PostgreSQL session-level **advisory lock**, taken on a dedicated connection
+  outside the pool. The other instances' relays do nothing. If the leader stops, or its session
+  dies, PostgreSQL releases the lock and another instance takes it on its next poll. Per-aggregate
+  order rests on that single drainer. Within the leader, drains run one at a time.
+- **Handing over.** A handover never lets two relays publish one aggregate's rows out of order:
+  - The relay re-checks leadership before every batch, so an instance that lost its lock stops
+    after the batch it is in.
+  - The claim (`select … for update`) waits for rows another relay holds instead of skipping them.
+    A new leader whose first claim overlaps the old leader's last batch waits for that batch to
+    commit and then sees only what is left, in order.
+  - On shutdown the relay stops first: it stops taking batches and waits for the batch in flight
+    (up to the drain timeout). Only then is the lock released.
+  - The leadership connection uses TCP keepalive and a 30 s socket timeout, and is checked with
+    `isValid` before each use. A stale session is closed before a new one is opened.
+- **Published right after commit.** After every commit that staged rows, the committing instance
+  nudges its relay to drain at once (`OutboxNudge`). A drain keeps going while its batches come
+  back full. Only commits on the leader gain this latency: a follower's nudge finds it is not the
+  leader and does nothing, so its rows wait for the leader's next poll. The poll (200 ms) remains
+  the fallback for other instances' commits, crashes between commit and nudge, and retries.
+- **Where to see it.** `GET /actuator/health/leadership` shows which roles an instance holds
+  (`outboxRelay`, `scheduler`), without authorization. Two meters back it:
+  - `oms.leadership.held{role}` is 1 while the instance holds the role. Summed over instances it
+    is 1 per role; 0 means nobody drains or runs the schedulers.
+  - `oms.outbox.drains` counts the batches an instance claimed. It stays 0 on a follower.
+- **Schedulers.** End of day and GTD expiry run only on the instance holding the scheduler
+  leadership, a second advisory lock.
+- **Next step, designed but not built: relay slices.** N relay leaders, leader `i` holding advisory
+  lock `0x4F4D5310 + i` and claiming only rows with `abs(hashtext(aggregate_id)) % N = i`. All rows
+  of an aggregate fall in one slice, so per-aggregate order holds with no shared state. Worth doing
+  only once one relay is the measured ceiling (SPEC-0024).
+
+**Operations: how fast a dead leader is noticed.** The lock is released when PostgreSQL ends the
+leader's session. A leader that stops cleanly releases it at once. A leader whose host or network
+dies leaves a session that PostgreSQL only ends when TCP keepalive gives up on it. That takes
+`tcp_keepalives_idle` + `tcp_keepalives_interval` × `tcp_keepalives_count` on the server, which
+is about two hours with Linux defaults. Set them lower on the database server (for example
+`tcp_keepalives_idle = 30`, `tcp_keepalives_interval = 10`, `tcp_keepalives_count = 3`) to bound
+the gap without a relay to about a minute.
+
 **Rolling out SPEC-0026.** Rows that an earlier relay left stuck start holding their aggregates
 once this version runs: every new message for that topic and root order would wait behind them.
 Before deploying, check `oms.outbox.stuck` (or

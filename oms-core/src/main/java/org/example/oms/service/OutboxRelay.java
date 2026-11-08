@@ -15,15 +15,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.OutboxRepository;
+import org.example.oms.service.leadership.Leadership;
+import org.example.oms.service.leadership.Role;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.data.domain.Limit;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -51,8 +55,16 @@ import lombok.extern.slf4j.Slf4j;
  * behind it rather than published out of order. {@code oms.outbox.oldest.age} shows how long the
  * oldest row has been waiting. Silent loss is the one outcome this class is built to prevent.
  *
- * <p>Ordering holds for one relay instance. With several, {@code SKIP LOCKED} could let a second
- * instance claim later rows of an aggregate whose earlier rows the first one holds.
+ * <p>Ordering holds because exactly one drainer exists (SPEC-0048). Of several instances, only the
+ * one holding the {@link Role#OUTBOX_RELAY} leadership drains; the others do nothing. Within that
+ * instance, drains run one at a time. Leadership is re-checked before every batch, and this relay
+ * stops (waiting for its drain and its sends in flight) before leadership is released at shutdown.
+ * Should two relays still overlap, after a session loss mid-drain, the claim waits for rows another
+ * relay holds rather than skipping them, so an aggregate's later rows are never published first.
+ *
+ * <p>A drain runs after every commit that staged rows, nudged by {@link OutboxNudge}, and keeps
+ * draining while its batches come back full. The poll is the fallback: for commits on other
+ * instances, crashes between commit and nudge, and rows that are waiting to be retried.
  */
 @Component
 @Slf4j
@@ -61,7 +73,7 @@ import lombok.extern.slf4j.Slf4j;
         name = "enabled",
         havingValue = "true",
         matchIfMissing = false)
-public class OutboxRelay {
+public class OutboxRelay implements SmartLifecycle {
 
     private final OutboxRepository outboxRepository;
     private final MessagePublisher messagePublisher;
@@ -78,18 +90,41 @@ public class OutboxRelay {
     private final ExecutorService sendExecutor =
             Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("outbox-relay-send-", 0).factory());
 
+    private final Leadership leadership;
+    private final io.micrometer.core.instrument.Counter drains;
+    private final TransactionOperations transactions;
+
+    /** Drains of this instance run one at a time; see the class comment. */
+    private final ReentrantLock draining = new ReentrantLock();
+
+    /** Set when a drain was asked for while another ran: the running one drains once more. */
+    private final AtomicBoolean again = new AtomicBoolean();
+
+    /** Runs nudged drains off the committing thread; at most one nudge waits at a time. */
+    private final ExecutorService nudgeExecutor =
+            Executors.newSingleThreadExecutor(Thread.ofPlatform().name("outbox-relay-nudge").daemon().factory());
+
+    private final AtomicBoolean nudgeQueued = new AtomicBoolean();
+
     public OutboxRelay(
             OutboxRepository outboxRepository,
             MessagePublisher messagePublisher,
             MeterRegistry meterRegistry,
+            Leadership leadership,
+            TransactionOperations transactions,
             @Value("${kafka.outbox.batch-size:100}") int batchSize,
             @Value("${kafka.outbox.max-attempts:10}") int maxAttempts,
             @Value("${kafka.outbox.drain-timeout-ms:30000}") long drainTimeoutMs) {
         this.outboxRepository = outboxRepository;
         this.messagePublisher = messagePublisher;
+        this.leadership = leadership;
+        this.transactions = transactions;
         this.batchSize = batchSize;
         this.maxAttempts = maxAttempts;
         this.drainTimeoutMs = drainTimeoutMs;
+        this.drains = io.micrometer.core.instrument.Counter.builder("oms.outbox.drains")
+                .description("Outbox batches claimed by this instance; stays 0 on a follower (SPEC-0048)")
+                .register(meterRegistry);
 
         meterRegistry.gauge(
                 "oms.outbox.pending", outboxRepository, OutboxRepository::count);
@@ -116,22 +151,126 @@ public class OutboxRelay {
         final AtomicBoolean closed = new AtomicBoolean();
     }
 
+    /** The fallback: drains on a fixed delay, whatever nudges arrived (SPEC-0048). */
+    @Scheduled(fixedDelayString = "${kafka.outbox.poll-interval-ms:200}")
+    public void poll() {
+        drainAll();
+    }
+
     /**
-     * Publishes one batch of pending messages.
+     * Asks for a drain now, off the caller's thread; called after a commit that staged rows. Nudges
+     * that arrive while one is waiting coalesce: one drain covers them all.
+     */
+    public void nudge() {
+        if (nudgeQueued.compareAndSet(false, true)) {
+            try {
+                nudgeExecutor.execute(() -> {
+                    nudgeQueued.set(false);
+                    drainAll();
+                });
+            } catch (java.util.concurrent.RejectedExecutionException e) {
+                // Shutting down: the next instance's poll publishes the rows.
+                nudgeQueued.set(false);
+            }
+        }
+    }
+
+    /**
+     * Drains until the outbox has nothing more to publish now, if this instance is the relay leader.
+     * A drain asked for while another runs is folded into the running one.
+     */
+    public void drainAll() {
+        if (!running || !leadership.holds(Role.OUTBOX_RELAY)) {
+            return;
+        }
+        again.set(true);
+        while (again.get()) {
+            if (!draining.tryLock()) {
+                return; // the running drain sees `again` and drains once more
+            }
+            try {
+                while (again.getAndSet(false)) {
+                    BatchResult batch;
+                    do {
+                        // Leadership is checked before every batch, not once per drain: a lock lost
+                        // meanwhile (session loss) stops this instance at the next batch.
+                        if (!running || !leadership.holds(Role.OUTBOX_RELAY)) {
+                            again.set(false);
+                            return;
+                        }
+                        batch = transactions.execute(status -> drainBatch());
+                    } while (batch != null && batch.claimed() == batchSize && batch.published() > 0);
+                }
+            } finally {
+                draining.unlock();
+            }
+        }
+    }
+
+    // --- Lifecycle (SPEC-0048 review): stop before leadership is released ----------------------
+
+    private volatile boolean running = true;
+
+    @Override
+    public void start() {
+        running = true;
+    }
+
+    /**
+     * Stops draining, then waits, up to {@code drain-timeout-ms}, for a running drain and for sends
+     * still in flight. It runs before {@link Leadership#stop()} (higher phase), so the lock is released
+     * only when this instance has nothing claimed and nothing in flight: a successor never overlaps it.
+     */
+    @Override
+    public void stop() {
+        running = false;
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(drainTimeoutMs);
+        try {
+            if (draining.tryLock(drainTimeoutMs, TimeUnit.MILLISECONDS)) {
+                draining.unlock();
+            } else {
+                log.warn("Outbox relay stopping while a drain still runs after {} ms", drainTimeoutMs);
+            }
+            while (!inFlight.isEmpty() && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!inFlight.isEmpty()) {
+            log.warn("Outbox relay stopping with {} send(s) still unacknowledged", inFlight.size());
+        }
+    }
+
+    @Override
+    public boolean isRunning() {
+        return running;
+    }
+
+    /** Stopped before {@link Leadership} (whose phase is lower), so the lock outlives the last drain. */
+    @Override
+    public int getPhase() {
+        return Integer.MAX_VALUE - 50;
+    }
+
+    /** What one batch did: rows claimed, and rows the broker acknowledged. */
+    record BatchResult(int claimed, int published) {}
+
+    /**
+     * Publishes one batch of pending messages, in the caller's transaction.
      *
      * <p>The batch is sent inside the claiming transaction and awaited; acknowledged rows are deleted
      * and failed ones keep their row with the attempt count incremented, so a crash mid-batch leaves
      * the unsent remainder claimable by the next run.
      */
-    @Scheduled(fixedDelayString = "${kafka.outbox.poll-interval-ms:200}")
-    @Transactional
-    public void drain() {
+    BatchResult drainBatch() {
         List<OutboxMessage> pending =
                 outboxRepository.claimPending(maxAttempts, Limit.of(batchSize));
 
         if (pending.isEmpty()) {
-            return;
+            return new BatchResult(0, 0);
         }
+        drains.increment();
 
         log.debug("Draining {} outbox messages", pending.size());
 
@@ -146,7 +285,7 @@ public class OutboxRelay {
             byAggregate.computeIfAbsent(key, k -> new ArrayList<>()).add(message);
         }
         if (byAggregate.isEmpty()) {
-            return;
+            return new BatchResult(pending.size(), 0); // every aggregate is still in flight
         }
 
         Outcomes outcomes = new Outcomes();
@@ -169,6 +308,7 @@ public class OutboxRelay {
         }
 
         apply(byAggregate.values(), outcomes);
+        return new BatchResult(pending.size(), outcomes.acknowledged.size());
     }
 
     /**
@@ -327,6 +467,7 @@ public class OutboxRelay {
      */
     @PreDestroy
     void shutdown() {
+        nudgeExecutor.shutdownNow();
         sendExecutor.shutdown();
         try {
             if (!sendExecutor.awaitTermination(5, TimeUnit.SECONDS)) {

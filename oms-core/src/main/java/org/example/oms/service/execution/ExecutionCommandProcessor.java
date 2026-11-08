@@ -102,9 +102,16 @@ public class ExecutionCommandProcessor {
         return createResult(result, context);
     }
 
+    /**
+     * Loads the order under its row lock, as the lifecycle pipeline does (SPEC-0048): a concurrent
+     * fill or lifecycle command on the same order waits for this one to commit, then applies on top,
+     * instead of losing the race for the next event version and failing. The version check stays as
+     * the safety net. Once order trees exist, the root order is locked first (SPEC-0022); today
+     * every order is its own root.
+     */
     private Order loadOrder(String orderId) {
         return orderRepository
-                .findByOrderId(orderId)
+                .findLockedByOrderId(orderId)
                 .orElseThrow(
                         () ->
                                 new IllegalArgumentException(

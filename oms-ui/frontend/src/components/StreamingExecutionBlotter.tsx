@@ -2,17 +2,8 @@
 import React from 'react';
 import StreamingBlotter from './StreamingBlotter';
 
-interface StreamingExecutionBlotterProps {
-  onModeChange?: (mode: 'streaming' | 'rest') => void;
-}
-
-const StreamingExecutionBlotter: React.FC<StreamingExecutionBlotterProps> = ({ onModeChange }) => {
-  return (
-    <StreamingBlotter 
-      domainObject="Execution" 
-      onModeChange={onModeChange}
-    />
-  );
+const StreamingExecutionBlotter: React.FC = () => {
+  return <StreamingBlotter domainObject="Execution" />;
 };
 
 export default StreamingExecutionBlotter;

@@ -12,47 +12,47 @@ interface DetailPanelProps {
 const fieldGroups: Record<string, { title: string; fields: string[]; icon: string }> = {
   identification: {
     title: 'Identification',
-    icon: '🔑',
+    icon: 'ID',
     fields: ['orderId', 'clOrdId', 'origClOrdId', 'parentOrderId', 'rootOrderId', 'sessionId'],
   },
   instrument: {
     title: 'Instrument',
-    icon: '📊',
+    icon: 'INST',
     fields: ['symbol', 'securityId', 'securityIdSource', 'securityDesc', 'securityType', 'securityExchange'],
   },
   orderDetails: {
     title: 'Order Details',
-    icon: '📝',
+    icon: 'ORD',
     fields: ['side', 'ordType', 'orderQty', 'price', 'stopPx', 'cashOrderQty', 'timeInForce', 'expireTime'],
   },
   execution: {
     title: 'Execution',
-    icon: '⚡',
+    icon: 'EXEC',
     fields: ['cumQty', 'leavesQty', 'placeQty', 'allocQty', 'exDestination', 'handlInst', 'execInst'],
   },
   status: {
     title: 'Status',
-    icon: '📍',
+    icon: 'ST',
     fields: ['state', 'cancelState', 'rejectReason', 'positionEffect'],
   },
   timing: {
     title: 'Timing',
-    icon: '🕐',
+    icon: 'TIME',
     fields: ['sendingTime', 'transactTime', 'tifTimestamp'],
   },
   settlement: {
     title: 'Settlement',
-    icon: '💰',
+    icon: 'SETL',
     fields: ['account', 'settlCurrency', 'priceType'],
   },
   derivatives: {
     title: 'Derivatives',
-    icon: '📈',
+    icon: 'DER',
     fields: ['maturityMonthYear', 'strikePrice', 'putOrCall', 'underlyingSecurityType', 'leg'],
   },
   other: {
     title: 'Other',
-    icon: '📋',
+    icon: 'MISC',
     fields: ['id', 'tx', 'txNr', 'text'],
   },
 };
@@ -315,7 +315,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
         {getUnassignedFields().length > 0 && (
           <div className="detail-section expanded">
             <div className="section-header" onClick={() => toggleSection('_unassigned')}>
-              <span className="section-icon">📦</span>
+              <span className="section-icon">UNASSIGNED</span>
               <h4>Additional Fields</h4>
               <span className="section-toggle">
                 {expandedSections.has('_unassigned') ? '▼' : '▶'}

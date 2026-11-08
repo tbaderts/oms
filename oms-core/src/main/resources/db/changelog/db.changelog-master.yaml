@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/012-rename-order-execution-projection.yaml
   - include:
       file: db/changelog/013-command-log.yaml
+  - include:
+      file: db/changelog/014-order-events-schema-version.yaml

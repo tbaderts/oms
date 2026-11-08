@@ -49,7 +49,7 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="column-selector-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2><span className="modal-icon">📊</span> Select Columns</h2>
+          <h2>Select Columns</h2>
           <button className="close-button" onClick={onClose}>&times;</button>
         </div>
 

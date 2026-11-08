@@ -45,6 +45,7 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
     @Autowired ExecutionRepository executionRepository;
     @Autowired ProducerFactory<Object, Object> producerFactory;
     @Autowired WebApplicationContext webApplicationContext;
+    @org.springframework.beans.factory.annotation.Value("${kafka.command-topic}") String commandTopic;
 
     private KafkaTemplate<String, Object> commands;
 
@@ -114,7 +115,7 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
     }
 
     void send(String key, Object command) throws Exception {
-        commands.send("commands", key, command).get(10, TimeUnit.SECONDS);
+        commands.send(commandTopic, key, command).get(10, TimeUnit.SECONDS);
     }
 
     long executionCount(String orderId) {

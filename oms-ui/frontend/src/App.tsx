@@ -51,21 +51,17 @@ const App: React.FC = () => {
     setShowAuthModal(false);
   };
 
-  const handleModeChange = (mode: DataMode) => {
-    setDataMode(mode);
-  };
-
   // Render the appropriate blotter based on mode
   const renderOrderBlotter = () => {
     if (featureFlags.streamingEnabled && dataMode === 'streaming') {
-      return <StreamingOrderBlotter onModeChange={handleModeChange} />;
+      return <StreamingOrderBlotter />;
     }
     return <OrderBlotter />;
   };
 
   const renderExecutionBlotter = () => {
     if (featureFlags.streamingEnabled && dataMode === 'streaming') {
-      return <StreamingExecutionBlotter onModeChange={handleModeChange} />;
+      return <StreamingExecutionBlotter />;
     }
     return <ExecutionBlotter />;
   };
@@ -85,13 +81,13 @@ const App: React.FC = () => {
                 className={`mode-button ${dataMode === 'rest' ? 'active' : ''}`}
                 onClick={() => setDataMode('rest')}
               >
-                📋 REST
+                REST
               </button>
               <button
                 className={`mode-button ${dataMode === 'streaming' ? 'active' : ''}`}
                 onClick={() => setDataMode('streaming')}
               >
-                📡 Streaming
+                Streaming
               </button>
             </div>
           )}
@@ -99,7 +95,7 @@ const App: React.FC = () => {
             className={`authorize-button ${isAuthorized ? 'authorized' : ''}`}
             onClick={handleAuthorizeClick}
           >
-            🔒 {isAuthorized ? 'Authorized' : 'Authorize'}
+            {isAuthorized ? 'Authorized' : 'Authorize'}
           </button>
         </div>
       </header>

@@ -56,4 +56,23 @@ setup ([Avro Messages](avro-messages.md#subjects-and-registration)).
   (SPEC-0025). Each command is counted in `oms.commands.consumed` by record `type` and `outcome`
   (`applied`, `refused`, `failed`, per attempt; type `undecodable` when it could not be read).
 
+## Partitions and consumers (SPEC-0048)
+
+- **oms-core declares the four topics at startup.** `KafkaTopicProvisioner` creates any that are
+  missing with `kafka.topics.partitions` (default 6) and `kafka.topics.replication-factor`
+  (default 1).
+- **An existing topic is never resized.** Adding partitions moves keys to other partitions, and
+  records of one order already on the topic could then be consumed out of order with new ones. A
+  topic with fewer partitions than configured is left as it is and logged as a warning. To resize:
+  drain the topic, resize it, restart.
+- **Listener concurrency** equals the command topic's actual partition count. This is safe for
+  per-order ordering: a command's key is its root order id, so one order's commands share a
+  partition and hence a consumer. Across instances and paths, the order's row lock serialises the
+  same order.
+- **Conflicts are retried, not dead-lettered.** A command that fails with a concurrency failure
+  (a lost race for the order's version, a lock timeout, a deadlock) is retried with back-off capped
+  at `kafka.consumer.concurrency-max-interval-ms` (5 s) for as long as it takes. It never uses the
+  retry budget that sends other failures to `<topic>.DLT`. It is logged at WARN on each retry, and
+  at ERROR from `kafka.consumer.concurrency-error-after-attempts` (120, about 10 minutes).
+
 Messages: [Avro Messages](avro-messages.md).

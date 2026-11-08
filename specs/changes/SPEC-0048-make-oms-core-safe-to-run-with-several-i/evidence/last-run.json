@@ -1,0 +1,25 @@
+{
+  "ranAt": "2026-11-08T10:37:38.190Z",
+  "result": "pass",
+  "modules": [
+    "oms-core",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "ed2e3983ad123e5d",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R07 P-14] oms-ui: production code changed without any test change in the same module"
+    ],
+    "scope": "changes since main (merge-base 9263c597)"
+  },
+  "commands": [
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 296,
+      "log": "evidence/oms-core-1.log"
+    }
+  ]
+}

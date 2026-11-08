@@ -32,11 +32,12 @@ The React application is packaged and served by a Spring Boot microservice (`ri-
 ```json
 {
   "appName": "OMS Admin Tool",
-  "apiBaseUrl": "http://localhost:9001"
+  "apiBaseUrl": "http://localhost:9001",
+  "maxStreamingRows": 2000
 }
 ```
 
-This allows the React app to dynamically discover the OMS backend URL based on the deployment environment (local, Kubernetes, etc.).
+This allows the React app to dynamically discover the OMS backend URL based on the deployment environment (local, Kubernetes, etc.). `maxStreamingRows` (default 2000, configurable server-side via `oms.ui.max-streaming-rows`) bounds the streaming blotter's rolling window — see [Blotter Data Modes](#blotter-data-modes).
 
 ### 2. Frontend React Application
 
@@ -202,6 +203,29 @@ column is empty because of a naming mismatch.
 - `execID` and `executionId` no longer exist.
 - `avgPx` is the order's volume-weighted average price as of the fill (see
   [Execution](../domain/execution.md)).
+
+### Blotter Data Modes
+
+The header's mode toggle switches every blotter between two data modes (SPEC-0054):
+
+**Real-time (streaming) mode.** The blotter subscribes over RSocket and keeps a **rolling window**
+of the most recent objects in memory:
+
+- The window size is `maxStreamingRows` from `/api/config` (default **2000**; server-side property
+  `oms.ui.max-streaming-rows`). Missing, non-numeric or non-positive values fall back to the
+  default.
+- When the window is full, the **oldest** rows (by first arrival) are evicted as new events arrive;
+  the toolbar record count never exceeds the limit.
+- On reconnect after a connection error, the window and the event counter are reset.
+- Switching to paging mode (or unmounting the blotter) unsubscribes the stream.
+
+**Paging (REST) mode.** The blotter fetches from the query API page by page, so all data stays
+reachable regardless of volume:
+
+- The page size is selected in the pagination bar: **50 / 100 / 250 / 500** (500 is the query API
+  maximum). The selection is persisted per domain object in `BlotterStateService`.
+- Changing the page size resets to the first page.
+- A partial last page (total not a multiple of the page size) renders its remaining rows.
 
 ### 7. Detail Panel (`DetailPanel.tsx`)
 

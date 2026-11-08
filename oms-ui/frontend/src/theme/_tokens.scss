@@ -1,0 +1,70 @@
+// _tokens.scss - OMS design tokens: the single source of truth for colour, spacing,
+// typography and shape across the admin UI. Components must use these tokens instead
+// of hard-coded values so the theme can be adjusted (or re-branded) in one place.
+
+:root {
+  /* Surfaces */
+  --oms-bg: #1e1e1e;
+  --oms-surface: #252526;
+  --oms-surface-raised: #2d2d30;
+  --oms-surface-overlay: #333333;
+
+  /* Text */
+  --oms-text: #cccccc;
+  --oms-text-muted: #858585;
+  --oms-text-strong: #ffffff;
+  --oms-text-on-accent: #ffffff;
+
+  /* Accent */
+  --oms-accent: #007acc;
+  --oms-accent-hover: #0098ff;
+  --oms-accent-active: #094771;
+  --oms-accent-light: #4d9fd6;
+  --oms-accent-bg: rgba(0, 122, 204, 0.15);
+  --oms-accent-bg-strong: rgba(0, 122, 204, 0.3);
+
+  /* Status */
+  --oms-success: #89d185;
+  --oms-success-bg: rgba(137, 209, 133, 0.15);
+  --oms-warning: #cca700;
+  --oms-warning-bg: rgba(204, 167, 0, 0.15);
+  --oms-danger: #f48771;
+  --oms-danger-bg: rgba(244, 135, 113, 0.12);
+  --oms-info: #75beff;
+  --oms-neutral: #6c757d;
+  --oms-neutral-bg: rgba(108, 117, 125, 0.15);
+
+  /* Borders & inputs */
+  --oms-border: #3e3e42;
+  --oms-border-light: #454545;
+  --oms-input-bg: #3c3c3c;
+  --oms-input-border: #3e3e42;
+  --oms-hover: #2a2d2e;
+  --oms-selection: #264f78;
+  --oms-overlay-bg: rgba(30, 30, 30, 0.9);
+
+  /* Syntax colours (JSON viewer) */
+  --oms-syntax-keyword: #569cd6;
+  --oms-syntax-string: #ce9178;
+  --oms-syntax-number: #b5cea8;
+  --oms-syntax-property: #9cdcfe;
+  --oms-syntax-punctuation: #d4d4d4;
+
+  /* Spacing scale */
+  --oms-space-1: 0.25rem;
+  --oms-space-2: 0.5rem;
+  --oms-space-3: 0.75rem;
+  --oms-space-4: 1rem;
+  --oms-space-5: 1.5rem;
+
+  /* Shape */
+  --oms-radius-sm: 2px;
+  --oms-radius-md: 4px;
+
+  /* Typography */
+  --oms-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --oms-font-size-xs: 0.75rem;
+  --oms-font-size-sm: 0.8125rem;
+  --oms-font-size-md: 0.875rem;
+  --oms-font-size-lg: 1rem;
+}

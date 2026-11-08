@@ -26,6 +26,8 @@ import java.util.function.Function;
 import org.example.common.model.Order;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.OutboxRepository;
+import org.example.oms.service.leadership.Leadership;
+import org.example.oms.service.leadership.Role;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.SendResult;
+import org.springframework.transaction.support.TransactionOperations;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
@@ -46,6 +49,7 @@ class OutboxRelayTest {
     private static final int MAX_ATTEMPTS = 3;
 
     @Mock private OutboxRepository outboxRepository;
+    @Mock private Leadership leadership;
 
     private final FakePublisher publisher = new FakePublisher();
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
@@ -53,7 +57,7 @@ class OutboxRelayTest {
 
     @BeforeEach
     void setUp() {
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, 100, MAX_ATTEMPTS, 5_000);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 5_000);
     }
 
     @AfterEach
@@ -68,7 +72,7 @@ class OutboxRelayTest {
         OutboxMessage second = message(2L, "B");
         claim(first, second);
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L, 2L), publisher.sentIds().stream().sorted().toList());
         verify(outboxRepository).delete(first);
@@ -85,7 +89,7 @@ class OutboxRelayTest {
         claim(message);
         publisher.answer = m -> failed("broker down");
 
-        relay.drain();
+        relay.drainBatch();
 
         verify(outboxRepository, never()).delete(message);
         assertEquals(1, message.getAttempts());
@@ -96,7 +100,7 @@ class OutboxRelayTest {
     void drain_whenNothingPending_doesNothing() {
         when(outboxRepository.claimPending(any(Integer.class), any())).thenReturn(List.of());
 
-        relay.drain();
+        relay.drainBatch();
 
         assertTrue(publisher.sentIds().isEmpty());
     }
@@ -111,7 +115,7 @@ class OutboxRelayTest {
         claim(a1, b1, a2, b2);
         publisher.answer = m -> m == a1 ? failed("poison") : acked(m);
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L, 2L, 4L), publisher.sentIds().stream().sorted().toList(), "A2 is never sent");
         verify(outboxRepository).delete(b1);
@@ -132,7 +136,7 @@ class OutboxRelayTest {
         Map<Long, CompletableFuture<SendResult<String, Object>>> pending = new ConcurrentHashMap<>();
         publisher.answer = m -> pending.computeIfAbsent(m.getId(), id -> new CompletableFuture<>());
 
-        Thread drain = Thread.ofPlatform().start(relay::drain);
+        Thread drain = Thread.ofPlatform().start(relay::drainBatch);
         await(() -> pending.containsKey(1L), "A1 sent");
         Thread.sleep(200);
         assertFalse(pending.containsKey(2L), "A2 must wait for A1's acknowledgement");
@@ -160,7 +164,7 @@ class OutboxRelayTest {
             return acked(m);
         };
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L), publisher.sentIds());
         verify(outboxRepository, never()).delete(a2);
@@ -176,7 +180,7 @@ class OutboxRelayTest {
         claim(a1, a2);
         publisher.answer = m -> m == a1 ? later(failed("not leader")) : acked(m);
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L), publisher.sentIds());
         verify(outboxRepository, never()).delete(a1);
@@ -189,14 +193,14 @@ class OutboxRelayTest {
     @Test
     void timeoutLeavesUnfinishedRowsUntouched() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         OutboxMessage a2 = message(3L, "A");
         claim(a1, b1, a2);
         publisher.answer = m -> m == a1 ? new CompletableFuture<>() : acked(m);
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L, 2L), publisher.sentIds().stream().sorted().toList(), "A2 waits behind A1");
         verify(outboxRepository).delete(b1);
@@ -211,14 +215,14 @@ class OutboxRelayTest {
     @Test
     void lateAcknowledgementAfterTheDrainChangesNothing() throws Exception {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage a2 = message(2L, "A");
         claim(a1, a2);
         CompletableFuture<SendResult<String, Object>> late = new CompletableFuture<>();
         publisher.answer = m -> m == a1 ? late : acked(m);
 
-        relay.drain();
+        relay.drainBatch();
         late.complete(null);
         Thread.sleep(300);
 
@@ -236,7 +240,7 @@ class OutboxRelayTest {
         claim(orders1, executions1, orders2);
         publisher.answer = m -> m == orders1 ? failed("poison") : acked(m);
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L, 2L), publisher.sentIds().stream().sorted().toList());
         verify(outboxRepository).delete(executions1);
@@ -253,7 +257,7 @@ class OutboxRelayTest {
         publisher.answer = m -> CompletableFuture.failedFuture(
                 new org.apache.kafka.common.errors.TimeoutException("Topic oms_orders not present in metadata after 10000 ms."));
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(List.of(1L), publisher.sentIds(), "A2 waits behind A1");
         verify(outboxRepository, never()).delete(a1);
@@ -271,7 +275,7 @@ class OutboxRelayTest {
                     "Error serializing Avro message", new java.io.IOException("Connection refused"));
         };
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(0, a1.getAttempts());
         assertEquals("Error serializing Avro message", a1.getLastError());
@@ -282,7 +286,7 @@ class OutboxRelayTest {
     @Test
     void aggregateWithASendStillInFlightIsSkipped() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         claim(a1, b1);
@@ -290,12 +294,12 @@ class OutboxRelayTest {
         AtomicInteger a1Sends = new AtomicInteger();
         publisher.answer = m -> m == a1 && a1Sends.getAndIncrement() == 0 ? stillInFlight : acked(m);
 
-        relay.drain();
-        relay.drain();
+        relay.drainBatch();
+        relay.drainBatch();
         assertEquals(1, a1Sends.get(), "A1 is not sent again while its first send is in flight");
 
         stillInFlight.complete(null);
-        relay.drain();
+        relay.drainBatch();
         assertEquals(2, a1Sends.get(), "after the first send settled, A1 is resent, in order");
         verify(outboxRepository).delete(a1);
         assertEquals(0, a1.getAttempts());
@@ -307,7 +311,7 @@ class OutboxRelayTest {
         claim(a1);
         publisher.answer = m -> CompletableFuture.failedFuture(new NullPointerException());
 
-        relay.drain();
+        relay.drainBatch();
 
         assertEquals(1, a1.getAttempts());
         assertTrue(a1.getLastError() != null && a1.getLastError().contains("NullPointerException"), a1.getLastError());
@@ -324,7 +328,7 @@ class OutboxRelayTest {
         publisher.answer = m -> publisher.ackAfter(m, Duration.ofMillis(200));
 
         long started = System.nanoTime();
-        relay.drain();
+        relay.drainBatch();
         Duration took = Duration.ofNanos(System.nanoTime() - started);
 
         assertEquals(20, publisher.sentIds().size());
@@ -348,6 +352,107 @@ class OutboxRelayTest {
 
     private double oldestAge() {
         return meterRegistry.get("oms.outbox.oldest.age").gauge().value();
+    }
+
+    // --- SPEC-0048: one leader, serial drains, draining while full -------------------------------
+
+    @Test
+    void aFollowerDoesNothing() {
+        when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(false);
+
+        relay.drainAll();
+
+        verify(outboxRepository, never()).claimPending(any(Integer.class), any());
+    }
+
+    @Test
+    void aFullBatchIsFollowedByAnotherAtOnce() {
+        when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
+        when(outboxRepository.claimPending(any(Integer.class), any()))
+                .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
+                .thenReturn(List.of(message(3L, "C"), message(4L, "D")))
+                .thenReturn(List.of(message(5L, "E")));
+
+        relay.drainAll();
+
+        assertEquals(List.of(1L, 2L, 3L, 4L, 5L), publisher.sentIds().stream().sorted().toList(),
+                "every row in one drain, not one batch per poll");
+        verify(outboxRepository, org.mockito.Mockito.times(3)).claimPending(any(Integer.class), any());
+    }
+
+    @Test
+    void drainsOfOneInstanceNeverOverlap() throws Exception {
+        when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
+        AtomicInteger running = new AtomicInteger();
+        AtomicInteger maxRunning = new AtomicInteger();
+        AtomicInteger calls = new AtomicInteger();
+        when(outboxRepository.claimPending(any(Integer.class), any())).thenAnswer(invocation -> {
+            maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
+            calls.incrementAndGet();
+            Thread.sleep(20);
+            running.decrementAndGet();
+            return List.of();
+        });
+
+        var pool = Executors.newFixedThreadPool(8);
+        try {
+            List<java.util.concurrent.Future<?>> drains = new ArrayList<>();
+            for (int i = 0; i < 8; i++) {
+                drains.add(pool.submit(relay::drainAll));
+            }
+            for (var drain : drains) {
+                drain.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertEquals(1, maxRunning.get(), "one drain at a time");
+        assertTrue(calls.get() >= 1);
+    }
+
+    // --- SPEC-0048 review: leader handover -----------------------------------------------------
+
+    @Test
+    void leadershipIsCheckedAgainBeforeEveryBatch() {
+        // Leader when the drain starts and for its first batch, then the lock is lost.
+        when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true, true, false);
+        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
+        when(outboxRepository.claimPending(any(Integer.class), any()))
+                .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
+                .thenReturn(List.of(message(3L, "C"), message(4L, "D")));
+
+        relay.drainAll();
+
+        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any(Integer.class), any());
+        assertEquals(1.0, meterRegistry.get("oms.outbox.drains").counter().count(), "one batch claimed");
+    }
+
+    @Test
+    void stopWaitsForARunningDrainAndRefusesNewOnes() throws Exception {
+        when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
+        java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        when(outboxRepository.claimPending(any(Integer.class), any())).thenAnswer(invocation -> {
+            entered.countDown();
+            release.await(10, TimeUnit.SECONDS);
+            return List.of();
+        });
+        Thread drain = Thread.ofPlatform().start(relay::drainAll);
+        assertTrue(entered.await(5, TimeUnit.SECONDS));
+
+        Thread stopping = Thread.ofPlatform().start(relay::stop);
+        stopping.join(300);
+        assertTrue(stopping.isAlive(), "stop waits for the running drain before leadership may be released");
+        release.countDown();
+        stopping.join(5_000);
+        drain.join(5_000);
+        assertFalse(stopping.isAlive());
+        assertFalse(relay.isRunning());
+
+        relay.drainAll();
+        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any(Integer.class), any());
     }
 
     private void claim(OutboxMessage... rows) {

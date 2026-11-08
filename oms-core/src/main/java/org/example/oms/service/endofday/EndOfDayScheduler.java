@@ -7,6 +7,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
+import org.example.oms.service.leadership.Leadership;
+import org.example.oms.service.leadership.Role;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
@@ -31,6 +33,9 @@ import lombok.extern.slf4j.Slf4j;
  * single thread, which also drains the outbox, and a long end of day must not hold up the Kafka
  * messages of live trading.
  *
+ * <p>Of several instances, only the one holding the scheduler leadership runs them (SPEC-0048); the
+ * others skip each run. Command-id dedup still guards a run that overlaps a leadership change.
+ *
  * <p>Off with {@code oms.end-of-day.enabled=false}, as in the tests, which call the services
  * directly.
  */
@@ -43,6 +48,7 @@ public class EndOfDayScheduler {
 
     private final EndOfDayService endOfDayService;
     private final OrderExpiryService orderExpiryService;
+    private final Leadership leadership;
     private final Clock clock;
     private final LocalTime time;
     private final ZoneId zone;
@@ -52,12 +58,14 @@ public class EndOfDayScheduler {
     public EndOfDayScheduler(
             EndOfDayService endOfDayService,
             OrderExpiryService orderExpiryService,
+            Leadership leadership,
             Clock clock,
             @Value("${oms.end-of-day.time:17:00}") String time,
             @Value("${oms.end-of-day.zone:America/New_York}") ZoneId zone,
             @Value("${oms.end-of-day.gtd-poll-interval-ms:60000}") long gtdPollIntervalMs) {
         this.endOfDayService = endOfDayService;
         this.orderExpiryService = orderExpiryService;
+        this.leadership = leadership;
         this.clock = clock;
         this.time = parseTime(time);
         this.zone = zone;
@@ -80,6 +88,10 @@ public class EndOfDayScheduler {
     }
 
     void endOfDay() {
+        if (!leadership.holds(Role.SCHEDULER)) {
+            log.debug("End of day skipped: another instance is the scheduler leader");
+            return;
+        }
         try {
             endOfDayService.run(clock.instant());
         } catch (RuntimeException e) {
@@ -88,6 +100,10 @@ public class EndOfDayScheduler {
     }
 
     void expireDueGtd() {
+        if (!leadership.holds(Role.SCHEDULER)) {
+            log.debug("GTD expiry skipped: another instance is the scheduler leader");
+            return;
+        }
         try {
             orderExpiryService.expireDueGtd(clock.instant());
         } catch (RuntimeException e) {

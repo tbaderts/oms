@@ -11,6 +11,8 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
+import org.example.oms.service.leadership.Leadership;
+import org.example.oms.service.leadership.Role;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -24,9 +26,14 @@ class EndOfDaySchedulerTest {
     private final EndOfDayService endOfDayService = mock(EndOfDayService.class);
     private final OrderExpiryService orderExpiryService = mock(OrderExpiryService.class);
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+    private final Leadership leadership = mock(Leadership.class);
+
+    {
+        org.mockito.Mockito.when(leadership.holds(Role.SCHEDULER)).thenReturn(true);
+    }
 
     private EndOfDayScheduler scheduler(String time, String zone) {
-        return new EndOfDayScheduler(endOfDayService, orderExpiryService, clock, time, ZoneId.of(zone), 60_000);
+        return new EndOfDayScheduler(endOfDayService, orderExpiryService, leadership, clock, time, ZoneId.of(zone), 60_000);
     }
 
     @Test
@@ -57,6 +64,18 @@ class EndOfDaySchedulerTest {
 
         verify(endOfDayService).run(NOW);
         verify(orderExpiryService).expireDueGtd(NOW);
+    }
+
+    /** SPEC-0048 AC-6: of several instances, only the scheduler leader runs the jobs. */
+    @Test
+    void aFollowerRunsNeitherJob() {
+        org.mockito.Mockito.when(leadership.holds(Role.SCHEDULER)).thenReturn(false);
+        EndOfDayScheduler scheduler = scheduler("17:00", "America/New_York");
+
+        scheduler.endOfDay();
+        scheduler.expireDueGtd();
+
+        org.mockito.Mockito.verifyNoInteractions(endOfDayService, orderExpiryService);
     }
 
     @Test

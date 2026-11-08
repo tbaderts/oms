@@ -1100,6 +1100,70 @@ void queryOrders_shouldCompleteWithin100ms() {
 }
 ```
 
+For measured throughput and latency of the whole command path, use the load suite rather than a
+timeout assertion; see [Exchange Simulator §8](../oms-concepts/exchange-simulator.md#8-load-suite).
+
+### Replay Harness and Golden Event Fixtures
+
+These tools are from SPEC-0024 and live in oms-core test scope, package `org.example.oms.replay`.
+They make "the event log reproduces behaviour" a test rather than a claim.
+
+**What a replay proves.**
+- The harness reads every `order_events` row of a source database in `id` order. It reads them
+  with plain JDBC, so ORM caching plays no part.
+- It decodes each row's stored command through `StoredEventDecoder`, which applies the upcasting
+  rule; see [OMS State Store](oms-state-store.md).
+- It re-executes each command through `CommandDispatcher.dispatch`, the entry point REST, Kafka
+  and the scheduler use, in a second application context on a fresh, empty database.
+- Finally, it diffs every replayed `order_snapshot` against the recorded one for the same
+  (orderId, version).
+
+If today's code turns the same commands into different states, quantities or prices, that shows
+up as a test failure that names the order, the version and the field.
+
+| Class | Role |
+|---|---|
+| `ReplayTarget` | Starts the second context on a fresh database. Liquibase migrates it, and it runs with `kafka.enabled=false`, so it has no listener and no outbox relay. Replay command-log rows have source `REST` and principal `replay`. |
+| `ReplayHarness` | Reads the source history, replays it into the target, and reads the replayed history back. A create command keeps the source orderId (`AssignOrderIdTask` keeps an id that is already set). |
+| `SnapshotDiff` / `DiffSummary` / `DiffItem` | Compares two histories by (orderId, version). Numbers are compared by value. Fields a replay cannot reproduce are ignored by name (`SnapshotDiff.IGNORED`): the row id, and clock instants such as `sendingTime` (defaulted to the clock when the command
+carries none), `transactTime` and the SLA checkpoints. Events present on one side only are reported. |
+| `ReplayResult` | Holds the outcome. `assertNoDifferences()` throws an `AssertionError` that lists every diff item. `legacyOrderIds()` lists the orders read as legacy (no `schema_version`); the harness also logs them at WARN. |
+
+```java
+try (ReplayTarget target = ReplayTarget.start(jdbcUrl("replay_target"), user, password)) {
+    ReplayResult result = ReplayHarness.replay(sourceDataSource, target);
+    result.assertNoDifferences();
+}
+```
+
+`ReplayHarnessIntegrationTest` covers three cases:
+- **Zero differences:** create → accept → split fills → cancel replays cleanly.
+- **Divergence fails:** a tampered recorded snapshot fails the replay with a named diff.
+- **Legacy rows:** rows without `schema_version` replay, with a WARN.
+
+**Replaying a production dump.**
+1. Restore the dump into a Postgres database.
+2. Point a test's source `DataSource` at that database.
+3. Replay into an empty target database on the same server.
+
+Replay runs the *current* build against the old events. Replaying with an older binary is not
+supported. Outbox rows written during replay are ignored, because publication is covered by the
+outbox tests.
+
+**Golden event fixtures.**
+- `oms-core/src/test/resources/fixtures/order-events/*.json` holds `order_events` rows in column
+  shape (`order_id`, `version`, `event`, `transaction`, `order_snapshot`). They have no
+  `schema_version`, as legacy rows have none.
+- Each fixture holds only fields the model of its time could write.
+- `OrderEventSchemaVersionTest` decodes each fixture through `StoredEventDecoder` and asserts:
+  - that it is version 1;
+  - that its command's type and orderId, and its snapshot, match the fixture;
+  - that it loses no field on read (`legacyFixtureLosesNoFieldOnRead`): every field and value
+    of the fixture must come back when the decoded command and snapshot are encoded again.
+    Without that check, the models' ignore-unknown would drop a renamed field silently.
+- A model change that breaks an old shape therefore fails here first. The fix is an upcast step
+  plus a new fixture, never an edit to an existing fixture.
+
 ---
 
 ## 11. Running Tests

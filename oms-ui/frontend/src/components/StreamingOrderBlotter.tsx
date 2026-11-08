@@ -2,17 +2,8 @@
 import React from 'react';
 import StreamingBlotter from './StreamingBlotter';
 
-interface StreamingOrderBlotterProps {
-  onModeChange?: (mode: 'streaming' | 'rest') => void;
-}
-
-const StreamingOrderBlotter: React.FC<StreamingOrderBlotterProps> = ({ onModeChange }) => {
-  return (
-    <StreamingBlotter 
-      domainObject="Order" 
-      onModeChange={onModeChange}
-    />
-  );
+const StreamingOrderBlotter: React.FC = () => {
+  return <StreamingBlotter domainObject="Order" />;
 };
 
 export default StreamingOrderBlotter;

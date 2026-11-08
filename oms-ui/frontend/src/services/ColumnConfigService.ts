@@ -68,7 +68,7 @@ export class ColumnConfigService {
       };
     } else if (field.type === 'boolean') {
       colDef.cellRenderer = (params: any) => {
-        return params.value ? '✓' : '✗';
+        return params.value ? 'Yes' : 'No';
       };
     } else if (field.type === 'enum' && field.enumValues) {
       const enumMap = new Map(field.enumValues.map(ev => [ev.value, ev.label]));

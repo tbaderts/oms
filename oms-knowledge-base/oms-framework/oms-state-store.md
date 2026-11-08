@@ -429,6 +429,45 @@ public class OrderEvent {
 - Indexable and queryable using PostgreSQL JSON operators
 - Schema flexibility for different command types
 
+#### Event JSON Schema Versioning and the Upcasting Rule (SPEC-0024)
+
+The `transaction` (command) and `order_snapshot` columns hold JSON of the generated models, and
+`Order` ignores unknown properties. A renamed or removed field would therefore be lost silently
+when an old row is read. To prevent that, every row records the schema version its JSON was
+written in:
+
+- **Column.** `order_events.schema_version INTEGER NULL` (changelog
+  `014-order-events-schema-version.yaml`), mapped as `OrderEvent.schemaVersion`.
+- **Writer.** `OrderEventAppender` stamps `OrderEventSchemaVersion.CURRENT` on every appended
+  event. That constant is the only place that knows the current version, which is **1**.
+- **Rule for rows without a version.** A row with `schema_version` null was written before the
+  column existed and is **version 1**. There is no backfill, so the changeset is instant on any
+  table size.
+- **Upcasting.** A row of an older version is brought up to `CURRENT` before it is decoded, by one
+  pure JSON transformation per version step (v1→v2, v2→v3, …), applied in order.
+  - Each step is documented here when it is added, together with a golden fixture of the old
+    shape.
+  - Version 1 is the only version so far, so no steps exist yet.
+- **Newer than the build.** A row whose version is newer than the build's `CURRENT` is refused,
+  not decoded. An older model would drop what the newer one added.
+- **Where the rule lives.** In `StoredEventDecoder` (oms-core test scope,
+  `org.example.oms.replay`). It is used by the golden-fixture test and by the replay harness's
+  reader (see [Testing Patterns §10](testing-patterns.md#replay-harness-and-golden-event-fixtures)).
+- **Production readers do not apply the rule yet.**
+  - Hibernate decodes `transaction` and `order_snapshot` straight into the models, and
+    `OrderReplayService` reads them that way. Nothing in production reads `schemaVersion`.
+  - That is harmless while version 1 is the only version.
+  - Before the first bump, the production read paths must decode through the same rule, for
+    example by promoting `StoredEventDecoder` to main code. Otherwise they read old rows with the
+    new model.
+- **Bumping the version.**
+  1. Increment `OrderEventSchemaVersion.CURRENT`.
+  2. Add the upcast step to `StoredEventDecoder`, and make sure the production readers use it
+     (see above).
+  3. Commit a fixture of the old shape under
+     `oms-core/src/test/resources/fixtures/order-events/`.
+  4. Document the step in this section.
+
 ---
 
 ### 18.2 Repository Interfaces

@@ -135,11 +135,11 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
         assertTrue(orderReplayService.isContiguous(orderId), "no gap and no duplicate version");
     }
 
-    // AC-3 with two fills through the pipeline. Fill A has appended its event and holds its
-    // transaction open; fill B waits on A's uncommitted event key and fails once A commits. B leaves
-    // nothing, and its retry applies on top.
+    // AC-3 with two fills through the pipeline, and SPEC-0048 AC-1: fills lock the order first. Fill A
+    // holds the order's row lock in its open transaction; fill B waits for it, then reads A's committed
+    // quantities and applies on top. Nothing fails and nothing has to be retried.
     @Test
-    void concurrentFillsThroughThePipelineOneWaitsThenFails() throws Exception {
+    void concurrentFillsThroughThePipelineOneWaitsThenApplies() throws Exception {
         String orderId = createLiveOrder();
         long before = txNr(orderId);
         CountDownLatch appended = new CountDownLatch(1);
@@ -151,29 +151,17 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
             await(release);
         }));
         await(appended);
-        CompletableFuture<Throwable> fillB = CompletableFuture.supplyAsync(() -> {
-            try {
-                transactionTemplate.executeWithoutResult(status -> fillThroughPipeline(orderId, orderId + "-B", "20"));
-                return null;
-            } catch (RuntimeException e) {
-                return e;
-            }
-        });
+        CompletableFuture<Boolean> fillB = CompletableFuture.supplyAsync(() ->
+                transactionTemplate.execute(status -> fillThroughPipeline(orderId, orderId + "-B", "20")).isSuccess());
 
         Thread.sleep(1_000);
-        assertFalse(fillB.isDone(), "fill B waits on fill A's uncommitted event");
+        assertFalse(fillB.isDone(), "fill B waits on fill A's row lock");
         release.countDown();
         fillA.get(15, TimeUnit.SECONDS);
-        Throwable failure = fillB.get(15, TimeUnit.SECONDS);
-        assertInstanceOf(ConcurrencyFailureException.class, failure, "a conflict, not a refusal: " + failure);
+        assertTrue(fillB.get(15, TimeUnit.SECONDS), "fill B applies once A has committed");
 
-        assertEquals(1, executionCount(orderId), "fill B left no execution");
-        assertEquals(before + 1, events(orderId).size(), "fill B left no event");
-        assertEquals(0, new BigDecimal("10").compareTo(orderRepository.findByOrderId(orderId).orElseThrow().getCumQty()));
-
-        assertTrue(transactionTemplate.execute(status -> fillThroughPipeline(orderId, orderId + "-B", "20")).isSuccess(),
-                "retried, fill B applies");
         Order after = orderRepository.findByOrderId(orderId).orElseThrow();
+        assertEquals(2, executionCount(orderId));
         assertEquals(0, new BigDecimal("30").compareTo(after.getCumQty()), "both fills, once each");
         assertEquals(before + 2, after.getTxNr());
         assertTrue(orderReplayService.isContiguous(orderId));
@@ -193,7 +181,8 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
         send(orderId, fill(orderId + "-K", orderId, "10"));
         try {
-            awaitUntil(() -> failedFills() > failedBefore, "the first attempt failed as a conflict");
+            // SPEC-0048 AC-2: held past the retry budget (4); a conflict must not use it up.
+            awaitUntil(() -> failedFills() >= failedBefore + 6, "six attempts failed as a conflict");
             assertEquals(0, executionCount(orderId), "nothing applied while the conflict lasts");
         } finally {
             jdbcTemplate.update("delete from order_events where order_id = ? and version = ?", orderId, next);
@@ -201,6 +190,7 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
         awaitUntil(() -> executionCount(orderId) == 1, "the retry applied the fill");
         assertEquals(next, txNr(orderId), "the fill took the version the conflict had blocked");
+        assertEquals(0, deadLetters(orderId), "a conflict is never dead-lettered");
     }
 
     // AC-3 through the fill pipeline: a concurrent writer already appended the next version. The
@@ -282,7 +272,31 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
         return executionCommandProcessor.process(orderMapper.toExecution(command.getExecution()), command);
     }
 
-    private double failedFills() {
+    /** Records on commands.DLT under this key, after a short wait. */
+    private static int deadLetters(String key) {
+        java.util.Map<String, Object> config = java.util.Map.of(
+                org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, "it-dlt-" + java.util.UUID.randomUUID(),
+                org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest",
+                org.apache.kafka.clients.consumer.ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.StringDeserializer.class,
+                org.apache.kafka.clients.consumer.ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, org.apache.kafka.common.serialization.ByteArrayDeserializer.class);
+        int count = 0;
+        try (var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<String, byte[]>(config)) {
+            consumer.subscribe(java.util.List.of("commands.DLT"));
+            long deadline = System.nanoTime() + java.time.Duration.ofSeconds(3).toNanos();
+            while (System.nanoTime() < deadline) {
+                for (var record : consumer.poll(java.time.Duration.ofMillis(250))) {
+                    if (key.equals(record.key())) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Failed fill attempts consumed; across instances in the two-instance subclass (SPEC-0048). */
+    protected double failedFills() {
         var counter = meterRegistry.find("oms.commands.consumed")
                 .tag("type", "ExecutionCreateCmd").tag("outcome", "failed").counter();
         return counter == null ? 0 : counter.count();

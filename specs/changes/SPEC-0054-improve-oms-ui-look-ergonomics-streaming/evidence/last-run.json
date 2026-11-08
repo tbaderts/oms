@@ -1,0 +1,31 @@
+{
+  "ranAt": "2026-11-08T07:16:00.602Z",
+  "result": "pass",
+  "modules": [
+    "oms-ui"
+  ],
+  "fingerprint": "c5b27abe672cd245",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R07 P-14] oms-ui: production code changed without any test change in the same module"
+    ],
+    "scope": "changes since main (merge-base 9263c597)"
+  },
+  "commands": [
+    {
+      "module": "oms-ui",
+      "command": "npm test -- --watchAll=false --passWithNoTests",
+      "exitCode": 0,
+      "seconds": 12,
+      "log": "evidence/oms-ui-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "..\\gradlew.bat -p .. check",
+      "exitCode": 0,
+      "seconds": 27,
+      "log": "evidence/oms-ui-2.log"
+    }
+  ]
+}

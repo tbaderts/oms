@@ -1,0 +1,40 @@
+{
+  "order_id": "ORD-GOLDEN-1",
+  "version": 1,
+  "event": "NEW_ORDER",
+  "resulting_state": "UNACK",
+  "transaction": {
+    "type": "OrderCreateCmd",
+    "version": "1.0.0",
+    "order": {
+      "sessionId": "golden-session",
+      "clOrdId": "20250621-golden-001",
+      "account": "golden-account",
+      "handlInst": "AUTO",
+      "securityIdSource": "ISIN",
+      "orderQty": 100.00,
+      "priceType": "PER_UNIT",
+      "ordType": "LIMIT",
+      "price": 172.06,
+      "securityId": "US0378331005",
+      "side": "BUY",
+      "symbol": "AAPL",
+      "timeInForce": "DAY",
+      "exDestination": "XNAS",
+      "settlCurrency": "USD"
+    }
+  },
+  "order_snapshot": {
+    "orderId": "ORD-GOLDEN-1",
+    "clOrdId": "20250621-golden-001",
+    "account": "golden-account",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "ordType": "LIMIT",
+    "orderQty": 100.0000,
+    "price": 172.0600,
+    "cumQty": 0.0000,
+    "leavesQty": 100.0000,
+    "state": "UNACK"
+  }
+}

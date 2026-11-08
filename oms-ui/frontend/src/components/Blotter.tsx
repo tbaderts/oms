@@ -20,12 +20,16 @@ interface BlotterProps {
   pageSize?: number;
 }
 
-const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
+// Page-size options for the paging-mode selector; 500 is the query API maximum.
+const PAGE_SIZE_OPTIONS = [50, 100, 250, 500];
+
+const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp = 100 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(pageSizeProp);
   const [filters, setFilters] = useState<FilterCondition[]>([]);
   const [sortModel, setSortModel] = useState<any[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
@@ -58,6 +62,9 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
           setVisibleColumns(savedState.visibleColumns);
           setSortModel(savedState.sortModel);
           setCurrentPage(savedState.currentPage);
+          if (savedState.pageSize > 0) {
+            setPageSize(savedState.pageSize);
+          }
         } else {
           setVisibleColumns(metadata.defaultColumns);
         }
@@ -93,12 +100,12 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
     return () => clearInterval(interval);
   }, [autoRefresh, filters, sortModel, currentPage]);
 
-  // Reload data when filters, sort, or page changes (only after initialization)
+  // Reload data when filters, sort, page, or page size changes (only after initialization)
   useEffect(() => {
     if (initialized) {
       loadData();
     }
-  }, [initialized, filters, sortModel, currentPage]);
+  }, [initialized, filters, sortModel, currentPage, pageSize]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -201,20 +208,19 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
       {/* Toolbar */}
       <div className="blotter-toolbar">
         <div className="toolbar-left">
-          <span className="toolbar-icon">📋</span>
           <h2>{metadata.displayName}</h2>
           <span className="record-count">{totalCount} records</span>
         </div>
         <div className="toolbar-right">
-          <button 
+          <button
             onClick={() => setShowFilterBuilder(true)}
             className={filters.length > 0 ? 'filter-active' : ''}
           >
-            🔍 Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
+            Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
           </button>
-          <button onClick={() => setShowColumnSelector(true)}>📊 Columns</button>
-          <button onClick={handleRefresh}>🔄 Refresh</button>
-          <button onClick={handleAutoSize}>↔️ Auto-Size</button>
+          <button onClick={() => setShowColumnSelector(true)}>Columns</button>
+          <button onClick={handleRefresh}>Refresh</button>
+          <button onClick={handleAutoSize}>Auto-Size</button>
           <label>
             <input
               type="checkbox"
@@ -259,24 +265,38 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize = 100 }) => {
           Page <span className="current-page">{currentPage}</span> of {Math.ceil(totalCount / pageSize)} ({totalCount} records)
         </span>
         <div className="pagination-controls">
+          <label className="page-size-selector">
+            Page size
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>{size}</option>
+              ))}
+            </select>
+          </label>
           <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
-            ⏮ First
+            First
           </button>
           <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
-            ◀ Prev
+            Prev
           </button>
           <span className="page-indicator">{currentPage}</span>
           <button
             onClick={() => setCurrentPage(p => p + 1)}
             disabled={currentPage >= Math.ceil(totalCount / pageSize)}
           >
-            Next ▶
+            Next
           </button>
           <button
             onClick={() => setCurrentPage(Math.ceil(totalCount / pageSize))}
             disabled={currentPage >= Math.ceil(totalCount / pageSize)}
           >
-            Last ⏭
+            Last
           </button>
         </div>
       </div>

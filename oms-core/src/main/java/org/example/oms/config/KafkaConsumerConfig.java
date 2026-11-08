@@ -18,6 +18,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.DeserializationException;
+import org.springframework.util.backoff.BackOff;
 import org.springframework.util.backoff.ExponentialBackOff;
 
 import jakarta.annotation.PreDestroy;
@@ -43,12 +44,16 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, byte[]>
             kafkaListenerContainerFactory(
                     ConsumerFactory<String, byte[]> consumerFactory,
-                    DefaultErrorHandler commandErrorHandler) {
+                    DefaultErrorHandler commandErrorHandler,
+                    org.springframework.beans.factory.ObjectProvider<KafkaTopicProvisioner> topics) {
 
         ConcurrentKafkaListenerContainerFactory<String, byte[]> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.setCommonErrorHandler(commandErrorHandler);
+        // One consumer per partition of the command topic (SPEC-0048). Safe for per-order ordering: the
+        // key is the root order id, so one order's commands share a partition, hence a consumer.
+        topics.ifAvailable(provisioner -> factory.setConcurrency(provisioner.commandPartitions()));
         // A consumer span per command, continuing the producer's trace from the record headers
         // (SPEC-0033).
         factory.getContainerProperties().setObservationEnabled(true);
@@ -92,7 +97,9 @@ public class KafkaConsumerConfig {
     public DefaultErrorHandler commandErrorHandler(
             KafkaTemplate<String, byte[]> deadLetterTemplate,
             @Value("${kafka.consumer.retry-attempts:4}") int retryAttempts,
-            @Value("${kafka.consumer.retry-initial-interval-ms:500}") long initialInterval) {
+            @Value("${kafka.consumer.retry-initial-interval-ms:500}") long initialInterval,
+            @Value("${kafka.consumer.concurrency-max-interval-ms:5000}") long concurrencyMaxIntervalMs,
+            @Value("${kafka.consumer.concurrency-error-after-attempts:120}") int concurrencyErrorAfterAttempts) {
 
         DeadLetterPublishingRecoverer recoverer =
                 new DeadLetterPublishingRecoverer(
@@ -113,6 +120,25 @@ public class KafkaConsumerConfig {
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
         errorHandler.addNotRetryableExceptions(
                 DeserializationException.class, IllegalArgumentException.class);
+
+        // A concurrency failure is retried until the competing command has committed, never
+        // dead-lettered (SPEC-0048): it cannot be a poison message.
+        BackOff concurrency = CommandBackOffs.concurrencyBackOff(initialInterval, concurrencyMaxIntervalMs);
+        errorHandler.setBackOffFunction((record, failure) -> CommandBackOffs.backOffFor(failure, concurrency));
+        errorHandler.setRetryListeners((record, failure, attempt) -> {
+            if (!CommandBackOffs.isConcurrencyFailure(failure)) {
+                return;
+            }
+            if (attempt >= concurrencyErrorAfterAttempts) {
+                log.error(
+                        "Command {}-{} offset {} still conflicts after {} attempts; retrying: {}",
+                        record.topic(), record.partition(), record.offset(), attempt, failure.getMessage());
+            } else {
+                log.warn(
+                        "Command {}-{} offset {} conflicted with a concurrent command (attempt {}); retrying",
+                        record.topic(), record.partition(), record.offset(), attempt);
+            }
+        });
         return errorHandler;
     }
 }

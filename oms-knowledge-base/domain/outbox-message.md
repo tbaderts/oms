@@ -22,7 +22,7 @@ change and the message exist, or neither does.
 
 | Field | Meaning |
 |---|---|
-| `id` | Primary key; the relay publishes each aggregate's rows (same `topic` and `aggregateId`) in id order, which preserves per-order ordering |
+| `id` | Primary key; the relay publishes each aggregate's rows (same `topic` and `aggregateId`) in id order, which preserves per-order ordering: the rows are staged under the order's row lock, and exactly one instance, the relay leader, drains them (SPEC-0048) |
 | `aggregateType` | `ORDER`, `EXECUTION`, `PROJECTION` (a message staged by a [projection](../oms-concepts/projections.md), SPEC-0020), or `ORDER_EXECUTION` (rows staged before SPEC-0020); selects the message and the payload columns read |
 | `aggregateId` | The Kafka key: the order's `rootOrderId`, or its own `orderId` when it has none |
 | `aggregateVersion` | The event-log version that produced the message (`eventId` / `orderVersion` on the wire); equal to the order's `txNr` at staging (SPEC-0027) |

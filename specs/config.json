@@ -36,7 +36,7 @@
     },
     "oms-ui": {
       "cwd": "oms-ui/frontend",
-      "verify": ["npm test -- --watchAll=false --passWithNoTests"]
+          "verify": ["npm test -- --watchAll=false --passWithNoTests", "..\\gradlew.bat -p .. check"]
     },
     "oms-knowledge-base": {
       "verify": []

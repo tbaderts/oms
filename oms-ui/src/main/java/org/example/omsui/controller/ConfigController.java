@@ -24,6 +24,13 @@ public class ConfigController {
     @Value("${oms.streaming.url:ws://localhost:7000/trade-blotter/stream}")
     private String streamingUrl;
 
+    /**
+     * Rolling-window cap for the streaming blotters, in rows. The frontend evicts the
+     * oldest rows beyond this limit to keep memory bounded.
+     */
+    @Value("${oms.ui.max-streaming-rows:2000}")
+    private int maxStreamingRows;
+
     @Value("${oms.ui.features.quotes-enabled:false}")
     private boolean quotesEnabled;
 
@@ -46,6 +53,7 @@ public class ConfigController {
         config.put("appName", appName);
         config.put("apiBaseUrl", apiBaseUrl);
         config.put("streamingUrl", streamingUrl);
+        config.put("maxStreamingRows", maxStreamingRows);
         config.put("features", Map.of(
                 "quotesEnabled", quotesEnabled,
                 "quoteRequestsEnabled", quoteRequestsEnabled,

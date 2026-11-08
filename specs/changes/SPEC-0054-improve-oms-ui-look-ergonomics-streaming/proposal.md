@@ -1,4 +1,4 @@
-# Proposal — SPEC-0053: Improve oms-ui look, ergonomics, streaming limits
+# Proposal — SPEC-0054: Improve oms-ui look, ergonomics, streaming limits
 
 > **Stage 1 of 3 — why and what, not how.** The acceptance criteria below are the contract that
 > the verify stage checks. If they are vague, the goal cannot be proven met.

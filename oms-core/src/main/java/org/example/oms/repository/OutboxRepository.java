@@ -9,11 +9,9 @@ import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
-import jakarta.persistence.QueryHint;
 
 @Repository
 public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
@@ -23,14 +21,18 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
      *
      * <p>Ordering by primary key is what preserves per-aggregate sequencing: messages for the same
      * order were staged in commit order, so draining them in id order publishes them in that same
-     * order. {@code SKIP LOCKED} lets several relay instances run concurrently without contending
-     * on the same rows — each takes a disjoint slice.
+     * order.
+     *
+     * <p>The claim waits for rows another transaction holds; it does not skip them (SPEC-0048). Exactly
+     * one relay drains, but during a leader handover the old leader may still hold a claim, and
+     * skipping its rows would let the new leader publish the same aggregate's later rows first. The
+     * wait lasts as long as the old leader's claiming transaction, which awaits the broker for at most
+     * {@code drain-timeout-ms}, or until its session dies.
      *
      * <p>An aggregate (topic and key) with a message that exhausted its attempts is held: its later
      * messages are not claimed, so they are never published ahead of the stuck one (SPEC-0026).
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
     @Query("""
             SELECT o FROM OutboxMessage o
             WHERE o.attempts < :maxAttempts

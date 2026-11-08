@@ -1,0 +1,35 @@
+{
+  "order_id": "ORD-GOLDEN-1",
+  "version": 2,
+  "event": "FILL",
+  "exec_id": "GOLDEN-EXEC-1",
+  "resulting_state": "FILLED",
+  "transaction": {
+    "type": "ExecutionCreateCmd",
+    "version": "1.0.0",
+    "execution": {
+      "execId": "GOLDEN-EXEC-1",
+      "orderId": "ORD-GOLDEN-1",
+      "execType": "F",
+      "lastQty": 100.00,
+      "lastPx": 171.90,
+      "cumQty": 100.00,
+      "leavesQty": 0.00,
+      "lastMkt": "XNAS",
+      "transactTime": "2025-06-21T10:15:31Z"
+    }
+  },
+  "order_snapshot": {
+    "orderId": "ORD-GOLDEN-1",
+    "clOrdId": "20250621-golden-001",
+    "account": "golden-account",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "ordType": "LIMIT",
+    "orderQty": 100.0000,
+    "price": 172.0600,
+    "cumQty": 100.0000,
+    "leavesQty": 0.0000,
+    "state": "FILLED"
+  }
+}

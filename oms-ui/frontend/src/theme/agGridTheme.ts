@@ -1,21 +1,24 @@
-// agGridTheme.ts - AG Grid Theming API (v33+) theme matching the app's dark UI
+// agGridTheme.ts - AG Grid Theming API (v33+) theme matching the app's dark UI.
+// Values come from theme/tokens.ts (the TS mirror of theme/_tokens.scss) so a token
+// change propagates to the grid.
 import { themeQuartz, colorSchemeDarkBlue, iconSetQuartzRegular } from 'ag-grid-community';
+import { omsTokens } from './tokens';
 
 export const omsGridTheme = themeQuartz
   .withPart(colorSchemeDarkBlue)
   .withPart(iconSetQuartzRegular)
   .withParams({
-    accentColor: '#007acc',
-    backgroundColor: '#1e1e1e',
-    foregroundColor: '#cccccc',
-    chromeBackgroundColor: '#252526',
-    headerBackgroundColor: '#252526',
-    headerTextColor: '#ffffff',
+    accentColor: omsTokens.accent,
+    backgroundColor: omsTokens.bg,
+    foregroundColor: omsTokens.text,
+    chromeBackgroundColor: omsTokens.surface,
+    headerBackgroundColor: omsTokens.surface,
+    headerTextColor: omsTokens.textStrong,
     headerFontWeight: 600,
-    oddRowBackgroundColor: '#232324',
-    rowHoverColor: '#2a2d2e',
-    selectedRowBackgroundColor: '#264f78',
-    borderColor: '#3e3e42',
+    oddRowBackgroundColor: omsTokens.oddRow,
+    rowHoverColor: omsTokens.hover,
+    selectedRowBackgroundColor: omsTokens.selection,
+    borderColor: omsTokens.border,
     fontFamily: 'inherit',
     fontSize: 13,
     headerFontSize: 12,
@@ -25,5 +28,5 @@ export const omsGridTheme = themeQuartz
     spacing: 6,
     borderRadius: 4,
     wrapperBorderRadius: 6,
-    valueChangeValueHighlightBackgroundColor: 'rgba(0, 122, 204, 0.35)',
+    valueChangeValueHighlightBackgroundColor: omsTokens.accentBgStrong,
   });

@@ -50,6 +50,29 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
         createOutboundTopics();
     }
 
+    /**
+     * A database of its own in the shared Postgres container, for test classes that must be the only
+     * instances in their world (SPEC-0048). Advisory locks are per database, so leadership, the outbox
+     * and the event log there belong to that class's contexts alone, whatever other cached test
+     * contexts run against the default database. Created once, empty; Liquibase migrates it.
+     */
+    static synchronized String isolatedDatabaseUrl(String name) {
+        String database = "oms_" + name;
+        try (java.sql.Connection connection = java.sql.DriverManager.getConnection(
+                        postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
+                java.sql.Statement statement = connection.createStatement()) {
+            try (java.sql.ResultSet exists = statement.executeQuery(
+                    "select 1 from pg_database where datname = '" + database + "'")) {
+                if (!exists.next()) {
+                    statement.execute("create database " + database);
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException("Could not create database " + database, e);
+        }
+        return postgres.getJdbcUrl().replace("/oms?", "/" + database + "?").replaceAll("/oms$", "/" + database);
+    }
+
     private static void createOutboundTopics() {
         try (Admin admin = Admin.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers()))) {
             admin.createTopics(OUTBOUND_TOPICS.stream()
@@ -62,9 +85,36 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
         }
     }
 
+    /**
+     * The world an isolated class asked for, read once by {@link #registerCommonProperties}. Spring
+     * runs a test class's {@code @DynamicPropertySource} methods subclass first, then this class's,
+     * on one thread, and the last registration of a name wins, so a subclass cannot override this
+     * class's values by registering them itself. It asks here instead, from its own
+     * {@code @DynamicPropertySource} method, through {@link #isolate}.
+     */
+    private static final ThreadLocal<String[]> ISOLATED = new ThreadLocal<>();
+
+    /** Run this class's context in database {@code oms_<name>} and on its own command topic (SPEC-0048). */
+    static void isolate(String name, String commandTopic) {
+        ISOLATED.set(new String[] {name, commandTopic});
+    }
+
     @DynamicPropertySource
     static void registerCommonProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        String[] isolated = ISOLATED.get();
+        ISOLATED.remove();
+        if (isolated == null) {
+            registerProperties(registry, postgres::getJdbcUrl, "commands");
+        } else {
+            String url = isolatedDatabaseUrl(isolated[0]);
+            registerProperties(registry, () -> url, isolated[1]);
+        }
+    }
+
+    /** Every property the integration contexts share, with the database and command topic as given. */
+    static void registerProperties(
+            DynamicPropertyRegistry registry, java.util.function.Supplier<Object> datasourceUrl, String commandTopic) {
+        registry.add("spring.datasource.url", datasourceUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
 
@@ -76,7 +126,10 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
         // The mock registry starts empty; tests register as they go, as the compose dev setup does.
         registry.add("KAFKA_AUTO_REGISTER_SCHEMAS", () -> "true");
         registry.add("kafka.enabled", () -> "true");
-        registry.add("kafka.command-topic", () -> "commands");
+        // Concurrency retries are unbounded (SPEC-0048); capped low here so a test outlasting the
+        // retry budget stays fast.
+        registry.add("kafka.consumer.concurrency-max-interval-ms", () -> "500");
+        registry.add("kafka.command-topic", () -> commandTopic);
         registry.add("kafka.order-topic", () -> "orders");
         registry.add("kafka.execution-topic", () -> "oms_executions");
         registry.add("kafka.order-execution-topic", () -> "oms_order_executions");

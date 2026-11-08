@@ -1,0 +1,24 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0024: the command and snapshot JSON in order_events carry no schema
+  # version, so a renamed field is lost silently on read (architecture review
+  # finding 8). New events store ORDER_EVENT_SCHEMA_VERSION (1); a row without
+  # the column is treated as version 1 by the upcasting rule documented in
+  # oms-knowledge-base/oms-framework/oms-state-store.md.
+  #
+  # Nullable on purpose: existing rows stay unknown version 1 and are upcast on
+  # read, so no backfill is needed and the changeset is instant on a table of
+  # any size.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 014-order-events-schema-version
+      author: oms
+      changes:
+        - addColumn:
+            tableName: order_events
+            columns:
+              - column: { name: schema_version, type: INTEGER }
+      rollback:
+        - dropColumn:
+            tableName: order_events
+            columnName: schema_version

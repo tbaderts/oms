@@ -68,10 +68,21 @@ kafka:
   # One record per fill with the order it changed, keyed by rootOrderId (SPEC-0019).
   order-execution-topic: ${ORDER_EXECUTION_TOPIC:oms_order_executions}
   command-topic: ${COMMAND_TOPIC:commands}
+  # oms-core creates these four topics when missing (SPEC-0048) and never resizes an existing one:
+  # adding partitions would move keys and break per-order ordering. The command listener runs one
+  # consumer per partition of the command topic.
+  topics:
+    partitions: ${KAFKA_TOPIC_PARTITIONS:6}
+    replication-factor: ${KAFKA_TOPIC_REPLICATION_FACTOR:1}
+    provision-timeout-ms: ${KAFKA_TOPIC_PROVISION_TIMEOUT_MS:30000}
   consumer:
     # Failed commands retry with backoff, then land on <topic>.DLT rather than being dropped.
     retry-attempts: ${KAFKA_RETRY_ATTEMPTS:4}
     retry-initial-interval-ms: ${KAFKA_RETRY_INITIAL_INTERVAL_MS:500}
+    # A concurrency failure is retried without using the budget above (SPEC-0048), with back-off
+    # capped at this interval, and logged at ERROR from this attempt on (about 10 minutes at 5 s).
+    concurrency-max-interval-ms: ${KAFKA_CONCURRENCY_MAX_INTERVAL_MS:5000}
+    concurrency-error-after-attempts: ${KAFKA_CONCURRENCY_ERROR_AFTER_ATTEMPTS:120}
   outbox:
     # The relay is what makes the outbox a delivery guarantee. Poll interval is the added latency
     # between a command committing and its event reaching Kafka.
@@ -95,6 +106,12 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+      # Which instance-wide roles this instance holds (SPEC-0048): two booleans, not sensitive, so
+      # shown without authorization at /actuator/health/leadership.
+      group:
+        leadership:
+          include: instanceRoles
+          show-details: always
   endpoints:
     web:
       exposure:

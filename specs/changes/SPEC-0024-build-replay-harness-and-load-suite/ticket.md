@@ -2,11 +2,11 @@
 id: SPEC-0024
 title: Build replay harness and load suite
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
-modules: [oms-core, oms-exchange-simulator, oms-knowledge-base]
-approvals: []
+modules: [oms-core, oms-knowledge-base]
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-10-30
 blocked_from:
@@ -25,3 +25,19 @@ Roadmap ticket G of the architecture review (oms-core/docs/architecture-review-2
 ## Log
 
 - 2026-10-30 created
+- 2026-11-08 07:20 — autopilot on
+- 2026-11-08 07:22 — proposal gate passed; awaiting human approval
+- 2026-11-08 07:23 — proposal approved by Toni Badertscher
+- 2026-11-08 07:23 — proposal → design
+- 2026-11-08 07:24 — set modules = oms-core, oms-knowledge-base
+- 2026-11-08 07:24 — design → plan
+- 2026-11-08 07:25 — plan → implement
+- 2026-11-08 07:49 — autopilot on
+- 2026-11-08 10:17 — autopilot on
+- 2026-11-08 10:44 — verify run: pass
+- 2026-11-08 10:44 — implement → verify
+- 2026-11-08 10:48 — reopened at implement: Independent review finding 1 (major): the golden-fixture test does not detect fields the current model drops; the execution fixture holds 8 fields cmd.Execution never had. Fix: round-trip assertion that every fixture field survives decode, fixtures made faithful.
+- 2026-11-08 10:50 — implement → verify
+- 2026-11-08 10:55 — verify run: pass
+- 2026-11-08 10:56 — verify → done
+- 2026-11-08 10:56 — autopilot off

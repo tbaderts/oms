@@ -151,7 +151,64 @@ oms-core must run with `KAFKA_ENABLED=true`. Then create an order (see `oms-core
 - Kafka observation is enabled on the template and the listener, so trace context crosses the
   simulator.
 
-## 8. Limitations
+## 8. Load Suite
+
+The load suite is from SPEC-0024. It drives a scripted, repeatable order flow through oms-core
+while the simulator acks and fills, and it records the result. The simulator takes part unchanged.
+
+**Where and when it runs.**
+- The suite is `LoadSuiteRunnerTest` in oms-core test scope, package `org.example.oms.load`.
+- It is gated by `OMS_LOAD_SUITE=true`, so CI and `./gradlew check` skip it.
+- It needs the running compose stack: oms-core on 8090 with `KAFKA_ENABLED=true`, plus the
+  exchange simulator.
+
+**What it does.**
+1. It reads `/actuator/prometheus` once before the run.
+2. It submits `OMS_LOAD_ORDERS` MARKET orders through `POST /api/command/execute`, with
+   `OMS_LOAD_CONCURRENCY` in flight.
+3. It waits until every order is terminal (FILLED, CXL, REJ or CLOSED).
+4. It reads the metrics again.
+
+**What it measures.**
+- **Throughput:** commands applied per second of wall time, from the first submit until the last
+  order is terminal. The count is the REST creates plus the delta of
+  `oms_commands_consumed_total{outcome="applied"}`, which covers the accepts and fills the
+  simulator sent.
+- **Latency:** p50, p95 and p99 of each order SLA timer (`oms_order_time_to_ack`,
+  `oms_order_oms_processing_time`, `oms_order_market_round_trip`, `oms_order_time_to_market`).
+  They are interpolated from the `_seconds_bucket` deltas of this run the way PromQL
+  `histogram_quantile` does, so earlier traffic does not count. Their precision is the bucket
+  bounds.
+
+**The report.**
+- `LoadReportWriter` writes a Markdown report to `OMS_LOAD_REPORT_DIR`, by default
+  `build/load-reports/`, named `load-baseline-<timestamp>.md`.
+- The report records the run configuration (order count, concurrency, fill slices, base URL)
+  beside the numbers.
+- The baseline committed before SPEC-0020 and SPEC-0022 is
+  `oms-core/docs/load-baseline-2026-11-08.md`: 79 commands/s, with OMS processing p99 about
+  24 ms.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `OMS_LOAD_SUITE` | (unset) | `true` runs the suite |
+| `OMS_LOAD_BASE_URL` | `http://localhost:8090` | oms-core under test |
+| `OMS_LOAD_ORDERS` | 500 | orders submitted |
+| `OMS_LOAD_CONCURRENCY` | 8 | creates in flight |
+| `OMS_LOAD_FILL_SLICES` | 1 | the simulator's `SIMULATOR_FILL_SLICES`, recorded in the report; set both together |
+| `OMS_LOAD_REPORT_DIR` | `build/load-reports` | where the report is written |
+| `OMS_LOAD_TIMEOUT_SECONDS` | 600 | how long to wait for every order to be terminal |
+
+```bash
+docker compose up -d --build oms-core exchange-simulator
+cd oms-core && OMS_LOAD_SUITE=true ./gradlew test --tests 'org.example.oms.load.LoadSuiteRunnerTest'
+```
+
+**Comparing runs.** The numbers depend on the machine. Compare a run only with a baseline of the
+same shape (orders, concurrency, fill slices) taken on the same host, with the stack freshly
+started.
+
+## 9. Limitations
 
 - **No order book or matching.** Orders never trade against each other, and resting orders never
   fill later.
@@ -163,7 +220,7 @@ oms-core must run with `KAFKA_ENABLED=true`. Then create an order (see `oms-core
 - **Not covered:** replace (35=G), busts and corrections, DAY/GTD expiry, and FOK. Other TIFs behave
   like DAY.
 
-## 9. Related Documents
+## 10. Related Documents
 
 - [Order Lifecycle](order-lifecycle.md): states, the cancel request flow (§4.9.1) and event types
   (§10.1)

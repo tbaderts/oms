@@ -19,18 +19,18 @@
 /* Side Colors - BUY/SELL */
 .enum-buy {
   background-color: rgba(75, 191, 107, 0.2);
-  color: var(--vscode-success, #4ade80);
+  color: var(--oms-success);
 }
 
 .enum-sell, .enum-sell-short {
   background-color: rgba(244, 71, 71, 0.2);
-  color: var(--vscode-error, #f87171);
+  color: var(--oms-danger);
 }
 
 /* State Colors */
 .enum-new {
   background-color: rgba(0, 122, 204, 0.2);
-  color: var(--vscode-accent-blue, #60a5fa);
+  color: var(--oms-accent);
 }
 
 .enum-unack {
@@ -40,12 +40,12 @@
 
 .enum-live {
   background-color: rgba(0, 122, 204, 0.2);
-  color: var(--vscode-accent-blue, #60a5fa);
+  color: var(--oms-accent);
 }
 
 .enum-filled {
   background-color: rgba(75, 191, 107, 0.2);
-  color: var(--vscode-success, #4ade80);
+  color: var(--oms-success);
 }
 
 .enum-partially-filled {
@@ -60,7 +60,7 @@
 
 .enum-rej {
   background-color: rgba(244, 71, 71, 0.2);
-  color: var(--vscode-error, #f87171);
+  color: var(--oms-danger);
 }
 
 /* Order Type Colors */
@@ -71,7 +71,7 @@
 
 .enum-limit {
   background-color: rgba(0, 122, 204, 0.2);
-  color: var(--vscode-accent-blue, #60a5fa);
+  color: var(--oms-accent);
 }
 
 .enum-stop, .enum-stop-limit {

@@ -9,8 +9,8 @@
   padding: 2rem;
   text-align: center;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: var(--vscode-bg-primary, #1e1e1e);
-  color: var(--vscode-text-primary, #cccccc);
+  background: var(--oms-bg);
+  color: var(--oms-text);
 
   h1 {
     margin: 0;
@@ -21,8 +21,8 @@
   .error-boundary-details {
     max-width: 640px;
     padding: 0.75rem 1rem;
-    background: var(--vscode-bg-secondary, #252526);
-    border: 1px solid var(--vscode-border, #3c3c3c);
+    background: var(--oms-surface);
+    border: 1px solid var(--oms-border);
     border-radius: 4px;
     font-size: 0.85rem;
     text-align: left;
@@ -32,14 +32,14 @@
 
   button {
     padding: 0.5rem 1.25rem;
-    background: var(--vscode-accent-blue, #007acc);
+    background: var(--oms-accent);
     color: #ffffff;
     border: none;
     border-radius: 4px;
     cursor: pointer;
 
     &:hover {
-      background: var(--vscode-accent-blue, #007acc);
+      background: var(--oms-accent);
       opacity: 0.9;
     }
   }
@@ -50,7 +50,7 @@
   flex-direction: column;
   height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: var(--vscode-bg-primary);
+  background: var(--oms-bg);
 }
 
 .oms-header {
@@ -59,8 +59,8 @@
   align-items: center;
   padding: 0 1.5rem;
   height: 48px;
-  background: var(--vscode-bg-secondary);
-  border-bottom: 1px solid var(--vscode-border);
+  background: var(--oms-surface);
+  border-bottom: 1px solid var(--oms-border);
   box-shadow: none;
 
   .header-left {
@@ -72,14 +72,14 @@
   .brand-logo {
     font-size: 1.25rem;
     font-weight: 600;
-    color: var(--vscode-accent-blue);
+    color: var(--oms-accent);
     letter-spacing: -0.3px;
   }
 
   h1 {
     font-size: 1.1rem;
     margin: 0;
-    color: var(--vscode-text-primary);
+    color: var(--oms-text);
     font-weight: 400;
   }
 
@@ -92,14 +92,14 @@
   .mode-toggle {
     display: flex;
     align-items: center;
-    border: 1px solid var(--vscode-border);
+    border: 1px solid var(--oms-border);
     border-radius: 2px;
     overflow: hidden;
 
     .mode-button {
       padding: 0.35rem 0.75rem;
-      background: var(--vscode-bg-primary);
-      color: var(--vscode-text-secondary);
+      background: var(--oms-bg);
+      color: var(--oms-text-muted);
       border: none;
       cursor: pointer;
       font-size: 0.75rem;
@@ -107,20 +107,20 @@
       transition: all 0.15s;
 
       &:not(:last-child) {
-        border-right: 1px solid var(--vscode-border);
+        border-right: 1px solid var(--oms-border);
       }
 
       &:hover {
-        background: var(--vscode-hover-bg);
-        color: var(--vscode-text-primary);
+        background: var(--oms-hover);
+        color: var(--oms-text);
       }
 
       &.active {
-        background: var(--vscode-accent-blue);
+        background: var(--oms-accent);
         color: white;
 
         &:hover {
-          background: var(--vscode-accent-blue-hover);
+          background: var(--oms-accent-hover);
         }
       }
     }
@@ -128,7 +128,7 @@
 
   .authorize-button {
     padding: 0.4rem 1rem;
-    background: var(--vscode-accent-blue);
+    background: var(--oms-accent);
     color: white;
     border: none;
     border-radius: 2px;
@@ -138,16 +138,16 @@
     transition: background-color 0.1s;
 
     &:hover {
-      background: var(--vscode-accent-blue-hover);
+      background: var(--oms-accent-hover);
     }
 
     &:active {
-      background: var(--vscode-active-bg);
+      background: var(--oms-accent-active);
     }
 
     &.authorized {
-      background: var(--vscode-success);
-      color: var(--vscode-bg-primary);
+      background: var(--oms-success);
+      color: var(--oms-bg);
 
       &:hover {
         background: #9fdf9c;
@@ -160,8 +160,8 @@
   display: flex;
   gap: 0;
   padding: 0 1rem;
-  background: var(--vscode-bg-secondary);
-  border-bottom: 1px solid var(--vscode-border);
+  background: var(--oms-surface);
+  border-bottom: 1px solid var(--oms-border);
 
   .tab {
     padding: 0.625rem 1rem;
@@ -169,18 +169,18 @@
     border: none;
     cursor: pointer;
     font-size: 0.8125rem;
-    color: var(--vscode-text-secondary);
+    color: var(--oms-text-muted);
     border-bottom: 1px solid transparent;
     transition: color 0.1s, border-color 0.1s;
     position: relative;
 
     &:hover {
-      color: var(--vscode-text-primary);
+      color: var(--oms-text);
     }
 
     &.active {
-      color: var(--vscode-text-bright);
-      border-bottom-color: var(--vscode-accent-blue);
+      color: var(--oms-text-strong);
+      border-bottom-color: var(--oms-accent);
     }
   }
 }
@@ -188,7 +188,7 @@
 .oms-content {
   flex: 1;
   overflow: hidden;
-  background: var(--vscode-bg-primary);
+  background: var(--oms-bg);
 }
 
 .oms-footer {
@@ -197,7 +197,7 @@
   gap: 1rem;
   padding: 0 1rem;
   height: 22px;
-  background: var(--vscode-accent-blue);
+  background: var(--oms-accent);
   color: white;
   font-size: 0.75rem;
 
