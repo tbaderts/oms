@@ -457,19 +457,41 @@ function changedFiles(base) {
   return [...out.values()];
 }
 
-function addedLines(base, f) {
-  if (!base || f.status === '?' || f.status === 'A') {
-    const txt = read(path.join(ROOT, f.path));
-    return txt == null ? [] : txt.split(/\r?\n/).map((l, i) => [i + 1, l]);
-  }
+function parseAddedLines(diff) {
   const out = [];
   let n = 0;
-  for (const l of (git(['diff', '-U0', base, '--', f.path], { allowFail: true }) || '').split(/\r?\n/)) {
+  for (const l of diff.split(/\r?\n/)) {
     const h = l.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
     if (h) { n = Number(h[1]); continue; }
     if (l.startsWith('+') && !l.startsWith('+++')) out.push([n++, l.slice(1)]);
   }
   return out;
+}
+
+/** One `git diff -U0` for the whole tree, split per file: a git process per changed file costs
+ *  ~80 ms each on Windows, which made `status` of an implement/verify ticket take seconds.
+ *  No rename detection, so a renamed file counts as all-new, as a per-path diff would see it. */
+const diffCache = new Map();
+function diffsByFile(base) {
+  if (diffCache.has(base)) return diffCache.get(base);
+  const byFile = new Map();
+  const text = git(['-c', 'core.quotepath=off', 'diff', '-U0', '--no-color', '--no-ext-diff', base], { allowFail: true }) || '';
+  for (const section of text.split(/^(?=diff --git )/m)) {
+    const target = section.match(/^\+\+\+ b\/(.*?)\r?$/m);
+    if (target) byFile.set(target[1], section);
+  }
+  diffCache.set(base, byFile);
+  return byFile;
+}
+
+function addedLines(base, f) {
+  if (!base || f.status === '?' || f.status === 'A') {
+    const txt = read(path.join(ROOT, f.path));
+    return txt == null ? [] : txt.split(/\r?\n/).map((l, i) => [i + 1, l]);
+  }
+  const section = diffsByFile(base).get(f.path);
+  // Not in the combined diff (binary, mode-only, or a path git quoted): ask git for that file alone.
+  return parseAddedLines(section ?? (git(['diff', '-U0', base, '--', f.path], { allowFail: true }) || ''));
 }
 
 function policyCheck({ base = CONFIG.baseBranch, all = false }) {

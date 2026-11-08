@@ -33,7 +33,6 @@ import org.example.oms.repository.ExecutionRepository;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.repository.OutboxRepository;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
 import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,9 +76,6 @@ class OrderLifecycleIntegrationTest {
 
     @Autowired
     private ExecutionRepository executionRepository;
-
-    @Autowired
-    private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
 
     @Autowired
     private ExecutionCommandProcessor executionCommandProcessor;
@@ -126,7 +122,7 @@ class OrderLifecycleIntegrationTest {
                 .lastPx(new BigDecimal("100.00"))
                 .build();
 
-        var blockedResult = executionCommandProcessor.process(blockedExecution);
+        var blockedResult = TestCommands.applyFill(executionCommandProcessor, blockedExecution);
         assertFalse(blockedResult.isSuccess());
         assertEquals(0L, executionRepository.count());
 
@@ -135,7 +131,7 @@ class OrderLifecycleIntegrationTest {
         assertEquals(State.UNACK, beforeAccept.get().getState());
 
         var acceptResult =
-                orderAcceptCommandProcessor.process(new OrderAcceptCmd("ORD-LIFE-1", "OrderAcceptCmd"), java.time.Instant.now());
+                orderLifecycleCommandProcessor.process(new OrderAcceptCmd("ORD-LIFE-1", "OrderAcceptCmd"), java.time.Instant.now());
         assertTrue(acceptResult.isSuccess());
 
         Execution liveExecution = Execution.builder()
@@ -145,7 +141,7 @@ class OrderLifecycleIntegrationTest {
                 .lastPx(new BigDecimal("100.00"))
                 .build();
 
-        var liveResult = executionCommandProcessor.process(liveExecution);
+        var liveResult = TestCommands.applyFill(executionCommandProcessor, liveExecution);
         assertTrue(liveResult.isSuccess());
         assertEquals(1L, executionRepository.count());
 
@@ -201,9 +197,10 @@ class OrderLifecycleIntegrationTest {
                         + "\",\"commandId\":\"C-AC5\"}";
         for (String duplicate : new String[] {cancelRequest, cancelReusingId}) {
             mockMvc.perform(post("/api/command/execute").contentType(MediaType.APPLICATION_JSON).content(duplicate))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.status").value("FAILED"))
-                    .andExpect(jsonPath("$.message").value(containsString("C-AC5")));
+                    // SPEC-0046: a duplicate is a typed 409 on every path (was 400).
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.type").value("urn:oms:error:duplicate-command"))
+                    .andExpect(jsonPath("$.commandId").value("C-AC5"));
 
             Order after = orderRepository.findByOrderId(ORDER_ID).orElseThrow();
             assertEquals(before.getState(), after.getState());
@@ -270,7 +267,7 @@ class OrderLifecycleIntegrationTest {
     }
 
     private void accept() {
-        var result = orderAcceptCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), Instant.now());
+        var result = orderLifecycleCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), Instant.now());
         assertTrue(result.isSuccess());
     }
 

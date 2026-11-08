@@ -40,10 +40,10 @@ evidence:
       end_line: 162
       label: "simulator: decide the outcome of a new order"
     - module: oms-core
-      path: src/main/java/org/example/oms/service/command/OrderAcceptCommandProcessor.java
-      line: 49
-      end_line: 88
-      label: "order acceptance: UNACK to LIVE"
+      path: src/main/java/org/example/oms/service/lifecycle/OrderLifecycleCommandProcessor.java
+      line: 86
+      end_line: 96
+      label: "order acceptance: the lifecycle action ACCEPT, UNACK to LIVE"
     - module: oms-exchange-simulator
       path: src/main/java/org/example/simulator/engine/ExchangeEngine.java
       line: 181

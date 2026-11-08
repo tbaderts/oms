@@ -30,7 +30,12 @@ interface SpecTicketsState {
 
   load: () => Promise<void>;
   select: (id: string | null) => Promise<void>;
-  refresh: () => Promise<void>;
+  /**
+   * Re-reads the list and the open ticket in parallel. `reuseInFlight` lets a view that just
+   * mounted share a detail read already under way (e.g. the one `select` started) instead of
+   * running the multi-second `spec status` twice; refreshes after a change always read anew.
+   */
+  refresh: (opts?: { reuseInFlight?: boolean }) => Promise<void>;
   /** Runs a CLI action; resolves with the id of a newly created ticket (which is then selected), else null. */
   run: (action: SpecAction) => Promise<string | null>;
   setFilter: (f: Partial<Pick<SpecTicketsState, 'mineOnly' | 'stage' | 'module' | 'text'>>) => void;
@@ -43,6 +48,20 @@ interface SpecTicketsState {
 
 // Overlapping loads (an action's refresh plus watcher events): only the latest response is applied.
 let loadSeq = 0;
+
+// The latest detail read; a mount refresh may join it rather than start another `spec status`.
+let detailFetch: { id: string; promise: Promise<SpecTicketDetail> } | null = null;
+
+function fetchDetail(id: string, reuseInFlight = false): Promise<SpecTicketDetail> {
+  if (reuseInFlight && detailFetch?.id === id) return detailFetch.promise;
+  const entry = { id, promise: window.cockpit.specTickets.get(id) };
+  detailFetch = entry;
+  const done = () => {
+    if (detailFetch === entry) detailFetch = null;
+  };
+  entry.promise.then(done, done);
+  return entry.promise;
+}
 
 function message(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -90,7 +109,7 @@ export const useSpecTicketsStore = create<SpecTicketsState>((set, get) => ({
     });
     if (!id) return;
     try {
-      const detail = await window.cockpit.specTickets.get(id);
+      const detail = await fetchDetail(id);
       // Only apply if the selection did not change meanwhile
       if (get().selectedId === id) set({ detail });
     } catch (e: unknown) {
@@ -98,17 +117,20 @@ export const useSpecTicketsStore = create<SpecTicketsState>((set, get) => ({
     }
   },
 
-  refresh: async () => {
+  refresh: async (opts) => {
     const { selectedId } = get();
+    // Both are separate CLI processes: start the detail read alongside the list, not after it.
+    const detailRead = selectedId ? fetchDetail(selectedId, opts?.reuseInFlight) : null;
+    detailRead?.catch(() => {}); // judged below, once the list says whether the ticket still exists
     await get().load();
-    if (!selectedId) return;
+    if (!selectedId || !detailRead) return;
     if (!get().error && !get().tickets.some((t) => t.id === selectedId)) {
       // The open ticket was removed (or archived while archived tickets are hidden).
       if (get().selectedId === selectedId) set({ selectedId: null, detail: null });
       return;
     }
     try {
-      const detail = await window.cockpit.specTickets.get(selectedId);
+      const detail = await detailRead;
       if (get().selectedId === selectedId) set({ detail });
     } catch (e: unknown) {
       set({ error: message(e) });

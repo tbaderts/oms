@@ -58,6 +58,7 @@ stateDiagram-v2
   UNACK --> EXP: OrderExpireCmd
   LIVE --> EXP: OrderExpireCmd
   LIVE --> CLOSED: OrderCloseCmd
+  FILLED --> LIVE: EXEC_BUST that reopens quantity (SPEC-0044)
   FILLED --> CLOSED: OrderCloseCmd (end of day)
   CXL --> CLOSED: OrderCloseCmd (end of day)
   REJ --> CLOSED: OrderCloseCmd (end of day)
@@ -75,6 +76,20 @@ stateDiagram-v2
   and end of day ([Order Expiry and Close](../capabilities/order-expiry-and-close.md)).
 - CLOSED is the only terminal state. The former `simplified()` and `extended()` configurations are
   removed.
+- **FILLED → LIVE** (SPEC-0044) exists only for a bust that reopens quantity. The bust processing
+  that takes it is SPEC-0030. An acknowledgement never takes it: the lifecycle action `ACCEPT`
+  requires UNACK in `ValidateLifecycleActionTask` (SPEC-0046), so an ACK on a FILLED order is refused.
+- **Cancel-state rules as configuration** (SPEC-0044). `CancelStateMachineConfig` holds the
+  cancel-state transitions over a `Node` enum, where `NONE` stands for a null cancel state:
+  - NONE, REJ, CXL or PMOD → PCXL;
+  - PCXL → REJ;
+  - NONE or PCXL → CXL.
+
+  `ValidateLifecycleActionTask` consults it for CANCEL_REQUEST and CANCEL_REJECT, together with
+  the order-level conditions: LIVE with open quantity for a request, not CLOSED for a reject. The
+  decisions are the same as before.
+- **Execution status** (SPEC-0044), a third small machine in `ExecutionStatusMachineConfig`:
+  APPLIED → BUSTED or CORRECTED, then CORRECTED → BUSTED. See [Execution](execution.md).
 
 ## Differences from the Order Lifecycle specification
 

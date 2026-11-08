@@ -3,6 +3,7 @@ package org.example.oms.service.lifecycle;
 import java.time.Instant;
 
 import org.example.common.model.cmd.Command;
+import org.example.common.model.cmd.OrderAcceptCmd;
 import org.example.common.model.cmd.OrderCancelCmd;
 import org.example.common.model.cmd.OrderCancelRejectCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
@@ -63,7 +64,8 @@ public class OrderLifecycleCommandProcessor {
 
     /** Whether this processor handles the given command type. */
     public static boolean supports(Command command) {
-        return command instanceof OrderRejectCmd
+        return command instanceof OrderAcceptCmd
+                || command instanceof OrderRejectCmd
                 || command instanceof OrderCancelCmd
                 || command instanceof OrderCancelRequestCmd
                 || command instanceof OrderCancelRejectCmd
@@ -87,6 +89,11 @@ public class OrderLifecycleCommandProcessor {
         String text;
 
         switch (command) {
+            case OrderAcceptCmd cmd -> {
+                action = LifecycleAction.ACCEPT;
+                orderId = cmd.getOrderId();
+                text = null;
+            }
             case OrderRejectCmd cmd -> {
                 action = LifecycleAction.REJECT;
                 orderId = cmd.getOrderId();
@@ -141,6 +148,7 @@ public class OrderLifecycleCommandProcessor {
             log.warn("{} refused for orderId={}: {}", action, orderId, context.getErrorMessage());
             return OrderLifecycleResult.builder()
                     .success(false)
+                    .duplicate(PipelineResults.isDuplicate(result, context))
                     .orderId(orderId)
                     .action(action)
                     .errorMessage(errorMessage(context, result))
@@ -154,7 +162,12 @@ public class OrderLifecycleCommandProcessor {
                 context.getOrder().getState(),
                 context.getOrder().getCancelState());
 
-        return OrderLifecycleResult.builder().success(true).orderId(orderId).action(action).build();
+        return OrderLifecycleResult.builder()
+                .success(true)
+                .orderId(orderId)
+                .action(action)
+                .eventVersion(context.getOrDefault("eventVersion", null))
+                .build();
     }
 
     private TaskPipeline<OrderTaskContext> buildPipeline() {
@@ -179,20 +192,17 @@ public class OrderLifecycleCommandProcessor {
 
 
     private static String errorMessage(OrderTaskContext context, PipelineResult result) {
-        if (context.getErrorMessage() != null) {
-            return context.getErrorMessage();
-        }
-        return result.getTaskResults().stream()
-                .filter(TaskResult::isFailed)
-                .map(TaskResult::getMessage)
-                .findFirst()
-                .orElse("Lifecycle command failed");
+        return PipelineResults.refusalReason(result, context, "Lifecycle command failed");
     }
 
     @Builder
     @Getter
     public static class OrderLifecycleResult {
         private final boolean success;
+        /** Refused because the order already applied the command's commandId (SPEC-0046). */
+        private final boolean duplicate;
+        /** The version of the event it appended, when applied. */
+        private final Long eventVersion;
         private final String orderId;
         private final LifecycleAction action;
         private final String errorMessage;

@@ -775,7 +775,7 @@ recorded in each ticket's log.
 | Expiry and close in the state machine, end-of-day scheduler | in place | SPEC-0029 |
 | Observability: OTLP, dashboards, order-flow metrics | in place | SPEC-0031 to SPEC-0038 |
 | `exec_id` on events, `EXEC_*` event types, execution status and `order_version`, `executionsAt`, `CancelState` and `ExecutionStatus` machines | planned | SPEC-0044 |
-| `order_execution_view` renamed to `order_execution_projection`, projection name decoupled from the table | planned | SPEC-0045 |
+| `order_execution_view` renamed to `order_execution_projection`, projection name decoupled from the table | done | SPEC-0045 |
 | `command_log`, typed duplicate-command refusal on every path, accept as a lifecycle action | planned | SPEC-0046 |
 | Pointer outbox rows, `root_order_id` on executions, pooled sequences | planned | SPEC-0047 |
 | Lock-first on every pipeline, conflicts outside the dead-letter budget, relay leader lock, after-commit nudge, topic provisioning and listener concurrency, scheduler leader lock | planned | SPEC-0048 |

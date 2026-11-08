@@ -488,7 +488,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.example.oms.OmsApplication;
 import org.example.oms.repository.OrderRepository;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -525,7 +525,8 @@ class OrderLifecycleIntegrationTest {
     private OrderRepository orderRepository;
 
     @Autowired
-    private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
+    // Accept is a lifecycle action since SPEC-0046.
+    private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
 
     @BeforeEach
     void setup() {
@@ -544,7 +545,7 @@ class OrderLifecycleIntegrationTest {
             .build());
 
         // When: Accept command is processed
-        var result = orderAcceptCommandProcessor.process(
+        var result = orderLifecycleCommandProcessor.process(
             new OrderAcceptCmd("ORD-1", "OrderAcceptCmd")
         );
 
@@ -1061,7 +1062,8 @@ void executionReport_whenOrderFilled_shouldUpdateQuantities() {
         .lastQty(new BigDecimal("100"))
         .lastPx(new BigDecimal("150.00"))
         .build();
-    executionProcessor.process(execution);
+    // A fill is always applied with the command that reported it (SPEC-0046).
+    executionProcessor.process(execution, TestCommands.fillOf(execution));
 
     // Then: Order is fully filled
     Order updated = orderRepository.findByOrderId("ORD-1").orElseThrow();

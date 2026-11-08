@@ -36,6 +36,8 @@ const posInt = (v: unknown): number | undefined => (typeof v === 'number' && Num
 export class EvidenceService {
   private cache = new Map<string, DriftStatus>();
   private objects = new Map<string, 'yes' | 'no'>();
+  /** `${commit}|${repoPath}` → its `--unified=0` diff to HEAD ('' when unchanged), per HEAD. */
+  private diffs = new Map<string, string>();
   private head = '';
 
   constructor(private readonly opts: EvidenceOptions) {}
@@ -50,6 +52,7 @@ export class EvidenceService {
   evaluate(card: Record<string, unknown>): ReturnType<CardEvaluator> {
     const issues: EvidenceIssue[] = [];
     const evidence = obj(card.evidence);
+    this.prefetch(evidence);
 
     const repos: EvidenceRepo[] = [];
     const commits = new Map<string, string | null>();
@@ -150,7 +153,7 @@ export class EvidenceService {
     } else if (atHead === 'no' || atCommit === 'no') {
       drift = 'missing';
     } else {
-      const diff = this.git(['diff', '--unified=0', '--no-color', '--no-ext-diff', commit, 'HEAD', '--', repoPath]);
+      const diff = this.diffs.get(`${commit}|${repoPath}`) ?? this.git(['diff', '--unified=0', '--no-color', '--no-ext-diff', commit, 'HEAD', '--', repoPath]);
       if (diff === null) drift = 'unknown';
       else if (!diff.trim()) drift = 'current';
       else if (line === undefined || endLine === undefined) drift = 'drifted';
@@ -166,6 +169,69 @@ export class EvidenceService {
       this.head = head;
       this.cache.clear();
       this.objects.clear();
+      this.diffs.clear();
+    }
+  }
+
+  /**
+   * Answers everything a card will ask git with as few processes as possible: one
+   * `cat-file --batch-check` for all objects and one diff per pinned commit. Each git process costs
+   * ~100 ms on Windows and the scan runs synchronously on the main process, so a card with a dozen
+   * sources used to freeze the cockpit for seconds. Whatever this cannot answer (a failed or timed
+   * out batch) is left uncached, and `exists`/`sourceDrift` ask git one by one as before.
+   */
+  private prefetch(evidence: Record<string, unknown>): void {
+    const commits = new Map<string, string>();
+    for (const raw of list(evidence.repos)) {
+      const module = text(obj(raw).module);
+      const commit = text(obj(raw).commit);
+      if (module && commit && /^[\w./-]+$/.test(module) && /^[0-9a-f]{4,40}$/i.test(commit)) commits.set(module, commit);
+    }
+    const sources: { commit: string; repoPath: string }[] = [];
+    for (const raw of list(evidence.sources)) {
+      const module = text(obj(raw).module);
+      const file = text(obj(raw).path);
+      const commit = module ? commits.get(module) : undefined;
+      if (commit && file && !file.includes('..') && !path.isAbsolute(file)) sources.push({ commit, repoPath: `${module}/${file}` });
+    }
+
+    const wanted = [
+      ...[...commits].flatMap(([module, commit]) => [`${commit}^{commit}`, `HEAD:${module}`]),
+      ...sources.flatMap((s) => [`HEAD:${s.repoPath}`, `${s.commit}:${s.repoPath}`]),
+    ].filter((o, i, all) => all.indexOf(o) === i && !this.objects.has(o) && !/[\r\n]/.test(o));
+    if (wanted.length) {
+      const out = this.git(['cat-file', '--batch-check'], wanted.join('\n') + '\n');
+      const answers = out?.split('\n').filter(Boolean) ?? [];
+      if (answers.length === wanted.length) {
+        // `<sha> <type> <size>` when the object exists, `<input> missing|ambiguous` when it does not.
+        wanted.forEach((o, i) => this.objects.set(o, answers[i] === `${o} missing` || answers[i] === `${o} ambiguous` ? 'no' : 'yes'));
+      }
+    }
+
+    const byCommit = new Map<string, string[]>();
+    for (const s of sources) {
+      if (this.diffs.has(`${s.commit}|${s.repoPath}`)) continue;
+      if (this.objects.get(`HEAD:${s.repoPath}`) !== 'yes' || this.objects.get(`${s.commit}:${s.repoPath}`) !== 'yes') continue;
+      const paths = byCommit.get(s.commit) ?? [];
+      if (!paths.includes(s.repoPath)) paths.push(s.repoPath);
+      byCommit.set(s.commit, paths);
+    }
+    for (const [commit, paths] of byCommit) {
+      const diff = this.git(['-c', 'core.quotepath=off', 'diff', '--no-renames', '--unified=0', '--no-color', '--no-ext-diff', commit, 'HEAD', '--', ...paths]);
+      if (diff === null) continue;
+      const sections = new Map<string, string>();
+      let unparsed = false;
+      for (const section of diff.split(/^(?=diff --git )/m)) {
+        if (!section.startsWith('diff --git ')) continue;
+        const header = /^diff --git a\/(.+) b\/\1$/.exec(section.split('\n', 1)[0]);
+        if (header) sections.set(header[1], section);
+        else unparsed = true; // e.g. a path git quoted
+      }
+      for (const p of paths) {
+        const section = sections.get(p);
+        // A path without a section did not change, unless some section could not be attributed.
+        if (section !== undefined || !unparsed) this.diffs.set(`${commit}|${p}`, section ?? '');
+      }
     }
   }
 
@@ -187,8 +253,8 @@ export class EvidenceService {
     return this.opts.gitTimeoutMs ?? 15_000;
   }
 
-  private git(args: string[]): string | null {
-    const r = spawnSync('git', args, { cwd: this.opts.workspaceRoot, timeout: this.timeoutMs, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+  private git(args: string[], input?: string): string | null {
+    const r = spawnSync('git', args, { cwd: this.opts.workspaceRoot, timeout: this.timeoutMs, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, input });
     if (r.status !== 0) {
       this.opts.log?.warn?.(`[storyboards] git ${args[0]} failed: ${(r.stderr ?? '').trim() || r.error?.message}`);
       return null;

@@ -48,7 +48,10 @@ class OrderEventAppenderTest {
     void setUp() {
         appender = new OrderEventAppender(
                 orderEventRepository, outboxRepository, "oms_orders", "oms_executions", new AvroPayloadCodec(),
-                new OrderFlowMetrics(new SimpleMeterRegistry(), mock(OrderRepository.class)));
+                new OrderFlowMetrics(new SimpleMeterRegistry(), mock(OrderRepository.class)),
+                mock(org.example.oms.repository.ExecutionRepository.class),
+                new org.example.oms.mapper.OrderExecutionMessageMapper(),
+                "oms_order_executions");
     }
 
     // AC-2
@@ -78,16 +81,33 @@ class OrderEventAppenderTest {
         assertEquals(true, conflict.getMessage().contains("ORD-1"), conflict.getMessage());
     }
 
-    // AC-3: a repeated commandId keeps its own meaning.
+    /**
+     * SPEC-0046 AC-6: a commandId the order already applied, caught by the unique constraint when two
+     * deliveries race past the dedup lookup, is the same typed refusal as one the lookup catches.
+     */
+    @Test
+    void commandIdConstraintBecomesDuplicateCommand() {
+        when(orderEventRepository.saveAndFlush(any())).thenThrow(violation("uq_order_events_order_id_command_id"));
+        var command = new org.example.common.model.cmd.OrderCancelRequestCmd("ORD-1", "OrderCancelRequestCmd")
+                .commandId("C-9");
+
+        DuplicateCommandException duplicate = assertThrows(
+                DuplicateCommandException.class, () -> appender.appendOrderEvent(order(2L), Event.CXL_REQUEST, command));
+
+        assertEquals("ORD-1", duplicate.getOrderId());
+        assertEquals("C-9", duplicate.getCommandId());
+    }
+
+    // Any other constraint keeps its own meaning.
     @Test
     void otherConstraintViolationsPropagate() {
-        DataIntegrityViolationException duplicate = violation("uq_order_events_order_id_command_id");
-        when(orderEventRepository.saveAndFlush(any())).thenThrow(duplicate);
+        DataIntegrityViolationException other = violation("uq_some_other_constraint");
+        when(orderEventRepository.saveAndFlush(any())).thenThrow(other);
 
         DataIntegrityViolationException thrown = assertThrows(
                 DataIntegrityViolationException.class, () -> appender.appendOrderEvent(order(2L), Event.ACK, null));
 
-        assertSame(duplicate, thrown);
+        assertSame(other, thrown);
     }
 
     private static Order order(long txNr) {

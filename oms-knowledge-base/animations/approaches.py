@@ -89,7 +89,7 @@ COMMANDS_A = [
      "O-1  AAPL BUY 100 · UNACK · cum 0", None, "v1 NEW_ORDER",
      ["O-1 v1\nUNACK"], "O-1 · UNACK · cum 0"),
     ("OrderAcceptCmd", "The order is acknowledged: OrderAcceptCmd",
-     "OrderAcceptCommandProcessor\nUNACK → LIVE", True,
+     "LifecycleAction.ACCEPT\nUNACK → LIVE", True,
      "O-1  AAPL BUY 100 · LIVE · cum 0", None, "v2 ACK",
      ["O-1 v2\nLIVE"], "O-1 · LIVE · cum 0"),
     ("Execution E-1", "First execution arrives: 60 @ 190.00",

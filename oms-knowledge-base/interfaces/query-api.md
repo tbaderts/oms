@@ -30,23 +30,40 @@ SPEC-0027 it is the order row's own version, read with the order, so it always b
 on the page; `txNr` reports the same number (it was a separate counter, one lower, before). The
 trade blotter uses it to drop live events the snapshot already contains.
 
+## Order command log
+
+`GET /api/query/orders/{orderId}/commands` (`getOrderCommands`, generated `OrdersApi`, implemented by
+`OrderEventController`, since query API 2.3.0, SPEC-0046) returns every command received for one
+order and what became of it, oldest first (`receivedAt`, then the order they were logged).
+- **Shape.** Each `CommandLogEntryDto` carries `commandId`, `type`, `orderId`, `receivedAt`,
+  `source` (`REST`, `KAFKA`, `SCHEDULER`), `principal`, `outcome` (`APPLIED`, `REFUSED`, `FAILED`),
+  `reason` and `eventVersion`.
+- **Attempts.** A Kafka command that failed and was retried appears once per attempt.
+- **No entries.** An order id with nothing logged gives `200 []`.
+
+See [Command Log](../domain/command-log.md).
+
 ## Order event log
 
 `GET /api/query/orders/{orderId}/events` (`getOrderEvents`, generated `OrdersApi`, implemented by
 `OrderEventController`, SPEC-0035) returns every entry of one order's event log, oldest first. Each
 `OrderEventDto` carries `orderId`, `version`, `event` (`OrderEventType`: `NEW_ORDER`, `ACK`,
-`PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, and since query API 2.1.0 `EXP`, `CLOSE`), `commandId`, `resultingState`,
+`PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, since query API 2.1.0 `EXP`, `CLOSE`, and since 2.2.0 `EXEC_BUST`, `EXEC_CORRECT`, `EXEC_WHACK`), `commandId`, `resultingState`,
 `timeStamp`, `transaction` (the causing command as JSON, with its `type`) and `orderSnapshot` (the
 order after the change, as an `OrderDto`). The database id is not exposed. An order id without
 events gives `200 []`; whether the order exists is answered by `/search`. It replaces the former hidden,
 uncontracted event-log endpoint outside `/api/query`, which no longer exists. The developer cockpit's
-API Explorer follow-up reads it.
+API Explorer follow-up reads it. Since 2.2.0 (SPEC-0044), the optional query parameter `execId`
+narrows the result to the entries about one execution: its fill and any bust, correction or whack
+of it, matched on `order_events.exec_id`. An execId the order does not have gives `200 []`.
 
 ## Fills with their order
 
 `GET /api/query/executions` (`getExecutions`, generated `ExecutionsApi`, implemented by
-`ExecutionViewController`, SPEC-0020) returns fills from the `order_execution_view`
-[projection](../oms-concepts/projections.md): each `ExecutionViewDto` has the fill (`execId`,
+`ExecutionViewController`, SPEC-0020) returns fills from the `order_execution_projection` table
+(named `order_execution_view` before SPEC-0045) of the
+[order-execution projection](../oms-concepts/projections.md). The response contract did not change
+with the rename. Each `ExecutionViewDto` has the fill (`execId`,
 `lastQty`, `lastPx`, `execType`, `lastCapacity`, `lastMkt`, `transactTime`), the order as of that
 fill (identity, account, side, instrument, price, quantities, state), `orderVersion` and
 `tradeDate`. Filters `orderId`, `rootOrderId` (an order without a root is its own root), `account`,

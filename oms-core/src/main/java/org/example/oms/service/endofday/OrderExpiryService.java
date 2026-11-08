@@ -10,7 +10,9 @@ import org.example.common.model.State;
 import org.example.common.model.TimeInForce;
 import org.example.common.model.cmd.OrderExpireCmd;
 import org.example.oms.repository.OrderRepository;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.example.oms.service.command.CommandDispatch;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.command.CommandOrigin;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 
@@ -38,11 +40,13 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderExpiryService {
 
     static final String STEP = "expire";
+    /** Who the command log names as the sender of expiries (SPEC-0046). */
+    static final String PRINCIPAL = "oms-core:expiry";
     private static final List<State> OPEN = List.of(State.LIVE, State.UNACK);
     private static final DateTimeFormatter DAY = DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneOffset.UTC);
 
     private final OrderRepository orderRepository;
-    private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
+    private final CommandDispatcher commandDispatcher;
     private final MeterRegistry meterRegistry;
 
     /** Registers this step's counters at 0, so their series exist before the first run (SPEC-0038). */
@@ -74,12 +78,12 @@ public class OrderExpiryService {
             command.setType("OrderExpireCmd");
             command.setCommandId("EXP-" + orderId + "-" + DAY.format(now));
             try {
-                var result = orderLifecycleCommandProcessor.process(command, now);
-                if (result.isSuccess()) {
+                var result = commandDispatcher.dispatch(command, CommandOrigin.scheduler(PRINCIPAL, now));
+                if (result instanceof CommandDispatch.Applied) {
                     expired.add(orderId);
                     meterRegistry.counter("oms.end-of-day.orders", "step", STEP).increment();
                 } else {
-                    log.warn("Expiry of order {} refused: {}", orderId, result.getErrorMessage());
+                    log.warn("Expiry of order {} refused: {}", orderId, result.message());
                 }
             } catch (ConcurrencyFailureException e) {
                 failed++;

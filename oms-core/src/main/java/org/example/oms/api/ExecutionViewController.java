@@ -6,7 +6,7 @@ import java.util.List;
 import org.example.common.api.ExecutionsApi;
 import org.example.common.model.query.ExecutionViewDto;
 import org.example.oms.mapper.ExecutionViewDtoMapper;
-import org.example.oms.service.OrderExecutionViewQueryService;
+import org.example.oms.service.OrderExecutionProjectionQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +21,7 @@ public class ExecutionViewController implements ExecutionsApi {
 
     private static final int DEFAULT_LIMIT = 1000;
 
-    private final OrderExecutionViewQueryService queryService;
+    private final OrderExecutionProjectionQueryService queryService;
     private final ExecutionViewDtoMapper mapper;
 
     @Override

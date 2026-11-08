@@ -19,3 +19,9 @@ databaseChangeLog:
       file: db/changelog/009-outbox-aggregate-index.yaml
   - include:
       file: db/changelog/010-unify-order-version.yaml
+  - include:
+      file: db/changelog/011-execution-lifecycle.yaml
+  - include:
+      file: db/changelog/012-rename-order-execution-projection.yaml
+  - include:
+      file: db/changelog/013-command-log.yaml

@@ -18,10 +18,9 @@ import org.example.common.model.cmd.OrderRejectCmd;
 import org.example.common.model.msg.CommandHeader;
 import org.example.oms.mapper.CommandHeaderMapper;
 import org.example.oms.mapper.OrderMapper;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
-import org.example.oms.service.command.OrderCreateCommandProcessor;
-import org.example.oms.service.execution.ExecutionCommandProcessor;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.example.oms.service.command.CommandDispatch;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.command.CommandOrigin;
 import org.slf4j.MDC;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -62,10 +61,7 @@ public class CommandListener {
     private final OrderMapper orderMapper;
     private final CommandHeaderMapper commandHeaderMapper;
     private final CommandDecoder commandDecoder;
-    private final OrderCreateCommandProcessor orderCreateCommandProcessor;
-    private final OrderAcceptCommandProcessor orderAcceptCommandProcessor;
-    private final ExecutionCommandProcessor executionCommandProcessor;
-    private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
+    private final CommandDispatcher commandDispatcher;
     private final MeterRegistry meterRegistry;
 
     static final String COMMANDS_CONSUMED = "oms.commands.consumed";
@@ -98,8 +94,9 @@ public class CommandListener {
 
     /**
      * Processes one decoded command record with its ids in the MDC, and counts the outcome:
-     * applied, refused (an unsuccessful result, acknowledged) or failed (an exception, retried or
-     * dead-lettered; counted per attempt).
+     * applied, refused (an unsuccessful result, duplicates included; acknowledged) or failed (an
+     * exception, retried or dead-lettered; counted per attempt). The dispatcher logs each attempt in
+     * the command log, with the header's producer as principal (SPEC-0046).
      */
     void handle(SpecificRecord command, Instant receivedTime) {
         String type = command.getClass().getSimpleName();
@@ -110,7 +107,18 @@ public class CommandListener {
         }
         try {
             log.info("New command: {}", command);
-            count(type, dispatch(command, receivedTime) ? OUTCOME_APPLIED : OUTCOME_REFUSED);
+            Command cmd = toCommand(command);
+            CommandDispatch outcome = commandDispatcher.dispatch(
+                    cmd, CommandOrigin.kafka(header != null ? header.getProducer() : null, receivedTime));
+            if (outcome instanceof CommandDispatch.Applied) {
+                log.info("Processed {} from Kafka: orderId={}", type, outcome.orderId());
+                count(type, OUTCOME_APPLIED);
+            } else {
+                // Refusals include redelivered duplicates; acknowledging them is what keeps the
+                // command idempotent rather than endlessly retried.
+                log.warn("{} refused: orderId={}, {}", type, outcome.orderId(), outcome.message());
+                count(type, OUTCOME_REFUSED);
+            }
         } catch (RuntimeException e) {
             count(type, OUTCOME_FAILED);
             throw e;
@@ -120,49 +128,37 @@ public class CommandListener {
         }
     }
 
-    /** @return whether the command was applied; false when its processor refused it */
-    private boolean dispatch(SpecificRecord command, Instant receivedTime) {
+    /** The command a record carries, in the command API's model, with the header's ids copied in. */
+    private Command toCommand(SpecificRecord command) {
         return switch (command) {
+            // Mapped explicitly: Jackson's convertValue fails on Avro records (getSchema()).
             case org.example.common.model.msg.OrderCreateCmd msgCmd ->
-                    handleOrderCreate(msgCmd, receivedTime);
-            case org.example.common.model.msg.ExecutionCreateCmd msgCmd -> handleExecutionCreate(msgCmd);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(), new OrderCreateCmd().order(orderMapper.toCmdOrder(msgCmd.getOrder())));
+            case org.example.common.model.msg.ExecutionCreateCmd msgCmd ->
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(),
+                            new ExecutionCreateCmd().execution(orderMapper.toCmdExecution(msgCmd.getExecution())));
             case org.example.common.model.msg.OrderAcceptCmd msgCmd ->
-                    handleOrderAccept(msgCmd, receivedTime);
+                    commandHeaderMapper.apply(msgCmd.getHeader(), new OrderAcceptCmd().orderId(msgCmd.getOrderId()));
             case org.example.common.model.msg.OrderRejectCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(),
-                                    new OrderRejectCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText())),
-                            receivedTime);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(), new OrderRejectCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText()));
             case org.example.common.model.msg.OrderCancelCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(),
-                                    new OrderCancelCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText())),
-                            receivedTime);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(), new OrderCancelCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText()));
             case org.example.common.model.msg.OrderCancelRequestCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(), new OrderCancelRequestCmd().orderId(msgCmd.getOrderId())),
-                            receivedTime);
+                    commandHeaderMapper.apply(msgCmd.getHeader(), new OrderCancelRequestCmd().orderId(msgCmd.getOrderId()));
             case org.example.common.model.msg.OrderCancelRejectCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(),
-                                    new OrderCancelRejectCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText())),
-                            receivedTime);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(),
+                            new OrderCancelRejectCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText()));
             case org.example.common.model.msg.OrderExpireCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(),
-                                    new OrderExpireCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText())),
-                            receivedTime);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(), new OrderExpireCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText()));
             case org.example.common.model.msg.OrderCloseCmd msgCmd ->
-                    handleLifecycle(
-                            commandHeaderMapper.apply(
-                                    msgCmd.getHeader(),
-                                    new OrderCloseCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText())),
-                            receivedTime);
+                    commandHeaderMapper.apply(
+                            msgCmd.getHeader(), new OrderCloseCmd().orderId(msgCmd.getOrderId()).text(msgCmd.getText()));
             default ->
                     // A command type without a handler is a contract problem, not a transient fault.
                     // Throwing sends it to the DLT with its original bytes rather than dropping it.
@@ -179,77 +175,5 @@ public class CommandListener {
 
     private void count(String type, String outcome) {
         meterRegistry.counter(COMMANDS_CONSUMED, "type", type, "outcome", outcome).increment();
-    }
-
-    private boolean handleOrderCreate(
-            org.example.common.model.msg.OrderCreateCmd msgCmd, Instant receivedTime) {
-        // Mapped explicitly: Jackson's convertValue fails on Avro records (getSchema()).
-        OrderCreateCmd cmd =
-                commandHeaderMapper.apply(
-                        msgCmd.getHeader(), new OrderCreateCmd().order(orderMapper.toCmdOrder(msgCmd.getOrder())));
-        var result = orderCreateCommandProcessor.process(cmd, receivedTime);
-
-        if (result.isSuccess()) {
-            log.info("Processed OrderCreateCmd from Kafka: orderId={}", result.getOrderId());
-        } else {
-            log.warn("OrderCreateCmd rejected: {}", result.getErrorMessage());
-        }
-        return result.isSuccess();
-    }
-
-    private boolean handleExecutionCreate(org.example.common.model.msg.ExecutionCreateCmd msgCmd) {
-        // Mapped explicitly: Jackson's convertValue fails on Avro records (getSchema()).
-        ExecutionCreateCmd cmd =
-                commandHeaderMapper.apply(
-                        msgCmd.getHeader(),
-                        new ExecutionCreateCmd().execution(orderMapper.toCmdExecution(msgCmd.getExecution())));
-        var execution = orderMapper.toExecution(cmd.getExecution());
-        var result = executionCommandProcessor.process(execution, cmd);
-
-        if (result.isSuccess()) {
-            log.info(
-                    "Processed ExecutionCreateCmd from Kafka: execId={}, orderId={}",
-                    result.getExecution().getExecId(),
-                    result.getOrder().getOrderId());
-        } else {
-            log.warn(
-                    "ExecutionCreateCmd rejected: execId={}",
-                    cmd.getExecution() != null ? cmd.getExecution().getExecId() : null);
-        }
-        return result.isSuccess();
-    }
-
-    private boolean handleOrderAccept(
-            org.example.common.model.msg.OrderAcceptCmd msgCmd, Instant receivedTime) {
-        OrderAcceptCmd cmd =
-                commandHeaderMapper.apply(msgCmd.getHeader(), new OrderAcceptCmd().orderId(msgCmd.getOrderId()));
-        var result = orderAcceptCommandProcessor.process(cmd, receivedTime);
-
-        if (result.isSuccess()) {
-            log.info("Processed OrderAcceptCmd from Kafka: orderId={}", result.getOrderId());
-        } else {
-            log.warn("OrderAcceptCmd rejected: {}", result.getErrorMessage());
-        }
-        return result.isSuccess();
-    }
-
-    private boolean handleLifecycle(Command cmd, Instant receivedTime) {
-        var result = orderLifecycleCommandProcessor.process(cmd, receivedTime);
-
-        if (result.isSuccess()) {
-            log.info(
-                    "Processed {} from Kafka: orderId={}",
-                    cmd.getClass().getSimpleName(),
-                    result.getOrderId());
-        } else {
-            // Refusals include redelivered duplicates; acknowledging them is what keeps the
-            // command idempotent rather than endlessly retried.
-            log.warn(
-                    "{} refused: orderId={}, reason={}",
-                    cmd.getClass().getSimpleName(),
-                    result.getOrderId(),
-                    result.getErrorMessage());
-        }
-        return result.isSuccess();
     }
 }

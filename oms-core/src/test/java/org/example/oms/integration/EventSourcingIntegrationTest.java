@@ -20,11 +20,11 @@ import org.example.oms.model.OrderEvent;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.ExecutionRepository;
 import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.example.oms.repository.OrderRepository;
 import org.example.oms.repository.OutboxRepository;
 import org.example.oms.service.OrderReplayService;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,11 +70,11 @@ class EventSourcingIntegrationTest {
     @Autowired private ExecutionRepository executionRepository;
     @Autowired private OrderEventRepository orderEventRepository;
     @Autowired private OutboxRepository outboxRepository;
-    @Autowired private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
+    @Autowired private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Autowired private ExecutionCommandProcessor executionCommandProcessor;
     @Autowired private OrderReplayService orderReplayService;
     @Autowired private TransactionTemplate transactionTemplate;
-    @Autowired private OrderExecutionViewRepository orderExecutionViewRepository;
+    @Autowired private OrderExecutionProjectionRepository orderExecutionViewRepository;
     @Autowired private AvroPayloadCodec payloadCodec;
 
     /**
@@ -85,7 +85,7 @@ class EventSourcingIntegrationTest {
     @Test
     void fill_stagesOrderExecutionAsGenericPayload() {
         accept();
-        executionCommandProcessor.process(execution("EX-G1", "4.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-G1", "4.0000"));
 
         List<OutboxMessage> staged = outboxRepository.findAll().stream()
                 .sorted(java.util.Comparator.comparing(OutboxMessage::getId))
@@ -138,8 +138,8 @@ class EventSourcingIntegrationTest {
     void acceptAndFill_appendSequencedEventsAndStageOutboxMessages() {
         accept();
 
-        executionCommandProcessor.process(execution("EX-1", "4.0000"));
-        executionCommandProcessor.process(execution("EX-2", "6.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-1", "4.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-2", "6.0000"));
 
         List<OrderEvent> history = orderReplayService.history(ORDER_ID);
         assertEquals(
@@ -171,7 +171,7 @@ class EventSourcingIntegrationTest {
     @Test
     void replay_reconstructsTheOrderAtEachVersion() {
         accept();
-        executionCommandProcessor.process(execution("EX-1", "4.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-1", "4.0000"));
 
         Order atAck = orderReplayService.replayAt(ORDER_ID, 1).orElseThrow();
         assertEquals(State.LIVE, atAck.getState());
@@ -194,12 +194,12 @@ class EventSourcingIntegrationTest {
     @Test
     void duplicateExecution_isRejectedAndChangesNothing() {
         accept();
-        assertTrue(executionCommandProcessor.process(execution("EX-DUP", "4.0000")).isSuccess());
+        assertTrue(TestCommands.applyFill(executionCommandProcessor, execution("EX-DUP", "4.0000")).isSuccess());
 
         long eventsBefore = orderEventRepository.count();
         long outboxBefore = outboxRepository.count();
 
-        assertFalse(executionCommandProcessor.process(execution("EX-DUP", "4.0000")).isSuccess());
+        assertFalse(TestCommands.applyFill(executionCommandProcessor, execution("EX-DUP", "4.0000")).isSuccess());
 
         assertEquals(1L, executionRepository.count());
         assertEquals(eventsBefore, orderEventRepository.count());
@@ -207,6 +207,35 @@ class EventSourcingIntegrationTest {
 
         Order order = orderRepository.findByOrderId(ORDER_ID).orElseThrow();
         assertEquals(0, new BigDecimal("4.0000").compareTo(order.getCumQty()));
+    }
+
+    /**
+     * SPEC-0046 AC-6: a fill command whose commandId the order already applied is refused as a
+     * duplicate, even with a different execId, and changes nothing.
+     */
+    @Test
+    void fillWithRepeatedCommandId_isRefusedAsDuplicate() {
+        accept();
+        var first = executionCommandProcessor.process(execution("EX-F1", "4.0000"), fillCommand("F-1", "EX-F1"));
+        assertTrue(first.isSuccess());
+        assertFalse(first.isDuplicate());
+        long eventsBefore = orderEventRepository.count();
+        long outboxBefore = outboxRepository.count();
+
+        var repeat = executionCommandProcessor.process(execution("EX-F2", "4.0000"), fillCommand("F-1", "EX-F2"));
+
+        assertFalse(repeat.isSuccess());
+        assertTrue(repeat.isDuplicate(), "refused as a duplicate, not as any other failure");
+        assertEquals(1L, executionRepository.count());
+        assertEquals(eventsBefore, orderEventRepository.count());
+        assertEquals(outboxBefore, outboxRepository.count());
+    }
+
+    private static org.example.common.model.cmd.ExecutionCreateCmd fillCommand(String commandId, String execId) {
+        return new org.example.common.model.cmd.ExecutionCreateCmd()
+                .type("ExecutionCreateCmd")
+                .commandId(commandId)
+                .execution(new org.example.common.model.cmd.Execution().execId(execId).orderId(ORDER_ID));
     }
 
     /**
@@ -220,7 +249,7 @@ class EventSourcingIntegrationTest {
 
         // Overfilling fails at CalculateOrderQuantitiesTask, after the order was already loaded and
         // before persistence — nothing from this command may survive.
-        var result = executionCommandProcessor.process(execution("EX-TOO-BIG", "999.0000"));
+        var result = TestCommands.applyFill(executionCommandProcessor, execution("EX-TOO-BIG", "999.0000"));
 
         assertFalse(result.isSuccess());
         assertEquals(0L, executionRepository.count());
@@ -239,7 +268,7 @@ class EventSourcingIntegrationTest {
     @Test
     void claimPending_returnsMessagesInIdOrderAndRespectsTheLimit() {
         accept();
-        executionCommandProcessor.process(execution("EX-C1", "1.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-C1", "1.0000"));
 
         transactionTemplate.executeWithoutResult(status -> {
             List<OutboxMessage> all = outboxRepository.claimPending(10, Limit.of(100));
@@ -264,7 +293,7 @@ class EventSourcingIntegrationTest {
     @Test
     void stagedMessages_carryTheFillAndTheResultingPosition() {
         accept();
-        executionCommandProcessor.process(execution("EX-Q1", "4.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-Q1", "4.0000"));
 
         OutboxMessage orderMessage =
                 outboxRepository.findAll().stream()
@@ -324,14 +353,14 @@ class EventSourcingIntegrationTest {
         long afterAccept = orderRepository.findByOrderId(ORDER_ID).orElseThrow().getTxNr();
         assertTrue(afterAccept > initial, "accept must bump the version");
 
-        executionCommandProcessor.process(execution("EX-V", "1.0000"));
+        TestCommands.applyFill(executionCommandProcessor, execution("EX-V", "1.0000"));
         long afterFill = orderRepository.findByOrderId(ORDER_ID).orElseThrow().getTxNr();
         assertTrue(afterFill > afterAccept, "fill must bump the version");
     }
 
     private void accept() {
         var result =
-                orderAcceptCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), java.time.Instant.now());
+                orderLifecycleCommandProcessor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), java.time.Instant.now());
         assertTrue(result.isSuccess(), () -> "accept failed: " + result.getErrorMessage());
     }
 

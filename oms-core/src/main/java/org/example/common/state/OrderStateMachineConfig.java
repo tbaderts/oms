@@ -11,6 +11,7 @@ import org.example.common.model.State;
  * NEW    → UNACK
  * UNACK  → LIVE, REJ, EXP
  * LIVE   → FILLED, CXL, REJ, EXP, CLOSED
+ * FILLED → LIVE   (a bust that reopens quantity, SPEC-0044)
  * FILLED, CXL, REJ, EXP → CLOSED
  * CLOSED   (terminal)
  * </pre>
@@ -37,7 +38,8 @@ public final class OrderStateMachineConfig {
                 .addTransition(State.NEW, State.UNACK)
                 .addTransitions(State.UNACK, State.LIVE, State.REJ, State.EXP)
                 .addTransitions(State.LIVE, State.FILLED, State.CXL, State.REJ, State.EXP, State.CLOSED)
-                .addTransition(State.FILLED, State.CLOSED)
+                // A bust that reopens quantity moves a filled order back to LIVE (SPEC-0044).
+                .addTransitions(State.FILLED, State.LIVE, State.CLOSED)
                 .addTransition(State.CXL, State.CLOSED)
                 .addTransition(State.REJ, State.CLOSED)
                 .addTransition(State.EXP, State.CLOSED)

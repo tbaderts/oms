@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Query API
-  version: 2.1.0
+  version: 2.3.0
   description: |
     Query (read-only) API for searching Orders with dynamic filtering, pagination, and sorting.
     
@@ -88,8 +88,47 @@ paths:
       summary: Event log of one order
       description: |
         Every entry of the order's event log, in ascending `version` (the order in which the
-        changes happened). Returns an empty array when no events exist for the order id; whether
-        the order exists is answered by `searchOrders`.
+        changes happened). With `execId`, only the entries about that execution: its fill and any
+        bust, correction or whack of it. Returns an empty array when no events match; whether the
+        order exists is answered by `searchOrders`.
+      tags:
+        - Orders
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Business order id (`orderId`, not the database id)
+        - name: execId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Only entries about this execution (the venue's execId, as on the fill). Matches
+            order_events.exec_id.
+      responses:
+        '200':
+          description: The order's event log, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderEventDto'
+        '500':
+          description: Internal server error
+
+  /orders/{orderId}/commands:
+    get:
+      operationId: getOrderCommands
+      summary: Command log of one order
+      description: |
+        Every command received for the order and what became of it (applied, refused or failed),
+        oldest first: by `receivedAt`, then in the order they were logged. A command that failed and
+        was retried appears once per attempt. Returns an empty array when nothing was logged for the
+        order id.
       tags:
         - Orders
       parameters:
@@ -101,13 +140,13 @@ paths:
           description: Business order id (`orderId`, not the database id)
       responses:
         '200':
-          description: The order's event log, oldest first
+          description: The order's command log, oldest first
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/OrderEventDto'
+                  $ref: '#/components/schemas/CommandLogEntryDto'
         '500':
           description: Internal server error
 
@@ -261,10 +300,53 @@ components:
           type: string
           format: date
           description: UTC date of transactTime
+    CommandSource:
+      type: string
+      description: Where a command entered the OMS.
+      enum: [REST, KAFKA, SCHEDULER]
+    CommandOutcome:
+      type: string
+      description: What became of a command.
+      enum: [APPLIED, REFUSED, FAILED]
+    CommandLogEntryDto:
+      type: object
+      description: One command the OMS received and its outcome.
+      required: [type, receivedAt, source, outcome]
+      properties:
+        commandId:
+          type: string
+          description: The command's commandId, when it had one.
+        type:
+          type: string
+          description: The command type, e.g. OrderCancelRequestCmd.
+        orderId:
+          type: string
+        receivedAt:
+          type: string
+          format: date-time
+          x-java-type: java.time.Instant
+          description: When the command crossed the OMS boundary.
+        source:
+          $ref: '#/components/schemas/CommandSource'
+        principal:
+          type: string
+          description: >-
+            Who sent it: the Kafka producer or the scheduler. Absent on REST until authentication
+            exists.
+        outcome:
+          $ref: '#/components/schemas/CommandOutcome'
+        reason:
+          type: string
+          description: Why it was refused or failed.
+        eventVersion:
+          type: integer
+          format: int64
+          description: The version of the event it appended, when it was applied.
     OrderEventType:
       type: string
       description: The kind of change an event-log entry records.
-      enum: [NEW_ORDER, ACK, PARTIAL_FILL, FILL, CXL, REJ, CXL_REQUEST, CXL_REJ, EXP, CLOSE]
+      enum: [NEW_ORDER, ACK, PARTIAL_FILL, FILL, CXL, REJ, CXL_REQUEST, CXL_REJ, EXP, CLOSE,
+             EXEC_BUST, EXEC_CORRECT, EXEC_WHACK]
     OrderEventDto:
       type: object
       description: One entry of an order's event log.

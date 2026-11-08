@@ -703,7 +703,7 @@ result, or from a lookup downstream.
 | R7 Visibility | OMS tables, existing UI | Search attributes + query API; new blotter |
 | R8 Operator actions | OMS commands | Signals via booking-service API |
 | R9 Isolation of stuck bookings | Per booking in scheduler | Per workflow |
-| R10 Reconciliation | SQL on booking tables | Activity per trade date + search attributes, or a projection table: OMS fills per trade date are available from `order_execution_view` / `GET /api/query/executions` (SPEC-0020, [Projections](projections.md)) |
+| R10 Reconciliation | SQL on booking tables | Activity per trade date + search attributes, or a projection table: OMS fills per trade date are available from `order_execution_projection` / `GET /api/query/executions` (SPEC-0020, [Projections](projections.md)) |
 | R11 OMS path unaffected | Partly: extra writes per fill in the OMS | Fully |
 | Atomic with the fill | **Yes** | No, but not needed: the outbox is atomic and Kafka delivery is durable |
 | Enrichment | Free (order already loaded) | From events; needs E1–E4 (§12) |

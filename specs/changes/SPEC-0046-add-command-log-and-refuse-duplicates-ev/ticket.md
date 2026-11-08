@@ -2,11 +2,11 @@
 id: SPEC-0046
 title: Add command log and refuse duplicates everywhere
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-core, oms-contracts, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -26,3 +26,16 @@ Ticket B of the event sourcing and CQRS review (findings F-2, F-13 and F-20; tar
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Independent. SPEC-0048 depends on it.
+- 2026-11-07 19:11 — autopilot on
+- 2026-11-07 19:13 — proposal gate passed; awaiting human approval
+- 2026-11-07 19:14 — proposal approved by Toni Badertscher
+- 2026-11-07 19:14 — proposal → design
+- 2026-11-07 19:16 — design → plan
+- 2026-11-07 19:17 — plan → implement
+- 2026-11-07 19:53 — verify run: pass
+- 2026-11-07 19:53 — implement → verify
+- 2026-11-07 19:59 — reopened at implement: Independent review: knowledge-base pages still describe the deleted OrderAcceptCommandProcessor (P-19); a refused create reports a phantom order id; a failure while writing the APPLIED row or flushing leaves no trace; Kafka duplicate, end-of-day and constraint-race tests are weaker than their ACs.
+- 2026-11-08 05:18 — verify run: pass
+- 2026-11-08 05:18 — implement → verify
+- 2026-11-08 05:19 — verify → done
+- 2026-11-08 05:19 — autopilot off

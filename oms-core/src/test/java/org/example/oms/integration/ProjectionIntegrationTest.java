@@ -1,6 +1,7 @@
 package org.example.oms.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,12 +21,14 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.example.common.model.Order;
 import org.example.common.model.msg.OrderExecution;
 import org.example.oms.model.OrderEvent;
-import org.example.oms.model.OrderExecutionView;
+import org.example.oms.model.OrderExecutionProjectionRow;
 import org.example.oms.projection.OrderExecutionProjection;
+import org.example.oms.projection.Projection;
 import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
@@ -38,10 +41,31 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     private static final String ORDER_EXECUTIONS = "oms_order_executions";
 
-    @Autowired private OrderExecutionViewRepository viewRepository;
+    @Autowired private OrderExecutionProjectionRepository viewRepository;
     @Autowired private OrderEventRepository orderEventRepository;
     @Autowired private ConsumerFactory<Object, Object> consumerFactory;
     @MockitoSpyBean private OrderExecutionProjection projection;
+    @Autowired private List<Projection> projections;
+    @Autowired private JdbcTemplate jdbcTemplate;
+
+    /**
+     * SPEC-0045 AC-6: the naming rule for projections. A projection is selected by its name; its rows
+     * live in the table {@code <name>_projection}, which exists.
+     */
+    @Test
+    void everyProjectionTableIsItsNameWithProjectionSuffix() {
+        assertFalse(projections.isEmpty());
+        for (var each : projections) {
+            assertEquals(each.name() + "_projection", each.table(), each.name());
+            assertEquals(
+                    1,
+                    jdbcTemplate.queryForObject(
+                            "select count(*) from information_schema.tables where table_schema = 'public' and table_name = ?",
+                            Integer.class,
+                            each.table()),
+                    each.table() + " exists");
+        }
+    }
 
     // AC-1
     @Test
@@ -55,7 +79,7 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
         assertEquals(2, published.size(), "one OrderExecution per fill");
 
         for (OrderExecution record : published) {
-            List<OrderExecutionView> rows = viewRows(orderId).stream()
+            List<OrderExecutionProjectionRow> rows = viewRows(orderId).stream()
                     .filter(v -> record.getExecId().equals(v.getExecId()))
                     .toList();
             assertEquals(1, rows.size(), "one view row for " + record.getExecId());
@@ -88,7 +112,7 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
         assertEquals(201, postFill(orderId + "-OK", orderId, "10", null), "the next fill applies");
         assertEquals(List.of(1L, 2L, 3L), eventVersions(orderId), "the failed fill left no event version");
-        assertEquals(List.of(orderId + "-OK"), viewRows(orderId).stream().map(OrderExecutionView::getExecId).toList());
+        assertEquals(List.of(orderId + "-OK"), viewRows(orderId).stream().map(OrderExecutionProjectionRow::getExecId).toList());
     }
 
     // AC-3
@@ -97,12 +121,12 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
         String orderId = createLiveOrder();
         String execId = orderId + "-OK1";
         assertEquals(201, postFill(execId, orderId, "10", null));
-        OrderExecutionView original = viewRows(orderId).getFirst();
+        OrderExecutionProjectionRow original = viewRows(orderId).getFirst();
 
         assertNotEquals(201, postFill(execId, orderId, "20", null), "duplicate execId refused");
         assertNotEquals(201, postFill(orderId + "-OVER", orderId, "200", null), "overfill refused");
 
-        List<OrderExecutionView> rows = viewRows(orderId);
+        List<OrderExecutionProjectionRow> rows = viewRows(orderId);
         assertEquals(1, rows.size(), "still one row");
         assertEquals(original.getId(), rows.getFirst().getId());
         assertEquals(0, new BigDecimal("10").compareTo(rows.getFirst().getLastQty()), "row unchanged");
@@ -111,7 +135,7 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     // --- helpers -------------------------------------------------------------------------------
 
-    private List<OrderExecutionView> viewRows(String orderId) {
+    private List<OrderExecutionProjectionRow> viewRows(String orderId) {
         return viewRepository.findAll().stream().filter(v -> orderId.equals(v.getOrderId())).toList();
     }
 
@@ -141,7 +165,7 @@ class ProjectionIntegrationTest extends AbstractFillFlowIntegrationTest {
         return records;
     }
 
-    static void assertRowMatches(OrderExecutionView row, OrderExecution record) {
+    static void assertRowMatches(OrderExecutionProjectionRow row, OrderExecution record) {
         String at = record.getExecId() + ": ";
         assertEquals(record.getOrderId(), row.getOrderId(), at + "orderId");
         assertEquals(record.getRootOrderId(), row.getRootOrderId(), at + "rootOrderId");

@@ -51,7 +51,8 @@ class OrderExpiryCloseIntegrationTest extends AbstractFillFlowIntegrationTest {
 
         assertTrue(postFill(overRest + "-F2", overRest, "10", null) >= 400, "a fill on an expired order is refused");
         assertEquals(400, lifecycle("OrderExpireCmd", overRest, "EXP-2", null), "an expired order cannot expire again");
-        assertEquals(400, lifecycle("OrderExpireCmd", overRest, "EXP-1", null), "a repeated commandId is refused");
+        // SPEC-0046: a repeated commandId is a typed duplicate, 409 (was 400).
+        assertEquals(409, lifecycle("OrderExpireCmd", overRest, "EXP-1", null), "a repeated commandId is refused");
 
         String overKafka = createLiveOrder();
         send(overKafka, new org.example.common.model.msg.OrderExpireCmd(TestCommands.header(), overKafka, "Venue expiry"));

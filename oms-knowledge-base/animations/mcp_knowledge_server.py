@@ -737,7 +737,7 @@ class AgentSession(Narrated):
         self.play(Create(path), FadeIn(path_lbl))
         self.play(Indicate(self.workspace[0], color=INK, scale_factor=1.05), run_time=0.6)
         resp = self.response("built-in tools", [
-            'Grep "isValidTransition" → OrderAcceptCommandProcessor.java',
+            'Grep "isValidTransition" → ValidateLifecycleActionTask.java',
             'Read OrderStateMachineConfig.java',
             '     LIVE → FILLED, CXL, REJ',
             'Read Event.java: CXL already exists',

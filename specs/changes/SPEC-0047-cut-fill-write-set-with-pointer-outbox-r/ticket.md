@@ -2,15 +2,15 @@
 id: SPEC-0047
 title: Cut fill write set with pointer outbox rows
 type: refactor
-status: proposal
+status: blocked
 awaiting:
-autopilot: false
+autopilot: true
 modules: [oms-core, oms-knowledge-base]
 approvals: []
 owner: Toni Badertscher
 created: 2026-11-07
-blocked_from:
-blocked_reason:
+blocked_from: proposal
+blocked_reason: Proposal drafted; two decisions needed (proposal.md, Open Questions). 1) The goal requires proof with the SPEC-0024 harness, which is still at proposal and unbuilt: (a) wait for SPEC-0024, (b) replace the load proof with in-repo measurements (statement and sequence round-trip counts, outbox bytes vs a recorded baseline, AC-6/AC-7), or (c) do (b) now and keep the load comparison (AC-8) as a later check. 2) 'Per-key order unchanged with several instances' cannot be tested before SPEC-0048 adds multi-instance relay safety, and SPEC-0048 depends on this ticket: is the single-instance version-ordering test (AC-5) enough here, with the several-instance check moved to SPEC-0048? Unblock with a note naming the choices.
 ---
 
 # SPEC-0047 — Cut fill write set with pointer outbox rows
@@ -26,3 +26,5 @@ Ticket C of the event sourcing and CQRS review (findings F-3 and F-4; target arc
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Depends on SPEC-0024 for the baseline. SPEC-0048 and SPEC-0052 depend on it.
+- 2026-11-08 05:24 — autopilot on
+- 2026-11-08 05:25 — blocked: Proposal drafted; two decisions needed (proposal.md, Open Questions). 1) The goal requires proof with the SPEC-0024 harness, which is still at proposal and unbuilt: (a) wait for SPEC-0024, (b) replace the load proof with in-repo measurements (statement and sequence round-trip counts, outbox bytes vs a recorded baseline, AC-6/AC-7), or (c) do (b) now and keep the load comparison (AC-8) as a later check. 2) 'Per-key order unchanged with several instances' cannot be tested before SPEC-0048 adds multi-instance relay safety, and SPEC-0048 depends on this ticket: is the single-instance version-ordering test (AC-5) enough here, with the several-instance check moved to SPEC-0048? Unblock with a note naming the choices.

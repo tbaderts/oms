@@ -16,6 +16,7 @@ import org.example.oms.service.execution.tasks.ProjectTask;
 import org.example.oms.service.execution.tasks.PublishExecutionEventTask;
 import org.example.oms.service.execution.tasks.UpdateOrderTask;
 import org.example.oms.service.execution.tasks.ValidateExecutionTask;
+import org.example.oms.service.lifecycle.tasks.DeduplicateCommandTask;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -50,6 +51,7 @@ public class ExecutionCommandProcessor {
     private final TaskOrchestrator orchestrator;
     private final OrderRepository orderRepository;
     private final ValidateExecutionTask validateExecutionTask;
+    private final DeduplicateCommandTask deduplicateCommandTask;
     private final CalculateOrderQuantitiesTask calculateOrderQuantitiesTask;
     private final DetermineOrderStateTask determineOrderStateTask;
     private final PersistExecutionTask persistExecutionTask;
@@ -58,21 +60,16 @@ public class ExecutionCommandProcessor {
     private final ProjectTask projectTask;
 
     /**
-     * Convenience overload for callers that have no originating command (tests, internal flows).
-     * An entry point that has a command must pass it to {@link #process(Execution, Command)}, or
-     * the event log loses it.
+     * Applies a fill.
      *
-     * <p>Annotated so the transaction is opened here: the delegation below is a self-invocation and
-     * does not pass through the proxy, so the inner method would otherwise run without one.
+     * @param execution the fill, mapped from the command
+     * @param command the command that reported it; required, because the fill's event stores it and
+     *     the command-less overload that let the log lose it is gone (SPEC-0046)
      */
-    @Transactional
-    public ExecutionProcessingResult process(Execution execution) {
-        return process(execution, null);
-    }
-
     @Transactional
     @Observed(name = "oms.execution-processor.process")
     public ExecutionProcessingResult process(Execution execution, Command command) {
+        java.util.Objects.requireNonNull(command, "A fill is always applied with the command that reported it");
         log.info(
                 "Processing execution report: orderId={}, execId={}, lastQty={}, lastPx={}",
                 execution.getOrderId(),
@@ -125,6 +122,7 @@ public class ExecutionCommandProcessor {
 
     private TaskPipeline<OrderTaskContext> buildPipeline() {
         return TaskPipeline.<OrderTaskContext>builder("ExecutionProcessingPipeline")
+                .addTask(deduplicateCommandTask)
                 .addTask(validateExecutionTask)
                 .addTask(calculateOrderQuantitiesTask)
                 .addTask(determineOrderStateTask)
@@ -166,6 +164,9 @@ public class ExecutionCommandProcessor {
             PipelineResult result, OrderTaskContext context) {
         return ExecutionProcessingResult.builder()
                 .success(result.isSuccess())
+                .duplicate(!result.isSuccess() && PipelineResults.isDuplicate(result, context))
+                .eventVersion(context.getOrDefault("eventVersion", null))
+                .errorMessage(result.isSuccess() ? null : PipelineResults.refusalReason(result, context, null))
                 .executionTime(result.getExecutionTime())
                 .order(context.getOrder())
                 .execution(context.getExecution())
@@ -177,6 +178,11 @@ public class ExecutionCommandProcessor {
     @lombok.Getter
     public static class ExecutionProcessingResult {
         private final boolean success;
+        /** Refused because the order already applied the command's commandId (SPEC-0046). */
+        private final boolean duplicate;
+        /** The version of the fill event, when applied. */
+        private final Long eventVersion;
+        private final String errorMessage;
         private final java.time.Duration executionTime;
         private final Order order;
         private final Execution execution;

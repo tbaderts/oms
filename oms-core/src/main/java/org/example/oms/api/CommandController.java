@@ -6,18 +6,10 @@ import org.example.common.api.ExecuteApi;
 import org.example.common.model.cmd.Command;
 import org.example.common.model.cmd.CommandResult;
 import org.example.common.model.cmd.CommandStatus;
-import org.example.common.model.cmd.ExecutionCreateCmd;
-import org.example.common.model.cmd.OrderAcceptCmd;
-import org.example.common.model.cmd.OrderCreateCmd;
-import org.example.oms.mapper.OrderMapper;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
-import org.example.oms.service.command.OrderAcceptCommandProcessor.OrderAcceptResult;
-import org.example.oms.service.command.OrderCreateCommandProcessor;
-import org.example.oms.service.command.OrderCreateCommandProcessor.OrderCreateResult;
-import org.example.oms.service.execution.ExecutionCommandProcessor;
-import org.example.oms.service.execution.ExecutionCommandProcessor.ExecutionProcessingResult;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor.OrderLifecycleResult;
+import org.example.oms.service.DuplicateCommandException;
+import org.example.oms.service.command.CommandDispatch;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.command.CommandOrigin;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,17 +23,26 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * The command API. Commands are dispatched (and logged) by {@link CommandDispatcher}; this only maps
+ * the outcome to an HTTP answer (SPEC-0046):
+ *
+ * <ul>
+ *   <li>applied: 201 when it created an order or an execution, 200 otherwise;
+ *   <li>refused: 400, or 409 {@code urn:oms:error:duplicate-command} when the order already applied
+ *       the command's commandId;
+ *   <li>unsupported type: 501;
+ *   <li>an exception: whatever {@link GlobalExceptionHandler} makes of it (409 for a concurrent
+ *       modification, 400 for a bad argument, 500 otherwise).
+ * </ul>
+ */
 @Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/command")
 public class CommandController implements ExecuteApi {
 
-    private final OrderCreateCommandProcessor orderCreateCommandProcessor;
-        private final OrderAcceptCommandProcessor orderAcceptCommandProcessor;
-    private final ExecutionCommandProcessor executionCommandProcessor;
-    private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
-    private final OrderMapper orderMapper;
+    private final CommandDispatcher commandDispatcher;
 
     @Override
     @Operation(
@@ -75,120 +76,23 @@ public class CommandController implements ExecuteApi {
         Instant receivedTime = Instant.now();
         log.info("Received command: {}", command);
 
-        if (command instanceof OrderCreateCmd orderCreateCmd) {
-            OrderCreateResult result =
-                    orderCreateCommandProcessor.process(orderCreateCmd, receivedTime);
-
-            if (result.isSuccess()) {
-                log.info(
-                        "Order created successfully: orderId={}, executionTime={}ms",
-                        result.getOrderId(),
-                        result.getExecutionTimeMs());
-
-                return ResponseEntity.status(HttpStatus.CREATED)
-                        .body(
-                                CommandResult.builder()
-                                        .id(result.getOrderId())
-                                        .status(CommandStatus.OK)
-                                        .message(
-                                                "Order created successfully: "
-                                                        + result.getOrderId())
-                                        .build());
-            } else {
-                log.error("Order creation failed: {}", result.getErrorMessage());
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(
-                                CommandResult.builder()
-                                        .id("")
-                                        .status(CommandStatus.FAILED)
-                                        .message(
-                                                "Order creation failed: "
-                                                        + result.getErrorMessage())
-                                        .build());
+        return switch (commandDispatcher.dispatch(command, CommandOrigin.rest(receivedTime))) {
+            case CommandDispatch.Applied applied -> ResponseEntity
+                    .status(applied.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                    .body(result(applied.resultId(), CommandStatus.OK, applied.message()));
+            case CommandDispatch.Refused refused when refused.duplicate() ->
+                    throw new DuplicateCommandException(refused.orderId(), refused.commandId());
+            case CommandDispatch.Refused refused -> {
+                log.warn("Command refused: {}", refused.reason());
+                yield ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(result(refused.orderId(), CommandStatus.FAILED, refused.message()));
             }
-        }
+            case CommandDispatch.Unsupported unsupported -> ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                    .body(result(null, CommandStatus.FAILED, "Command type not yet implemented"));
+        };
+    }
 
-        if (command instanceof ExecutionCreateCmd executionCreateCmd) {
-            var execution = orderMapper.toExecution(executionCreateCmd.getExecution());
-            ExecutionProcessingResult result = executionCommandProcessor.process(execution, executionCreateCmd);
-
-            if (result.isSuccess()) {
-                log.info(
-                        "Execution processed successfully: orderId={}, executionTime={}ms",
-                        result.getOrder().getOrderId(),
-                        result.getExecutionTime().toMillis());
-
-                return ResponseEntity.status(HttpStatus.CREATED)
-                        .body(
-                                CommandResult.builder()
-                                        .id(result.getExecution().getExecId())
-                                        .status(CommandStatus.OK)
-                                        .message("Execution processed successfully")
-                                        .build());
-            } else {
-                log.error("Execution processing failed");
-
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(
-                                CommandResult.builder()
-                                        .id("")
-                                        .status(CommandStatus.FAILED)
-                                        .message("Execution processing failed")
-                                        .build());
-            }
-        }
-
-        if (command instanceof OrderAcceptCmd orderAcceptCmd) {
-            OrderAcceptResult result =
-                    orderAcceptCommandProcessor.process(orderAcceptCmd, receivedTime);
-
-            if (result.isSuccess()) {
-                return ResponseEntity.ok(
-                        CommandResult.builder()
-                                .id(result.getOrderId())
-                                .status(CommandStatus.OK)
-                                .message("Order accepted successfully: " + result.getOrderId())
-                                .build());
-            }
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(CommandResult.builder()
-                            .id(result.getOrderId() != null ? result.getOrderId() : "")
-                            .status(CommandStatus.FAILED)
-                            .message("Order acceptance failed: " + result.getErrorMessage())
-                            .build());
-        }
-
-        if (OrderLifecycleCommandProcessor.supports(command)) {
-            OrderLifecycleResult result =
-                    orderLifecycleCommandProcessor.process(command, receivedTime);
-            String orderId = result.getOrderId() != null ? result.getOrderId() : "";
-
-            if (result.isSuccess()) {
-                return ResponseEntity.ok(
-                        CommandResult.builder()
-                                .id(orderId)
-                                .status(CommandStatus.OK)
-                                .message(result.getAction() + " applied to order " + orderId)
-                                .build());
-            }
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(CommandResult.builder()
-                            .id(orderId)
-                            .status(CommandStatus.FAILED)
-                            .message(result.getErrorMessage())
-                            .build());
-        }
-
-        log.warn("Unsupported command type: {}", command.getClass().getSimpleName());
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(
-                        CommandResult.builder()
-                                .id("")
-                                .status(CommandStatus.FAILED)
-                                .message("Command type not yet implemented")
-                                .build());
+    private static CommandResult result(String id, CommandStatus status, String message) {
+        return CommandResult.builder().id(id != null ? id : "").status(status).message(message).build();
     }
 }

@@ -8,18 +8,24 @@ import org.example.common.orchestration.Task;
 import org.example.common.orchestration.TaskResult;
 import org.example.oms.model.OrderTaskContext;
 import org.example.oms.service.lifecycle.LifecycleAction;
+import org.example.oms.service.sla.OrderSlaRecorder;
 import org.springframework.stereotype.Component;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Applies a validated lifecycle action to the order: state, cancel state, open quantity and the
  * venue's reject reason. Executed quantity and the client's text are never touched; a cancelled order
- * keeps what it filled.
+ * keeps what it filled. An acknowledgement also stamps the market-ack SLA with the time the command
+ * crossed the OMS boundary (SPEC-0046).
  */
 @Component
+@RequiredArgsConstructor
 @Slf4j
 public class ApplyLifecycleActionTask implements Task<OrderTaskContext> {
+
+    private final OrderSlaRecorder slaRecorder;
 
     /** Context key carrying the reason from the command, if any. */
     public static final String REASON = "reason";
@@ -56,6 +62,11 @@ public class ApplyLifecycleActionTask implements Task<OrderTaskContext> {
         }
 
         Order updated = builder.build();
+        if (action == LifecycleAction.ACCEPT) {
+            // The ingress time, not now: reading the clock here would fold our own processing time
+            // into a latency that describes the market.
+            updated = slaRecorder.stampMarketAck(updated, context.getReceivedTime());
+        }
         context.setOrder(updated);
         context.setTargetState(updated.getState());
         context.setEvent(action.getEvent());

@@ -3,14 +3,21 @@ package org.example.oms.service;
 import java.time.Instant;
 
 import org.example.common.model.Execution;
+import org.example.common.model.ExecutionStatus;
 import org.example.common.model.Order;
 import org.example.common.model.cmd.Command;
+import org.example.common.model.msg.OrderExecution;
+import org.example.common.state.ExecutionStatusMachineConfig;
+import org.example.common.state.StateMachine;
+import org.example.common.state.StateTransitionException;
 import org.example.oms.mapper.AvroPayloadCodec;
+import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.projection.StagedMessage;
+import org.example.oms.repository.ExecutionRepository;
 import org.example.oms.repository.OrderEventRepository;
 import org.example.oms.repository.OutboxRepository;
 import org.example.oms.service.metrics.OrderFlowMetrics;
@@ -42,6 +49,10 @@ public class OrderEventAppender {
     private final String executionTopic;
     private final AvroPayloadCodec payloadCodec;
     private final OrderFlowMetrics orderFlowMetrics;
+    private final ExecutionRepository executionRepository;
+    private final OrderExecutionMessageMapper orderExecutionMessageMapper;
+    private final String orderExecutionTopic;
+    private final StateMachine<ExecutionStatus> executionStatuses = ExecutionStatusMachineConfig.create();
 
     public OrderEventAppender(
             OrderEventRepository orderEventRepository,
@@ -49,13 +60,19 @@ public class OrderEventAppender {
             @Value("${kafka.order-topic:oms_orders}") String orderTopic,
             @Value("${kafka.execution-topic:oms_executions}") String executionTopic,
             AvroPayloadCodec payloadCodec,
-            OrderFlowMetrics orderFlowMetrics) {
+            OrderFlowMetrics orderFlowMetrics,
+            ExecutionRepository executionRepository,
+            OrderExecutionMessageMapper orderExecutionMessageMapper,
+            @Value("${kafka.order-execution-topic:oms_order_executions}") String orderExecutionTopic) {
         this.orderEventRepository = orderEventRepository;
         this.outboxRepository = outboxRepository;
         this.orderTopic = orderTopic;
         this.executionTopic = executionTopic;
         this.payloadCodec = payloadCodec;
         this.orderFlowMetrics = orderFlowMetrics;
+        this.executionRepository = executionRepository;
+        this.orderExecutionMessageMapper = orderExecutionMessageMapper;
+        this.orderExecutionTopic = orderExecutionTopic;
     }
 
     /**
@@ -83,6 +100,14 @@ public class OrderEventAppender {
      * @return the version assigned to the appended event
      */
     public long appendOrderEvent(Order order, Event event, Command command) {
+        return appendOrderEvent(order, event, command, null);
+    }
+
+    /**
+     * Records an order state change about one execution, or about none when {@code execId} is null,
+     * and stages the resulting order for publication (SPEC-0044).
+     */
+    private long appendOrderEvent(Order order, Event event, Command command, String execId) {
         // The order's version is the version of its latest event (SPEC-0027): the next one is taken
         // from the order and set on it, so the row, the snapshot and the message all carry it.
         long version = order.getTxNr() + 1;
@@ -95,6 +120,7 @@ public class OrderEventAppender {
                         .event(event)
                         .transaction(command)
                         .commandId(commandIdOf(command))
+                        .execId(execId)
                         .resultingState(order.getState())
                         .orderSnapshot(order)
                         .timeStamp(Instant.now())
@@ -103,11 +129,14 @@ public class OrderEventAppender {
             // Flushed here so a concurrent writer surfaces now, as the conflict it is.
             orderEventRepository.saveAndFlush(appended);
         } catch (DataIntegrityViolationException e) {
-            if (isVersionConflict(e)) {
+            if (violates(e, VERSION_CONSTRAINT)) {
                 throw new OptimisticLockingFailureException(
                         "Order " + order.getOrderId() + " was modified concurrently (event version "
                                 + version + " already exists)",
                         e);
+            }
+            if (violates(e, COMMAND_ID_CONSTRAINT)) {
+                throw new DuplicateCommandException(order.getOrderId(), commandIdOf(command), e);
             }
             throw e;
         }
@@ -148,7 +177,9 @@ public class OrderEventAppender {
      * consumed in order.
      */
     public long appendExecutionEvent(Order order, Execution execution, Event event, Command command) {
-        long version = appendOrderEvent(order, event, command);
+        long version = appendOrderEvent(order, event, command, execution.getExecId());
+        // The execution row points at the event that applied it, and carries the Kafka key (SPEC-0044).
+        execution.recordApplied(version, partitionKey(order));
         orderFlowMetrics.recordFill(order.getSide(), execution.getLastQty());
 
         outboxRepository.save(
@@ -173,6 +204,58 @@ public class OrderEventAppender {
     }
 
     /**
+     * Records a bust, correction or whack of one of the order's executions (SPEC-0044): one order
+     * event naming the execution, the execution's new status, and the order and an OrderExecution
+     * record with ExecType H (trade cancel) or G (trade correct) staged under the order's key, so
+     * consumers see the reversal after the fill it reverses, on the same partition.
+     *
+     * <p>The caller has already applied the quantity and state change to the order and saved it. The
+     * execution is looked up and its status transition checked before anything is written, so a
+     * refusal writes nothing.
+     *
+     * @return the version assigned to the appended event
+     * @throws IllegalArgumentException if the event is not an execution lifecycle event, or the order
+     *     has no execution with this execId
+     * @throws StateTransitionException if the execution's status does not allow the event, such as a
+     *     second bust of the same execution
+     */
+    public long appendExecutionLifecycleEvent(Order order, String execId, Event event, Command command) {
+        ExecutionLifecycleEffect effect = ExecutionLifecycleEffect.of(event);
+        Execution execution = executionRepository
+                .findByOrderIdAndExecId(order.getOrderId(), execId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No execution " + execId + " on order " + order.getOrderId()));
+        ExecutionStatus from = execution.getStatus();
+        if (!executionStatuses.isValidTransition(from, effect.getResultingStatus())) {
+            throw new StateTransitionException(
+                    from,
+                    effect.getResultingStatus(),
+                    String.format(
+                            "%s not allowed for execution %s of order %s in status %s",
+                            event, execId, order.getOrderId(), from));
+        }
+
+        long version = appendOrderEvent(order, event, command, execId);
+        execution.recordReversal(effect.getResultingStatus(), version);
+
+        // A copy with the reversal's ExecType: the stored execution keeps what the venue reported.
+        OrderExecution record = orderExecutionMessageMapper.toOrderExecutionMessage(
+                execution.toBuilder().execType(effect.getExecType()).build(), order, version, Instant.now());
+        stageMessage(new StagedMessage(orderExecutionTopic, partitionKey(order), version, record));
+
+        log.info(
+                "Recorded {} v{} - orderId={}, execId={}, status {} -> {}",
+                event,
+                version,
+                order.getOrderId(),
+                execId,
+                from,
+                effect.getResultingStatus());
+
+        return version;
+    }
+
+    /**
      * The Kafka key of every message staged for the order: its root order id, or its own id when it
      * has none. Every record of one order tree then lands on one partition of each topic and is
      * consumed in commit order. Today every order is its own root, so the key is the order id.
@@ -191,23 +274,29 @@ public class OrderEventAppender {
     }
 
     /**
-     * Whether the insert lost a race for the next version: two writers read the order at the same
-     * version, and the unique {@code (order_id, version)} lets only the first commit. The loser's
-     * whole command is rolled back and reported as a concurrent modification (409, or a Kafka
-     * retry), as Hibernate's {@code @Version} check did before. Other violations, such as a repeated
-     * {@code command_id}, keep their own meaning.
+     * Whether the insert violated the given unique constraint of {@code order_events}.
+     *
+     * <ul>
+     *   <li>{@code (order_id, version)}: the insert lost a race for the next version. The loser's
+     *       whole command is rolled back and reported as a concurrent modification (409, or a Kafka
+     *       retry), as Hibernate's {@code @Version} check did before.
+     *   <li>{@code (order_id, command_id)}: the command was already applied to the order, and two
+     *       deliveries raced past the dedup lookup. Reported as the same duplicate-command refusal the
+     *       lookup gives (SPEC-0046).
+     * </ul>
      */
-    private static boolean isVersionConflict(DataIntegrityViolationException e) {
+    private static boolean violates(DataIntegrityViolationException e, String constraint) {
         for (Throwable cause = e; cause != null && cause.getCause() != cause; cause = cause.getCause()) {
             if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
                     && violation.getConstraintName() != null) {
-                return VERSION_CONSTRAINT.equalsIgnoreCase(violation.getConstraintName());
+                return constraint.equalsIgnoreCase(violation.getConstraintName());
             }
         }
         // No constraint name reported: fall back to the driver's message, which names it on Postgres.
         String detail = e.getMostSpecificCause().getMessage();
-        return detail != null && detail.contains(VERSION_CONSTRAINT);
+        return detail != null && detail.contains(constraint);
     }
 
     private static final String VERSION_CONSTRAINT = "uq_order_events_order_id_version";
+    private static final String COMMAND_ID_CONSTRAINT = "uq_order_events_order_id_command_id";
 }

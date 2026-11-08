@@ -18,3 +18,5 @@ sources:
 Specified in [Execution Reporting](../oms-concepts/execution-reporting.md) (bust workflows). The command schema exists; no dispatcher handles it (the API answers 501).
 
 Capability: [execution-processing](../capabilities/execution-processing.md).
+
+Recording side built in SPEC-0044: the `EXEC_BUST` event with `exec_id`, the execution status (`BUSTED`), and the `OrderExecution` record with ExecType `H` on `oms_order_executions`, through `OrderEventAppender.appendExecutionLifecycleEvent`. Command processing remains not implemented (SPEC-0030).

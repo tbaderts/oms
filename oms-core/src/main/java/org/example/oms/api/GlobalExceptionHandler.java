@@ -116,6 +116,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * A command whose commandId the order already applied (SPEC-0046): it changed nothing, and
+     * retrying it never will. One answer on every path, whether the dedup lookup or the unique
+     * constraint caught it.
+     */
+    @ExceptionHandler(org.example.oms.service.DuplicateCommandException.class)
+    public ProblemDetail handleDuplicateCommand(org.example.oms.service.DuplicateCommandException ex) {
+        log.warn("Duplicate command: {}", ex.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Command " + ex.getCommandId() + " was already applied to order " + ex.getOrderId());
+        problem.setType(URI.create("urn:oms:error:duplicate-command"));
+        problem.setTitle("Duplicate Command");
+        problem.setProperty("orderId", ex.getOrderId());
+        problem.setProperty("commandId", ex.getCommandId());
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    /**
      * A unique-constraint violation here means a duplicate command, not a server fault — most often
      * a redelivered order with a clOrdId already seen on the session. Previously this escaped as a
      * 500 "An unexpected error occurred", which told the caller nothing actionable.

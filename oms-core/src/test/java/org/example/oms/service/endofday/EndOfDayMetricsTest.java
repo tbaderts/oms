@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 import org.example.oms.repository.OrderRepository;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.example.oms.service.command.CommandDispatcher;
 import org.junit.jupiter.api.Test;
 
 import io.micrometer.core.instrument.Counter;
@@ -21,7 +21,7 @@ class EndOfDayMetricsTest {
     void seriesExistFromStartup() {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         OrderRepository orderRepository = mock(OrderRepository.class);
-        OrderLifecycleCommandProcessor processor = mock(OrderLifecycleCommandProcessor.class);
+        CommandDispatcher processor = mock(CommandDispatcher.class);
         OrderExpiryService expiry = new OrderExpiryService(orderRepository, processor, registry);
         EndOfDayService endOfDay = new EndOfDayService(orderRepository, expiry, processor, registry);
 

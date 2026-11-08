@@ -526,6 +526,24 @@ sequenceDiagram
 
 ## 5. Execution Bust Workflows
 
+> **As built (SPEC-0044): how a bust, correction or whack is recorded.** Command processing is
+> SPEC-0030, and the sections below are the specification it follows. The recording side exists:
+> - **One event.** The change is one order event (`EXEC_BUST`, `EXEC_CORRECT` or `EXEC_WHACK`) whose
+>   `exec_id` names the execution. It is written by `OrderEventAppender.appendExecutionLifecycleEvent`
+>   after the caller has applied the quantity and state change to the order.
+> - **Execution row.** The `executions` row keeps the fill as reported and gets `status` `BUSTED` or
+>   `CORRECTED` and `busted_at_version`. A bust or whack leaves `BUSTED`, a correction `CORRECTED`.
+>   A second bust, a bust of a busted execution, or a bust of an unknown execution is refused before
+>   anything is written.
+> - **Messages.** The order is staged on `oms_orders`, and an `OrderExecution` with ExecType `H`
+>   (bust, whack) or `G` (correction) on `oms_order_executions`. Both are keyed by the root order
+>   id, so a consumer sees the reversal after the fill, on the same partition, at a higher
+>   `orderVersion`.
+> - **Effect on reads.** A busted or corrected fill no longer counts towards `avgPx`.
+>   `OrderReplayService.executionsAt(orderId, version)` returns the executions in force at any
+>   version.
+> - **State.** `FILLED → LIVE` is in the order state machine for a bust that reopens quantity.
+
 ### 5.1 Trade Break (Bust) Overview
 
 A **trade break** (or **bust**) occurs when a previously confirmed execution is canceled by the exchange or counterparty.
@@ -1148,7 +1166,8 @@ void testPipelineFailureRollback() {
     Execution execution = createExecution(order, 2000, 100.00); // Over-execution!
 
     // When: Process execution (will fail validation)
-    ExecutionProcessingResult result = executionProcessor.process(execution);
+    // A fill is always applied with the command that reported it (SPEC-0046).
+    ExecutionProcessingResult result = executionProcessor.process(execution, TestCommands.fillOf(execution));
 
     // Then: Pipeline failed, transaction rolled back
     assertThat(result.isSuccess()).isFalse();

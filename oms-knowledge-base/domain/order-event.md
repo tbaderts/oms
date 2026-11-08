@@ -25,7 +25,8 @@ itself. The log is the audit trail and the source for replay.
 | Field | Meaning |
 |---|---|
 | `orderId`, `version` | The order and a contiguous per-order sequence starting at 1; unique `(order_id, version)` (`uq_order_events_order_id_version`) |
-| `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, `EXP`, `CLOSE` (SPEC-0029) |
+| `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, `EXP`, `CLOSE` (SPEC-0029), and the execution lifecycle events `EXEC_BUST`, `EXEC_CORRECT`, `EXEC_WHACK` (SPEC-0044) |
+| `execId` (`exec_id`) | The execution the event is about, when it is about one: a fill, bust, correction or whack (SPEC-0044). Indexed with `order_id` (`idx_order_events_order_id_exec_id`). Older fills were backfilled from the stored command, or by position for fills recorded without one. The query API filters on it: `GET /api/query/orders/{orderId}/events?execId=…` |
 | `transaction` | The command that caused it, as received over REST or Kafka (fills included). Null only for events recorded by internal callers that have no command |
 | `commandId` (`command_id`) | The command's `commandId`, when it has one (the four lifecycle commands). Unique per order (`uq_order_events_order_id_command_id`); it is what [de-duplication](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md) looks up. Null otherwise; rows written before the column existed were backfilled from `transaction` |
 | `resultingState`, `orderSnapshot` | The state and the full order after the change |
@@ -39,6 +40,15 @@ makes the insert fail on `uq_order_events_order_id_version`, and the appender re
 concurrent modification. Because every event carries a snapshot, `OrderReplayService`
 reconstructs the order at any version with a single lookup, with the event's version as `txNr`,
 and can check that the log has no gaps.
+
+An execution is an entity inside the order, not a stream of its own (SPEC-0044):
+- **Creation and reversal.** It is created by a fill event and busted, corrected or whacked by a
+  later order event naming it in `exec_id`, through
+  `OrderEventAppender.appendExecutionLifecycleEvent`.
+- **Ordering.** "Was EX-1 busted before EX-2 filled?" is answered by the versions, because both are
+  in the one stream.
+- **Executions at a version.** `OrderReplayService.executionsAt(orderId, version)` returns the
+  executions in force at any version, from `executions.order_version` and `busted_at_version`.
 
 ## Related
 

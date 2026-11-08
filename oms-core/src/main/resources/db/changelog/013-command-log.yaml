@@ -1,0 +1,55 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0046: every command the OMS receives leaves a durable trace with its
+  # outcome. order_events records what a command changed; command_log records the
+  # ask itself: applied, refused or failed, from REST, Kafka or the scheduler.
+  #
+  # One row per attempt, so command_id is not unique: a Kafka command that fails
+  # and is retried is logged once per attempt. An APPLIED row is written in the
+  # command's own transaction; REFUSED and FAILED rows in a transaction of their
+  # own, so they survive the command's rollback.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 028-command-log
+      author: oms
+      changes:
+        - createSequence:
+            sequenceName: command_log_seq
+            startValue: 1
+            incrementBy: 1
+        - createTable:
+            tableName: command_log
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_command_log
+                    nullable: false
+              - column: { name: command_id, type: VARCHAR(255) }
+              - column: { name: type, type: VARCHAR(64), constraints: { nullable: false } }
+              - column: { name: order_id, type: VARCHAR(255) }
+              - column: { name: received_at, type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
+              - column: { name: source, type: VARCHAR(16), constraints: { nullable: false } }
+              - column: { name: principal, type: VARCHAR(255) }
+              - column: { name: outcome, type: VARCHAR(16), constraints: { nullable: false } }
+              - column: { name: reason, type: VARCHAR(1000) }
+              - column: { name: event_version, type: BIGINT }
+              - column: { name: logged_at, type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
+        - createIndex:
+            tableName: command_log
+            indexName: idx_command_log_order_id_received_at
+            columns:
+              - column: { name: order_id }
+              - column: { name: received_at }
+        - createIndex:
+            tableName: command_log
+            indexName: idx_command_log_command_id
+            columns:
+              - column: { name: command_id }
+      rollback:
+        - dropTable:
+            tableName: command_log
+        - dropSequence:
+            sequenceName: command_log_seq

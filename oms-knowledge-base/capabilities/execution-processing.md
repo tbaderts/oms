@@ -27,8 +27,18 @@ The market (today the [exchange simulator](exchange-simulation.md)); operators f
 
 ## Behaviour
 
-`ExecutionCommandProcessor` runs: `ValidateExecutionTask` → `CalculateOrderQuantitiesTask` →
-`DetermineOrderStateTask` → `PersistExecutionTask` → `UpdateOrderTask` → `PublishExecutionEventTask`.
+`ExecutionCommandProcessor` runs: `DeduplicateCommandTask` → `ValidateExecutionTask` →
+`CalculateOrderQuantitiesTask` → `DetermineOrderStateTask` → `PersistExecutionTask` →
+`UpdateOrderTask` → `PublishExecutionEventTask` → `ProjectTask`.
+
+Since SPEC-0046:
+- **Duplicate commandIds.** A fill whose commandId the order already applied is refused as a
+  duplicate, even with a new execId: REST answers 409 `urn:oms:error:duplicate-command`, and Kafka
+  acknowledges it. A repeated execId is still refused by `PersistExecutionTask` (FR-017).
+- **Every fill stores its command.** The processor requires the `ExecutionCreateCmd`; the
+  command-less overload is gone.
+- **Command log.** Every fill command, applied or not, is recorded in the
+  [command log](../domain/command-log.md).
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Command API
-  version: 3.2.0
+  version: 3.3.0
   description: Command API for submitting commands to oms
 
 paths:
@@ -43,6 +43,15 @@ paths:
                 $ref: '#/components/schemas/CommandResult'
         '400':
           description: Invalid command
+        '409':
+          description: >-
+            Conflict, as Problem+JSON. Either the command's commandId was already applied to the
+            order (type urn:oms:error:duplicate-command), or the order changed concurrently and the
+            command can be retried (type urn:oms:error:concurrent-modification).
+          content:
+            application/problem+json:
+              schema:
+                type: object
 
 components:
   schemas:

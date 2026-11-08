@@ -70,6 +70,6 @@ Grafana provisions two dashboards from `oms-core/grafana/dashboards` into the **
 
 ## Verification
 
-`OrderSlaRecorderTest`, `OrderAcceptCommandProcessorTest`, `OrderFlowMetricsTest`,
+`OrderSlaRecorderTest`, `OrderLifecycleCommandProcessorTest` (accept cases), `OrderFlowMetricsTest`,
 `OrderFlowMetricsIntegrationTest`, `EndOfDayMetricsTest`, `GrafanaDashboardsTest`, and the
 S38 checks of `oms-core/scripts/lgtm-smoke-test.ps1` (every dashboard query returns data). Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).

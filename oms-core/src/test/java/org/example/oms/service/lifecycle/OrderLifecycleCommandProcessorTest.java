@@ -20,6 +20,7 @@ import org.example.common.model.CancelState;
 import org.example.common.model.Order;
 import org.example.common.model.State;
 import org.example.common.model.cmd.Command;
+import org.example.common.model.cmd.OrderAcceptCmd;
 import org.example.common.model.cmd.OrderCancelCmd;
 import org.example.common.model.cmd.OrderCancelRejectCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
@@ -74,12 +75,65 @@ class OrderLifecycleCommandProcessorTest {
                         new LoadOrderTask(orderRepository),
                         new DeduplicateCommandTask(orderEventRepository),
                         new ValidateLifecycleActionTask(new org.example.common.state.OrderStateMachines()),
-                        new ApplyLifecycleActionTask(),
+                        new ApplyLifecycleActionTask(
+                                new org.example.oms.service.sla.OrderSlaRecorder(
+                                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+                                        java.time.Clock.systemUTC())),
                         new SaveOrderTask(orderRepository),
                         new PublishOrderEventTask(orderEventAppender));
         lenient()
                 .when(orderRepository.saveAndFlush(any(Order.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // Accept (SPEC-0046: the acknowledgement is a lifecycle action)
+    // ----------------------------------------------------------------------------------------
+
+    @Test
+    void accept_onUnackOrder_movesToLiveStampsTheMarketAckAndRecordsAck() {
+        Instant received = Instant.parse("2026-11-07T09:30:00.240Z");
+        givenOrder(order(State.UNACK, null, "100", "0", "100").toBuilder()
+                .orderReceivedTime(Instant.parse("2026-11-07T09:30:00.012Z"))
+                .build());
+        OrderAcceptCmd command = new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd");
+
+        OrderLifecycleResult result = processor.process(command, received);
+
+        assertTrue(result.isSuccess(), result.getErrorMessage());
+        assertEquals(LifecycleAction.ACCEPT, result.getAction());
+        Order saved = savedOrder();
+        assertEquals(State.LIVE, saved.getState());
+        assertEquals(received, saved.getMarketAckTime(), "the ack is stamped with the observed ingress time");
+        assertEquals(0, new BigDecimal("100").compareTo(saved.getLeavesQty()), "accept closes nothing");
+        assertNull(saved.getCancelState());
+        verify(orderEventAppender).appendOrderEvent(any(), eq(Event.ACK), eq(command));
+    }
+
+    /** Only an UNACK order can be accepted; FILLED → LIVE is reserved for busts (SPEC-0044). */
+    @ParameterizedTest
+    @EnumSource(value = State.class, names = {"NEW", "LIVE", "FILLED", "CXL", "REJ", "EXP", "CLOSED"})
+    void accept_onAnythingButUnack_refused(State state) {
+        givenOrder(order(state, null, "100", "0", "100"));
+
+        OrderLifecycleResult result = processor.process(new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd"), Instant.now());
+
+        assertFalse(result.isSuccess());
+        verify(orderRepository, never()).saveAndFlush(any());
+        verify(orderEventAppender, never()).appendOrderEvent(any(), any(), any());
+    }
+
+    @Test
+    void accept_repeatedCommandId_refusedAsDuplicate() {
+        givenOrder(order(State.UNACK, null, "100", "0", "100"));
+        when(orderEventRepository.existsByOrderIdAndCommandId(ORDER_ID, "A-1")).thenReturn(true);
+
+        OrderLifecycleResult result = processor.process(
+                new OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd").commandId("A-1"), Instant.now());
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getErrorMessage().contains("Duplicate command A-1"), result.getErrorMessage());
+        verify(orderEventAppender, never()).appendOrderEvent(any(), any(), any());
     }
 
     // ----------------------------------------------------------------------------------------
@@ -374,7 +428,8 @@ class OrderLifecycleCommandProcessorTest {
 
     @Test
     void unsupportedCommand_isAProgrammingError() {
-        Command command = new org.example.common.model.cmd.OrderAcceptCmd(ORDER_ID, "OrderAcceptCmd");
+        // A create is not a lifecycle command; accept is one since SPEC-0046.
+        Command command = new org.example.common.model.cmd.OrderCreateCmd().type("OrderCreateCmd");
         assertThrows(IllegalArgumentException.class, () -> processor.process(command, Instant.now()));
     }
 

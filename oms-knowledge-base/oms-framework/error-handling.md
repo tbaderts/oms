@@ -180,6 +180,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    // As built (SPEC-0046): a command whose commandId the order already applied, on any path
+    // (lifecycle, accept, fill), whether the dedup lookup or the unique (order_id, command_id)
+    // caught it. Kafka acknowledges the same refusal instead of answering.
+    @ExceptionHandler(DuplicateCommandException.class)
+    public ProblemDetail handleDuplicateCommand(DuplicateCommandException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "Command " + ex.getCommandId() + " was already applied to order " + ex.getOrderId()
+        );
+        problem.setType(URI.create("urn:oms:error:duplicate-command"));
+        problem.setTitle("Duplicate Command");
+        problem.setProperty("orderId", ex.getOrderId());
+        problem.setProperty("commandId", ex.getCommandId());
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         log.warn("Validation error: {}", ex.getMessage());

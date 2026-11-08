@@ -74,6 +74,9 @@ public class OrderTaskContext extends TaskContext {
     /** The lifecycle action (reject, cancel, cancel request, cancel reject) being applied. */
     private LifecycleAction lifecycleAction;
 
+    /** Whether the command was refused because the order already applied its commandId (SPEC-0046). */
+    private boolean duplicateCommand;
+
     public OrderTaskContext() {
         super();
         this.validationPassed = true;
@@ -98,6 +101,15 @@ public class OrderTaskContext extends TaskContext {
     public void markValidationFailed(String errorMessage) {
         this.validationPassed = false;
         this.errorMessage = errorMessage;
+    }
+
+    /**
+     * Marks the command as a duplicate: its commandId was already applied to the order (SPEC-0046).
+     * A duplicate is a validation failure too, so the pipeline stops and nothing is written.
+     */
+    public void markDuplicate(String errorMessage) {
+        markValidationFailed(errorMessage);
+        this.duplicateCommand = true;
     }
 
     /**

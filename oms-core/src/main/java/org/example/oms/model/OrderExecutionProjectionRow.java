@@ -26,16 +26,16 @@ import lombok.experimental.SuperBuilder;
  * API. Unique on {@code (orderId, execId)}, so re-projecting a fill rewrites its row.
  */
 @Entity
-@Table(name = "order_execution_view")
+@Table(name = "order_execution_projection")
 @SuperBuilder(toBuilder = true)
 @NoArgsConstructor
 @Getter
 @Setter
-public class OrderExecutionView {
+public class OrderExecutionProjectionRow {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_execution_view_sequence")
-    @SequenceGenerator(name = "order_execution_view_sequence", sequenceName = "order_execution_view_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_execution_projection_sequence")
+    @SequenceGenerator(name = "order_execution_projection_sequence", sequenceName = "order_execution_projection_seq", allocationSize = 1)
     private Long id;
 
     @Column(name = "order_id", nullable = false)
@@ -85,7 +85,7 @@ public class OrderExecutionView {
         if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) {
             return false;
         }
-        OrderExecutionView that = (OrderExecutionView) other;
+        OrderExecutionProjectionRow that = (OrderExecutionProjectionRow) other;
         return id != null && id.equals(that.id);
     }
 

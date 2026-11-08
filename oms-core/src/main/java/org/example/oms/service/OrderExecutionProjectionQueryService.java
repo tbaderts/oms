@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.example.oms.model.OrderExecutionView;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.model.OrderExecutionProjectionRow;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -22,13 +22,13 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class OrderExecutionViewQueryService {
+public class OrderExecutionProjectionQueryService {
 
-    private final OrderExecutionViewRepository repository;
+    private final OrderExecutionProjectionRepository repository;
 
-    public List<OrderExecutionView> find(
+    public List<OrderExecutionProjectionRow> find(
             String orderId, String rootOrderId, String account, Instant from, Instant to, int limit) {
-        Specification<OrderExecutionView> filters = (root, query, cb) -> {
+        Specification<OrderExecutionProjectionRow> filters = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (orderId != null) {
                 predicates.add(cb.equal(root.get("orderId"), orderId));

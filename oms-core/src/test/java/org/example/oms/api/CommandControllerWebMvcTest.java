@@ -22,7 +22,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.example.oms.mapper.OrderMapper;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.commandlog.CommandLogWriter;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.test.web.servlet.MockMvc;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -44,9 +44,6 @@ class CommandControllerWebMvcTest {
     private OrderCreateCommandProcessor orderCreateCommandProcessor;
 
         @Mock
-    private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
-
-        @Mock
     private ExecutionCommandProcessor executionCommandProcessor;
 
         @Mock
@@ -55,11 +52,15 @@ class CommandControllerWebMvcTest {
         @Mock
     private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
 
-        @InjectMocks
-        private CommandController commandController;
+        @Mock
+    private CommandLogWriter commandLogWriter;
 
         @BeforeEach
         void setup() {
+                // The real dispatcher over mocked processors: routing and answers are exercised end to end.
+                CommandController commandController = new CommandController(new CommandDispatcher(
+                                orderCreateCommandProcessor, executionCommandProcessor, orderLifecycleCommandProcessor,
+                                orderMapper, commandLogWriter, org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class)));
                 mockMvc = MockMvcBuilders.standaloneSetup(commandController)
                                 .setControllerAdvice(new GlobalExceptionHandler())
                                 .build();
@@ -93,11 +94,13 @@ class CommandControllerWebMvcTest {
 
     @Test
     void executeCommand_withOrderAcceptCmd_returnsOk() throws Exception {
-        var result = OrderAcceptCommandProcessor.OrderAcceptResult.builder()
+        // Accept is a lifecycle action since SPEC-0046.
+        var result = OrderLifecycleCommandProcessor.OrderLifecycleResult.builder()
                 .success(true)
                 .orderId("ORD-101")
+                .action(LifecycleAction.ACCEPT)
                 .build();
-        when(orderAcceptCommandProcessor.process(any(), any())).thenReturn(result);
+        when(orderLifecycleCommandProcessor.process(any(), any())).thenReturn(result);
 
         mockMvc.perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -197,6 +200,27 @@ class CommandControllerWebMvcTest {
 
         verify(orderCreateCommandProcessor, never()).process(any(), any());
         verify(executionCommandProcessor, never()).process(any(), any());
+    }
+
+    /** SPEC-0046 AC-7: a commandId the order already applied is a typed 409, not a 400. */
+    @Test
+    void lifecycleCommand_duplicate_returns409DuplicateCommand() throws Exception {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleCommandProcessor.OrderLifecycleResult.builder()
+                        .success(false)
+                        .duplicate(true)
+                        .orderId("ORD-204")
+                        .action(LifecycleAction.CANCEL_REQUEST)
+                        .errorMessage("Duplicate command C-1 for order ORD-204")
+                        .build());
+
+        mockMvc.perform(post("/api/command/execute")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":\"OrderCancelRequestCmd\",\"orderId\":\"ORD-204\",\"commandId\":\"C-1\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.type").value("urn:oms:error:duplicate-command"))
+                .andExpect(jsonPath("$.commandId").value("C-1"))
+                .andExpect(jsonPath("$.orderId").value("ORD-204"));
     }
 
     @Test

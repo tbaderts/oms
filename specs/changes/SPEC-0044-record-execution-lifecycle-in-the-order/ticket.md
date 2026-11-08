@@ -2,11 +2,11 @@
 id: SPEC-0044
 title: Record execution lifecycle in the order event log
 type: feature
-status: proposal
+status: done
 awaiting:
-autopilot: true
+autopilot: false
 modules: [oms-core, oms-contracts, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -27,3 +27,15 @@ Ticket A of the event sourcing and CQRS review (oms-core/docs/event-sourcing-cqr
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture (oms-core/docs/target-architecture.md). Do SPEC-0045 first or together: the executions backfill reads the projection table. SPEC-0030 depends on this ticket.
 - 2026-11-07 17:15 — autopilot on
+- 2026-11-07 17:23 — proposal gate passed; awaiting human approval
+- 2026-11-07 17:36 — proposal approved by Toni Badertscher
+- 2026-11-07 17:36 — proposal → design
+- 2026-11-07 17:39 — design → plan
+- 2026-11-07 17:40 — plan → implement
+- 2026-11-07 18:08 — verify run: pass
+- 2026-11-07 18:08 — implement → verify
+- 2026-11-07 18:13 — reopened at implement: Independent review: the positional exec_id backfill can duplicate an exec_id when an order has executions without fill events; the migration test does not prove the projection-first order_version source nor the real stored JSON path; an em dash in OrderAcceptCommandProcessorTest was corrupted.
+- 2026-11-07 18:19 — verify run: pass
+- 2026-11-07 18:19 — implement → verify
+- 2026-11-07 18:20 — verify → done
+- 2026-11-07 18:20 — autopilot off

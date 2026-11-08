@@ -44,8 +44,8 @@ public class DeduplicateCommandTask implements Task<OrderTaskContext> {
         String orderId = context.getOrder().getOrderId();
         if (orderEventRepository.existsByOrderIdAndCommandId(orderId, commandId)) {
             String message = "Duplicate command " + commandId + " for order " + orderId;
-            context.markValidationFailed(message);
-            log.warn("Lifecycle command refused: {}", message);
+            context.markDuplicate(message);
+            log.warn("Command refused as a duplicate: {}", message);
             return TaskResult.failed(getName(), message);
         }
 

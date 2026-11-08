@@ -12,8 +12,8 @@ import java.util.List;
 import org.example.common.model.TimeInForce;
 import org.example.common.model.cmd.Command;
 import org.example.oms.repository.OrderRepository;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor.OrderLifecycleResult;
+import org.example.oms.service.command.CommandDispatch;
+import org.example.oms.service.command.CommandDispatcher;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 
@@ -28,7 +28,7 @@ class EndOfDayServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-02T22:00:00Z");
 
     private final OrderRepository orderRepository = mock(OrderRepository.class);
-    private final OrderLifecycleCommandProcessor processor = mock(OrderLifecycleCommandProcessor.class);
+    private final CommandDispatcher processor = mock(CommandDispatcher.class);
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     private final OrderExpiryService expiry = new OrderExpiryService(orderRepository, processor, meterRegistry);
     private final EndOfDayService endOfDay = new EndOfDayService(orderRepository, expiry, processor, meterRegistry);
@@ -37,10 +37,10 @@ class EndOfDayServiceTest {
     void aFailingOrderDoesNotStopExpiryOrClose() {
         when(orderRepository.findDayOrderIds(any())).thenReturn(List.of("DAY-BAD", "DAY-OK"));
         when(orderRepository.findIdsUnchangedSince(any(), any())).thenReturn(List.of("DONE-BAD", "DONE-OK"));
-        when(processor.process(argThat((Command c) -> c != null && orderIdOf(c).endsWith("-BAD")), any()))
+        when(processor.dispatch(argThat((Command c) -> c != null && orderIdOf(c).endsWith("-BAD")), any()))
                 .thenThrow(new DataAccessResourceFailureException("connection reset"));
-        when(processor.process(argThat((Command c) -> c != null && orderIdOf(c).endsWith("-OK")), any()))
-                .thenReturn(OrderLifecycleResult.builder().success(true).build());
+        when(processor.dispatch(argThat((Command c) -> c != null && orderIdOf(c).endsWith("-OK")), any()))
+                .thenReturn(new CommandDispatch.Applied("ORD", "ORD", 2L, "applied", false));
 
         EndOfDayService.EndOfDayResult result = endOfDay.run(NOW);
 
@@ -56,10 +56,10 @@ class EndOfDayServiceTest {
     @Test
     void gtdExpiryContinuesPastAFailingOrder() {
         when(orderRepository.findIdsToExpire(any(), any(TimeInForce.class), any())).thenReturn(List.of("GTD-BAD", "GTD-OK"));
-        when(processor.process(argThat((Command c) -> c != null && orderIdOf(c).equals("GTD-BAD")), any()))
+        when(processor.dispatch(argThat((Command c) -> c != null && orderIdOf(c).equals("GTD-BAD")), any()))
                 .thenThrow(new IllegalStateException("boom"));
-        when(processor.process(argThat((Command c) -> c != null && orderIdOf(c).equals("GTD-OK")), any()))
-                .thenReturn(OrderLifecycleResult.builder().success(true).build());
+        when(processor.dispatch(argThat((Command c) -> c != null && orderIdOf(c).equals("GTD-OK")), any()))
+                .thenReturn(new CommandDispatch.Applied("ORD", "ORD", 2L, "applied", false));
 
         assertEquals(1, expiry.expireDueGtd(NOW));
         assertEquals(1.0, meterRegistry.get("oms.end-of-day.failures").tag("step", "expire").counter().count());

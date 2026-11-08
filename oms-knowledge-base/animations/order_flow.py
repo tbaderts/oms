@@ -253,7 +253,7 @@ class OrderFlow(Narrated):
         self.say("Later the order is accepted: an OrderAcceptCmd arrives on the same /execute endpoint")
         tok = chip("OrderAcceptCmd", UI_C, 11)
         self.send(tok, self.l_cmd)
-        accept = label("OrderAcceptCommandProcessor\nUNACK → LIVE", 13, CORE, mono=True).move_to(self.steps)
+        accept = label("LifecycleAction.ACCEPT\nUNACK → LIVE", 13, CORE, mono=True).move_to(self.steps)
         self.play(FadeOut(tok, scale=0.5), FadeOut(self.steps), FadeIn(accept), run_time=0.6)
 
         self.say("The orders row is updated in place: it only holds the latest state")

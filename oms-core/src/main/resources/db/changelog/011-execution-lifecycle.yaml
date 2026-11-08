@@ -1,0 +1,137 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0044: the execution lifecycle in the order event log.
+  #
+  # An execution is an entity inside the order aggregate: it is created, busted,
+  # corrected or whacked by an order event about it. order_events.exec_id names
+  # that execution, so "every event about execution X" is one indexed query.
+  # executions gains its status, the version that applied it, the version from
+  # which it no longer counts, the FIX ExecRefID of a correction, and the Kafka key.
+  #
+  # Backfill: a fill event's exec_id comes from its stored ExecutionCreateCmd; a
+  # fill stored without a command (REST, before SPEC-0018) is matched by position
+  # among what is still unmatched, and only where that is unambiguous (see below);
+  # an ambiguous one keeps a null exec_id, which a projection rebuild reports. An execution's order_version comes
+  # from the order-execution projection where it has a row, otherwise from its fill
+  # event. Existing executions are APPLIED: nothing could bust one before.
+  #
+  # Upgrade: stop every instance of the old code before this runs, as for 010. An
+  # old instance would keep writing fills without exec_id or order_version.
+  #
+  # The tag marks the schema just before this change; the migration test migrates
+  # to it, inserts legacy rows, then applies the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 023-tag-before-execution-lifecycle
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-011-execution-lifecycle
+  - changeSet:
+      id: 024-order-events-exec-id
+      author: oms
+      changes:
+        - addColumn:
+            tableName: order_events
+            columns:
+              - column: { name: exec_id, type: VARCHAR(255) }
+        - sql:
+            sql: >-
+              UPDATE order_events SET exec_id = transaction -> 'execution' ->> 'execId'
+              WHERE event IN ('PARTIAL_FILL', 'FILL')
+                AND transaction -> 'execution' ->> 'execId' IS NOT NULL
+        # By position, only among what is still unmatched: the fill events without an exec_id and the
+        # executions no event names yet, k-th to k-th, and only for orders where those two counts
+        # agree. Anything else is ambiguous and keeps a null exec_id, which a projection rebuild then
+        # reports by order and version, rather than naming an execution another event already names.
+        - sql:
+            sql: >-
+              UPDATE order_events o SET exec_id = x.execid
+              FROM (SELECT id, order_id,
+                           row_number() OVER (PARTITION BY order_id ORDER BY version) AS k,
+                           count(*) OVER (PARTITION BY order_id) AS n
+                      FROM order_events
+                     WHERE event IN ('PARTIAL_FILL', 'FILL') AND exec_id IS NULL) f
+              JOIN (SELECT e.order_id, e.execid,
+                           row_number() OVER (PARTITION BY e.order_id ORDER BY e.id) AS k,
+                           count(*) OVER (PARTITION BY e.order_id) AS n
+                      FROM executions e
+                     WHERE NOT EXISTS (SELECT 1 FROM order_events c
+                                        WHERE c.order_id = e.order_id AND c.exec_id = e.execid)) x
+                ON x.order_id = f.order_id AND x.k = f.k AND x.n = f.n
+              WHERE o.id = f.id
+        - createIndex:
+            tableName: order_events
+            indexName: idx_order_events_order_id_exec_id
+            columns:
+              - column: { name: order_id }
+              - column: { name: exec_id }
+      rollback:
+        - dropIndex:
+            tableName: order_events
+            indexName: idx_order_events_order_id_exec_id
+        - dropColumn:
+            tableName: order_events
+            columnName: exec_id
+  - changeSet:
+      id: 025-executions-lifecycle
+      author: oms
+      changes:
+        - addColumn:
+            tableName: executions
+            columns:
+              - column:
+                  name: status
+                  type: VARCHAR(16)
+                  defaultValue: APPLIED
+                  constraints: { nullable: false }
+              - column: { name: order_version, type: BIGINT }
+              - column: { name: root_order_id, type: VARCHAR(255) }
+              - column: { name: exec_ref_id, type: VARCHAR(255) }
+              - column: { name: busted_at_version, type: BIGINT }
+        - sql:
+            sql: >-
+              UPDATE executions e SET order_version = v.order_version
+              FROM order_execution_view v WHERE v.order_id = e.order_id AND v.execid = e.execid
+        - sql:
+            sql: >-
+              UPDATE executions e SET order_version = o.version
+              FROM order_events o
+              WHERE e.order_version IS NULL AND o.order_id = e.order_id AND o.exec_id = e.execid
+                AND o.event IN ('PARTIAL_FILL', 'FILL')
+        - sql:
+            sql: >-
+              UPDATE executions e SET root_order_id = COALESCE(r.root_order_id, r.order_id)
+              FROM orders r WHERE r.order_id = e.order_id
+        - createIndex:
+            tableName: executions
+            indexName: idx_executions_root_order_id
+            columns:
+              - column: { name: root_order_id }
+        - createIndex:
+            tableName: executions
+            indexName: idx_executions_transact_time
+            columns:
+              - column: { name: transact_time }
+      rollback:
+        - dropIndex:
+            tableName: executions
+            indexName: idx_executions_transact_time
+        - dropIndex:
+            tableName: executions
+            indexName: idx_executions_root_order_id
+        - dropColumn:
+            tableName: executions
+            columnName: busted_at_version
+        - dropColumn:
+            tableName: executions
+            columnName: exec_ref_id
+        - dropColumn:
+            tableName: executions
+            columnName: root_order_id
+        - dropColumn:
+            tableName: executions
+            columnName: order_version
+        - dropColumn:
+            tableName: executions
+            columnName: status

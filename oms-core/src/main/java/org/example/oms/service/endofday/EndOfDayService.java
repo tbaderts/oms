@@ -10,7 +10,9 @@ import java.util.Set;
 import org.example.common.model.State;
 import org.example.common.model.cmd.OrderCloseCmd;
 import org.example.oms.repository.OrderRepository;
-import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
+import org.example.oms.service.command.CommandDispatch;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.command.CommandOrigin;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.stereotype.Service;
 
@@ -38,12 +40,14 @@ import lombok.extern.slf4j.Slf4j;
 public class EndOfDayService {
 
     static final String STEP = "close";
+    /** Who the command log names as the sender of end-of-day closes (SPEC-0046). */
+    static final String PRINCIPAL = "oms-core:end-of-day";
     private static final List<State> FINISHED = List.of(State.FILLED, State.CXL, State.REJ, State.EXP);
     private static final DateTimeFormatter DAY = DateTimeFormatter.BASIC_ISO_DATE.withZone(ZoneOffset.UTC);
 
     private final OrderRepository orderRepository;
     private final OrderExpiryService orderExpiryService;
-    private final OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
+    private final CommandDispatcher commandDispatcher;
     private final MeterRegistry meterRegistry;
 
     /** Registers this step's counters at 0, so their series exist before the first run (SPEC-0038). */
@@ -69,12 +73,12 @@ public class EndOfDayService {
             command.setType("OrderCloseCmd");
             command.setCommandId("EOD-" + orderId + "-" + DAY.format(cutoff));
             try {
-                var result = orderLifecycleCommandProcessor.process(command, cutoff);
-                if (result.isSuccess()) {
+                var result = commandDispatcher.dispatch(command, CommandOrigin.scheduler(PRINCIPAL, cutoff));
+                if (result instanceof CommandDispatch.Applied) {
                     closed++;
                     meterRegistry.counter("oms.end-of-day.orders", "step", STEP).increment();
                 } else {
-                    log.warn("End-of-day close of order {} refused: {}", orderId, result.getErrorMessage());
+                    log.warn("End-of-day close of order {} refused: {}", orderId, result.message());
                 }
             } catch (ConcurrencyFailureException e) {
                 failed++;

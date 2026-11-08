@@ -2,11 +2,11 @@
 id: SPEC-0045
 title: Rename order_execution_view to order_execution_projection
 type: refactor
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-core, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -26,3 +26,16 @@ Decided in the review discussion of 2026-11-07 (oms-core/docs/event-sourcing-cqr
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Independent; do before or together with SPEC-0044.
+- 2026-11-07 18:22 — autopilot on
+- 2026-11-07 18:25 — proposal gate passed; awaiting human approval
+- 2026-11-07 18:46 — proposal approved by Toni Badertscher
+- 2026-11-07 18:46 — proposal → design
+- 2026-11-07 18:47 — design → plan
+- 2026-11-07 18:48 — plan → implement
+- 2026-11-07 18:57 — verify run: pass
+- 2026-11-07 18:57 — implement → verify
+- 2026-11-07 18:59 — reopened at implement: Independent review: the rename migration test compares only four columns; ProjectTaskTest's failure-message assertion was weakened to a bare substring.
+- 2026-11-07 19:03 — verify run: pass
+- 2026-11-07 19:03 — implement → verify
+- 2026-11-07 19:04 — verify → done
+- 2026-11-07 19:04 — autopilot off

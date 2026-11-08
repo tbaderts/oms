@@ -32,8 +32,10 @@ import org.example.common.model.msg.CommandHeader;
 import org.example.common.model.msg.QuoteCreateCmd;
 import org.example.oms.mapper.CommandHeaderMapper;
 import org.example.oms.mapper.OrderMapper;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
-import org.example.oms.service.command.OrderAcceptCommandProcessor.OrderAcceptResult;
+import org.example.oms.model.CommandSource;
+import org.example.oms.service.command.CommandDispatcher;
+import org.example.oms.service.commandlog.CommandLogWriter;
+import org.example.oms.service.lifecycle.LifecycleAction;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
 import org.example.oms.service.command.OrderCreateCommandProcessor.OrderCreateResult;
 import org.example.oms.service.execution.ExecutionCommandProcessor;
@@ -42,7 +44,6 @@ import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor.OrderLifecycleResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -65,12 +66,26 @@ class CommandListenerTest {
     @Spy private CommandHeaderMapper commandHeaderMapper = new CommandHeaderMapper();
     @Mock private CommandDecoder commandDecoder;
     @Mock private OrderCreateCommandProcessor orderCreateCommandProcessor;
-    @Mock private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
     @Mock private ExecutionCommandProcessor executionCommandProcessor;
     @Mock private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Spy private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
-    @InjectMocks private CommandListener commandListener;
+    @Mock private CommandLogWriter commandLogWriter;
+
+    private CommandListener commandListener;
+
+    /** The real dispatcher over mocked processors: mapping, routing and counting are exercised together. */
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        commandListener = new CommandListener(
+                orderMapper,
+                commandHeaderMapper,
+                commandDecoder,
+                new CommandDispatcher(
+                        orderCreateCommandProcessor, executionCommandProcessor, orderLifecycleCommandProcessor,
+                        orderMapper, commandLogWriter, org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class)),
+                meterRegistry);
+    }
 
     static CommandHeader header(String commandId) {
         return CommandHeader.newBuilder()
@@ -124,14 +139,20 @@ class CommandListenerTest {
 
     @Test
     void orderAccept_isDelegatedWithItsHeader() {
-        when(orderAcceptCommandProcessor.process(any(), any()))
-                .thenReturn(OrderAcceptResult.builder().success(true).orderId("ORD-2").build());
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleResult.builder().success(true).orderId("ORD-2").action(LifecycleAction.ACCEPT).build());
 
         commandListener.handle(new org.example.common.model.msg.OrderAcceptCmd(header("c-ack"), "ORD-2"), Instant.now());
 
-        verify(orderAcceptCommandProcessor).process(
+        verify(orderLifecycleCommandProcessor).process(
                 argThat(cmd -> cmd instanceof OrderAcceptCmd c && "ORD-2".equals(c.getOrderId()) && hasHeader(c, "OrderAcceptCmd", "c-ack")),
                 notNull());
+        // SPEC-0046 AC-3: logged as a Kafka command sent by the header's producer.
+        verify(commandLogWriter).applied(
+                argThat(cmd -> cmd instanceof OrderAcceptCmd),
+                argThat(origin -> origin.source() == CommandSource.KAFKA && "oms-exchange-simulator".equals(origin.principal())),
+                eq("ORD-2"),
+                any());
         verify(orderCreateCommandProcessor, never()).process(any(), any());
     }
 
@@ -239,7 +260,6 @@ class CommandListenerTest {
         assertThrows(IllegalArgumentException.class, () -> commandListener.handle(quote, Instant.now()));
 
         verify(orderCreateCommandProcessor, never()).process(any(), any());
-        verify(orderAcceptCommandProcessor, never()).process(any(), any());
         verify(orderLifecycleCommandProcessor, never()).process(any(), any());
     }
 
@@ -248,12 +268,26 @@ class CommandListenerTest {
         byte[] bytes = {0, 0, 0, 0, 1, 2};
         when(commandDecoder.decode("commands", bytes))
                 .thenReturn(new org.example.common.model.msg.OrderAcceptCmd(header("c-ack"), "ORD-2"));
-        when(orderAcceptCommandProcessor.process(any(), any()))
-                .thenReturn(OrderAcceptResult.builder().success(true).orderId("ORD-2").build());
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleResult.builder().success(true).orderId("ORD-2").action(LifecycleAction.ACCEPT).build());
 
         commandListener.consume(new ConsumerRecord<>("commands", 0, 0L, "ORD-2", bytes));
 
-        verify(orderAcceptCommandProcessor).process(argThat(cmd -> "ORD-2".equals(cmd.getOrderId())), notNull());
+        verify(orderLifecycleCommandProcessor).process(argThat(cmd -> cmd instanceof OrderAcceptCmd c && "ORD-2".equals(c.getOrderId())), notNull());
+    }
+
+    /** SPEC-0046 AC-6: a duplicate is a refusal: acknowledged, counted refused, never thrown to the DLT. */
+    @Test
+    void duplicateIsAcknowledgedAndCountedRefused() {
+        when(orderLifecycleCommandProcessor.process(any(), any()))
+                .thenReturn(OrderLifecycleResult.builder().success(false).duplicate(true).orderId("ORD-9")
+                        .errorMessage("Duplicate command C-9 for order ORD-9").build());
+
+        assertDoesNotThrow(() -> commandListener.handle(
+                new org.example.common.model.msg.OrderCancelCmd(header("C-9"), "ORD-9", null), Instant.now()));
+
+        assertEquals(1.0, consumed("OrderCancelCmd", "refused"));
+        verify(commandLogWriter).refused(any(), any(), eq("ORD-9"), eq("Duplicate command C-9 for order ORD-9"));
     }
 
     // SPEC-0025 AC-7
@@ -290,11 +324,11 @@ class CommandListenerTest {
         Logger logger = (Logger) LoggerFactory.getLogger(CommandListener.class);
         logger.addAppender(logs);
         try {
-            when(orderAcceptCommandProcessor.process(any(), any())).thenAnswer(invocation -> {
+            when(orderLifecycleCommandProcessor.process(any(), any())).thenAnswer(invocation -> {
                 // What a processor logs inside the command's processing carries the ids too.
                 assertEquals("c-mdc", MDC.get("commandId"));
                 assertEquals("ROOT-1", MDC.get("correlationId"));
-                return OrderAcceptResult.builder().success(true).orderId("ORD-2").build();
+                return OrderLifecycleResult.builder().success(true).orderId("ORD-2").action(LifecycleAction.ACCEPT).build();
             });
 
             commandListener.handle(new org.example.common.model.msg.OrderAcceptCmd(header("c-mdc"), "ORD-2"), Instant.now());
@@ -325,6 +359,6 @@ class CommandListenerTest {
         assertThrows(UndecodableCommandException.class,
                 () -> commandListener.consume(new ConsumerRecord<>("commands", 0, 0L, "K", bytes)));
 
-        verify(orderAcceptCommandProcessor, never()).process(any(), any());
+        verify(orderLifecycleCommandProcessor, never()).process(any(), any());
     }
 }

@@ -25,6 +25,27 @@ final class TestCommands {
 
     private TestCommands() {}
 
+    /**
+     * The command that reports a fill, for tests that build the {@code Execution} directly: every fill
+     * is applied with its command (SPEC-0046).
+     */
+    static org.example.common.model.cmd.ExecutionCreateCmd fillOf(org.example.common.model.Execution execution) {
+        return new org.example.common.model.cmd.ExecutionCreateCmd()
+                .type("ExecutionCreateCmd")
+                .execution(new org.example.common.model.cmd.Execution()
+                        .execId(execution.getExecId())
+                        .orderId(execution.getOrderId())
+                        .lastQty(execution.getLastQty())
+                        .lastPx(execution.getLastPx())
+                        .execType(execution.getExecType()));
+    }
+
+    /** Applies a fill with its command. */
+    static org.example.oms.service.execution.ExecutionCommandProcessor.ExecutionProcessingResult applyFill(
+            org.example.oms.service.execution.ExecutionCommandProcessor processor, org.example.common.model.Execution execution) {
+        return processor.process(execution, fillOf(execution));
+    }
+
     /** A header with a fresh commandId. */
     static CommandHeader header() {
         return header(UUID.randomUUID().toString());

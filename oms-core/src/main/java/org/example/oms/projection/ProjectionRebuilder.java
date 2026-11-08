@@ -3,12 +3,10 @@ package org.example.oms.projection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.example.common.model.Execution;
-import org.example.common.model.cmd.ExecutionCreateCmd;
 import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.repository.ExecutionRepository;
@@ -30,10 +28,10 @@ import lombok.extern.slf4j.Slf4j;
  * for the rebuild instead of interleaving with it. It stages and publishes nothing: the messages a
  * projection returns are discarded.
  *
- * <p>A fill event is matched to its execution by the execId in its stored command. A REST fill
- * recorded before SPEC-0018 has no stored command; it is matched by position instead, the k-th fill
- * event of an order to the k-th execution of that order, since both are written in the same
- * transaction in the same order.
+ * <p>A fill event is matched to its execution by {@code order_events.exec_id} (SPEC-0044). Fills
+ * recorded before that column existed were backfilled by the migration, from the stored command or,
+ * for REST fills from before SPEC-0018, by position; a fill event still without one fails the
+ * rebuild rather than guessing.
  */
 @Service
 @Slf4j
@@ -78,8 +76,8 @@ public class ProjectionRebuilder {
         log.info("Rebuilding projection {}", name);
         Timer.Sample sample = Timer.start(meterRegistry);
 
-        // The name comes from a registered bean, never from the request, so it is safe in SQL.
-        entityManager.createNativeQuery("LOCK TABLE " + projection.name() + " IN EXCLUSIVE MODE").executeUpdate();
+        // The table comes from a registered bean's constant, never from the request, so it is safe in SQL.
+        entityManager.createNativeQuery("LOCK TABLE " + projection.table() + " IN EXCLUSIVE MODE").executeUpdate();
         projection.clear();
 
         Map<String, List<OrderEvent>> fillEventsByOrder = orderEventRepository
@@ -96,9 +94,8 @@ public class ProjectionRebuilder {
         for (Map.Entry<String, List<OrderEvent>> order : fillEventsByOrder.entrySet()) {
             List<Execution> executions = executionsByOrder.getOrDefault(order.getKey(), List.of());
             List<OrderEvent> fills = order.getValue();
-            for (int k = 0; k < fills.size(); k++) {
-                OrderEvent fill = fills.get(k);
-                Execution execution = match(fill, k, executions);
+            for (OrderEvent fill : fills) {
+                Execution execution = match(fill, executions);
                 projection.project(new ProjectionContext(
                         fill.getOrderSnapshot(), execution, fill.getVersion(), fill.getTransaction(), fill.getTimeStamp()));
                 rows++;
@@ -110,20 +107,16 @@ public class ProjectionRebuilder {
         return rows;
     }
 
-    private static Execution match(OrderEvent fill, int position, List<Execution> executions) {
-        Optional<String> execId = execIdOf(fill);
-        Optional<Execution> match = execId.isPresent()
-                ? executions.stream().filter(e -> execId.get().equals(e.getExecId())).findFirst()
-                : position < executions.size() ? Optional.of(executions.get(position)) : Optional.empty();
-        return match.orElseThrow(() -> new IllegalStateException(String.format(
-                "No execution for fill event v%d of order %s (execId %s)",
-                fill.getVersion(), fill.getOrderId(), execId.orElse("not stored"))));
-    }
-
-    private static Optional<String> execIdOf(OrderEvent fill) {
-        if (fill.getTransaction() instanceof ExecutionCreateCmd cmd && cmd.getExecution() != null) {
-            return Optional.ofNullable(cmd.getExecution().getExecId());
+    private static Execution match(OrderEvent fill, List<Execution> executions) {
+        String execId = fill.getExecId();
+        if (execId == null) {
+            throw new IllegalStateException(String.format(
+                    "Fill event v%d of order %s names no execution (exec_id is null)", fill.getVersion(), fill.getOrderId()));
         }
-        return Optional.empty();
+        return executions.stream()
+                .filter(e -> execId.equals(e.getExecId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(String.format(
+                        "No execution for fill event v%d of order %s (execId %s)", fill.getVersion(), fill.getOrderId(), execId)));
     }
 }

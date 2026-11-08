@@ -1,10 +1,17 @@
 import * as path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { spawnSync } from 'child_process';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stringify } from 'yaml';
 import { EvidenceService } from '../../src/main/storyboards/EvidenceService';
 import { StoryboardService } from '../../src/main/storyboards/StoryboardService';
 import { DEFAULT_STORYBOARDS_CONFIG } from '../../src/shared/types/storyboards';
 import { createStoryboardWorkspace, md, type StoryboardWorkspace } from '../fixtures/storyboards';
+
+// Pass-through spy, so a test can count the git processes an evaluation starts.
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>();
+  return { ...actual, spawnSync: vi.fn(actual.spawnSync) };
+});
 
 const SOURCE = 'oms-core/src/main/java/OrderCaptureService.java';
 const lines = (n: number, tag = 'v1') => Array.from({ length: n }, (_, i) => `line ${i + 1} ${tag}`).join('\n') + '\n';
@@ -155,5 +162,32 @@ describe('EvidenceService', () => {
   it('a cardless storyboard has no evidence and drift none', () => {
     ({ ws } = setup());
     expect(scanOne(ws).summary).toMatchObject({ hasCard: false, trust: 'unevidenced', drift: 'none' });
+  });
+
+  it('evaluates many sources with a bounded number of git processes, each with its own drift', () => {
+    let commit: string;
+    ({ ws } = setup());
+    const OTHER = 'oms-core/src/main/java/ExecutionService.java';
+    ws.write({ [OTHER]: lines(40) });
+    ws.git('add', '.');
+    ws.git('commit', '-q', '-m', 'other');
+    commit = ws.git('rev-parse', '--short', 'HEAD');
+    ws.write({ [SOURCE]: editLine(ws.read(SOURCE), 15), [OTHER]: editLine(ws.read(OTHER), 35) });
+    ws.git('commit', '-q', '-am', 'touch both');
+
+    const sources = [
+      ...Array.from({ length: 6 }, (_, i) => ({ module: 'oms-core', path: 'src/main/java/OrderCaptureService.java', line: 10 + i, end_line: 20 })),
+      { module: 'oms-core', path: 'src/main/java/ExecutionService.java', line: 1, end_line: 10 },
+      { module: 'oms-core', path: 'src/main/java/Gone.java', line: 1 },
+    ];
+    const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base') });
+    const spawn = vi.mocked(spawnSync);
+    spawn.mockClear();
+    const result = evidence.evaluate({ id: 'x', evidence: { repos: [{ module: 'oms-core', commit }], sources } });
+    const gitCalls = spawn.mock.calls.filter(([cmd]) => cmd === 'git').length;
+
+    expect(result.evidence?.sources.map((s) => s.drift)).toEqual([...Array(6).fill('drifted'), 'current', 'missing']);
+    expect(result.drift).toBe('missing');
+    expect(gitCalls).toBeLessThanOrEqual(2); // one cat-file batch, one diff for the pinned commit
   });
 });

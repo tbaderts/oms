@@ -50,14 +50,15 @@ class ProjectTaskTest {
     @Test
     void aFailingProjectionFailsTheTask() {
         Projection failing = new Projection() {
-            @Override public String name() { return "failing_view"; }
+            @Override public String name() { return "failing"; }
+            @Override public String table() { return "failing_projection"; }
             @Override public List<StagedMessage> project(ProjectionContext context) { throw new IllegalStateException("boom"); }
             @Override public void clear() { }
         };
         ProjectTask task = new ProjectTask(List.of(failing), appender);
 
         TaskExecutionException e = assertThrows(TaskExecutionException.class, () -> task.execute(context()));
-        assertTrue(e.getMessage().contains("failing_view"), e.getMessage());
+        assertTrue(e.getMessage().contains("Projection failing failed"), e.getMessage());
         verify(appender, never()).stageMessage(any());
     }
 
@@ -94,6 +95,7 @@ class ProjectTaskTest {
     private static Projection projection(String name, StagedMessage message, List<String> seen) {
         return new Projection() {
             @Override public String name() { return name; }
+            @Override public String table() { return name + "_projection"; }
             @Override public List<StagedMessage> project(ProjectionContext context) {
                 assertSame("ORD-1", context.order().getOrderId());
                 seen.add(name + " v" + context.orderVersion());

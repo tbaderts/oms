@@ -72,9 +72,21 @@ public enum State {
 
 > **As built (SPEC-0029).** The OMS runs one product state machine (`OrderStateMachineConfig.product()`,
 > obtained through `OrderStateMachines.forOrder(order)`):
-> NEW→UNACK; UNACK→LIVE, REJ, EXP; LIVE→FILLED, CXL, REJ, EXP, CLOSED; FILLED, CXL, REJ, EXP→CLOSED.
-> CLOSED is the only terminal state. The diagram below is the full specification; see
+> NEW→UNACK; UNACK→LIVE, REJ, EXP; LIVE→FILLED, CXL, REJ, EXP, CLOSED; FILLED→LIVE (a bust that
+> reopens quantity, SPEC-0044); FILLED, CXL, REJ, EXP→CLOSED. CLOSED is the only terminal state.
+> Cancel-state rules are a configuration too (`CancelStateMachineConfig`, SPEC-0044). The diagram
+> below is the full specification; see
 > [Order State](../domain/order-state.md) for the differences.
+>
+> **Every change after creation goes through one pipeline (SPEC-0046).** Accept is a lifecycle action,
+> `ACCEPT`, alongside reject, cancel, cancel request, cancel reject, expire and close. Each runs:
+> load under a row lock → deduplicate by commandId → validate against the state machine → apply →
+> save → record the event.
+> - **ACCEPT** moves UNACK → LIVE, records `ACK` and stamps the market-ack SLA with the ingress
+>   time. It is refused unless the order is UNACK, so an acknowledgement never takes
+>   `FILLED → LIVE`, which is reserved for busts.
+> - **Duplicates.** A repeated commandId answers 409 `urn:oms:error:duplicate-command`.
+> - **Command log.** Every command is recorded in the [command log](../domain/command-log.md).
 
 ```mermaid
 stateDiagram-v2
@@ -509,6 +521,7 @@ sequenceDiagram
 | LIVE | FILLED | Complete fill | F (Trade) | 2 (Filled) |
 | LIVE | CXL | Cancel accepted | 4 (Canceled) | 4 (Canceled) |
 | LIVE | EXP | TIF expired | C (Expired) | C (Expired) |
+| FILLED | LIVE | Bust that reopens quantity (SPEC-0044; processed from SPEC-0030) | H (Trade Cancel) | 1 (Partial) |
 | LIVE | CLOSED | Admin close | N/A | N/A |
 
 **Reference:** [State Machine Framework](../oms-framework/state-machine-framework_spec.md) — Generic state machine implementation
@@ -631,6 +644,15 @@ resulting state and a snapshot:
 | `CXL` | `OrderCancelCmd` | LIVE → CXL |
 | `CXL_REQUEST` | `OrderCancelRequestCmd` | cancelState → PCXL |
 | `CXL_REJ` | `OrderCancelRejectCmd` | cancelState PCXL → REJ |
+| `EXP` | `OrderExpireCmd` | UNACK/LIVE → EXP |
+| `CLOSE` | `OrderCloseCmd` | → CLOSED |
+| `EXEC_BUST` | a bust (processed from SPEC-0030) | quantities reduced, FILLED → LIVE when quantity reopens; the execution becomes BUSTED |
+| `EXEC_CORRECT` | a correction (processed from SPEC-0030) | quantities as corrected; the execution becomes CORRECTED |
+| `EXEC_WHACK` | a manual cancel (processed from SPEC-0030) | as a bust; the execution becomes BUSTED |
+
+An event about one execution, whether a fill, bust, correction or whack, names it in
+`order_events.exec_id` (SPEC-0044). Its history is therefore
+`GET /api/query/orders/{orderId}/events?execId=…`.
 
 **Reference:** [OMS State Store](../oms-framework/oms-state-store.md) — Event sourcing patterns
 

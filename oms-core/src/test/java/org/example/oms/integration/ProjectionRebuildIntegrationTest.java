@@ -18,12 +18,15 @@ import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.example.common.model.msg.OrderExecution;
-import org.example.oms.model.OrderExecutionView;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.model.OrderExecutionProjectionRow;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.core.ConsumerFactory;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 /**
  * SPEC-0020 AC-6: a projection rebuilt from order_events and executions holds the same rows it held
@@ -32,8 +35,9 @@ import org.springframework.kafka.core.ConsumerFactory;
  */
 class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
 
-    @Autowired private OrderExecutionViewRepository viewRepository;
+    @Autowired private OrderExecutionProjectionRepository viewRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private MeterRegistry meterRegistry;
     @Autowired private ConsumerFactory<Object, Object> consumerFactory;
 
     @Test
@@ -52,12 +56,14 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
         assertEquals(1, jdbcTemplate.update(
                 "update order_events set transaction = null where order_id = ? and version = 4", orderA));
 
-        mockMvc().perform(post("/actuator/projections/order_execution_view/rebuild"))
+        long rebuildsBefore = rebuildTimerCount();
+        mockMvc().perform(post("/actuator/projections/order_execution/rebuild"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.projection").value("order_execution_view"))
+                .andExpect(jsonPath("$.projection").value("order_execution"))
                 .andExpect(jsonPath("$.rows").value((int) viewRepository.count()));
 
         assertEquals(before, rows(orders), "the rebuilt rows equal the projected ones");
+        assertEquals(rebuildsBefore + 1, rebuildTimerCount(), "the rebuild is timed under the projection's name (SPEC-0045)");
 
         // A later fill on each order is published after anything the rebuild could have staged, on
         // the same partitions; only the three fills and the two sentinels may be on the topic.
@@ -84,7 +90,7 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
         Map<String, List<Object>> before = rows(List.of(orderId));
         executionRepository.delete(lost);
         try {
-            mockMvc().perform(post("/actuator/projections/order_execution_view/rebuild"))
+            mockMvc().perform(post("/actuator/projections/order_execution/rebuild"))
                     .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString(orderId)));
 
@@ -96,14 +102,56 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
         }
     }
 
+    /**
+     * SPEC-0044 AC-12: fills are matched to their executions by order_events.exec_id only. A fill event
+     * without one fails the rebuild, naming the order and the event version, and the view stays as it
+     * was. Before SPEC-0044 the stored command, or the position, would have matched it.
+     */
+    @Test
+    void fillEventWithoutExecId_failsNamingOrderAndVersion() throws Exception {
+        String orderId = createLiveOrder();
+        String execId = orderId + "-NOID";
+        assertEquals(201, postFill(execId, orderId, "10", "2026-11-07T12:00:00Z"));
+        long version = jdbcTemplate.queryForObject(
+                "select version from order_events where order_id = ? and exec_id = ?", Long.class, orderId, execId);
+        long rowsBefore = viewRepository.count();
+        Map<String, List<Object>> before = rows(List.of(orderId));
+        jdbcTemplate.update("update order_events set exec_id = null where order_id = ? and version = ?", orderId, version);
+        try {
+            mockMvc().perform(post("/actuator/projections/order_execution/rebuild"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString(orderId)))
+                    .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("v" + version)));
+
+            assertEquals(rowsBefore, viewRepository.count(), "the cleared rows are back after the rollback");
+            assertEquals(before, rows(List.of(orderId)));
+        } finally {
+            // Later rebuilds in this shared database need every fill event to name its execution.
+            jdbcTemplate.update("update order_events set exec_id = ? where order_id = ? and version = ?", execId, orderId, version);
+        }
+    }
+
     @Test
     void unknownAction_is400() throws Exception {
-        mockMvc().perform(post("/actuator/projections/order_execution_view/refresh")).andExpect(status().isBadRequest());
+        mockMvc().perform(post("/actuator/projections/order_execution/refresh")).andExpect(status().isBadRequest());
     }
 
     @Test
     void unknownProjection_is404() throws Exception {
         mockMvc().perform(post("/actuator/projections/no_such_view/rebuild")).andExpect(status().isNotFound());
+    }
+
+    /** SPEC-0045 AC-4: the projection is selected by its name, no longer by its former table name. */
+    @Test
+    void oldProjectionName_is404() throws Exception {
+        mockMvc().perform(post("/actuator/projections/order_execution_view/rebuild"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Unknown projection: order_execution_view"));
+    }
+
+    private long rebuildTimerCount() {
+        Timer timer = meterRegistry.find("oms.projection.rebuild").tag("projection", "order_execution").timer();
+        return timer == null ? 0 : timer.count();
     }
 
     /** The orders' view rows by (orderId, execId), every column except the surrogate id and projectedAt. */
@@ -113,7 +161,7 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
                 .collect(Collectors.toMap(v -> v.getOrderId() + "/" + v.getExecId(), ProjectionRebuildIntegrationTest::columns));
     }
 
-    private static List<Object> columns(OrderExecutionView v) {
+    private static List<Object> columns(OrderExecutionProjectionRow v) {
         return java.util.Arrays.asList(
                 v.getOrderId(), v.getExecId(), v.getRootOrderId(), v.getParentOrderId(), v.getLeg(), v.getClOrdId(),
                 v.getSessionId(), v.getAccount(), v.getSide(), v.getSymbol(), v.getSecurityId(), v.getOrdType(),

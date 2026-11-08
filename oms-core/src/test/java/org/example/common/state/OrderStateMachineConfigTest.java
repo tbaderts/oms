@@ -10,7 +10,7 @@ import java.util.Set;
 import org.example.common.model.State;
 import org.junit.jupiter.api.Test;
 
-/** SPEC-0029 AC-1: the one product state machine, with expiry and close. */
+/** SPEC-0029 AC-1: the one product state machine, with expiry and close; SPEC-0044 AC-7: FILLED → LIVE. */
 class OrderStateMachineConfigTest {
 
     private final StateMachineConfig<State> product = OrderStateMachineConfig.product();
@@ -21,7 +21,8 @@ class OrderStateMachineConfigTest {
         expected.put(State.NEW, EnumSet.of(State.UNACK));
         expected.put(State.UNACK, EnumSet.of(State.LIVE, State.REJ, State.EXP));
         expected.put(State.LIVE, EnumSet.of(State.FILLED, State.CXL, State.REJ, State.EXP, State.CLOSED));
-        expected.put(State.FILLED, EnumSet.of(State.CLOSED));
+        // FILLED → LIVE: a bust that reopens quantity (SPEC-0044 AC-7)
+        expected.put(State.FILLED, EnumSet.of(State.LIVE, State.CLOSED));
         expected.put(State.CXL, EnumSet.of(State.CLOSED));
         expected.put(State.REJ, EnumSet.of(State.CLOSED));
         expected.put(State.EXP, EnumSet.of(State.CLOSED));

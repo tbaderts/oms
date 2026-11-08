@@ -1,0 +1,57 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0045: the order-execution read model is a table, not a SQL view, and its
+  # name now says so. order_execution_view becomes order_execution_projection, and
+  # its sequence, primary key, unique constraint and indexes are renamed to match.
+  # Renames keep every row, column type and the sequence's current value.
+  #
+  # Naming rule for projections from here on: table <subject>_projection,
+  # projection name <subject> (the rebuild selector and metric tag).
+  #
+  # Earlier changesets (007, 008, 011) keep the old name: applied changesets are
+  # history and are never edited.
+  #
+  # Upgrade: stop every instance of the old code before this runs. An old instance
+  # would keep writing to order_execution_view, which no longer exists.
+  #
+  # The tag marks the schema just before this change; the migration test migrates
+  # to it, inserts legacy rows, then applies (and rolls back) the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 026-tag-before-order-execution-projection
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-012-order-execution-projection
+  - changeSet:
+      id: 027-rename-order-execution-projection
+      author: oms
+      changes:
+        - renameTable:
+            oldTableName: order_execution_view
+            newTableName: order_execution_projection
+        - renameSequence:
+            oldSequenceName: order_execution_view_seq
+            newSequenceName: order_execution_projection_seq
+        # PostgreSQL renames a constraint's index with the constraint.
+        - sql:
+            sql: >-
+              ALTER TABLE order_execution_projection RENAME CONSTRAINT pk_order_execution_view TO pk_order_execution_projection;
+              ALTER TABLE order_execution_projection RENAME CONSTRAINT uq_order_execution_view_order_id_execid TO uq_order_execution_projection_order_id_execid;
+              ALTER INDEX idx_oev_root_order_id RENAME TO idx_order_execution_projection_root_order_id;
+              ALTER INDEX idx_oev_account RENAME TO idx_order_execution_projection_account;
+              ALTER INDEX idx_oev_transact_time RENAME TO idx_order_execution_projection_transact_time
+      rollback:
+        - sql:
+            sql: >-
+              ALTER INDEX idx_order_execution_projection_transact_time RENAME TO idx_oev_transact_time;
+              ALTER INDEX idx_order_execution_projection_account RENAME TO idx_oev_account;
+              ALTER INDEX idx_order_execution_projection_root_order_id RENAME TO idx_oev_root_order_id;
+              ALTER TABLE order_execution_projection RENAME CONSTRAINT uq_order_execution_projection_order_id_execid TO uq_order_execution_view_order_id_execid;
+              ALTER TABLE order_execution_projection RENAME CONSTRAINT pk_order_execution_projection TO pk_order_execution_view
+        - renameSequence:
+            oldSequenceName: order_execution_projection_seq
+            newSequenceName: order_execution_view_seq
+        - renameTable:
+            oldTableName: order_execution_projection
+            newTableName: order_execution_view

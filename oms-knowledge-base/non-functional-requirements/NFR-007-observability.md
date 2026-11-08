@@ -14,7 +14,7 @@ target: "Every service reports traces, metrics and logs over OTLP, with trace co
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-02T13:40:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OutboxRelay.java"
-  - resource: "repo:oms-core/src/main/java/org/example/oms/service/command/OrderAcceptCommandProcessor.java"
+  - resource: "repo:oms-core/src/main/java/org/example/oms/service/lifecycle/OrderLifecycleCommandProcessor.java"
   - resource: "repo:docker-compose.yml"
   - resource: "repo:oms-core/loki-config.yml"
   - resource: "repo:oms-core/alloy-config.alloy"

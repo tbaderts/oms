@@ -148,6 +148,29 @@ describe('useSpecTicketsStore', () => {
     useDocEditorStore.getState().close();
   });
 
+  it('openTicket switches view before the ticket loads, and the mount refresh shares that read', async () => {
+    const api = mockCockpit();
+    let resolveGet!: (d: ReturnType<typeof detail>) => void;
+    api.get.mockReturnValueOnce(new Promise((r) => { resolveGet = r; }));
+    useNavigationStore.setState({ activeView: 'dashboard' });
+
+    const opening = openTicket('SPEC-0001');
+    expect(useNavigationStore.getState().activeView).toBe('spec-tickets');
+    expect(useSpecTicketsStore.getState().detail).toBeNull();
+
+    // What SpecTicketsView does on mount: list and detail in parallel, joining the read under way.
+    const mounting = useSpecTicketsStore.getState().refresh({ reuseInFlight: true });
+    resolveGet(detail('SPEC-0001'));
+    await Promise.all([opening, mounting]);
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    expect(useSpecTicketsStore.getState().detail?.id).toBe('SPEC-0001');
+
+    // A refresh after a change on disk reads the ticket anew.
+    await useSpecTicketsStore.getState().refresh();
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
   it('openTicket selects the ticket and switches to Spec Tickets unless the guard cancels', async () => {
     mockCockpit();
     useNavigationStore.setState({ activeView: 'dashboard' });

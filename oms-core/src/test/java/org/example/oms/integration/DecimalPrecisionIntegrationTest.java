@@ -26,8 +26,8 @@ import org.example.common.model.msg.OrderAcceptCmd;
 import org.example.common.model.msg.OrderCreateCmd;
 import org.example.common.model.msg.OrderExecution;
 import org.example.common.model.msg.OrderMessage;
-import org.example.oms.model.OrderExecutionView;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.model.OrderExecutionProjectionRow;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -47,7 +47,7 @@ class DecimalPrecisionIntegrationTest extends AbstractFillFlowIntegrationTest {
     private static final BigDecimal REST_QTY = new BigDecimal("0.12345678");
     private static final BigDecimal KAFKA_QTY = new BigDecimal("0.00000001");
 
-    @Autowired private OrderExecutionViewRepository viewRepository;
+    @Autowired private OrderExecutionProjectionRepository viewRepository;
     @Autowired private ConsumerFactory<Object, Object> consumerFactory;
 
     // AC-5
@@ -81,7 +81,7 @@ class DecimalPrecisionIntegrationTest extends AbstractFillFlowIntegrationTest {
             assertExact(rest ? REST_QTY : cum, e.getCumQty(), "executions.cum_qty");
             assertExact(rest ? restLeaves : leaves, e.getLeavesQty(), "executions.leaves_qty");
         }
-        for (OrderExecutionView v : viewRepository.findAll().stream().filter(v -> orderId.equals(v.getOrderId())).toList()) {
+        for (OrderExecutionProjectionRow v : viewRepository.findAll().stream().filter(v -> orderId.equals(v.getOrderId())).toList()) {
             boolean rest = v.getExecId().equals(restExec);
             assertExact(PRICE, v.getLastPx(), "view.last_px");
             assertExact(PRICE, v.getPrice(), "view.price");

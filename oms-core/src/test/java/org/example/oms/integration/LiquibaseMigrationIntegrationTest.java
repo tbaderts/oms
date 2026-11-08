@@ -81,17 +81,18 @@ class LiquibaseMigrationIntegrationTest {
         assertEquals("NO", nullable);
     }
 
-    /** SPEC-0020: the outbox carries any typed payload, and the fill projection has its table. */
+    /** SPEC-0020: the outbox carries any typed payload, and the fill projection has its table (renamed in SPEC-0045). */
     @Test
     void projectionSchemaIsApplied() {
         assertColumnType("outbox", "payload", "bytea");
         assertColumnType("outbox", "payload_type", "character varying");
-        assertTableExists("order_execution_view");
-        assertConstraintExists("uq_order_execution_view_order_id_execid");
-        assertColumnType("order_execution_view", "trade_date", "date");
+        assertTableExists("order_execution_projection");
+        assertTableDoesNotExist("order_execution_view");
+        assertConstraintExists("uq_order_execution_projection_order_id_execid");
+        assertColumnType("order_execution_projection", "trade_date", "date");
         String nullable = jdbcTemplate.queryForObject(
                 "select is_nullable from information_schema.columns "
-                        + "where table_schema = 'public' and table_name = 'order_execution_view' and column_name = 'order_version'",
+                        + "where table_schema = 'public' and table_name = 'order_execution_projection' and column_name = 'order_version'",
                 String.class);
         assertEquals("NO", nullable);
     }
@@ -104,7 +105,7 @@ class LiquibaseMigrationIntegrationTest {
                         "strike_price", "price", "stop_px"),
                 "executions", List.of("avg_px", "cum_qty", "last_px", "last_qty", "leaves_qty", "day_order_qty",
                         "day_cum_qty", "day_avg_px"),
-                "order_execution_view", List.of("price", "order_qty", "last_qty", "last_px", "cum_qty", "leaves_qty",
+                "order_execution_projection", List.of("price", "order_qty", "last_qty", "last_px", "cum_qty", "leaves_qty",
                         "avg_px"));
         columns.forEach((table, names) -> names.forEach(column -> assertEquals(
                 "18,8",
@@ -123,6 +124,29 @@ class LiquibaseMigrationIntegrationTest {
                         + "where schemaname = 'public' and tablename = 'outbox' and indexname = 'idx_outbox_topic_aggregate_id'",
                 String.class);
         assertTrue(definition.contains("(topic, aggregate_id)"), () -> "index definition: " + definition);
+    }
+
+    /** SPEC-0046: every command attempt is logged; read per order in received order. */
+    @Test
+    void commandLogTableIsApplied() {
+        assertTableExists("command_log");
+        assertColumnType("command_log", "received_at", "timestamp with time zone");
+        assertColumnType("command_log", "event_version", "bigint");
+        for (String column : List.of("type", "received_at", "source", "outcome", "logged_at")) {
+            assertEquals(
+                    "NO",
+                    jdbcTemplate.queryForObject(
+                            "select is_nullable from information_schema.columns where table_schema = 'public'"
+                                    + " and table_name = 'command_log' and column_name = ?",
+                            String.class,
+                            column),
+                    column);
+        }
+        String index = jdbcTemplate.queryForObject(
+                "select coalesce(max(indexdef), '') from pg_indexes where schemaname = 'public'"
+                        + " and indexname = 'idx_command_log_order_id_received_at'",
+                String.class);
+        assertTrue(index.contains("(order_id, received_at)"), () -> "index definition: " + index);
     }
 
     private void assertTableExists(String tableName) {

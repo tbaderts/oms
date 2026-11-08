@@ -47,10 +47,11 @@ class CommandBaseContractTest {
     }
 
     @Test
-    void versionIs320() throws IOException {
+    void versionIs330() throws IOException {
         Matcher version = Pattern.compile("(?m)^info:\\s*\\n(?:\\s+.*\\n)*?\\s+version:\\s*(\\S+)").matcher(commandContract());
         assertTrue(version.find(), "info.version");
-        assertEquals("3.2.0", version.group(1));
+        // 3.3.0: the 409 response on /execute (SPEC-0046)
+        assertEquals("3.3.0", version.group(1));
     }
 
     private static Method getter(Class<?> type, String name) throws NoSuchMethodException {

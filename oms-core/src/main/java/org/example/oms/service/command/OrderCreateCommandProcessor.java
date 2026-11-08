@@ -9,6 +9,7 @@ import org.example.common.orchestration.TaskOrchestrator.PipelineResult;
 import org.example.common.orchestration.TaskPipeline;
 import org.example.oms.mapper.OrderMapper;
 import org.example.oms.model.OrderTaskContext;
+import org.example.oms.service.PipelineResults;
 import org.example.oms.service.command.tasks.AssignOrderIdTask;
 import org.example.oms.service.command.tasks.PersistOrderTask;
 import org.example.oms.service.command.tasks.PublishOrderEventTask;
@@ -133,9 +134,11 @@ public class OrderCreateCommandProcessor {
             PipelineResult pipelineResult, OrderTaskContext context) {
         return OrderCreateResult.builder()
                 .success(pipelineResult.isSuccess())
+                .duplicate(!pipelineResult.isSuccess() && PipelineResults.isDuplicate(pipelineResult, context))
+                .eventVersion(context.getOrDefault("eventVersion", null))
                 .order(context.getOrder())
                 .orderId(context.getOrder() != null ? context.getOrder().getOrderId() : null)
-                .errorMessage(context.getErrorMessage())
+                .errorMessage(pipelineResult.isSuccess() ? null : PipelineResults.refusalReason(pipelineResult, context, null))
                 .executionTimeMs(pipelineResult.getExecutionTime().toMillis())
                 .tasksExecuted(pipelineResult.getTaskResults().size())
                 .tasksSucceeded((int) pipelineResult.getSuccessCount())
@@ -148,6 +151,10 @@ public class OrderCreateCommandProcessor {
     @lombok.Getter
     public static class OrderCreateResult {
         private final boolean success;
+        /** Refused because the commandId was already applied (SPEC-0046). */
+        private final boolean duplicate;
+        /** The version of the NEW_ORDER event, when applied. */
+        private final Long eventVersion;
         private final Order order;
         private final String orderId;
         private final String errorMessage;

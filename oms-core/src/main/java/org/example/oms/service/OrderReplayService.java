@@ -3,8 +3,10 @@ package org.example.oms.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.oms.model.OrderEvent;
+import org.example.oms.repository.ExecutionRepository;
 import org.example.oms.repository.OrderEventRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderReplayService {
 
     private final OrderEventRepository orderEventRepository;
+    private final ExecutionRepository executionRepository;
 
     /** The order as it stood after the most recent recorded event. */
     public Optional<Order> replay(String orderId) {
@@ -45,6 +48,15 @@ public class OrderReplayService {
                 .map(event -> event.getOrderSnapshot() == null
                         ? null
                         : event.getOrderSnapshot().toBuilder().txNr(event.getVersion()).build());
+    }
+
+    /**
+     * The order's executions as they stood after the given version: those applied at or before it
+     * and not busted or corrected by then (SPEC-0044). With {@link #replayAt} this gives the order
+     * and its fills as of any version, from two indexed queries.
+     */
+    public List<Execution> executionsAt(String orderId, long version) {
+        return executionRepository.findInForceAt(orderId, version);
     }
 
     /** The full ordered history of an order. */

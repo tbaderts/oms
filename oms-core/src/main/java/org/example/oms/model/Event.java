@@ -26,5 +26,17 @@ public enum Event {
     /** The order's time in force ran out; state EXP, nothing open (SPEC-0029). */
     EXP,
     /** The order was closed: nothing more happens to it; state CLOSED (SPEC-0029). */
-    CLOSE
+    CLOSE,
+    /**
+     * An applied execution was busted (FIX ExecType H, trade cancel): it no longer counts, and the
+     * order's quantities are reduced. {@code exec_id} names the execution (SPEC-0044).
+     */
+    EXEC_BUST,
+    /**
+     * An applied execution was corrected (FIX ExecType G): it no longer counts as reported, and a
+     * replacing execution refers to it through {@code execRefId} (SPEC-0044).
+     */
+    EXEC_CORRECT,
+    /** An operator cancelled an execution manually (whack); recorded like a bust (SPEC-0044). */
+    EXEC_WHACK
 }

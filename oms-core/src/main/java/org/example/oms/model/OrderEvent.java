@@ -83,6 +83,13 @@ public class OrderEvent {
     @Column(name = "command_id")
     private String commandId;
 
+    /**
+     * The execution this event is about, when it is about one: its fill, bust, correction or whack
+     * (SPEC-0044). Indexed with {@code order_id}, so an execution's history is one lookup.
+     */
+    @Column(name = "exec_id")
+    private String execId;
+
     /** The state the order was left in by this event. */
     @Enumerated(EnumType.STRING)
     @Column(name = "resulting_state")

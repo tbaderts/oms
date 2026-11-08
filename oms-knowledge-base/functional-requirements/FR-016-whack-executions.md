@@ -18,3 +18,5 @@ sources:
 Specified in [Execution Reporting](../oms-concepts/execution-reporting.md) (whack). Schema only.
 
 Capability: [execution-processing](../capabilities/execution-processing.md).
+
+Recording side built in SPEC-0044: the `EXEC_WHACK` event with `exec_id`, the execution status (`BUSTED`), and the `OrderExecution` record with ExecType `H` on `oms_order_executions`, through `OrderEventAppender.appendExecutionLifecycleEvent`. Command processing remains not implemented (SPEC-0030).

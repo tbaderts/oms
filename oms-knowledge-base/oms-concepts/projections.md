@@ -18,8 +18,15 @@ needs only an order snapshot and a fill, it can be rebuilt from the event log at
 
 ## Where it runs
 
-- `Projection` (`org.example.oms.projection`): `name()` (its table), `project(ProjectionContext)`
-  (upserts its rows, returns the messages to stage) and `clear()`.
+- `Projection` (`org.example.oms.projection`) has four methods:
+  - `name()`: the rebuild selector and metric tag;
+  - `table()`: the table holding its rows (SPEC-0045);
+  - `project(ProjectionContext)`: upserts its rows and returns the messages to stage;
+  - `clear()`.
+- **Naming rule** (SPEC-0045). A projection's name is its subject, and its table is
+  `<subject>_projection`: `order_execution` lives in `order_execution_projection`.
+  `ProjectionIntegrationTest` checks the rule for every projection bean. A table is never called
+  `_view`; in PostgreSQL that word means a SQL view, which a projection is not.
 - `ProjectTask` runs every `Projection` bean, in name order, as the last task of the fill pipeline,
   after `PublishExecutionEventTask` (which assigns the event version). Only the fill pipeline runs
   projections today.
@@ -31,9 +38,11 @@ needs only an order snapshot and a fill, it can be rebuilt from the event log at
   ([Event Publication](../capabilities/event-publication.md)). Pending `PROJECTION` rows (see the deployment steps in [Avro Messages](../interfaces/avro-messages.md#precision-and-versions)) must be
   published before a deployment that changes their record's schema.
 
-## order_execution_view
+## order_execution
 
-The first projection: one row per applied fill, unique on `(order_id, execid)`, with the fill, the
+The first projection, in the table `order_execution_projection`. The table was called
+`order_execution_view` until SPEC-0045 renamed it, together with its sequence, key, constraint and
+indexes, keeping every row. Each row is one applied fill, unique on `(order_id, execid)`, with the fill, the
 order as of that fill, `order_version` and `trade_date` (UTC date of `transactTime`). It is built
 from the same `OrderExecution` record that it stages for `oms_order_executions`, so the row and the
 published record cannot disagree. Read through `GET /api/query/executions`
@@ -41,11 +50,15 @@ published record cannot disagree. Read through `GET /api/query/executions`
 
 ## Rebuild
 
-`POST /actuator/projections/{name}/rebuild` (e.g. `order_execution_view`) runs
-`ProjectionRebuilder`: in one transaction it locks the projection's table (fills wait meanwhile),
+`POST /actuator/projections/{name}/rebuild` runs `ProjectionRebuilder`, for example
+`POST /actuator/projections/order_execution/rebuild`. The selector is the projection's name; the
+former `order_execution_view` answers 404. In one transaction it locks the projection's `table()`
+(fills wait meanwhile),
 clears it, and re-runs the projection for every fill event in `order_events`, matched to its
-`executions` row by the execId in the stored command, or, for REST fills recorded before SPEC-0018
-without their command, by position within the order. It publishes nothing. It answers
+`executions` row by the event's `exec_id` (SPEC-0044). The migration that added `exec_id` backfilled
+older fills, from the stored command or by position for REST fills recorded before SPEC-0018. The
+rebuild no longer falls back to position: a fill event without `exec_id` fails the rebuild with an
+error naming the order and the event version, and the table is left as it was. It publishes nothing. It answers
 `{"projection": name, "rows": n}`, `404` for an unknown projection, and records the
 `oms.projection.rebuild` timer. Run it once after deploying a new projection, to fill it for
 existing orders, and after fixing a projection bug.

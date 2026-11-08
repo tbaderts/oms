@@ -12,6 +12,9 @@ public interface OrderEventRepository extends JpaRepository<OrderEvent, Long> {
 
     List<OrderEvent> findByOrderIdOrderByVersionAsc(String orderId);
 
+    /** The entries about one execution of the order, in version order (SPEC-0044). */
+    List<OrderEvent> findByOrderIdAndExecIdOrderByVersionAsc(String orderId, String execId);
+
     /** Whether the order has already applied a command with this commandId. */
     boolean existsByOrderIdAndCommandId(String orderId, String commandId);
 

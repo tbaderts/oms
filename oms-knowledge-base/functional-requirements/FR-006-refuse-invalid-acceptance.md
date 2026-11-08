@@ -10,8 +10,8 @@ implementation: "implemented"
 capability: "/capabilities/order-acceptance.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "repo:oms-core/src/main/java/org/example/oms/service/command/OrderAcceptCommandProcessor.java"
-  - resource: "repo:oms-core/src/test/java/org/example/oms/service/command/OrderAcceptCommandProcessorTest.java"
+  - resource: "repo:oms-core/src/main/java/org/example/oms/service/lifecycle/OrderLifecycleCommandProcessor.java"
+  - resource: "repo:oms-core/src/test/java/org/example/oms/service/lifecycle/OrderLifecycleCommandProcessorTest.java"
 ---
 # Refuse invalid acknowledgements
 

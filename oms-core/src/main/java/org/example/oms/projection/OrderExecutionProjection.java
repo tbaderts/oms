@@ -6,8 +6,8 @@ import org.example.common.model.Execution;
 import org.example.common.model.Order;
 import org.example.common.model.msg.OrderExecution;
 import org.example.oms.mapper.OrderExecutionMessageMapper;
-import org.example.oms.model.OrderExecutionView;
-import org.example.oms.repository.OrderExecutionViewRepository;
+import org.example.oms.model.OrderExecutionProjectionRow;
+import org.example.oms.repository.OrderExecutionProjectionRepository;
 import org.example.oms.service.OrderEventAppender;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -22,14 +22,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class OrderExecutionProjection implements Projection {
 
-    static final String NAME = "order_execution_view";
+    static final String NAME = "order_execution";
+    static final String TABLE = "order_execution_projection";
 
-    private final OrderExecutionViewRepository repository;
+    private final OrderExecutionProjectionRepository repository;
     private final OrderExecutionMessageMapper mapper;
     private final String topic;
 
     public OrderExecutionProjection(
-            OrderExecutionViewRepository repository,
+            OrderExecutionProjectionRepository repository,
             OrderExecutionMessageMapper mapper,
             @Value("${kafka.order-execution-topic:oms_order_executions}") String topic) {
         this.repository = repository;
@@ -43,15 +44,20 @@ public class OrderExecutionProjection implements Projection {
     }
 
     @Override
+    public String table() {
+        return TABLE;
+    }
+
+    @Override
     public List<StagedMessage> project(ProjectionContext context) {
         Order order = context.order();
         Execution execution = context.execution();
         OrderExecution record =
                 mapper.toOrderExecutionMessage(execution, order, context.orderVersion(), context.stagedAt());
 
-        OrderExecutionView row = repository
+        OrderExecutionProjectionRow row = repository
                 .findByOrderIdAndExecId(record.getOrderId(), record.getExecId())
-                .orElseGet(OrderExecutionView::new);
+                .orElseGet(OrderExecutionProjectionRow::new);
         apply(row, record, context);
         repository.save(row);
 
@@ -63,7 +69,7 @@ public class OrderExecutionProjection implements Projection {
         repository.deleteAllInBatch();
     }
 
-    private static void apply(OrderExecutionView row, OrderExecution record, ProjectionContext context) {
+    private static void apply(OrderExecutionProjectionRow row, OrderExecution record, ProjectionContext context) {
         row.setOrderId(record.getOrderId());
         row.setExecId(record.getExecId());
         row.setRootOrderId(record.getRootOrderId());

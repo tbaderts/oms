@@ -3,7 +3,7 @@ package org.example.oms.mapper;
 import java.util.List;
 
 import org.example.common.model.query.ExecutionViewDto;
-import org.example.oms.model.OrderExecutionView;
+import org.example.oms.model.OrderExecutionProjectionRow;
 import org.mapstruct.InjectionStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -19,7 +19,7 @@ import org.mapstruct.Mapping;
 public interface ExecutionViewDtoMapper {
 
     @Mapping(target = "transactTime", source = "transactTime", qualifiedByName = "toOffsetDateTime")
-    ExecutionViewDto toExecutionViewDto(OrderExecutionView row);
+    ExecutionViewDto toExecutionViewDto(OrderExecutionProjectionRow row);
 
-    List<ExecutionViewDto> toExecutionViewDtos(List<OrderExecutionView> rows);
+    List<ExecutionViewDto> toExecutionViewDtos(List<OrderExecutionProjectionRow> rows);
 }

@@ -17,7 +17,6 @@ import org.example.common.model.cmd.Side;
 import org.example.common.model.cmd.TimeInForce;
 import org.example.oms.model.Event;
 import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
 import org.example.oms.service.endofday.EndOfDayService;
 import org.example.oms.service.endofday.OrderExpiryService;
 import org.junit.jupiter.api.Test;
@@ -35,8 +34,8 @@ class EndOfDayIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     @Autowired OrderExpiryService orderExpiryService;
     @Autowired EndOfDayService endOfDayService;
-    @Autowired OrderAcceptCommandProcessor orderAcceptCommandProcessor;
     @Autowired OrderEventRepository orderEventRepository;
+    @Autowired org.example.oms.repository.CommandLogRepository commandLogRepository;
     @Autowired org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Autowired org.springframework.kafka.core.ConsumerFactory<Object, Object> consumerFactory;
 
@@ -112,6 +111,44 @@ class EndOfDayIntegrationTest extends AbstractFillFlowIntegrationTest {
         assertEquals(State.FILLED, state(filledAfterCutoff), "finished after the cutoff: closed by the next end of day");
     }
 
+    /** SPEC-0046 AC-5: the scheduled jobs' commands are logged with the scheduler as their sender. */
+    @Test
+    void scheduledCommandsAreLoggedAsScheduler() throws Exception {
+        String filled = live(order(TimeInForce.GOOD_TILL_CANCEL, null));
+        assertEquals(201, postFill(filled + "-F1", filled, "100", null));
+        String due = live(order(TimeInForce.GOOD_TILL_DATE, NOW.minusSeconds(60)));
+        orderExpiryService.expireDueGtd(NOW);
+        Thread.sleep(20);
+
+        endOfDayService.run(Instant.now());
+
+        org.example.oms.model.CommandLogEntry close = scheduled(filled, "OrderCloseCmd");
+        assertEquals(org.example.oms.model.CommandSource.SCHEDULER, close.getSource());
+        assertEquals("oms-core:end-of-day", close.getPrincipal());
+        assertEquals(org.example.oms.model.CommandOutcome.APPLIED, close.getOutcome());
+        assertEquals(versionOf(filled, Event.CLOSE), close.getEventVersion(), "the CLOSE event's version");
+        org.example.oms.model.CommandLogEntry expiry = scheduled(due, "OrderExpireCmd");
+        assertEquals(org.example.oms.model.CommandSource.SCHEDULER, expiry.getSource());
+        assertEquals("oms-core:expiry", expiry.getPrincipal());
+        assertEquals(org.example.oms.model.CommandOutcome.APPLIED, expiry.getOutcome());
+        assertEquals(versionOf(due, Event.EXP), expiry.getEventVersion(), "the EXP event's version");
+    }
+
+    private long versionOf(String orderId, Event event) {
+        return orderEventRepository.findByOrderIdOrderByVersionAsc(orderId).stream()
+                .filter(e -> e.getEvent() == event)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(event + " of " + orderId + " not recorded"))
+                .getVersion();
+    }
+
+    private org.example.oms.model.CommandLogEntry scheduled(String orderId, String type) {
+        return commandLogRepository.findByOrderIdOrderByReceivedAtAscIdAsc(orderId).stream()
+                .filter(e -> type.equals(e.getType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(type + " of " + orderId + " not logged"));
+    }
+
     // AC-4, AC-5
     @Test
     void stepsAreIdempotent() {
@@ -152,7 +189,7 @@ class EndOfDayIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     private String live(String orderId) {
-        var accepted = orderAcceptCommandProcessor.process(
+        var accepted = orderLifecycleCommandProcessor.process(
                 new OrderAcceptCmd().orderId(orderId).type("OrderAcceptCmd"), Instant.now());
         assertTrue(accepted.isSuccess(), accepted.getErrorMessage());
         return orderId;

@@ -20,4 +20,14 @@ public class OrderEventReadService {
     public List<OrderEvent> findByOrderId(String orderId) {
         return orderEventRepository.findByOrderIdOrderByVersionAsc(orderId);
     }
+
+    /**
+     * An order's history, or with an execId only the entries about that execution, in version order
+     * (SPEC-0044).
+     */
+    public List<OrderEvent> findByOrderId(String orderId, String execId) {
+        return execId == null
+                ? findByOrderId(orderId)
+                : orderEventRepository.findByOrderIdAndExecIdOrderByVersionAsc(orderId, execId);
+    }
 }

@@ -40,13 +40,14 @@ class OrderEventContractTest {
     }
 
     @Test
-    void orderEventTypeHasTenKinds() throws ClassNotFoundException {
+    void orderEventTypeHasThirteenKinds() throws ClassNotFoundException {
         Class<?> type = Class.forName(QUERY_MODEL + "OrderEventType");
         List<String> values = Arrays.stream(type.getEnumConstants()).map(c -> ((Enum<?>) c).name()).toList();
 
         assertEquals(
-                // EXP and CLOSE since SPEC-0029
-                List.of("NEW_ORDER", "ACK", "PARTIAL_FILL", "FILL", "CXL", "REJ", "CXL_REQUEST", "CXL_REJ", "EXP", "CLOSE"),
+                // EXP and CLOSE since SPEC-0029; the execution lifecycle events since SPEC-0044
+                List.of("NEW_ORDER", "ACK", "PARTIAL_FILL", "FILL", "CXL", "REJ", "CXL_REQUEST", "CXL_REJ", "EXP", "CLOSE",
+                        "EXEC_BUST", "EXEC_CORRECT", "EXEC_WHACK"),
                 values);
     }
 }

@@ -24,6 +24,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum LifecycleAction {
 
+    /**
+     * ExecutionReport ExecType=0: the market acknowledged the order; UNACK → LIVE, and the market-ack
+     * SLA is stamped (SPEC-0046: the acknowledgement runs through this pipeline like every other
+     * lifecycle change).
+     */
+    ACCEPT(State.LIVE, null, Event.ACK, false, ReasonEffect.NONE),
+
     /** ExecutionReport ExecType=8: the market refused the order. */
     REJECT(State.REJ, null, Event.REJ, true, ReasonEffect.SET),
 

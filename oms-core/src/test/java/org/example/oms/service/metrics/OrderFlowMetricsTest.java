@@ -51,6 +51,23 @@ class OrderFlowMetricsTest {
         assertEquals(25.0, registry.get(OrderFlowMetrics.EXECUTION_QUANTITY).tag("side", "BUY").summary().totalAmount());
     }
 
+    /** SPEC-0044: busts, corrections and whacks are counted like every other event, after commit. */
+    @Test
+    void executionLifecycleEventsAreCountedAfterCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+        metrics.recordEvent(Event.EXEC_BUST);
+        metrics.recordEvent(Event.EXEC_CORRECT);
+        metrics.recordEvent(Event.EXEC_WHACK);
+
+        assertEquals(0, events(Event.EXEC_BUST), "nothing before commit");
+
+        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+
+        assertEquals(1, events(Event.EXEC_BUST));
+        assertEquals(1, events(Event.EXEC_CORRECT));
+        assertEquals(1, events(Event.EXEC_WHACK));
+    }
+
     @Test
     void recordsNothingOnRollback() {
         TransactionSynchronizationManager.initSynchronization();

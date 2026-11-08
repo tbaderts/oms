@@ -24,7 +24,7 @@ import org.example.common.model.cmd.TimeInForce;
 import org.example.common.model.msg.OrderMessage;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.OutboxRepository;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +43,7 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
     private static final String ORDERS = "orders";
 
     @Autowired OutboxRepository outboxRepository;
-    @Autowired OrderAcceptCommandProcessor orderAcceptCommandProcessor;
+    @Autowired OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Autowired ConsumerFactory<Object, Object> consumerFactory;
     @Autowired MeterRegistry meterRegistry;
     @Value("${kafka.outbox.max-attempts}") int maxAttempts;
@@ -115,7 +115,7 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
                 .lastError("planted: exhausted its attempts")
                 .build());
 
-        var accepted = orderAcceptCommandProcessor.process(
+        var accepted = orderLifecycleCommandProcessor.process(
                 new OrderAcceptCmd().orderId(orderId).type("OrderAcceptCmd"), Instant.now());
         assertTrue(accepted.isSuccess(), accepted.getErrorMessage());
         return orderId;

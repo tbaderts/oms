@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.example.common.model.Execution;
+import org.example.common.model.State;
 import org.example.common.model.cmd.OrdType;
 import org.example.common.model.cmd.OrderAcceptCmd;
 import org.example.common.model.cmd.OrderCancelRequestCmd;
@@ -20,10 +22,13 @@ import org.example.common.model.cmd.OrderCreateCmd;
 import org.example.common.model.cmd.Side;
 import org.example.common.model.cmd.TimeInForce;
 import org.example.oms.OmsApplication;
+import org.example.oms.model.Event;
 import org.example.oms.model.OrderEvent;
 import org.example.oms.repository.OrderEventRepository;
-import org.example.oms.service.command.OrderAcceptCommandProcessor;
+import org.example.oms.repository.OrderRepository;
+import org.example.oms.service.OrderEventAppender;
 import org.example.oms.service.command.OrderCreateCommandProcessor;
+import org.example.oms.service.execution.ExecutionCommandProcessor;
 import org.example.oms.service.lifecycle.OrderLifecycleCommandProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +38,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -71,9 +77,12 @@ class OrderEventQueryIntegrationTest {
 
     @Autowired private WebApplicationContext webApplicationContext;
     @Autowired private OrderCreateCommandProcessor orderCreateCommandProcessor;
-    @Autowired private OrderAcceptCommandProcessor orderAcceptCommandProcessor;
     @Autowired private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Autowired private OrderEventRepository orderEventRepository;
+    @Autowired private OrderRepository orderRepository;
+    @Autowired private ExecutionCommandProcessor executionCommandProcessor;
+    @Autowired private OrderEventAppender orderEventAppender;
+    @Autowired private TransactionTemplate transactionTemplate;
 
     private MockMvc mockMvc;
 
@@ -155,11 +164,47 @@ class OrderEventQueryIntegrationTest {
         String operation = "$.paths['/api/query/orders/{orderId}/events'].get";
         assertEquals("getOrderEvents", JsonPath.read(docs, operation + ".operationId"));
         List<Map<String, Object>> parameters = JsonPath.read(docs, operation + ".parameters");
-        assertEquals(1, parameters.size());
+        assertEquals(2, parameters.size());
         assertEquals("orderId", parameters.get(0).get("name"));
         assertEquals("path", parameters.get(0).get("in"));
         assertEquals(Boolean.TRUE, parameters.get(0).get("required"));
+        // SPEC-0044: the optional execution filter.
+        assertEquals("execId", parameters.get(1).get("name"));
+        assertEquals("query", parameters.get(1).get("in"));
+        assertTrue(!Boolean.TRUE.equals(parameters.get(1).get("required")), "execId is optional");
         assertTrue(JsonPath.<Map<String, Object>>read(docs, "$.paths").containsKey("/api/query/search"));
+    }
+
+    /**
+     * SPEC-0044 AC-10: with execId, only the events about that execution: its fill and its bust, in
+     * version order. Without it, the whole log as before.
+     */
+    @Test
+    void execIdFilterReturnsOnlyThatExecutionsEvents() throws Exception {
+        String orderId = createAndAcceptOrder();
+        String ex1 = orderId + "-EX-1";
+        fill(orderId, ex1, "4");
+        fill(orderId, orderId + "-EX-2", "6");
+        bust(orderId, ex1, "6", "4");
+
+        List<Map<String, Object>> events = getEvents(orderId, ex1);
+
+        assertEquals(List.of(3, 5), events.stream().map(e -> ((Number) e.get("version")).intValue()).toList());
+        assertEquals(List.of("PARTIAL_FILL", "EXEC_BUST"), events.stream().map(e -> e.get("event")).toList());
+        assertEquals(
+                List.of("NEW_ORDER", "ACK", "PARTIAL_FILL", "FILL", "EXEC_BUST"),
+                getEvents(orderId).stream().map(e -> e.get("event")).toList());
+    }
+
+    /** SPEC-0044 AC-10: an execution the order does not have matches nothing. */
+    @Test
+    void unknownExecIdReturnsEmptyArray() throws Exception {
+        String orderId = createAndAcceptOrder();
+        fill(orderId, orderId + "-EX-1", "4");
+
+        mockMvc.perform(get("/api/query/orders/{orderId}/events", orderId).param("execId", "NO-SUCH-EXEC"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
     }
 
     @Test
@@ -168,6 +213,37 @@ class OrderEventQueryIntegrationTest {
 
         mockMvc.perform(get("/api/order-events/orderId/{orderId}", orderId))
                 .andExpect(status().isNotFound());
+    }
+
+    private List<Map<String, Object>> getEvents(String orderId, String execId) throws Exception {
+        String body = mockMvc.perform(get("/api/query/orders/{orderId}/events", orderId).param("execId", execId))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return JsonPath.read(body, "$");
+    }
+
+    private void fill(String orderId, String execId, String lastQty) {
+        var result = TestCommands.applyFill(executionCommandProcessor, Execution.builder()
+                .orderId(orderId)
+                .execId(execId)
+                .lastQty(new BigDecimal(lastQty))
+                .lastPx(new BigDecimal("100.00"))
+                .execType("F")
+                .build());
+        assertTrue(result.isSuccess(), () -> "fill " + execId + " failed");
+    }
+
+    /** Applies a bust as SPEC-0030's pipeline will: the order's quantities, then the lifecycle event. */
+    private void bust(String orderId, String execId, String cumQty, String leavesQty) {
+        transactionTemplate.executeWithoutResult(tx -> {
+            var order = orderRepository.findByOrderId(orderId).orElseThrow();
+            var saved = orderRepository.save(order.toBuilder()
+                    .state(State.LIVE)
+                    .cumQty(new BigDecimal(cumQty))
+                    .leavesQty(new BigDecimal(leavesQty))
+                    .build());
+            orderEventAppender.appendExecutionLifecycleEvent(saved, execId, Event.EXEC_BUST, null);
+        });
     }
 
     private List<Map<String, Object>> getEvents(String orderId) throws Exception {
@@ -191,7 +267,7 @@ class OrderEventQueryIntegrationTest {
         var created = orderCreateCommandProcessor.process(
                 new OrderCreateCmd().type("OrderCreateCmd").order(order), Instant.now());
         assertTrue(created.isSuccess(), created.getErrorMessage());
-        var accepted = orderAcceptCommandProcessor.process(
+        var accepted = orderLifecycleCommandProcessor.process(
                 new OrderAcceptCmd(created.getOrderId(), "OrderAcceptCmd"), Instant.now());
         assertTrue(accepted.isSuccess(), accepted.getErrorMessage());
         return created.getOrderId();

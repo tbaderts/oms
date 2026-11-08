@@ -16,9 +16,10 @@ export function SpecTicketsView() {
   const lastResult = useSpecTicketsStore((s) => (s.lastResultFor === null ? s.lastResult : null));
   const setActiveView = useNavigationStore((s) => s.setActiveView);
 
-  // Loads the tickets for the switcher and re-reads the open ticket (it may be remembered from before).
+  // Loads the tickets for the switcher and re-reads the open ticket (it may be remembered from before),
+  // joining the read that opening a ticket from the Dashboard already started.
   useEffect(() => {
-    refresh();
+    refresh({ reuseInFlight: true });
   }, [refresh]);
 
   return (
