@@ -17,6 +17,7 @@ import { registerApiExplorerIpc } from './ipc/apiExplorer.ipc';
 import { registerStoryboardsIpc, type StoryboardsIpc } from './ipc/storyboards.ipc';
 import { registerAiIpc, type AiIpc } from './ipc/ai.ipc';
 import { registerDockerIpc } from './ipc/docker.ipc';
+import { registerMonitorIpc } from './ipc/monitor.ipc';
 import { KbService } from './services/KbService';
 import { AiUsageTracker } from './ai/AiUsageTracker';
 import { resolveStoryboardsConfig } from './services/ConfigService';
@@ -127,6 +128,7 @@ function registerAllIpc(): void {
     configService,
     dockerPath: configService.getConfig().infrastructure.dockerPath,
   });
+  registerMonitorIpc(ipcMain, configService);
   storyboards = registerStoryboardsIpc(ipcMain, {
     configService,
     broadcast: (event) => wsServer.broadcast(event),
