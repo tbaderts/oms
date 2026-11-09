@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.oms.service.command.LoadedOrders;
 
 /**
  * Loads the order a lifecycle command refers to. The command's orderId is read from the context key
@@ -38,6 +39,8 @@ public class LoadOrderTask implements Task<OrderTaskContext> {
             return fail(context, "Order not found: " + orderId);
         }
 
+        // The order as loaded, for the event's record of what this command changes (SPEC-0049).
+        LoadedOrders.remember(order);
         context.setOrder(order);
         return TaskResult.success(getName(), "Loaded order " + orderId);
     }

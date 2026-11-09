@@ -28,6 +28,10 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
+import tools.jackson.databind.JsonNode;
+import org.example.oms.service.command.LoadedOrders;
+import org.example.oms.service.command.CommandContext;
+import org.example.oms.service.command.CommandOrigin;
 
 /**
  * The single place a state change is recorded and staged for publication.
@@ -55,6 +59,7 @@ public class OrderEventAppender {
     private final String orderExecutionTopic;
     private final StateMachine<ExecutionStatus> executionStatuses = ExecutionStatusMachineConfig.create();
     private final OutboxNudge outboxNudge;
+    private final WriterSchemaIds writerSchemaIds;
 
     public OrderEventAppender(
             OrderEventRepository orderEventRepository,
@@ -66,7 +71,8 @@ public class OrderEventAppender {
             ExecutionRepository executionRepository,
             OrderExecutionMessageMapper orderExecutionMessageMapper,
             @Value("${kafka.order-execution-topic:oms_order_executions}") String orderExecutionTopic,
-            OutboxNudge outboxNudge) {
+            OutboxNudge outboxNudge,
+            WriterSchemaIds writerSchemaIds) {
         this.orderEventRepository = orderEventRepository;
         this.outboxRepository = outboxRepository;
         this.orderTopic = orderTopic;
@@ -77,6 +83,7 @@ public class OrderEventAppender {
         this.orderExecutionMessageMapper = orderExecutionMessageMapper;
         this.orderExecutionTopic = orderExecutionTopic;
         this.outboxNudge = outboxNudge;
+        this.writerSchemaIds = writerSchemaIds;
     }
 
     /**
@@ -89,9 +96,15 @@ public class OrderEventAppender {
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.PROJECTION)
                         .aggregateId(message.key())
+                        .orderId(message.orderId())
                         .topic(message.topic())
                         .aggregateVersion(message.version())
                         .payloadType(message.payload().getSchema().getFullName())
+                        // The schema the payload is encoded with, so the relay can resolve it against
+                        // a later version of the record (SPEC-0049); null until its id is known.
+                        .payloadSchemaId(writerSchemaIds != null
+                                ? writerSchemaIds.idFor(message.topic(), message.payload().getSchema())
+                                : null)
                         .payload(payloadCodec.encode(message.payload()))
                         .createdAt(Instant.now())
                         .attempts(0)
@@ -117,6 +130,14 @@ public class OrderEventAppender {
         long version = order.getTxNr() + 1;
         order.setTxNr(version);
 
+        // Who caused the change and what it changed (SPEC-0049): the command's ids, where it entered
+        // the OMS, and the diff from the order as this transaction loaded it.
+        JsonNode saved = LoadedOrders.toJson(order);
+        String changes = OrderChanges
+                .diff(LoadedOrders.before(order.getOrderId()), saved)
+                .toString();
+        CommandOrigin origin = CommandContext.current();
+
         OrderEvent appended =
                 OrderEvent.builder()
                         .orderId(order.getOrderId())
@@ -128,6 +149,11 @@ public class OrderEventAppender {
                         .resultingState(order.getState())
                         .orderSnapshot(order)
                         .schemaVersion(OrderEventSchemaVersion.CURRENT)
+                        .correlationId(command != null ? command.getCorrelationId() : null)
+                        .causationId(command != null ? command.getCausationId() : null)
+                        .principal(origin != null ? origin.principal() : null)
+                        .source(origin != null ? origin.source() : null)
+                        .changes(changes)
                         .timeStamp(Instant.now())
                         .build();
         try {
@@ -146,13 +172,18 @@ public class OrderEventAppender {
             throw e;
         }
 
+        // A second event in this transaction diffs from this one's result.
+        LoadedOrders.remember(order.getOrderId(), saved);
+
+        // A pointer (SPEC-0047): the relay reads the order back from this event's snapshot, so the
+        // order is serialized once per change, here in order_events, not again in the outbox.
         stage(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.ORDER)
                         .aggregateId(partitionKey(order))
+                        .orderId(order.getOrderId())
                         .topic(orderTopic)
                         .aggregateVersion(version)
-                        .orderPayload(order)
                         .createdAt(Instant.now())
                         .attempts(0)
                         .build());
@@ -187,14 +218,16 @@ public class OrderEventAppender {
         execution.recordApplied(version, partitionKey(order));
         orderFlowMetrics.recordFill(order.getSide(), execution.getLastQty());
 
+        // A pointer (SPEC-0047): the relay reads the execution back by (order_id, execid); the root
+        // order id it needs is this row's key, so no copy of the order is staged.
         stage(
                 OutboxMessage.builder()
                         .aggregateType(OutboxMessage.AggregateType.EXECUTION)
                         .aggregateId(partitionKey(order))
+                        .orderId(order.getOrderId())
+                        .execId(execution.getExecId())
                         .topic(executionTopic)
                         .aggregateVersion(version)
-                        .orderPayload(order)
-                        .executionPayload(execution)
                         .createdAt(Instant.now())
                         .attempts(0)
                         .build());
@@ -246,7 +279,7 @@ public class OrderEventAppender {
         // A copy with the reversal's ExecType: the stored execution keeps what the venue reported.
         OrderExecution record = orderExecutionMessageMapper.toOrderExecutionMessage(
                 execution.toBuilder().execType(effect.getExecType()).build(), order, version, Instant.now());
-        stageMessage(new StagedMessage(orderExecutionTopic, partitionKey(order), version, record));
+        stageMessage(new StagedMessage(orderExecutionTopic, partitionKey(order), order.getOrderId(), version, record));
 
         log.info(
                 "Recorded {} v{} - orderId={}, execId={}, status {} -> {}",

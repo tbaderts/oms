@@ -1,0 +1,83 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0047: a fill wrote the order three times (the event snapshot, then the
+  # ORDER and EXECUTION outbox rows) and drew every id with its own sequence
+  # round trip (architecture review findings F-3 and F-4).
+  #
+  # ORDER and EXECUTION outbox rows become pointers: order_id and exec_id name
+  # what the relay reads back at publish time, from order_events and
+  # executions. Existing rows keep their payloads and publish as before; the
+  # columns stay nullable, so no backfill is needed.
+  #
+  # The relay never claims a row while an earlier version of the same order
+  # waits at a higher id; idx_outbox_order_version serves that probe.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 015-outbox-pointer-columns
+      author: oms
+      changes:
+        - addColumn:
+            tableName: outbox
+            columns:
+              - column:
+                  name: order_id
+                  type: varchar(255)
+              - column:
+                  name: exec_id
+                  type: varchar(255)
+        - createIndex:
+            tableName: outbox
+            indexName: idx_outbox_order_version
+            columns:
+              - column:
+                  name: order_id
+              - column:
+                  name: aggregate_version
+      rollback:
+        - dropIndex:
+            tableName: outbox
+            indexName: idx_outbox_order_version
+        - dropColumn:
+            tableName: outbox
+            columnName: exec_id
+        - dropColumn:
+            tableName: outbox
+            columnName: order_id
+
+  # ---------------------------------------------------------------------------
+  # SPEC-0047: the four hot entities draw ids in blocks of 50 (allocationSize 50,
+  # pooled-lo optimizer). With pooled-lo the value nextval returns is the low end
+  # of a block, so new ids continue above every id issued before this change.
+  # Hibernate checks at startup that each increment equals the entity's
+  # allocationSize, so the annotations and this changeset change together.
+  # outbox_seq and command_log_seq stay at 1.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 015-pooled-sequences
+      author: oms
+      changes:
+        - alterSequence:
+            sequenceName: order_seq
+            incrementBy: 50
+        - alterSequence:
+            sequenceName: execution_seq
+            incrementBy: 50
+        - alterSequence:
+            sequenceName: order_event_seq
+            incrementBy: 50
+        - alterSequence:
+            sequenceName: order_execution_projection_seq
+            incrementBy: 50
+      rollback:
+        - alterSequence:
+            sequenceName: order_seq
+            incrementBy: 1
+        - alterSequence:
+            sequenceName: execution_seq
+            incrementBy: 1
+        - alterSequence:
+            sequenceName: order_event_seq
+            incrementBy: 1
+        - alterSequence:
+            sequenceName: order_execution_projection_seq
+            incrementBy: 1

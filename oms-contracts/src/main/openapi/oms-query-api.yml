@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Query API
-  version: 2.3.0
+  version: 2.5.0
   description: |
     Query (read-only) API for searching Orders with dynamic filtering, pagination, and sorting.
     
@@ -377,6 +377,30 @@ components:
             oms-cmd-api.yml; its `type` property names the command type).
         orderSnapshot:
           $ref: '#/components/schemas/OrderDto'
+        correlationId:
+          type: string
+          description: >-
+            The causing command's correlationId (Kafka header or REST body), when it had one.
+            SPEC-0049.
+        causationId:
+          type: string
+          description: The causing command's causationId, when it had one. SPEC-0049.
+        principal:
+          type: string
+          description: >-
+            Who sent the causing command: the Kafka producer or the scheduler job
+            (oms-core:expiry, oms-core:end-of-day); null on REST until authentication exists.
+            SPEC-0049.
+        source:
+          type: string
+          enum: [REST, KAFKA, SCHEDULER]
+          description: Where the causing command entered the OMS. SPEC-0049.
+        changes:
+          type: object
+          description: >-
+            The fields this event changed, as {"<field>": {"from": <old>, "to": <new>}}, with
+            field names and values as in orderSnapshot. A first event lists every field set at
+            creation with from null. Null for events recorded before SPEC-0049.
     OrderDto:
       type: object
       description: Summary Order representation used in query responses.
@@ -402,6 +426,9 @@ components:
           description: >-
             The order's latest event-log version: the highest order_events.version for the order,
             and the eventId of its newest oms_orders message. Absent when the order has no events.
+            Read-your-writes: a client that needs to see its own change waits until search returns
+            the order with eventVersion at least the CommandResult.eventVersion its command got
+            (SPEC-0050).
         sessionId:
           type: string
         clOrdId:

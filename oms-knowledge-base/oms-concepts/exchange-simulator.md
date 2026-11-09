@@ -156,6 +156,9 @@ oms-core must run with `KAFKA_ENABLED=true`. Then create an order (see `oms-core
 The load suite is from SPEC-0024. It drives a scripted, repeatable order flow through oms-core
 while the simulator acks and fills, and it records the result. The simulator takes part unchanged.
 
+For runs at a configurable rate, with live latency charts and AI investigation, use
+[Mission Control](mission-control.md) (SPEC-0055). This JUnit suite stays the fixed-shape baseline.
+
 **Where and when it runs.**
 - The suite is `LoadSuiteRunnerTest` in oms-core test scope, package `org.example.oms.load`.
 - It is gated by `OMS_LOAD_SUITE=true`, so CI and `./gradlew check` skip it.
@@ -185,6 +188,10 @@ while the simulator acks and fills, and it records the result. The simulator tak
   `build/load-reports/`, named `load-baseline-<timestamp>.md`.
 - The report records the run configuration (order count, concurrency, fill slices, base URL)
   beside the numbers.
+- It also records the run's **write volume**: the PostgreSQL WAL bytes written between the start
+  and the end of the run (`pg_current_wal_lsn()` read through `OMS_LOAD_DB_URL`), in total and
+  per order (SPEC-0047). It says `n/a` when the database cannot be reached. The figure covers
+  everything the database wrote meanwhile, so run on an otherwise idle stack.
 - The baseline committed before SPEC-0020 and SPEC-0022 is
   `oms-core/docs/load-baseline-2026-11-08.md`: 79 commands/s, with OMS processing p99 about
   24 ms.
@@ -198,6 +205,8 @@ while the simulator acks and fills, and it records the result. The simulator tak
 | `OMS_LOAD_FILL_SLICES` | 1 | the simulator's `SIMULATOR_FILL_SLICES`, recorded in the report; set both together |
 | `OMS_LOAD_REPORT_DIR` | `build/load-reports` | where the report is written |
 | `OMS_LOAD_TIMEOUT_SECONDS` | 600 | how long to wait for every order to be terminal |
+| `OMS_LOAD_DB_URL` | `jdbc:postgresql://localhost:5432/postgres` | the database whose WAL position is read (the compose database) |
+| `OMS_LOAD_DB_USER` / `OMS_LOAD_DB_PASSWORD` | `postgres` / `changeme` | its credentials (the compose defaults) |
 
 ```bash
 docker compose up -d --build oms-core exchange-simulator

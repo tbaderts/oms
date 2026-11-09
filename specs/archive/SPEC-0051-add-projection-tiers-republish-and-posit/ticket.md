@@ -2,7 +2,7 @@
 id: SPEC-0051
 title: Add projection tiers, republish and position projection
 type: feature
-status: proposal
+status: withdrawn
 awaiting:
 autopilot: false
 modules: [oms-core, oms-contracts, oms-streaming-service, oms-knowledge-base]
@@ -11,6 +11,8 @@ owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
 blocked_reason:
+withdrawn_from: proposal
+withdrawn_reason: Not needed: positions belong to the back office; the only projection needed is order_execution_projection for booking. Republish moves to the booking work; non-blocking rebuild is a later follow-up.
 ---
 
 # SPEC-0051 — Add projection tiers, republish and position projection
@@ -26,3 +28,4 @@ Ticket F of the event sourcing and CQRS review (findings F-9 and F-15; target ar
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Depends on SPEC-0044 and SPEC-0021.
+- 2026-11-08 11:17 — withdrawn: Not needed: positions belong to the back office; the only projection needed is order_execution_projection for booking. Republish moves to the booking work; non-blocking rebuild is a later follow-up.

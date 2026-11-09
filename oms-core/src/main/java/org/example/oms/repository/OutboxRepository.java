@@ -31,6 +31,12 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
      *
      * <p>An aggregate (topic and key) with a message that exhausted its attempts is held: its later
      * messages are not claimed, so they are never published ahead of the stuck one (SPEC-0026).
+     *
+     * <p>One order's rows are published in version order even if their ids are not (SPEC-0047).
+     * Pooled ids make that possible in principle. When an order's pending rows on a topic contain an
+     * inversion (a lower version at a higher id), only the order's lowest pending version is
+     * claimable, one per batch, until the inversion is gone. Rows without an order id (staged before
+     * SPEC-0047) keep id order.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -39,6 +45,13 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
               AND NOT EXISTS (SELECT 1 FROM OutboxMessage s
                               WHERE s.topic = o.topic AND s.aggregateId = o.aggregateId
                                 AND s.attempts >= :maxAttempts)
+              AND (NOT EXISTS (SELECT 1 FROM OutboxMessage v
+                               WHERE v.topic = o.topic AND v.orderId = o.orderId
+                                 AND v.aggregateVersion < o.aggregateVersion)
+                   OR NOT EXISTS (SELECT 1 FROM OutboxMessage a, OutboxMessage b
+                                  WHERE a.topic = o.topic AND a.orderId = o.orderId
+                                    AND b.topic = o.topic AND b.orderId = o.orderId
+                                    AND a.aggregateVersion < b.aggregateVersion AND a.id > b.id))
             ORDER BY o.id ASC""")
     List<OutboxMessage> claimPending(int maxAttempts, Limit limit);
 

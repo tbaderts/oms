@@ -1,15 +1,49 @@
 {
   "name": "mission-control",
+  "version": "0.2.0",
   "private": true,
+  "description": "Mission Control: load runs against OMS with live latency charts and AI investigation (SPEC-0055)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
-    "lint": "turbo lint",
-    "clean": "turbo clean"
+    "dev": "concurrently -k -n server,ui \"tsx watch src/server/index.ts\" \"vite\"",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "start": "node dist/server/server/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "test": "vitest run --exclude test/server/LoadGenerator.test.ts && vitest run test/server/LoadGenerator.test.ts",
+    "e2e": "node scripts/e2e-run.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.97",
+    "@ai-sdk/openai": "4.0.109",
+    "@ai-sdk/openai-compatible": "3.0.85",
+    "@hono/node-server": "^2.1.6",
+    "@kafkajs/confluent-schema-registry": "^4.1.0",
+    "ai": "7.0.163",
+    "hono": "^4.7.0",
+    "kafkajs": "^2.2.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "recharts": "^2.15.0",
+    "undici": "^7.10.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
-    "typescript": "^5.8.0"
-  },
-  "packageManager": "pnpm@10.6.0"
+    "@tailwindcss/vite": "4.2.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "4.7.0",
+    "avsc": "^5.7.9",
+    "concurrently": "9.2.5",
+    "jsdom": "26.1.0",
+    "tailwindcss": "4.2.1",
+    "tsx": "^4.19.0",
+    "typescript": "5.9.3",
+    "vite": "6.4.5",
+    "vitest": "3.2.7"
+  }
 }

@@ -57,7 +57,9 @@ class OrderEventQueryIntegrationTest {
 
     private static final Set<String> CONTRACTED_PROPERTIES = Set.of(
             "orderId", "version", "event", "commandId", "resultingState", "timeStamp", "transaction",
-            "orderSnapshot");
+            "orderSnapshot",
+            // SPEC-0049: who caused the event and what it changed
+            "correlationId", "causationId", "principal", "source", "changes");
 
     @Container
     static PostgreSQLContainer<?> postgres =

@@ -59,6 +59,16 @@ public class CommandDispatcher {
 
     @Transactional
     public CommandDispatch dispatch(Command command, CommandOrigin origin) {
+        // Where the command came from, for the event it produces (SPEC-0049).
+        CommandOrigin outer = CommandContext.bind(origin);
+        try {
+            return dispatchBound(command, origin);
+        } finally {
+            CommandContext.restore(outer);
+        }
+    }
+
+    private CommandDispatch dispatchBound(Command command, CommandOrigin origin) {
         CommandDispatch outcome;
         try {
             outcome = route(command, origin);
@@ -113,7 +123,10 @@ public class CommandDispatcher {
             String reason = result.getErrorMessage() != null
                     ? result.getErrorMessage()
                     : firstFailure(result.getTaskResults(), "Execution processing failed");
-            return refused(command, orderIdOf(command), reason, result.isDuplicate(), "Execution processing failed");
+            // The reason in the answer too: a client refused on its expected version (SPEC-0050), or on
+            // anything else, learns why.
+            String message = reason.startsWith("Execution processing failed") ? reason : "Execution processing failed: " + reason;
+            return refused(command, orderIdOf(command), reason, result.isDuplicate(), message);
         }
 
         if (OrderLifecycleCommandProcessor.supports(command)) {

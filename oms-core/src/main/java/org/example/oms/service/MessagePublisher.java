@@ -3,11 +3,11 @@ package org.example.oms.service;
 import java.util.concurrent.CompletableFuture;
 
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.example.common.model.msg.OrderMessage;
 import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.mapper.ExecutionMessageMapper;
 import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
+import org.example.oms.mapper.OutboxRecordMapper;
 import org.example.oms.model.OutboxMessage;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
@@ -32,6 +32,7 @@ public class MessagePublisher {
     private final ExecutionMessageMapper executionMessageMapper;
     private final OrderExecutionMessageMapper orderExecutionMessageMapper;
     private final AvroPayloadCodec payloadCodec;
+    private final OutboxRecordMapper records;
 
     public MessagePublisher(
             KafkaTemplate<String, Object> kafkaTemplate,
@@ -44,6 +45,8 @@ public class MessagePublisher {
         this.executionMessageMapper = executionMessageMapper;
         this.orderExecutionMessageMapper = orderExecutionMessageMapper;
         this.payloadCodec = payloadCodec;
+        this.records = new OutboxRecordMapper(
+                orderMessageMapper, executionMessageMapper, orderExecutionMessageMapper, payloadCodec);
     }
 
     /**
@@ -57,34 +60,19 @@ public class MessagePublisher {
      * @throws IllegalStateException if the row has no payload for its type; mapping and
      *     serialization failures are thrown here too, before anything is sent
      */
-    @Observed(name = "oms.message-publisher.publish")
     public CompletableFuture<SendResult<String, Object>> publishAsync(OutboxMessage message) {
+        return publishAsync(message, toRecord(message));
+    }
 
-        Object payload =
-                switch (message.getAggregateType()) {
-                    case ORDER -> toOrderMessage(message);
-                    case EXECUTION -> executionMessageMapper.toExecutionMessage(
-                            message.getExecutionPayload(),
-                            message.getOrderPayload(),
-                            message.getAggregateVersion());
-                    case ORDER_EXECUTION -> orderExecutionMessageMapper.toOrderExecutionMessage(
-                            message.getExecutionPayload(),
-                            message.getOrderPayload(),
-                            message.getAggregateVersion(),
-                            message.getCreatedAt());
-                    case PROJECTION -> message.getPayload() == null
-                            ? null
-                            : payloadCodec.decode(message.getPayloadType(), message.getPayload());
-                };
-
-        if (payload == null) {
-            throw new IllegalStateException(
-                    "Outbox message " + message.getId() + " has no payload for aggregate type "
-                            + message.getAggregateType());
-        }
-
+    /**
+     * Sends a row's record, already built, without waiting for the broker. The relay builds records
+     * through {@link OutboxPayloads} before sending (SPEC-0047), since a pointer row's record is read
+     * from the database.
+     */
+    @Observed(name = "oms.message-publisher.publish")
+    public CompletableFuture<SendResult<String, Object>> publishAsync(OutboxMessage message, Object record) {
         return kafkaTemplate
-                .send(message.getTopic(), message.getAggregateId(), payload)
+                .send(message.getTopic(), message.getAggregateId(), record)
                 .whenComplete((result, failure) -> {
                     if (failure == null) {
                         RecordMetadata metadata = result.getRecordMetadata();
@@ -99,8 +87,11 @@ public class MessagePublisher {
                 });
     }
 
-    private OrderMessage toOrderMessage(OutboxMessage message) {
-        return orderMessageMapper.toOrderMessage(
-                message.getOrderPayload(), message.getAggregateVersion());
+    /**
+     * Builds the record of a row that carries its payload: PROJECTION rows, and ORDER and EXECUTION
+     * rows staged before SPEC-0047.
+     */
+    public Object toRecord(OutboxMessage message) {
+        return records.toRecord(message);
     }
 }

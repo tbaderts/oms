@@ -22,6 +22,7 @@ import org.mapstruct.Mapping;
 public interface OrderEventDtoMapper {
 
     @Mapping(target = "transaction", source = "transaction", qualifiedByName = "toTransaction")
+    @Mapping(target = "changes", source = "changes", qualifiedByName = "toChanges")
     OrderEventDto toOrderEventDto(OrderEvent event);
 
     List<OrderEventDto> toOrderEventDtos(List<OrderEvent> events);

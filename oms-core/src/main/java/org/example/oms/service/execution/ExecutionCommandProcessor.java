@@ -24,6 +24,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import io.micrometer.observation.annotation.Observed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.oms.service.command.LoadedOrders;
 
 /**
  * Command processor for handling execution reports. Assembles and executes a task pipeline to
@@ -52,6 +53,7 @@ public class ExecutionCommandProcessor {
     private final OrderRepository orderRepository;
     private final ValidateExecutionTask validateExecutionTask;
     private final DeduplicateCommandTask deduplicateCommandTask;
+    private final org.example.oms.service.command.tasks.CheckExpectedVersionTask checkExpectedVersionTask;
     private final CalculateOrderQuantitiesTask calculateOrderQuantitiesTask;
     private final DetermineOrderStateTask determineOrderStateTask;
     private final PersistExecutionTask persistExecutionTask;
@@ -110,12 +112,15 @@ public class ExecutionCommandProcessor {
      * every order is its own root.
      */
     private Order loadOrder(String orderId) {
-        return orderRepository
+        Order order = orderRepository
                 .findLockedByOrderId(orderId)
                 .orElseThrow(
                         () ->
                                 new IllegalArgumentException(
                                         "Order not found for orderId: " + orderId));
+        // The order as loaded, for the event's record of what this fill changes (SPEC-0049).
+        LoadedOrders.remember(order);
+        return order;
     }
 
     private OrderTaskContext createContext(Order order, Execution execution) {
@@ -130,6 +135,7 @@ public class ExecutionCommandProcessor {
     private TaskPipeline<OrderTaskContext> buildPipeline() {
         return TaskPipeline.<OrderTaskContext>builder("ExecutionProcessingPipeline")
                 .addTask(deduplicateCommandTask)
+                .addTask(checkExpectedVersionTask)
                 .addTask(validateExecutionTask)
                 .addTask(calculateOrderQuantitiesTask)
                 .addTask(determineOrderStateTask)

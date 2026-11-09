@@ -23,7 +23,12 @@ Stage messages in `outbox` in the command's transaction; only `OutboxRelay` publ
 - A message that cannot be published delays only its own aggregate (topic and key): the relay
   sends different aggregates in parallel and holds the later messages of a failing one behind it
   (SPEC-0026). A message that exhausted its attempts holds its aggregate until an operator acts.
-- Ordering assumes one relay instance per deployment.
+- Ordering rests on one relay leader per database (SPEC-0048) and, as a safety net, on the relay
+  never claiming one order's rows out of version order (SPEC-0047).
+- `ORDER` and `EXECUTION` rows are pointers (SPEC-0047): the relay reads the order's snapshot
+  from `order_events` and the execution from `executions` at publish time, on its drain thread.
+  The fill's write set is one copy of the order instead of three, at the cost of one indexed read
+  per row when publishing.
 
 Capability: [Event Publication](../capabilities/event-publication.md).
 

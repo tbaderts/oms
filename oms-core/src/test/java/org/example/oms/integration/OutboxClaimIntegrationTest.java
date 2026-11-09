@@ -81,6 +81,57 @@ class OutboxClaimIntegrationTest {
                 "after the first claim ends, the rest in order");
     }
 
+    /**
+     * SPEC-0047 AC-5: pooled ids may give an order's rows ids out of version order. The relay still
+     * claims them in version order. Here versions 2, 1 and 3 are saved in that id order: the first
+     * claim may take only version 1, and the next takes 2 then 3. An order whose rows are in order,
+     * and a legacy row with no order id, are claimed in id order as before.
+     */
+    @Test
+    void rowsOfAnOrderAreClaimedInVersionOrder() {
+        String run = UUID.randomUUID().toString();
+        String inverted = "ORD-INV-" + run;
+        String ordered = "ORD-OK-" + run;
+        String legacy = "ORD-LEGACY-" + run;
+        transactionTemplate.executeWithoutResult(status -> {
+            outboxRepository.save(pointer(inverted, 2));
+            outboxRepository.save(pointer(inverted, 1));
+            outboxRepository.save(pointer(ordered, 1));
+            outboxRepository.save(pointer(inverted, 3));
+            outboxRepository.save(pointer(ordered, 2));
+            outboxRepository.save(row(legacy, 1));
+        });
+
+        List<String> first = claimAndPublish(run);
+        assertEquals(List.of(inverted + " v1", ordered + " v1", ordered + " v2", legacy + " v1"), first,
+                "with an inversion only the order's lowest version is claimed; the others in id order");
+        List<String> second = claimAndPublish(run);
+        assertEquals(List.of(inverted + " v2", inverted + " v3"), second, "then the rest, in version order");
+    }
+
+    /** Claims what is claimable for this run, deletes it as the relay would after publishing, and names it. */
+    private List<String> claimAndPublish(String run) {
+        return transactionTemplate.execute(status -> {
+            List<OutboxMessage> claimed = outboxRepository.claimPending(10, Limit.of(50)).stream()
+                    .filter(m -> m.getAggregateId().endsWith(run))
+                    .toList();
+            outboxRepository.deleteAll(claimed);
+            return claimed.stream().map(m -> m.getAggregateId() + " v" + m.getAggregateVersion()).toList();
+        });
+    }
+
+    private static OutboxMessage pointer(String orderId, long version) {
+        return OutboxMessage.builder()
+                .aggregateType(OutboxMessage.AggregateType.ORDER)
+                .aggregateId(orderId)
+                .orderId(orderId)
+                .topic("orders")
+                .aggregateVersion(version)
+                .createdAt(Instant.now())
+                .attempts(0)
+                .build();
+    }
+
     private static OutboxMessage row(String aggregate, long version) {
         return OutboxMessage.builder()
                 .aggregateType(OutboxMessage.AggregateType.ORDER)

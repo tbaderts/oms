@@ -84,7 +84,7 @@ public class Order implements Serializable {
 
 | Field | Type | FIX Tag | Description | Constraints |
 |-------|------|---------|-------------|-------------|
-| `id` | `Long` | N/A | Internal database primary key | Auto-generated, sequence-based |
+| `id` | `Long` | N/A | Internal database primary key | Auto-generated from `order_seq` in blocks of 50 (pooled-lo, SPEC-0047); not commit order across instances |
 | `orderId` | `String` | N/A | Business order ID (internal) | Unique per order |
 | `clOrdId` | `String` | 11 | Client order ID | Unique per session + client combination |
 | `origClOrdId` | `String` | 41 | Original client order ID for cancel/replace | References previous `clOrdId` |
@@ -92,11 +92,18 @@ public class Order implements Serializable {
 
 **Unique Constraint:** `(sessionId, clOrdId)` ensures no duplicate client order IDs within a session.
 
+**Id allocation (SPEC-0047).** `Order`, `Execution`, `OrderEvent` and `OrderExecutionProjectionRow`
+use `allocationSize = 50`, and `hibernate.id.optimizer.pooled.preferred: pooled-lo`, so an
+instance draws 50 ids per sequence call. The database sequences increment by 50 (changelog 015);
+Hibernate checks at startup that the two agree. Ids are unique and rise within one instance,
+but with several instances they interleave in blocks: order by `(orderId, version)` or by time,
+not by `id`, where order matters. `OutboxMessage` and `CommandLogEntry` keep `allocationSize = 1`.
+
 ```java
 // Pattern: Order identification
 @Id
 @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_sequence")
-@SequenceGenerator(name = "order_sequence", sequenceName = "order_seq", allocationSize = 1)
+@SequenceGenerator(name = "order_sequence", sequenceName = "order_seq", allocationSize = 50)
 private Long id;
 
 private String orderId;         // Business ID
@@ -347,7 +354,7 @@ public class Order implements Serializable {
     // Identity
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_sequence")
-    @SequenceGenerator(name = "order_sequence", sequenceName = "order_seq", allocationSize = 1)
+    @SequenceGenerator(name = "order_sequence", sequenceName = "order_seq", allocationSize = 50)
     private Long id;
 
     private String orderId;
@@ -494,7 +501,7 @@ public class Execution implements Serializable {
     @SequenceGenerator(
             name = "execution_sequence",
             sequenceName = "execution_seq",
-            allocationSize = 1)
+            allocationSize = 50)
     private Long id;
 
     // Linkage to order

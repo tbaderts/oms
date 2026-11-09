@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.DeserializationFeature;
 
 /**
  * Turns a stored command into the free-form {@code transaction} object of an event-log entry
@@ -24,5 +25,16 @@ public class CommandJsonConverter {
     @Named("toTransaction")
     public Object toTransaction(Command command) {
         return command == null ? null : objectMapper.convertValue(command, Map.class);
+    }
+
+    /** An event's stored {@code changes} JSON as an object, so the API returns it as JSON, not text (SPEC-0049). */
+    @Named("toChanges")
+    public Object toChanges(String changes) {
+        // Decimals as BigDecimal: quantities and prices keep every stored digit, as orderSnapshot does.
+        return changes == null
+                ? null
+                : objectMapper.readerFor(Map.class)
+                        .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                        .readValue(changes);
     }
 }

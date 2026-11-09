@@ -11,14 +11,17 @@ import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.avro.specific.SpecificRecord;
 import org.springframework.stereotype.Component;
+import org.apache.avro.specific.SpecificData;
+import org.apache.avro.Schema;
 
 /**
  * Stores a projection's Avro message in the outbox's generic payload and reads it back (SPEC-0020).
  *
  * <p>The payload is the record's binary Avro encoding, and the type is its schema full name. Writing
  * and reading through the record's own class keeps its logical-type conversions (decimals, dates,
- * timestamps), so the decoded record equals the one staged. The writer schema is the class's
- * current schema, so staged rows must be published before a deployment changes that record.
+ * timestamps), so the decoded record equals the one staged. Since SPEC-0049 the row also records the
+ * writer schema's registry id, and the payload is decoded with that writer schema and the current
+ * class as reader, so a compatible change to the record between staging and publishing is resolved.
  *
  * <p>Only classes in the generated message package are resolved, so a tampered {@code payload_type}
  * cannot make the publisher load an arbitrary class.
@@ -44,9 +47,21 @@ public class AvroPayloadCodec {
     }
 
     public SpecificRecord decode(String type, byte[] payload) {
+        return decode(type, payload, null);
+    }
+
+    /**
+     * Decodes a payload encoded with {@code writer}, an earlier schema of the record, into the
+     * current class by Avro schema resolution (SPEC-0049): values the writer wrote are kept, fields it
+     * lacks take their defaults. With a null writer the class's own schema is used, as before.
+     */
+    public SpecificRecord decode(String type, byte[] payload, Schema writer) {
         Class<? extends SpecificRecord> recordClass = recordClass(type);
         try {
-            SpecificDatumReader<? extends SpecificRecord> reader = new SpecificDatumReader<>(recordClass);
+            SpecificData model = SpecificData.getForClass(recordClass);
+            Schema readerSchema = model.getSchema(recordClass);
+            SpecificDatumReader<? extends SpecificRecord> reader =
+                    new SpecificDatumReader<>(writer != null ? writer : readerSchema, readerSchema, model);
             return reader.read(null, DecoderFactory.get().binaryDecoder(payload, null));
         } catch (IOException e) {
             throw new UncheckedIOException("Could not decode payload of type " + type, e);

@@ -23,6 +23,7 @@ public class CommandHeaderMapper {
         command.setCommandId(header.getCommandId());
         command.setCorrelationId(header.getCorrelationId());
         command.setCausationId(header.getCausationId());
+        command.setExpectedVersion(header.getExpectedVersion());
         command.setSentAt(OffsetDateTime.ofInstant(header.getSentAt(), ZoneOffset.UTC));
         return command;
     }

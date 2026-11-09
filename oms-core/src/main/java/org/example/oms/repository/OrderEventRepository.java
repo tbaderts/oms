@@ -12,6 +12,9 @@ public interface OrderEventRepository extends JpaRepository<OrderEvent, Long> {
 
     List<OrderEvent> findByOrderIdOrderByVersionAsc(String orderId);
 
+    /** One event of an order, by the unique {@code (order_id, version)}; read back for a pointer outbox row (SPEC-0047). */
+    Optional<OrderEvent> findByOrderIdAndVersion(String orderId, long version);
+
     /** The entries about one execution of the order, in version order (SPEC-0044). */
     List<OrderEvent> findByOrderIdAndExecIdOrderByVersionAsc(String orderId, String execId);
 

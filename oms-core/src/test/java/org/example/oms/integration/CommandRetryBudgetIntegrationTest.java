@@ -60,12 +60,22 @@ class CommandRetryBudgetIntegrationTest extends AbstractFillFlowIntegrationTest 
                         && fill.getExecution() != null && orderId.equals(fill.getExecution().getOrderId())), any());
         // The budget is counted per consumer. A rebalance while the listener's consumers are still
         // joining hands the record to another consumer, which counts afresh, so wait until every
-        // partition is assigned before sending.
+        // consumer has joined: each of them owns exactly one partition. (All partitions assigned is
+        // not enough: five consumers can own all six while the sixth is still joining.)
         MessageListenerContainer container = listeners.getListenerContainers().stream()
                 .filter(c -> List.of(c.getContainerProperties().getTopics()).contains("commands-budget"))
                 .findFirst()
                 .orElseThrow();
         ContainerTestUtils.waitForAssignment(container, provisioner.commandPartitions());
+        var consumers = ((org.springframework.kafka.listener.ConcurrentMessageListenerContainer<?, ?>) container).getContainers();
+        long deadline = System.nanoTime() + TIMEOUT.toNanos();
+        while (!(consumers.size() == provisioner.commandPartitions()
+                && consumers.stream().allMatch(c -> c.getAssignedPartitions() != null && c.getAssignedPartitions().size() == 1))) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("The listener's consumers did not settle on one partition each");
+            }
+            Thread.sleep(100);
+        }
         double failedBefore = failed();
 
         send(orderId, fill(orderId + "-E1", orderId, "10"));

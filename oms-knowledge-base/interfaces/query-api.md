@@ -25,7 +25,11 @@ Defined in `oms-query-api.yml` as `/search`; implemented by `QueryController` (g
 than failing the query. Results are paginated.
 
 Each `OrderDto` carries `eventVersion`: the order's latest event-log version, the same number its
-newest `oms_orders` message carries as `eventId` (absent when the order has no events). Since
+newest `oms_orders` message carries as `eventId` (absent when the order has no events).
+Read-your-writes (query API 2.5.0, SPEC-0050): a client that needs to see its own change waits until
+search returns the order with `eventVersion` at least the `eventVersion` of the `CommandResult` its
+command got. The same number is what a later command sends as `expectedVersion`
+([Command API](command-api.md)). Since
 SPEC-0027 it is the order row's own version, read with the order, so it always belongs to the state
 on the page; `txNr` reports the same number (it was a separate counter, one lower, before). The
 trade blotter uses it to drop live events the snapshot already contains.
@@ -50,7 +54,10 @@ See [Command Log](../domain/command-log.md).
 `OrderEventDto` carries `orderId`, `version`, `event` (`OrderEventType`: `NEW_ORDER`, `ACK`,
 `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, since query API 2.1.0 `EXP`, `CLOSE`, and since 2.2.0 `EXEC_BUST`, `EXEC_CORRECT`, `EXEC_WHACK`), `commandId`, `resultingState`,
 `timeStamp`, `transaction` (the causing command as JSON, with its `type`) and `orderSnapshot` (the
-order after the change, as an `OrderDto`). The database id is not exposed. An order id without
+order after the change, as an `OrderDto`). Since 2.4.0 (SPEC-0049) each entry also carries
+`correlationId`, `causationId`, `principal`, `source` (`REST`, `KAFKA`, `SCHEDULER`) and `changes`
+(the fields the event changed, as `{"<field>": {"from": old, "to": new}}`, decimals exact), all null
+on events recorded before SPEC-0049; see [Order Event](../domain/order-event.md). The database id is not exposed. An order id without
 events gives `200 []`; whether the order exists is answered by `/search`. It replaces the former hidden,
 uncontracted event-log endpoint outside `/api/query`, which no longer exists. The developer cockpit's
 API Explorer follow-up reads it. Since 2.2.0 (SPEC-0044), the optional query parameter `execId`

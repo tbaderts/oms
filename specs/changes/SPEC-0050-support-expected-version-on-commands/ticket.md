@@ -2,11 +2,11 @@
 id: SPEC-0050
 title: Support expected version on commands
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-contracts, oms-core, oms-exchange-simulator, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -26,3 +26,16 @@ From section 7 of the event sourcing and CQRS review (expected version, adopted)
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Depends on SPEC-0046 for the command log entry of a refusal.
+- 2026-11-08 17:59 — autopilot on
+- 2026-11-08 18:00 — proposal gate passed; awaiting human approval
+- 2026-11-08 18:03 — proposal approved by Toni Badertscher
+- 2026-11-08 18:03 — proposal → design
+- 2026-11-08 18:04 — design → plan
+- 2026-11-08 18:05 — plan → implement
+- 2026-11-08 18:24 — verify run: pass
+- 2026-11-08 21:44 — implement → verify
+- 2026-11-08 21:49 — reopened at implement: Independent review minors 1-4: no lifecycle stale-version test, REFUSED row count, doubled fill message on fallback, 'order is new' chosen by value not command
+- 2026-11-08 21:58 — verify run: pass
+- 2026-11-08 21:59 — implement → verify
+- 2026-11-08 21:59 — verify → done
+- 2026-11-08 21:59 — autopilot off

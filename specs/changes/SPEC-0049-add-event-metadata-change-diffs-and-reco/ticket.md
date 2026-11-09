@@ -2,11 +2,11 @@
 id: SPEC-0049
 title: Add event metadata, change diffs and reconciliation
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-core, oms-contracts, oms-knowledge-base]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-07
 blocked_from:
@@ -26,3 +26,29 @@ Ticket E of the event sourcing and CQRS review (findings F-10, F-12 and F-14; ta
 
 - 2026-11-07 created
 - 2026-11-07 12:48 — Created from the target architecture. Independent. SPEC-0022 depends on its causation columns.
+- 2026-11-08 12:07 — autopilot on
+- 2026-11-08 12:10 — proposal gate passed; awaiting human approval
+- 2026-11-08 14:04 — proposal approved by Toni Badertscher
+- 2026-11-08 14:04 — proposal → design
+- 2026-11-08 14:07 — design → plan
+- 2026-11-08 14:07 — plan → implement
+- 2026-11-08 16:53 — reopened at proposal: AC-3 is unsatisfiable as approved: OMS has no partially-filled state (State is NEW, UNACK, LIVE, FILLED, CXL, REJ, CLOSED, EXP); a partial fill leaves the order LIVE. Correcting AC-3 only: state is not listed, avgPx and txNr are.
+- 2026-11-08 16:53 — proposal gate passed; awaiting human approval
+- 2026-11-08 16:57 — proposal approved by Toni Badertscher
+- 2026-11-08 16:57 — proposal → design
+- 2026-11-08 16:58 — design → plan
+- 2026-11-08 16:58 — plan → implement
+- 2026-11-08 17:01 — reopened at proposal: AC-3 names avgPx, but the order entity has no avgPx field (the fill's average price is on the execution row), so it can never be listed. Removing it from AC-3; the rest unchanged. All other ACs were rechecked against the code.
+- 2026-11-08 17:01 — proposal gate passed; awaiting human approval
+- 2026-11-08 17:16 — proposal approved by Toni Badertscher
+- 2026-11-08 17:16 — proposal → design
+- 2026-11-08 17:16 — design → plan
+- 2026-11-08 17:16 — plan → implement
+- 2026-11-08 17:38 — verify run: fail
+- 2026-11-08 17:46 — verify run: pass
+- 2026-11-08 17:46 — implement → verify
+- 2026-11-08 17:53 — reopened at implement: Independent review: majors 1 (changes returned as doubles, not exact) and 2 (recent-orders sample scans order_events, no time_stamp index); minors 3, 4, 5, 7, 8, 9
+- 2026-11-08 18:06 — verify run: pass
+- 2026-11-08 18:06 — implement → verify
+- 2026-11-08 18:06 — verify → done
+- 2026-11-08 18:06 — autopilot off

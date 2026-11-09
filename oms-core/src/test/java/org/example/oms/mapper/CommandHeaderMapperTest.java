@@ -28,6 +28,7 @@ class CommandHeaderMapperTest {
                 .setSentAt(sentAt)
                 .setProducer("oms-exchange-simulator")
                 .setVersion("1.0.0")
+                .setExpectedVersion(4L)
                 .build();
         OrderCancelRequestCmd command = new OrderCancelRequestCmd();
         command.setOrderId("ORD-1");
@@ -42,6 +43,7 @@ class CommandHeaderMapperTest {
         assertEquals("ORD-1:7", mapped.getCausationId());
         assertEquals(OffsetDateTime.of(2026, 11, 1, 10, 15, 30, 123_456_000, ZoneOffset.UTC), mapped.getSentAt());
         assertEquals("ORD-1", mapped.getOrderId());
+        assertEquals(4L, mapped.getExpectedVersion(), "the version the sender acted on (SPEC-0050)");
     }
 
     @Test
@@ -57,5 +59,6 @@ class CommandHeaderMapperTest {
         assertEquals("cmd-2", mapped.getCommandId());
         assertNull(mapped.getCorrelationId());
         assertNull(mapped.getCausationId());
+        assertNull(mapped.getExpectedVersion(), "no expected version: no check (SPEC-0050)");
     }
 }

@@ -290,7 +290,7 @@ public class Order implements Serializable {
     @SequenceGenerator(
         name = "order_sequence",
         sequenceName = "order_seq",
-        allocationSize = 1
+        allocationSize = 50
     )
     private Long id;
 
@@ -400,7 +400,7 @@ public class OrderEvent {
     @SequenceGenerator(
         name = "order_event_sequence",
         sequenceName = "order_event_seq",
-        allocationSize = 1
+        allocationSize = 50
     )
     private Long id;
 
@@ -430,6 +430,11 @@ public class OrderEvent {
 - Schema flexibility for different command types
 
 #### Event JSON Schema Versioning and the Upcasting Rule (SPEC-0024)
+
+Since SPEC-0049 each event also carries `correlation_id`, `causation_id`, `principal`, `source` and
+`changes` (jsonb): who caused it and the field-level difference from the order as the command
+loaded it ([Order Event](../domain/order-event.md)). They are null on older events and are not part
+of the replay comparison: a replay's commands come from REST with principal `replay`.
 
 The `transaction` (command) and `order_snapshot` columns hold JSON of the generated models, and
 `Order` ignores unknown properties. A renamed or removed field would therefore be lost silently

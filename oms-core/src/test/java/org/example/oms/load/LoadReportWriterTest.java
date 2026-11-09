@@ -30,6 +30,7 @@ class LoadReportWriterTest {
                 2,
                 Duration.ofSeconds(20),
                 2000,
+                null,
                 latencies,
                 Map.of("FILLED", 500L));
 
@@ -47,5 +48,28 @@ class LoadReportWriterTest {
         assertTrue(content.contains("| Concurrency (creates in flight) | 8 |"), content);
         assertTrue(content.contains("| Fill slices per order | 2 |"), content);
         assertTrue(content.contains("| Orders ending FILLED | 500 |"), content);
+        assertTrue(content.contains("| WAL bytes written | n/a |"), "no database probe, no figure: " + content);
+    }
+
+    /** SPEC-0047 AC-9: the report states the run's write volume, as WAL bytes and per order. */
+    @Test
+    void writesWalBytesPerOrder(@TempDir Path directory) throws IOException {
+        LoadReport report = new LoadReport(
+                Instant.parse("2026-11-08T10:15:30Z"),
+                "http://localhost:8090",
+                500,
+                8,
+                1,
+                Duration.ofSeconds(20),
+                1500,
+                12_500_000L,
+                Map.of(),
+                Map.of("FILLED", 500L));
+
+        String content = Files.readString(LoadReportWriter.write(report, directory));
+
+        assertEquals(25_000.0, report.walBytesPerOrder(), 1e-9);
+        assertTrue(content.contains("| WAL bytes written | 12500000 |"), content);
+        assertTrue(content.contains("| WAL bytes per order | 25000.00 |"), content);
     }
 }

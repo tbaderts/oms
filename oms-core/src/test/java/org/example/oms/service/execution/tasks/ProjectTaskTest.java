@@ -89,7 +89,7 @@ class ProjectTaskTest {
     }
 
     private static StagedMessage message(String key) {
-        return new StagedMessage("oms_order_executions", key, 7L, new OrderExecution());
+        return new StagedMessage("oms_order_executions", key, key, 7L, new OrderExecution());
     }
 
     private static Projection projection(String name, StagedMessage message, List<String> seen) {

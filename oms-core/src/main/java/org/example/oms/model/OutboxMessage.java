@@ -69,6 +69,18 @@ public class OutboxMessage {
     @Column(name = "aggregate_id", nullable = false)
     private String aggregateId;
 
+    /**
+     * The order this row is about (SPEC-0047). A pointer row names it so the relay can read the
+     * order's snapshot at publish time, and the relay publishes one order's rows in version order.
+     * Null on rows staged before SPEC-0047, which carry their payloads.
+     */
+    @Column(name = "order_id")
+    private String orderId;
+
+    /** The execution an EXECUTION pointer row is about, with {@link #orderId} (SPEC-0047). */
+    @Column(name = "exec_id")
+    private String execId;
+
     @Column(nullable = false)
     private String topic;
 
@@ -97,6 +109,16 @@ public class OutboxMessage {
     /** The Avro record's binary encoding, for PROJECTION rows. */
     @Column(name = "payload")
     private byte[] payload;
+
+    /**
+     * The Schema Registry id of the schema {@link #payload} was encoded with (SPEC-0049). The relay
+     * decodes with it as the writer schema and the current class as the reader, so a compatible
+     * change to the record between staging and publishing does not fail the row. Null on rows
+     * staged before SPEC-0049 or while the id was not yet known: those decode with the current
+     * class schema.
+     */
+    @Column(name = "payload_schema_id")
+    private Integer payloadSchemaId;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

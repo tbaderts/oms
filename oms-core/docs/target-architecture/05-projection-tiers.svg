@@ -21,7 +21,6 @@
   <g font-size="11.5" fill="#334155">
     <text x="56" y="144">run by ProjectTask inside the command transaction</text>
     <rect x="56" y="156" width="300" height="24" rx="6" fill="#F0FDF4" stroke="#86EFAC"/><text x="66" y="172" font-family="Consolas, Menlo, monospace" fill="#0F172A">order_execution_projection</text>
-    <rect x="56" y="188" width="300" height="24" rx="6" fill="#F0FDF4" stroke="#86EFAC"/><text x="66" y="204" font-family="Consolas, Menlo, monospace" fill="#0F172A">position_projection</text>
     <text x="56" y="236">consistent with the change by construction</text>
     <text x="56" y="254">cost: part of the fill latency, so keep the set small</text>
     <text x="56" y="272">a projection that throws fails the command</text>

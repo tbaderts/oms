@@ -59,7 +59,7 @@ public class OrderEvent {
     @SequenceGenerator(
             name = "order_event_sequence",
             sequenceName = "order_event_seq",
-            allocationSize = 1)
+            allocationSize = 50)
     private Long id;
 
     private String orderId;
@@ -107,6 +107,33 @@ public class OrderEvent {
      */
     @Column(name = "schema_version")
     private Integer schemaVersion;
+
+    /** The causing command's correlationId, when it had one (SPEC-0049). */
+    @Column(name = "correlation_id")
+    private String correlationId;
+
+    /** The causing command's causationId, when it had one (SPEC-0049). */
+    @Column(name = "causation_id")
+    private String causationId;
+
+    /**
+     * Who sent the causing command: the Kafka producer or the scheduler job; null on REST until
+     * authentication exists, and on events written before SPEC-0049.
+     */
+    private String principal;
+
+    /** Where the causing command entered the OMS (SPEC-0049); null on older events. */
+    @Enumerated(EnumType.STRING)
+    private CommandSource source;
+
+    /**
+     * The fields this event changed, as JSON {@code {"<field>": {"from": old, "to": new}}}, between
+     * the order as the command loaded it and as it saved it (SPEC-0049). A first event lists every
+     * field set at creation with {@code from} null. Null on older events.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb", name = "changes")
+    private String changes;
 
     private Instant timeStamp;
 

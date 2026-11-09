@@ -35,7 +35,7 @@ public class Execution implements Serializable {
     @SequenceGenerator(
             name = "execution_sequence",
             sequenceName = "execution_seq",
-            allocationSize = 1)
+            allocationSize = 50)
     private Long id;
 
     private String orderId;

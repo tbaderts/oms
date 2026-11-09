@@ -53,7 +53,8 @@ class OrderEventAppenderTest {
                 mock(org.example.oms.repository.ExecutionRepository.class),
                 new org.example.oms.mapper.OrderExecutionMessageMapper(),
                 "oms_order_executions",
-                mock(OutboxNudge.class));
+                mock(OutboxNudge.class),
+                null);
     }
 
     // AC-2

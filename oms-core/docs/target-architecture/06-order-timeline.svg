@@ -126,7 +126,6 @@
     <g font-size="10.5" fill="#475569">
       <text x="590" y="508">booking books EX-1</text>
       <text x="590" y="522">blotter: 40 filled, avgPx 171.95</text>
-      <text x="590" y="542">position ACC-1/AAPL: +40</text>
       <text x="590" y="562">venue adapter: nothing to do</text>
     </g>
   </g>
@@ -156,7 +155,6 @@
     <g font-size="10.5" fill="#475569">
       <text x="830" y="508">booking books EX-2</text>
       <text x="830" y="522">blotter: FILLED, avgPx 171.98</text>
-      <text x="830" y="542">position ACC-1/AAPL: +100</text>
       <text x="830" y="562">venue adapter: order done</text>
     </g>
   </g>

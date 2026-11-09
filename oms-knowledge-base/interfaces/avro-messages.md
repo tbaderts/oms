@@ -30,6 +30,7 @@ name is the command type, and the first field of every command is `header`, a `C
 | `sentAt` | `timestamp-micros` | When the producer sent it |
 | `producer` | string | Service name, for diagnosis |
 | `version` | string, default `1.0.0` | Command API version |
+| `expectedVersion` | optional long, default null | The order version the sender acted on (0 for a create). If set and the order is at another version, the command is refused and acknowledged, not retried (SPEC-0050). Null: no check |
 
 oms-core copies the header onto the command model's base fields (`CommandHeaderMapper`), so the
 stored command of every event carries it, and logs each command's `commandId` and `correlationId`

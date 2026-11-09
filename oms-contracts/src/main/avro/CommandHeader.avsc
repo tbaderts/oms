@@ -36,6 +36,12 @@
       "type": "string",
       "default": "1.0.0",
       "doc": "Command API version."
+    },
+    {
+      "name": "expectedVersion",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "The order version the sender acted on (0 for a create); the command is refused if the order is at another version. Null: no check. SPEC-0050."
     }
   ]
 }

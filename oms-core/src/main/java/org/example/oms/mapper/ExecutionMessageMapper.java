@@ -30,10 +30,23 @@ public class ExecutionMessageMapper {
             return null;
         }
 
+        return toExecutionMessageUnderRoot(
+                execution, order != null ? OrderMessageMapper.rootOrderIdOf(order) : execution.getOrderId(), orderVersion);
+    }
+
+    /**
+     * Maps an execution read back for an EXECUTION pointer row (SPEC-0047), whose root order id is
+     * the row's Kafka key: no order snapshot is needed.
+     */
+    public org.example.common.model.msg.Execution toExecutionMessageUnderRoot(
+            Execution execution, String rootOrderId, long orderVersion) {
+        if (execution == null) {
+            return null;
+        }
         return org.example.common.model.msg.Execution.newBuilder()
                 .setExecId(execution.getExecId())
                 .setOrderId(execution.getOrderId())
-                .setRootOrderId(order != null ? OrderMessageMapper.rootOrderIdOf(order) : execution.getOrderId())
+                .setRootOrderId(rootOrderId)
                 .setOrderVersion(orderVersion)
                 .setLastQty(execution.getLastQty())
                 .setLastPx(execution.getLastPx())

@@ -14,12 +14,26 @@ spring:
   threads:
     virtual:
       enabled: false
+  task:
+    scheduling:
+      pool:
+        # The relay's poll and the event-log reconciler (SPEC-0049) both run on this scheduler; a
+        # second thread keeps a long reconciliation run from delaying the relay's fallback poll.
+        size: 2
   jpa:
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # SPEC-0047: ids in blocks of 50 for the entities whose sequences say so (changelog 015).
+        # pooled-lo hands out the low end of each block, so new ids continue above existing ones.
+        id.optimizer.pooled.preferred: pooled-lo
+        # SPEC-0047: a fill's inserts and updates go to the database in batches.
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
     show-sql: false
   kafka:
     properties:

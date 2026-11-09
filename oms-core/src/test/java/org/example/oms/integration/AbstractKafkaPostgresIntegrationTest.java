@@ -30,7 +30,11 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("oms")
                     .withUsername("oms")
-                    .withPassword("oms");
+                    .withPassword("oms")
+                    // Every cached test context keeps its own connection pool open, and contexts in
+                    // worlds of their own (isolate) add more; the default 100 is not enough for the
+                    // whole suite.
+                    .withCommand("postgres", "-c", "max_connections=300");
 
     static final KafkaContainer kafka =
             new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.9.3"));
@@ -133,5 +137,7 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
         registry.add("kafka.order-topic", () -> "orders");
         registry.add("kafka.execution-topic", () -> "oms_executions");
         registry.add("kafka.order-execution-topic", () -> "oms_order_executions");
+        // The event-log reconciler (SPEC-0049) is run by the tests that need it, not on a schedule.
+        registry.add("oms.reconciliation.enabled", () -> "false");
     }
 }

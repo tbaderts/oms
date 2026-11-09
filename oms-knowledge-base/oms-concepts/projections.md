@@ -35,8 +35,15 @@ needs only an order snapshot and a fill, it can be rebuilt from the event log at
 - Messages a projection returns are staged by `OrderEventAppender.stageMessage` as `PROJECTION`
   outbox rows with a generic payload: `payload_type` is the Avro record's schema name, `payload`
   its binary Avro encoding. The relay publishes them like any other row
-  ([Event Publication](../capabilities/event-publication.md)). Pending `PROJECTION` rows (see the deployment steps in [Avro Messages](../interfaces/avro-messages.md#precision-and-versions)) must be
-  published before a deployment that changes their record's schema.
+  ([Event Publication](../capabilities/event-publication.md)).
+- Each row also records `payload_schema_id`, the Schema Registry id of the schema its payload was
+  encoded with (SPEC-0049). The relay decodes with that writer schema and the current class as
+  reader, so a compatible change to the record (a field added with a default, say) between staging
+  and publishing no longer fails the row. The id is looked up in the background and cached, never
+  on the command path: rows staged before it is known, and rows from before changelog 016, carry
+  null and decode with the current class schema, as before. For those, and for an incompatible
+  change, the old rule still holds: publish pending `PROJECTION` rows before such a deployment
+  ([Avro Messages](../interfaces/avro-messages.md#precision-and-versions)).
 
 ## order_execution
 

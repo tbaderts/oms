@@ -33,6 +33,20 @@ order already applied is refused as a duplicate), `correlationId` (the root orde
 (the event that caused it, `orderId:eventId`) and `sentAt` (date-time). They are the fields of the
 Kafka `CommandHeader`, and the event log stores them with the command whichever way it arrived.
 
+**Expected version (API 3.4.0, SPEC-0050).** A command may carry `expectedVersion` (int64, ≥ 0): the
+order version the sender acted on, as search showed it in `eventVersion` (0 for a create).
+- If it is set and the order is at another version, the command is **refused**, not treated as a
+  conflict: 400 with `CommandResult` status `FAILED` and a message such as `Expected version 4 but
+  order ORD-1 is at version 5`. On Kafka it is acknowledged (not retried, not dead-lettered). The
+  command log records it as REFUSED with that reason. Nothing is applied.
+- The check runs under the order's row lock, after duplicate detection: a resent command whose id
+  was already applied is still answered as a duplicate (409).
+- Without `expectedVersion` there is no check.
+
+**Produced version.** An applied command's `CommandResult` carries `eventVersion`: the event version
+it produced (1 for a create). A client that wants to read its own write waits until search returns
+the order with `eventVersion` at least that number ([Query API](query-api.md)).
+
 A command refused by its processor returns 400 with `CommandResult` status `FAILED` and a message.
 A body with an unknown `type` cannot be read and is rejected with 400 before the controller.
 Exceptions are answered by `GlobalExceptionHandler` as RFC 7807 problem details instead of a

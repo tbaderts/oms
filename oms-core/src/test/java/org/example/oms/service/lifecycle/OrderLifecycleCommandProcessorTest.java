@@ -74,6 +74,7 @@ class OrderLifecycleCommandProcessorTest {
                         new TaskOrchestrator(),
                         new LoadOrderTask(orderRepository),
                         new DeduplicateCommandTask(orderEventRepository),
+                        new org.example.oms.service.command.tasks.CheckExpectedVersionTask(),
                         new ValidateLifecycleActionTask(new org.example.common.state.OrderStateMachines()),
                         new ApplyLifecycleActionTask(
                                 new org.example.oms.service.sla.OrderSlaRecorder(

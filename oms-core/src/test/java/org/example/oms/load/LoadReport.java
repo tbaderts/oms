@@ -15,6 +15,8 @@ import java.util.Map;
  * @param duration first submit until the last order was terminal
  * @param commandsApplied commands applied by oms-core during the run: the creates plus the accepts
  *     and fills consumed from Kafka
+ * @param walBytes PostgreSQL WAL bytes written during the run, the database's write volume
+ *     (SPEC-0047); null when the suite could not reach the database
  * @param latencies per SLA timer name, its percentiles over this run
  * @param finalStates per terminal state, how many orders ended in it
  */
@@ -26,6 +28,7 @@ public record LoadReport(
         int fillSlices,
         Duration duration,
         long commandsApplied,
+        Long walBytes,
         Map<String, Percentiles> latencies,
         Map<String, Long> finalStates) {
 
@@ -33,6 +36,11 @@ public record LoadReport(
     public double throughputPerSecond() {
         double seconds = duration.toNanos() / 1e9;
         return seconds <= 0 ? 0 : commandsApplied / seconds;
+    }
+
+    /** WAL bytes written per order submitted; null without a WAL figure. */
+    public Double walBytesPerOrder() {
+        return walBytes == null || orderCount <= 0 ? null : (double) walBytes / orderCount;
     }
 
     /**

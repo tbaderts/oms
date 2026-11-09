@@ -1,0 +1,30 @@
+{
+  "ranAt": "2026-11-08T21:51:25.430Z",
+  "result": "pass",
+  "modules": [
+    "mission-control",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "9c251271c908d39d",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base 6bd232af)"
+  },
+  "commands": [
+    {
+      "module": "mission-control",
+      "command": "npm run typecheck",
+      "exitCode": 0,
+      "seconds": 8,
+      "log": "evidence/mission-control-1.log"
+    },
+    {
+      "module": "mission-control",
+      "command": "npm test",
+      "exitCode": 0,
+      "seconds": 14,
+      "log": "evidence/mission-control-2.log"
+    }
+  ]
+}

@@ -1111,6 +1111,10 @@ They make "the event log reproduces behaviour" a test rather than a claim.
 **What a replay proves.**
 - The harness reads every `order_events` row of a source database in `id` order. It reads them
   with plain JDBC, so ORM caching plays no part.
+- It replays them in that order, except that an event waits until the previous version of its
+  order has been replayed (SPEC-0047). Ids are drawn in blocks of 50 per instance, so with
+  several instances an order's later event can have a smaller id. Where ids follow versions,
+  this is plain id order.
 - It decodes each row's stored command through `StoredEventDecoder`, which applies the upcasting
   rule; see [OMS State Store](oms-state-store.md).
 - It re-executes each command through `CommandDispatcher.dispatch`, the entry point REST, Kafka
@@ -1136,10 +1140,12 @@ try (ReplayTarget target = ReplayTarget.start(jdbcUrl("replay_target"), user, pa
 }
 ```
 
-`ReplayHarnessIntegrationTest` covers three cases:
+`ReplayHarnessIntegrationTest` covers four cases:
 - **Zero differences:** create → accept → split fills → cancel replays cleanly.
 - **Divergence fails:** a tampered recorded snapshot fails the replay with a named diff.
 - **Legacy rows:** rows without `schema_version` replay, with a WARN.
+- **Ids out of version order:** two fills of one order with swapped ids still replay with zero
+  differences.
 
 **Replaying a production dump.**
 1. Restore the dump into a Postgres database.

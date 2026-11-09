@@ -97,11 +97,6 @@
     <text x="892" y="450">order_id + execid + order_version</text>
     <text x="892" y="468">fill + order as of the fill · trade_date</text>
 
-    <rect x="880" y="494" width="280" height="76" rx="10" fill="#FFFFFF" stroke="#16A34A" stroke-width="1.6"/>
-    <rect x="880" y="494" width="280" height="26" rx="10" fill="#DCFCE7"/><rect x="880" y="510" width="280" height="10" fill="#DCFCE7"/>
-    <text x="892" y="512" font-family="Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#14532D">position_projection</text>
-    <text x="892" y="540">account + symbol + trade_date ⟨unique⟩</text>
-    <text x="892" y="558">net_qty · notional · fill_count</text>
   </g>
 
   <!-- Relationship arrows -->

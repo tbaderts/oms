@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Digital Assets OMS Command API
-  version: 3.3.0
+  version: 3.4.0
   description: Command API for submitting commands to oms
 
 paths:
@@ -94,6 +94,15 @@ components:
           type: string
           format: date-time
           description: When the sender sent the command
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+          description: >-
+            The order version the sender acted on: the order's eventVersion as it saw it (0 for a
+            create). When set and the order is at a different version, the command is refused
+            (400; on Kafka acknowledged, not retried) and nothing is applied. Absent: no check.
+            SPEC-0050.
 
     OrderCreateCmd:
       allOf:
@@ -405,3 +414,9 @@ components:
         message:
           type: string
           description: human-readable description of the command result
+        eventVersion:
+          type: integer
+          format: int64
+          description: >-
+            The event version the applied command produced: the order's eventVersion once the
+            change is visible to search. Absent on a refusal. SPEC-0050.

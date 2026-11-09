@@ -50,6 +50,7 @@ public class OrderCreateCommandProcessor {
     private final ValidateOrderTask validateOrderTask;
     private final AssignOrderIdTask assignOrderIdTask;
     private final SetOrderStateTask setOrderStateTask;
+    private final org.example.oms.service.command.tasks.CheckExpectedVersionTask checkExpectedVersionTask;
     private final PersistOrderTask persistOrderTask;
     private final PublishOrderEventTask publishOrderEventTask;
 
@@ -99,6 +100,7 @@ public class OrderCreateCommandProcessor {
 
     private TaskPipeline<OrderTaskContext> buildPipeline() {
         return TaskPipeline.<OrderTaskContext>builder("OrderCreationPipeline")
+                .addTask(checkExpectedVersionTask)
                 .addTask(validateOrderTask)
                 .addTask(assignOrderIdTask)
                 .addTask(setOrderStateTask)

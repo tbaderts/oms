@@ -103,7 +103,7 @@
       <text x="360" y="295"><tspan font-weight="700">Command log</tspan><tspan fill="#475569">   every ask and its outcome, own transaction</tspan></text>
 
       <rect x="350" y="312" width="420" height="26" rx="6" fill="#F8FAFC" stroke="#CBD5E1"/>
-      <text x="360" y="329"><tspan font-weight="700">Inline projections</tspan><tspan fill="#475569">   order_execution, position</tspan></text>
+      <text x="360" y="329"><tspan font-weight="700">Inline projections</tspan><tspan fill="#475569">   order_execution</tspan></text>
 
       <rect x="350" y="346" width="420" height="26" rx="6" fill="#FFF7ED" stroke="#FDBA74"/>
       <text x="360" y="363"><tspan font-weight="700">Outbox relay</tspan><tspan fill="#475569">   one leader (advisory lock) or hash-partitioned</tspan></text>
@@ -130,7 +130,6 @@
       <rect x="596" y="596" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="606" y="612">command_log</text>
       <rect x="400" y="630" width="180" height="24" rx="6" fill="#FFF7ED" stroke="#FDBA74"/><text x="410" y="646">outbox</text>
       <rect x="596" y="630" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="606" y="646">order_execution_projection</text>
-      <rect x="400" y="664" width="180" height="24" rx="6" fill="#F0FDFA" stroke="#5EEAD4"/><text x="410" y="680">position_projection</text>
       <rect x="596" y="664" width="180" height="24" rx="6" fill="#F1F5F9" stroke="#CBD5E1"/><text x="606" y="680" fill="#475569">archive: closed orders</text>
     </g>
     <text x="346" y="722" font-size="11" fill="#475569">order_events partitioned by month · closed orders archived after retention</text>

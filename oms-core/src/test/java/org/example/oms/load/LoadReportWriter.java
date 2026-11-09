@@ -49,6 +49,10 @@ public final class LoadReportWriter {
         for (Map.Entry<String, Long> state : report.finalStates().entrySet()) {
             row(md, "Orders ending " + state.getKey(), String.valueOf(state.getValue()));
         }
+        md.append("\n## Write volume (PostgreSQL WAL)\n\n");
+        md.append("| Measure | Value |\n|---|---|\n");
+        row(md, "WAL bytes written", report.walBytes() == null ? "n/a" : String.valueOf(report.walBytes()));
+        row(md, "WAL bytes per order", format(report.walBytesPerOrder()));
         md.append("\n## Command latency (SLA timers, ms)\n\n");
         md.append("| Timer | Observations | p50 | p95 | p99 |\n|---|---|---|---|---|\n");
         for (Map.Entry<String, LoadReport.Percentiles> timer : report.latencies().entrySet()) {

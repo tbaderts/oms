@@ -47,11 +47,36 @@ class CommandBaseContractTest {
     }
 
     @Test
-    void versionIs330() throws IOException {
+    void versionIs340() throws IOException {
         Matcher version = Pattern.compile("(?m)^info:\\s*\\n(?:\\s+.*\\n)*?\\s+version:\\s*(\\S+)").matcher(commandContract());
         assertTrue(version.find(), "info.version");
-        // 3.3.0: the 409 response on /execute (SPEC-0046)
-        assertEquals("3.3.0", version.group(1));
+        // 3.3.0: the 409 response on /execute (SPEC-0046); 3.4.0: expectedVersion and eventVersion (SPEC-0050)
+        assertEquals("3.4.0", version.group(1));
+    }
+
+    /**
+     * SPEC-0050 AC-7: a command may say which order version it acted on, and the result says which
+     * version the command produced. Both optional, additive.
+     */
+    @Test
+    void expectedVersionAndEventVersionAreOptionalInt64() throws Exception {
+        Class<?> base = Class.forName(CMD_MODEL + "Command");
+        assertEquals(Long.class, getter(base, "getExpectedVersion").getReturnType());
+        assertFalse(getter(base, "getExpectedVersion").isAnnotationPresent(NotNull.class), "expectedVersion is optional");
+
+        Class<?> result = Class.forName(CMD_MODEL + "CommandResult");
+        assertEquals(Long.class, getter(result, "getEventVersion").getReturnType());
+        assertFalse(getter(result, "getEventVersion").isAnnotationPresent(NotNull.class), "eventVersion is optional");
+
+        org.apache.avro.Schema.Field header = org.example.common.model.msg.CommandHeader.getClassSchema().getField("expectedVersion");
+        assertTrue(header != null, "CommandHeader.expectedVersion exists");
+        assertEquals("[\"null\",\"long\"]", header.schema().toString(), "nullable long");
+        assertTrue(header.hasDefaultValue() && header.defaultVal() == org.apache.avro.JsonProperties.NULL_VALUE, "default null");
+
+        try (InputStream in = CommandBaseContractTest.class.getResourceAsStream("/META-INF/oms-contracts/openapi/oms-query-api.yml")) {
+            String query = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(query.contains("Read-your-writes"), "the query contract documents read-your-writes on eventVersion");
+        }
     }
 
     private static Method getter(Class<?> type, String name) throws NoSuchMethodException {

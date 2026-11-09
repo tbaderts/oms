@@ -91,6 +91,7 @@ public class OutboxRelay implements SmartLifecycle {
             Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("outbox-relay-send-", 0).factory());
 
     private final Leadership leadership;
+    private final OutboxPayloads outboxPayloads;
     private final io.micrometer.core.instrument.Counter drains;
     private final TransactionOperations transactions;
 
@@ -109,6 +110,7 @@ public class OutboxRelay implements SmartLifecycle {
     public OutboxRelay(
             OutboxRepository outboxRepository,
             MessagePublisher messagePublisher,
+            OutboxPayloads outboxPayloads,
             MeterRegistry meterRegistry,
             Leadership leadership,
             TransactionOperations transactions,
@@ -117,6 +119,7 @@ public class OutboxRelay implements SmartLifecycle {
             @Value("${kafka.outbox.drain-timeout-ms:30000}") long drainTimeoutMs) {
         this.outboxRepository = outboxRepository;
         this.messagePublisher = messagePublisher;
+        this.outboxPayloads = outboxPayloads;
         this.leadership = leadership;
         this.transactions = transactions;
         this.batchSize = batchSize;
@@ -288,9 +291,14 @@ public class OutboxRelay implements SmartLifecycle {
             return new BatchResult(pending.size(), 0); // every aggregate is still in flight
         }
 
+        // Records are built here, on the drain thread and in the claiming transaction, before any
+        // send: a pointer row's record is read from order_events or executions (SPEC-0047).
+        Map<OutboxMessage, OutboxPayloads.Resolution> records = outboxPayloads.resolve(
+                byAggregate.values().stream().flatMap(List::stream).toList());
+
         Outcomes outcomes = new Outcomes();
         List<CompletableFuture<Void>> chains = new ArrayList<>(byAggregate.size());
-        byAggregate.forEach((key, rows) -> chains.add(chain(key, rows, outcomes)));
+        byAggregate.forEach((key, rows) -> chains.add(chain(key, rows, records, outcomes)));
 
         try {
             CompletableFuture.allOf(chains.toArray(CompletableFuture[]::new))
@@ -315,7 +323,11 @@ public class OutboxRelay implements SmartLifecycle {
      * Sends one aggregate's rows in id order, each only after the previous one was acknowledged, and
      * stops at the first failure. Completes normally either way; the outcome of each row is recorded.
      */
-    private CompletableFuture<Void> chain(AggregateKey key, List<OutboxMessage> rows, Outcomes outcomes) {
+    private CompletableFuture<Void> chain(
+            AggregateKey key,
+            List<OutboxMessage> rows,
+            Map<OutboxMessage, OutboxPayloads.Resolution> records,
+            Outcomes outcomes) {
         CompletableFuture<Boolean> chain = CompletableFuture.completedFuture(true);
         for (OutboxMessage row : rows) {
             chain = chain.thenComposeAsync(
@@ -331,7 +343,7 @@ public class OutboxRelay implements SmartLifecycle {
                             inFlight.remove(key);
                             return CompletableFuture.completedFuture(false);
                         }
-                        return send(key, row, outcomes);
+                        return send(key, row, records.get(row), outcomes);
                     },
                     sendExecutor);
         }
@@ -342,10 +354,15 @@ public class OutboxRelay implements SmartLifecycle {
      * Sends one row; completes with whether the broker acknowledged it. The aggregate counts as in
      * flight until the send settles, even after the drain stopped waiting for it.
      */
-    private CompletableFuture<Boolean> send(AggregateKey key, OutboxMessage row, Outcomes outcomes) {
+    private CompletableFuture<Boolean> send(
+            AggregateKey key, OutboxMessage row, OutboxPayloads.Resolution record, Outcomes outcomes) {
         CompletableFuture<?> sent;
         try {
-            sent = messagePublisher.publishAsync(row);
+            // A row whose record could not be built fails like a rejected send: definitively, so
+            // its attempts count and the chain stops here (SPEC-0047).
+            sent = record.failure() != null
+                    ? CompletableFuture.failedFuture(record.failure())
+                    : messagePublisher.publishAsync(row, record.record());
         } catch (RuntimeException e) {
             sent = CompletableFuture.failedFuture(e);
         }

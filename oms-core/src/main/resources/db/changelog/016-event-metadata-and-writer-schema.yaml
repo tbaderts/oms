@@ -1,0 +1,99 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0049: an event says who caused it and what it changed (architecture
+  # review finding F-10). correlation_id and causation_id come from the command,
+  # principal and source from where it entered the OMS (REST, Kafka, a scheduler
+  # job), and changes holds the field-level difference between the order as the
+  # command loaded it and as it saved it.
+  #
+  # Nullable on purpose: events written before this change keep null, with no
+  # backfill. The index serves lookups of every event of one business flow.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 016-order-event-metadata
+      author: oms
+      changes:
+        - addColumn:
+            tableName: order_events
+            columns:
+              - column:
+                  name: correlation_id
+                  type: varchar(255)
+              - column:
+                  name: causation_id
+                  type: varchar(255)
+              - column:
+                  name: principal
+                  type: varchar(255)
+              - column:
+                  name: source
+                  type: varchar(16)
+              - column:
+                  name: changes
+                  type: jsonb
+        - createIndex:
+            tableName: order_events
+            indexName: idx_order_events_correlation_id
+            columns:
+              - column:
+                  name: correlation_id
+      rollback:
+        - dropIndex:
+            tableName: order_events
+            indexName: idx_order_events_correlation_id
+        - dropColumn:
+            tableName: order_events
+            columnName: changes
+        - dropColumn:
+            tableName: order_events
+            columnName: source
+        - dropColumn:
+            tableName: order_events
+            columnName: principal
+        - dropColumn:
+            tableName: order_events
+            columnName: causation_id
+        - dropColumn:
+            tableName: order_events
+            columnName: correlation_id
+
+  # ---------------------------------------------------------------------------
+  # SPEC-0049: the event-log reconciler samples the orders with the newest
+  # events. This index lets it read just the newest events, by time, instead of
+  # aggregating the whole log on every run.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 016-order-events-time-stamp-index
+      author: oms
+      changes:
+        - createIndex:
+            tableName: order_events
+            indexName: idx_order_events_time_stamp
+            columns:
+              - column:
+                  name: time_stamp
+      rollback:
+        - dropIndex:
+            tableName: order_events
+            indexName: idx_order_events_time_stamp
+
+  # ---------------------------------------------------------------------------
+  # SPEC-0049: a PROJECTION row records the Schema Registry id of the schema its
+  # payload was encoded with, so the relay can decode it with that writer schema
+  # and the current reader schema (architecture review finding F-14). Null on
+  # older rows, which decode with the current schema as before.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 016-outbox-payload-schema-id
+      author: oms
+      changes:
+        - addColumn:
+            tableName: outbox
+            columns:
+              - column:
+                  name: payload_schema_id
+                  type: integer
+      rollback:
+        - dropColumn:
+            tableName: outbox
+            columnName: payload_schema_id

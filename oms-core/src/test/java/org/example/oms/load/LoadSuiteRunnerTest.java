@@ -8,6 +8,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -38,6 +43,10 @@ import tools.jackson.databind.json.JsonMapper;
  * simulator connected (the root docker compose). It submits MARKET orders through the command API,
  * waits for every one to reach a terminal state, and writes a report of throughput and the SLA
  * timers' percentiles over this run. See oms-knowledge-base/oms-concepts/exchange-simulator.md §8.
+ *
+ * <p>It also reads PostgreSQL's WAL position before and after the run, through
+ * {@code OMS_LOAD_DB_URL}, {@code OMS_LOAD_DB_USER} and {@code OMS_LOAD_DB_PASSWORD} (the compose
+ * database by default), and reports the WAL bytes written as the run's write volume (SPEC-0047).
  */
 @EnabledIfEnvironmentVariable(named = "OMS_LOAD_SUITE", matches = "true")
 class LoadSuiteRunnerTest {
@@ -59,11 +68,15 @@ class LoadSuiteRunnerTest {
     private final int fillSlices = Integer.parseInt(env("OMS_LOAD_FILL_SLICES", "1"));
     private final Duration timeout = Duration.ofSeconds(Long.parseLong(env("OMS_LOAD_TIMEOUT_SECONDS", "600")));
     private final Path reportDir = Path.of(env("OMS_LOAD_REPORT_DIR", "build/load-reports"));
+    private final String dbUrl = env("OMS_LOAD_DB_URL", "jdbc:postgresql://localhost:5432/postgres");
+    private final String dbUser = env("OMS_LOAD_DB_USER", "postgres");
+    private final String dbPassword = env("OMS_LOAD_DB_PASSWORD", "changeme");
 
     @Test
     void runsScriptedFlowAndWritesReport() throws Exception {
         String run = UUID.randomUUID().toString().substring(0, 8);
         PrometheusSnapshot before = scrape();
+        String walBefore = walPosition();
 
         Instant startedAt = Instant.now();
         long start = System.nanoTime();
@@ -72,6 +85,7 @@ class LoadSuiteRunnerTest {
         Duration duration = Duration.ofNanos(System.nanoTime() - start);
 
         PrometheusSnapshot after = scrape();
+        Long walBytes = walBytesSince(walBefore);
         Map<String, String> applied = Map.of("outcome", "applied");
         long consumed = Math.round(after.sum("oms_commands_consumed_total", applied)
                 - before.sum("oms_commands_consumed_total", applied));
@@ -87,7 +101,7 @@ class LoadSuiteRunnerTest {
         }
 
         LoadReport report = new LoadReport(startedAt, baseUrl, orders, concurrency, fillSlices, duration,
-                orderIds.size() + consumed, latencies, finalStates);
+                orderIds.size() + consumed, walBytes, latencies, finalStates);
         Path file = LoadReportWriter.write(report, reportDir);
         System.out.println("Load report written to " + file.toAbsolutePath());
         System.out.println(LoadReportWriter.render(report));
@@ -178,6 +192,37 @@ class LoadSuiteRunnerTest {
         }
         JsonNode state = JSON.readTree(response.body()).get("state");
         return state == null || state.isNull() ? null : state.asString();
+    }
+
+    /** The database's current WAL position, or null when it cannot be read: the report then says n/a. */
+    private String walPosition() {
+        try (Connection db = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+                Statement statement = db.createStatement();
+                ResultSet row = statement.executeQuery("select pg_current_wal_lsn()::text")) {
+            row.next();
+            return row.getString(1);
+        } catch (SQLException e) {
+            System.out.println("No WAL figure: cannot read the WAL position from " + dbUrl + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    /** WAL bytes written since the given position, or null without one. */
+    private Long walBytesSince(String start) {
+        if (start == null) {
+            return null;
+        }
+        try (Connection db = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+                var statement = db.prepareStatement("select pg_wal_lsn_diff(pg_current_wal_lsn(), ?::pg_lsn)::bigint")) {
+            statement.setString(1, start);
+            try (ResultSet row = statement.executeQuery()) {
+                row.next();
+                return row.getLong(1);
+            }
+        } catch (SQLException e) {
+            System.out.println("No WAL figure: " + e.getMessage());
+            return null;
+        }
     }
 
     private PrometheusSnapshot scrape() throws IOException, InterruptedException {

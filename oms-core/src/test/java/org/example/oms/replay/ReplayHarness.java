@@ -5,8 +5,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 import javax.sql.DataSource;
 
@@ -20,8 +25,12 @@ import org.slf4j.LoggerFactory;
  * Replays an event log's stored commands into a fresh database and compares the snapshots
  * (SPEC-0024).
  *
- * <p>The source is read with plain JDBC in event {@code id} order, the order the commands were
- * applied, and each row is decoded under the upcasting rule ({@link StoredEventDecoder}). Each
+ * <p>The source is read with plain JDBC in event {@code id} order, and each row is decoded under the
+ * upcasting rule ({@link StoredEventDecoder}). Since SPEC-0047 ids are drawn in blocks of 50 per
+ * instance, so with several instances an order's later event can have a smaller id than an earlier
+ * one. The events are therefore put in replay order: id order, except that an event is held back
+ * until its order's previous version has been replayed (see {@link #inReplayOrder}). Where ids
+ * already follow versions, that is plain id order. Each
  * command is re-executed through {@code CommandDispatcher}, the entry point REST, Kafka and the
  * scheduler use, so validation, the state machine, the task pipelines and the event append all
  * run. The replayed log is then read the same way and compared with {@link SnapshotDiff}.
@@ -76,7 +85,7 @@ public final class ReplayHarness {
         return result;
     }
 
-    /** Reads every event of a database's log, in {@code id} order. */
+    /** Reads every event of a database's log, in replay order (see {@link #inReplayOrder}). */
     public static OrderSnapshotHistory read(DataSource dataSource) {
         List<StoredEvent> events = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
@@ -97,7 +106,43 @@ public final class ReplayHarness {
         } catch (SQLException e) {
             throw new IllegalStateException("Could not read order_events", e);
         }
-        return new OrderSnapshotHistory(events);
+        return new OrderSnapshotHistory(inReplayOrder(events));
+    }
+
+    /**
+     * Id order, except that an event waits until the previous version of its order is placed. Each
+     * order's first event is its lowest version present. Deterministic, needs no clocks, and equal to
+     * id order whenever ids already follow each order's versions (SPEC-0047).
+     */
+    static List<StoredEvent> inReplayOrder(List<StoredEvent> byId) {
+        Map<String, Long> next = new HashMap<>();
+        for (StoredEvent event : byId) {
+            next.merge(event.orderId(), event.version(), Math::min);
+        }
+        Map<String, TreeMap<Long, StoredEvent>> held = new HashMap<>();
+        List<StoredEvent> ordered = new ArrayList<>(byId.size());
+        for (StoredEvent event : byId) {
+            if (event.version() != next.get(event.orderId())) {
+                held.computeIfAbsent(event.orderId(), k -> new TreeMap<>()).put(event.version(), event);
+                continue;
+            }
+            Deque<StoredEvent> ready = new ArrayDeque<>();
+            ready.add(event);
+            while (!ready.isEmpty()) {
+                StoredEvent placed = ready.poll();
+                ordered.add(placed);
+                long following = placed.version() + 1;
+                next.put(placed.orderId(), following);
+                TreeMap<Long, StoredEvent> waiting = held.get(placed.orderId());
+                if (waiting != null && waiting.containsKey(following)) {
+                    ready.add(waiting.remove(following));
+                }
+            }
+        }
+        // A gap in an order's versions leaves its later events held: keep them, in version order,
+        // so the replay reports them rather than dropping them silently.
+        held.values().forEach(waiting -> ordered.addAll(waiting.values()));
+        return ordered;
     }
 
     /**

@@ -82,6 +82,11 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
     @Autowired Environment environment;
     @Autowired ConsumerFactory<Object, Object> consumerFactory;
     @Autowired OrderReplayService orderReplayService;
+    @Autowired org.example.oms.repository.OrderEventRepository orderEventRepository;
+    @Autowired org.example.oms.mapper.OrderMessageMapper orderMessageMapper;
+    @Autowired org.example.oms.mapper.ExecutionMessageMapper executionMessageMapper;
+    @Autowired org.example.oms.mapper.AvroPayloadCodec payloadCodec;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     @BeforeEach
     void startSecondInstance() {
@@ -221,6 +226,41 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     /**
+     * SPEC-0049 AC-7: of two instances with the event-log reconciler scheduled, only the scheduler
+     * leader samples; the follower's sampled-orders counter stays 0.
+     */
+    @Test
+    void reconcilerRunsOnTheLeaderOnly() throws Exception {
+        Map<String, Object> reconciling = Map.of(
+                "oms.reconciliation.enabled", "true",
+                "oms.reconciliation.interval-ms", "300",
+                "oms.reconciliation.initial-delay-ms", "0");
+        ConfigurableApplicationContext a = SecondInstance.startIsolated(environment, "recon", reconciling);
+        ConfigurableApplicationContext b = SecondInstance.startIsolated(environment, "recon", reconciling);
+        try {
+            create(a);
+            create(b);
+            waitFor(() -> sampled(a) + sampled(b) > 0, "the reconciler sampled on one instance", Duration.ofSeconds(15));
+            Thread.sleep(1_500); // several more runs on both schedules
+
+            boolean aLeads = holdsScheduler(a);
+            assertTrue(aLeads != holdsScheduler(b), "exactly one scheduler leader");
+            ConfigurableApplicationContext leader = aLeads ? a : b;
+            ConfigurableApplicationContext follower = aLeads ? b : a;
+            assertTrue(sampled(leader) > 0, "the leader reconciles");
+            assertEquals(0.0, sampled(follower), "the follower samples nothing");
+        } finally {
+            a.close();
+            b.close();
+        }
+    }
+
+    private static double sampled(ConfigurableApplicationContext instance) {
+        var counter = instance.getBean(MeterRegistry.class).find("oms.event_log.sampled").counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    /**
      * AC-7: two instances take fills for the same orders at once: over Kafka (split between them by
      * partition) and directly on the other instance. Nothing is dead-lettered, every order adds up,
      * and each order's records reach each of the three outbound topics in version order.
@@ -275,23 +315,60 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
             fillCount.put(orderId, (int) executionCount(orderId));
         }
 
-        Map<String, List<Long>> orderMessages = versionsByOrder("orders", versionCount);
+        // SPEC-0047: pooled ids from two instances interleave, so an order's event ids need not
+        // follow its versions. Check that this happened, so the ordering below is really tested.
+        assertTrue(all.stream().anyMatch(this::eventIdsOutOfVersionOrder),
+                "some order's event ids are out of version order: the two instances' id blocks interleaved");
+
+        Map<String, List<Object>> orderMessages = recordsByOrder("orders", versionCount);
         for (String orderId : all) {
             List<Long> expected = new ArrayList<>();
             for (long v = 1; v <= versionCount.get(orderId); v++) {
                 expected.add(v);
             }
-            assertEquals(expected, orderMessages.get(orderId), "every version of " + orderId + " on orders, in order");
+            assertEquals(expected, versionsOf(orderMessages.get(orderId)), "every version of " + orderId + " on orders, in order");
+            // SPEC-0047 AC-8: each record read back through a pointer is the stored snapshot of its version.
+            for (Object record : orderMessages.get(orderId)) {
+                long version = ((OrderMessage) record).getEventId();
+                var snapshot = orderEventRepository.findByOrderIdAndVersion(orderId, version).orElseThrow().getOrderSnapshot();
+                assertEquals(wire(orderMessageMapper.toOrderMessage(snapshot, version)), record, orderId + " v" + version);
+            }
         }
         for (String topic : List.of("oms_executions", "oms_order_executions")) {
-            Map<String, List<Long>> fills = versionsByOrder(topic, fillCount);
+            Map<String, List<Object>> fills = recordsByOrder(topic, fillCount);
             for (String orderId : all) {
-                List<Long> versions = fills.get(orderId);
+                List<Long> versions = versionsOf(fills.get(orderId));
                 assertEquals(fillCount.get(orderId), versions.size(), "one record per fill of " + orderId + " on " + topic);
                 assertEquals(versions.stream().distinct().sorted().toList(), versions,
                         "the fills of " + orderId + " on " + topic + " in version order");
             }
         }
+        for (String orderId : all) {
+            var order = orderRepository.findByOrderId(orderId).orElseThrow();
+            Map<Long, org.example.common.model.Execution> byVersion = new HashMap<>();
+            executionRepository.findAll().stream()
+                    .filter(e -> orderId.equals(e.getOrderId()))
+                    .forEach(e -> byVersion.put(e.getOrderVersion(), e));
+            for (Object record : recordsByOrder("oms_executions", Map.of(orderId, fillCount.get(orderId))).get(orderId)) {
+                long version = ((org.example.common.model.msg.Execution) record).getOrderVersion();
+                assertEquals(wire(executionMessageMapper.toExecutionMessage(byVersion.get(version), order, version)), record,
+                        "the execution of " + orderId + " v" + version + " is the stored one");
+            }
+        }
+    }
+
+    private boolean eventIdsOutOfVersionOrder(String orderId) {
+        List<Long> ids = jdbc.queryForList("select id from order_events where order_id = ? order by version", Long.class, orderId);
+        return !ids.equals(ids.stream().sorted().toList());
+    }
+
+    /** The record as a consumer receives it: Avro keeps timestamps to the millisecond. */
+    private Object wire(org.apache.avro.specific.SpecificRecord record) {
+        return payloadCodec.decode(record.getSchema().getFullName(), payloadCodec.encode(record));
+    }
+
+    private static List<Long> versionsOf(List<Object> records) {
+        return records.stream().map(r -> version(r).getValue()).toList();
     }
 
     // --- helpers -------------------------------------------------------------------------------
@@ -406,12 +483,12 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     /**
-     * Each order's versions on a topic in arrival order, read until every order has at least the
+     * Each order's records on a topic in arrival order, read until every order has at least the
      * expected number of records (or 30 seconds pass), and one second longer so that a duplicate
      * shows up too. A record's version is the order message's eventId or the execution's orderVersion.
      */
-    private Map<String, List<Long>> versionsByOrder(String topic, Map<String, Integer> expected) {
-        Map<String, List<Long>> byOrder = new HashMap<>();
+    private Map<String, List<Object>> recordsByOrder(String topic, Map<String, Integer> expected) {
+        Map<String, List<Object>> byOrder = new HashMap<>();
         expected.keySet().forEach(id -> byOrder.put(id, new ArrayList<>()));
         try (Consumer<Object, Object> consumer = subscribed(topic)) {
             long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
@@ -424,11 +501,11 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
         return byOrder;
     }
 
-    private static void collect(Iterable<ConsumerRecord<Object, Object>> records, Map<String, List<Long>> byOrder) {
+    private static void collect(Iterable<ConsumerRecord<Object, Object>> records, Map<String, List<Object>> byOrder) {
         for (ConsumerRecord<Object, Object> record : records) {
             Map.Entry<String, Long> version = version(record.value());
             if (version != null && byOrder.containsKey(version.getKey())) {
-                byOrder.get(version.getKey()).add(version.getValue());
+                byOrder.get(version.getKey()).add(record.value());
             }
         }
     }

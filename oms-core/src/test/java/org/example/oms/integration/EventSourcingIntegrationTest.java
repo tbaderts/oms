@@ -70,6 +70,7 @@ class EventSourcingIntegrationTest {
     @Autowired private ExecutionRepository executionRepository;
     @Autowired private OrderEventRepository orderEventRepository;
     @Autowired private OutboxRepository outboxRepository;
+    @Autowired private org.example.oms.service.OutboxPayloads outboxPayloads;
     @Autowired private OrderLifecycleCommandProcessor orderLifecycleCommandProcessor;
     @Autowired private ExecutionCommandProcessor executionCommandProcessor;
     @Autowired private OrderReplayService orderReplayService;
@@ -295,24 +296,23 @@ class EventSourcingIntegrationTest {
         accept();
         TestCommands.applyFill(executionCommandProcessor, execution("EX-Q1", "4.0000"));
 
+        // Since SPEC-0047 the rows are pointers: what they carry is the record they resolve to,
+        // which is what the relay publishes.
         OutboxMessage orderMessage =
                 outboxRepository.findAll().stream()
                         .filter(m -> m.getAggregateType() == OutboxMessage.AggregateType.ORDER)
                         .max(java.util.Comparator.comparing(OutboxMessage::getId))
                         .orElseThrow();
-        assertEquals(
-                0,
-                new BigDecimal("4.0000").compareTo(orderMessage.getOrderPayload().getCumQty()));
-        assertEquals(
-                0,
-                new BigDecimal("6.0000").compareTo(orderMessage.getOrderPayload().getLeavesQty()));
+        var order = (org.example.common.model.msg.OrderMessage) resolve(orderMessage);
+        assertEquals(0, new BigDecimal("4.0000").compareTo(order.getCumQty()));
+        assertEquals(0, new BigDecimal("6.0000").compareTo(order.getLeavesQty()));
 
         OutboxMessage executionMessage =
                 outboxRepository.findAll().stream()
                         .filter(m -> m.getAggregateType() == OutboxMessage.AggregateType.EXECUTION)
                         .findFirst()
                         .orElseThrow();
-        Execution staged = executionMessage.getExecutionPayload();
+        var staged = (org.example.common.model.msg.Execution) resolve(executionMessage);
         assertEquals("EX-Q1", staged.getExecId());
         assertEquals(0, new BigDecimal("4.0000").compareTo(staged.getLastQty()));
         assertEquals(0, new BigDecimal("4.0000").compareTo(staged.getCumQty()));
@@ -323,6 +323,14 @@ class EventSourcingIntegrationTest {
         Execution persisted = executionRepository.findAll().get(0);
         assertEquals(0, new BigDecimal("4.0000").compareTo(persisted.getCumQty()));
         assertEquals(0, new BigDecimal("6.0000").compareTo(persisted.getLeavesQty()));
+    }
+
+    private Object resolve(OutboxMessage row) {
+        var resolution = outboxPayloads.resolve(java.util.List.of(row)).get(row);
+        if (resolution.failure() != null) {
+            throw resolution.failure();
+        }
+        return resolution.record();
     }
 
     /** Messages that exhausted their retry budget must drop out of the claim set. */

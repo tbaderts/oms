@@ -27,3 +27,7 @@ databaseChangeLog:
       file: db/changelog/013-command-log.yaml
   - include:
       file: db/changelog/014-order-events-schema-version.yaml
+  - include:
+      file: db/changelog/015-pointer-outbox-and-pooled-sequences.yaml
+  - include:
+      file: db/changelog/016-event-metadata-and-writer-schema.yaml

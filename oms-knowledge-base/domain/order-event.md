@@ -31,6 +31,12 @@ itself. The log is the audit trail and the source for replay.
 | `commandId` (`command_id`) | The command's `commandId`, when it has one (the four lifecycle commands). Unique per order (`uq_order_events_order_id_command_id`); it is what [de-duplication](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md) looks up. Null otherwise; rows written before the column existed were backfilled from `transaction` |
 | `resultingState`, `orderSnapshot` | The state and the full order after the change |
 | `timeStamp` | When it was recorded |
+| `correlationId`, `causationId` (`correlation_id`, `causation_id`) | The causing command's ids, from the Kafka header or the REST body (SPEC-0049). `correlation_id` is indexed (`idx_order_events_correlation_id`), so every event of one business flow can be found |
+| `principal`, `source` | Who sent the causing command and where it entered: `KAFKA` with the header's `producer`, `SCHEDULER` with the job (`oms-core:expiry`, `oms-core:end-of-day`), `REST` with no principal until REST has authentication (SPEC-0049) |
+| `changes` | What the event changed, as jsonb `{"<field>": {"from": old, "to": new}}`: the difference between the order as the command loaded it and as it saved it (SPEC-0049). Only changed fields are listed; numbers compare by value. A first event lists every field set at creation with `from` null. A partial fill, for example, lists `cumQty`, `leavesQty` and `txNr`, not `state`, which stays `LIVE` |
+
+The five SPEC-0049 columns are null on events recorded before changelog 016; there is no backfill.
+The query API returns them on every entry of `GET /api/query/orders/{orderId}/events`.
 
 `OrderEventAppender` is the only writer. It takes the next version from the order itself
 (`txNr + 1`, no query), sets it on the order, writes the event and stages an

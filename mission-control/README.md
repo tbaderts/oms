@@ -1,146 +1,102 @@
 # Mission Control
 
-Multi-agent operational platform for incident investigation, infrastructure monitoring, and custom workflows. Built on [Mastra AI](https://mastra.ai).
+Load runs against OMS, with live latency charts and AI-assisted investigation (SPEC-0055).
 
-**Companion to [Developer Cockpit](../developer-cockpit/):** Developer Cockpit handles SDLC (specs, coding, git). Mission Control handles ops (monitoring, debugging, incident response).
+A run creates orders through oms-core's REST command API at a fixed rate. It follows each order on
+Kafka (`oms_orders`, `oms_order_executions`) until it is filled, rejected or cancelled. It reports
+how long each step took, measured from the moment the order was due to be sent:
 
-## Quick Start
+| Figure | Until |
+|---|---|
+| Time to OMS ack | the REST create answers 201 |
+| Time to market | the first `OrderMessage` (UNACK) is seen |
+| Time to order live (market ack) | the `OrderMessage` with state LIVE is seen |
+| Time to first fill | the first `OrderExecution` is seen |
+| Time to filled | the `OrderMessage` with state FILLED is seen |
+
+Next to these it records the OMS's own checkpoint deltas from the `OrderMessage` SLA fields.
+
+**Further reading:** concepts and definitions are in
+[oms-knowledge-base/oms-concepts/mission-control.md](../oms-knowledge-base/oms-concepts/mission-control.md).
+
+## Run it
+
+Prerequisites:
+- Node 22+;
+- the root compose stack with oms-core, the exchange simulator, the broker and the Schema Registry
+  (`docker compose up -d` from the repository root).
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Terminal 1 — Server (Mastra + API)
-cd packages/server
-pnpm dev
-# → http://localhost:3100 (Mastra Studio)
-
-# Terminal 2 — UI
-cd packages/ui
-pnpm dev
-# → http://localhost:5173 (Mission Control UI)
+npm install
+npm run dev        # server on http://127.0.0.1:8097, UI on http://localhost:5181
 ```
 
-**Prerequisites:** Node.js 22+, pnpm 10+, `ANTHROPIC_API_KEY` environment variable.
+Production-like:
 
-## Architecture
-
-```
-mission-control/              pnpm monorepo + turborepo
-├── packages/
-│   ├── server/               Mastra app + Hono API
-│   │   ├── src/mastra/
-│   │   │   ├── agents/       5 investigation agents
-│   │   │   └── tools/        20 infrastructure tools
-│   │   ├── src/api/          REST API routes
-│   │   ├── src/services/     Config, playbooks, investigations, health
-│   │   └── playbooks/        Sample investigation playbooks
-│   └── ui/                   React 19 + Vite + Tailwind CSS 4
-│       └── src/
-│           ├── views/         Dashboard, Investigations, Workflow Builder, Settings
-│           ├── components/    Investigation UI, workflow builder nodes
-│           ├── stores/        Zustand state management
-│           └── api/           Type-safe API client
+```bash
+npm run build && npm start      # UI and API on http://127.0.0.1:8097
 ```
 
-## Current Features (MVP)
+To start a run:
+1. Open the UI.
+2. Set the rate (≤ 200 orders/s), the duration (≤ 600 s) and the order template.
+3. Press **Start run**.
 
-### Investigation System
+The run is checked before any order is sent: the target host must be allowlisted, and oms-core,
+Kafka and the Schema Registry must answer. Finished runs are kept in `data/` and listed under
+**Runs**.
 
-The core feature. Describe a symptom, and a supervisor agent coordinates 4 specialist agents to investigate:
+**Run against an otherwise idle stack.** Everything else on the stack shows up in the numbers.
 
-| Agent | What it does | Tools |
-|-------|-------------|-------|
-| **Investigation Supervisor** | Coordinates investigation, matches playbooks, produces reports | search-playbooks, correlate-timeline, format-report |
-| **Log Analyzer** | Searches container logs for errors and patterns | Docker: list-containers, get-logs, search-logs |
-| **K8s Inspector** | Checks pod health, deployments, events | K8s: list-pods, pod-status, pod-logs, deployments, services, events |
-| **DB Querier** | Queries PostgreSQL for entity states and anomalies | PG: execute-query, get-schema, search-entities |
-| **Metrics Analyzer** | Queries Prometheus for resource/app metrics | Prom: query-metrics, query-range, get-alerts |
+## AI investigation
 
-**How to use:**
-1. Open Investigations view (`/investigations`)
-2. Type a symptom (e.g. "pods restarting in production")
-3. The supervisor agent matches a playbook, delegates to specialists, and produces a report
-4. View the report with root cause, evidence, timeline, and recommendations
+Set a provider key, then ask questions on a run's page. The agent has these tools:
+- the run summary;
+- the slowest orders;
+- an order's event history from oms-core's query API;
+- Mimir (PromQL) and Loki (LogQL) queries limited to the run's window.
 
-### Playbooks
+It stops after at most 20 steps.
 
-Markdown files with frontmatter that guide investigations. Located in `packages/server/playbooks/`.
-
-```markdown
----
-title: Pod CrashLoopBackOff Investigation
-triggers: [crashloop, restart, oomkill, crash]
-priority: 10
----
-## Investigation Steps
-1. Check pod status...
+```bash
+export ANTHROPIC_API_KEY=…            # or MC_AI_PROVIDER=openai + OPENAI_API_KEY
 ```
 
-Three sample playbooks included: pod crashloop, high latency, database connection issues.
+## Configuration (environment)
 
-### Infrastructure Adapters
+| Variable | Default |
+|---|---|
+| `MC_PORT` | `8097` |
+| `MC_ALLOWED_HOSTS` | `localhost,127.0.0.1` (hosts a run may target) |
+| `MC_KAFKA_BROKERS` | `localhost:9092` |
+| `MC_SCHEMA_REGISTRY_URL` | `http://localhost:8081` |
+| `MC_ORDER_TOPIC` / `MC_ORDER_EXECUTION_TOPIC` | `oms_orders` / `oms_order_executions` |
+| `MC_MIMIR_URL` | `http://localhost:9009/prometheus` |
+| `MC_LOKI_URL` | `http://localhost:3100` |
+| `MC_DATA_DIR` | `./data` |
+| `MC_AI_PROVIDER` | `anthropic` (`openai`, `local`, `none`) |
+| `MC_AI_MODEL` | provider default |
+| `MC_AI_BASE_URL` | OpenAI-compatible endpoint for `local` |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | (unset: AI investigation is off, everything else works) |
 
-Configure which infrastructure backends to connect to via Settings (`/settings`) or `~/.mission-control/config.json`:
+The server listens on 127.0.0.1 only. It accepts POSTs only with `Content-Type: application/json` and, when the request has an `Origin`, only from its own UI (port 8097 or the dev server on 5181), so a web page open in your browser cannot start a run. API clients such as `npm run e2e` send no Origin.
 
-| Adapter | Tools | Approval Required |
-|---------|-------|-------------------|
-| **Kubernetes** | list-pods, get-pod-status, get-pod-logs, list-deployments, list-services, get-events | No |
-| **Docker** | list-containers, get-container-logs, search-logs, start-container, stop-container | start/stop only |
-| **PostgreSQL** | execute-query (SELECT only), get-schema, search-entities | No |
-| **Prometheus** | query-metrics, query-range, get-alerts | No |
+## Checks
 
-### Visual Workflow Builder
+```bash
+npm run typecheck
+npm test                                              # unit, server and component tests
+npm run e2e -- --rate 20 --duration 60 --out run.json # against the live stack, server running
+```
 
-Drag-and-drop canvas for composing multi-agent workflows (`/workflows`). Node types: Agent, Tool, Branch, Parallel, Approval, Input, Output. **Note:** designing workflows works; executing them is not yet wired (see roadmap).
+`e2e` exits 0 only if every order was filled, every figure has one sample per order, nothing failed
+or stayed open, and the generator kept the rate.
 
-### Dashboard
+## Reading the numbers
 
-Summary cards (active investigations, adapters online), recent investigations, adapter connection status.
+**Generator-limited runs.** A run is flagged generator-limited when it achieved under 95 % of the
+target rate, or when the p99 lateness of its sends exceeded 50 ms. Its figures then describe
+Mission Control, not OMS.
 
-### Mastra Studio
-
-Access at `http://localhost:3100` when the server is running. Provides a built-in UI for:
-- Browsing all registered agents and tools
-- Testing agents with ad-hoc prompts
-- Inspecting tool schemas
-
-## Configuration
-
-Config lives at `~/.mission-control/config.json`. Created automatically on first run with sensible defaults. Edit via the Settings UI or directly.
-
-Key settings:
-- `ai.model` — LLM model for agents (default: `anthropic/claude-sonnet-4-6`)
-- `ai.apiKey` — Anthropic API key (or set `ANTHROPIC_API_KEY` env var)
-- `adapters.kubernetes.kubeconfig` — Path to kubeconfig file
-- `adapters.docker.socketPath` — Docker socket (default: `/var/run/docker.sock`)
-- `adapters.postgresql.connectionString` — Postgres connection string
-- `adapters.prometheus.url` — Prometheus server URL
-
-## API
-
-All custom API routes are mounted under `/mc`:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/mc/investigations` | List all investigations |
-| GET | `/mc/investigations/:id` | Get investigation by ID |
-| POST | `/mc/investigations` | Start new investigation `{ symptom: "..." }` |
-| GET | `/mc/playbooks` | List playbooks |
-| POST | `/mc/playbooks` | Create playbook `{ filename, content }` |
-| GET | `/mc/adapters` | Get adapter health status |
-| GET | `/mc/config` | Get config (secrets masked) |
-| PUT | `/mc/config` | Update config (deep merge) |
-
-Mastra's built-in API is also available (agents, tools, workflows) — see Swagger UI at `/swagger-ui`.
-
-## Tech Stack
-
-- **Mastra AI** (`@mastra/core`, `@mastra/server`, `@mastra/libsql`) — Agent framework
-- **Hono** — API layer
-- **React 19** + **Vite 6** — Frontend
-- **Tailwind CSS 4** — Styling
-- **React Flow** (`@xyflow/react`) — Visual workflow builder
-- **Zustand** — State management
-- **TypeScript** — Everything
-- **pnpm workspaces** + **Turborepo** — Monorepo tooling
+**Sources of error.** Percentiles are exact, computed over all samples. The figures include
+Kafka delivery to Mission Control and the time to decode each record.

@@ -35,7 +35,9 @@ class OrderEventContractTest {
         assertEquals(
                 new TreeSet<>(List.of(
                         "orderId", "version", "event", "commandId", "resultingState", "timeStamp",
-                        "transaction", "orderSnapshot")),
+                        "transaction", "orderSnapshot",
+                        // SPEC-0049: who caused the event and what it changed
+                        "correlationId", "causationId", "principal", "source", "changes")),
                 properties);
     }
 

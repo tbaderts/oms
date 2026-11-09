@@ -34,7 +34,7 @@ public class CommandSchemaTest {
     void headerFieldsAsSpecified() throws Exception {
         Schema header = classSchema("CommandHeader");
         assertEquals(
-                List.of("commandId", "correlationId", "causationId", "sentAt", "producer", "version"),
+                List.of("commandId", "correlationId", "causationId", "sentAt", "producer", "version", "expectedVersion"),
                 header.getFields().stream().map(Schema.Field::name).toList());
 
         assertEquals(Schema.Type.STRING, header.getField("commandId").schema().getType());

@@ -57,6 +57,7 @@ public class OrderLifecycleCommandProcessor {
     private final TaskOrchestrator orchestrator;
     private final LoadOrderTask loadOrderTask;
     private final DeduplicateCommandTask deduplicateCommandTask;
+    private final org.example.oms.service.command.tasks.CheckExpectedVersionTask checkExpectedVersionTask;
     private final ValidateLifecycleActionTask validateLifecycleActionTask;
     private final ApplyLifecycleActionTask applyLifecycleActionTask;
     private final SaveOrderTask saveOrderTask;
@@ -174,6 +175,7 @@ public class OrderLifecycleCommandProcessor {
         return TaskPipeline.<OrderTaskContext>builder("OrderLifecyclePipeline")
                 .addTask(loadOrderTask)
                 .addTask(deduplicateCommandTask)
+                .addTask(checkExpectedVersionTask)
                 .addTask(validateLifecycleActionTask)
                 .addTask(applyLifecycleActionTask)
                 .addTask(saveOrderTask)

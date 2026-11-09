@@ -42,6 +42,22 @@ topic and key, and so one partition.
 
 - **Order within an aggregate.** Its rows are sent one after another, each only after the broker
   acknowledged the previous one, so they reach Kafka in id order.
+- **One order's rows in version order (SPEC-0047).** Ids normally follow versions: rows are staged
+  under the root order's lock and `outbox_seq` hands out ids one at a time. As a safety net, the
+  claim never takes an order's later version while an earlier one waits at a higher id. If an
+  order's pending rows on a topic contain such an inversion, only its lowest version is claimed,
+  one per drain, until the inversion is gone.
+- **Records are read back (SPEC-0047).** `ORDER` and `EXECUTION` rows are pointers.
+  - Before any send, on the drain thread and in the claiming transaction, the relay builds each
+    record. An `ORDER` record is built from the order's snapshot in `order_events`, read by
+    `(order_id, version)`. An `EXECUTION` record is built from the execution in `executions`,
+    read by `(order_id, execid)`, with the row's key as its `rootOrderId`.
+  - The records are the same as before; only where the order comes from changed.
+  - `PROJECTION` rows and rows staged before SPEC-0047 still publish from their payloads. A
+    `PROJECTION` payload is decoded with the writer schema its row records (`payload_schema_id`,
+    SPEC-0049) and the current class as reader. The writer schema is read from the Schema
+    Registry on the drain thread and cached; a registry that cannot be reached is a transient
+    failure, so the row waits without losing an attempt.
 - **Aggregates run in parallel.** Different aggregates are in flight together. The relay awaits
   the whole batch, at most `kafka.outbox.drain-timeout-ms` (default 30 s), then deletes the
   acknowledged rows in the claiming transaction.
@@ -53,7 +69,8 @@ topic and key, and so one partition.
   10) is no longer retried. The later rows of its aggregate stay in the outbox behind it, never
   published out of order, until an operator replays or removes it.
 - **Only a definitive failure costs an attempt.** These are problems with the message itself:
-  serialization, a record too large, authorization, a row without a payload. A **transient**
+  serialization, a record too large, authorization, a row without a payload, a pointer whose event
+  or execution cannot be read (its `lastError` names the order and the version). A **transient**
   failure costs no attempt. It means a Kafka retriable error, such as a send that waited longer
   than the producer's `max.block.ms` (10 s) for topic metadata, or an I/O error reaching the schema
   registry. A transient failure stops the aggregate for the drain and records `lastError`. A row
@@ -73,8 +90,8 @@ topic and key, and so one partition.
   - A misconfigured or missing topic fails transiently (unknown topic, metadata timeout). It
     never becomes stuck: its rows wait, with `lastError` set and the age gauge growing, until the
     configuration is fixed.
-- **One relay instance.** Ordering assumes a single relay per deployment: with several, `SKIP LOCKED`
-  could let a second one claim later rows of an aggregate the first is still publishing.
+- **One relay leader.** With several instances only the leader drains, and its claim waits for rows
+  another relay still holds instead of skipping them (SPEC-0048, below).
 
 Metrics:
 - `oms.outbox.pending`: rows in the outbox;
@@ -125,6 +142,22 @@ dies leaves a session that PostgreSQL only ends when TCP keepalive gives up on i
 is about two hours with Linux defaults. Set them lower on the database server (for example
 `tcp_keepalives_idle = 30`, `tcp_keepalives_interval = 10`, `tcp_keepalives_count = 3`) to bound
 the gap without a relay to about a minute.
+
+**Rolling out SPEC-0047, and rolling it back.** `ORDER` and `EXECUTION` rows are pointers from
+SPEC-0047 on, and only SPEC-0047 code can publish them. Code from before SPEC-0047 fails them as
+"no payload", a definitive failure: after `max-attempts` their aggregates are held.
+- **Rolling deploy with several instances.** Stop every pre-SPEC-0047 instance, or make sure none
+  holds the outbox-relay leadership, before a SPEC-0047 instance takes commands. Check with
+  `GET /actuator/health/leadership` and `oms.leadership.held{role="OUTBOX_RELAY"}`.
+- **Rolling back the code.** Stop taking commands and let the relay drain the outbox to zero
+  (`oms.outbox.pending` = 0) before starting older code. Pending pointer rows cannot be published
+  by it.
+- **Rolling back changelog 015.** Same rule, and more: the rollback drops `outbox.order_id` and
+  `exec_id`, so a pointer row left pending can never be published. Older code also needs the
+  sequences back at `INCREMENT BY 1` (changeset `015-pooled-sequences`), or Hibernate's
+  startup check refuses to start.
+- **Rows already held.** If rows were held this way, release them by deploying SPEC-0047 code and
+  resetting their `attempts` to 0; they then publish normally.
 
 **Rolling out SPEC-0026.** Rows that an earlier relay left stuck start holding their aggregates
 once this version runs: every new message for that topic and root order would wait behind them.

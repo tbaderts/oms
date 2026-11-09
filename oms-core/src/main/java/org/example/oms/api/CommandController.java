@@ -79,7 +79,8 @@ public class CommandController implements ExecuteApi {
         return switch (commandDispatcher.dispatch(command, CommandOrigin.rest(receivedTime))) {
             case CommandDispatch.Applied applied -> ResponseEntity
                     .status(applied.created() ? HttpStatus.CREATED : HttpStatus.OK)
-                    .body(result(applied.resultId(), CommandStatus.OK, applied.message()));
+                    // The version the command produced, for read-your-writes (SPEC-0050).
+                    .body(result(applied.resultId(), CommandStatus.OK, applied.message()).eventVersion(applied.eventVersion()));
             case CommandDispatch.Refused refused when refused.duplicate() ->
                     throw new DuplicateCommandException(refused.orderId(), refused.commandId());
             case CommandDispatch.Refused refused -> {

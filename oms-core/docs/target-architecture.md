@@ -119,7 +119,6 @@ history of both is in `order_events`.
 | `command_log` | every ask and its outcome | `command_id`, `type`, `order_id`, `received_at`, `source`, `principal`, `outcome` APPLIED / REFUSED / FAILED, `reason`, `event_version`; written in its own transaction so it survives a rollback |
 | `outbox` | messages staged for Kafka | `topic`, `aggregate_id` (the Kafka key, root order id), `aggregate_type`; ORDER and EXECUTION rows are **pointers** `(order_id, aggregate_version)` to the event; PROJECTION rows carry an Avro payload and the writer schema id; deleted on broker ack |
 | `order_execution_projection` | tier-1 read model: one row per fill with the order as of that fill | `(order_id, execid, order_version)` unique; the row and the published `OrderExecution` record are built from the same object |
-| `position_projection` | tier-1 read model: net quantity and notional per account, symbol and trade date | updated per fill and per bust; rebuildable from `executions` by `order_version` |
 
 ### 4.3 What a snapshot buys, and what a delta adds
 
@@ -127,7 +126,7 @@ Every event stores the full order as it stood after the change. Reconstructing t
 n is therefore one indexed lookup, not a fold over n events, and the storage cost is accepted. The
 `changes` column adds what a snapshot alone cannot show: the fields that differ from version n-1,
 so an auditor reads "cumQty 0 → 40, leavesQty 100 → 60" without diffing two JSON documents, and a
-projection that needs deltas (positions) does not have to derive them.
+consumer that needs deltas (booking, audit) does not have to derive them.
 
 ### 4.4 Retention
 
@@ -297,9 +296,13 @@ The contract every consumer relies on:
 
 ### 6.3 Republishing
 
-An operator can re-stage the events of one order, or of every order, for a topic:
-`POST /actuator/projections/republish`. The relay publishes them under the same keys and versions,
-so consumers that deduplicate correctly see nothing new and a rebuilt consumer is refilled.
+An operator can re-stage the `OrderExecution` records of one order or of one trade date into the
+outbox. The relay publishes them under the same keys and versions, so consumers that deduplicate
+correctly see nothing new, and a consumer that lost fills is refilled.
+
+Republishing exists for booking: an operator resend (booking requirement R8) and a reconciliation
+break (R10), when fills never reached booking or were lost after Kafka's retention. It is planned
+with the booking adapter, which decides the endpoint and the exact scope.
 
 ---
 
@@ -325,10 +328,15 @@ that version, or subscribes to the stream.
 ### 7.2 Tier 1: inline projections
 
 An inline projection runs inside the command transaction (`ProjectTask`) and is consistent with the
-change by construction. It is for rows that must commit with the change: the execution view, the
-position per account. Its cost is part of the fill latency, so the set stays small. A projection
-that throws fails the command. Rebuild: a shadow table is filled from `order_events` and
-`executions` while fills continue, then swapped in by rename.
+change by construction. It is for rows that must commit with the change. The only one is
+`order_execution_projection`, which booking and the query API read. Positions are not an OMS read
+model; they belong to the back office. The projection's cost is part of the fill latency, so the
+set stays small. A projection that throws fails the command.
+
+Rebuild, target: a shadow table is filled from `order_events` and `executions` while fills
+continue, then swapped in by rename. Today `ProjectionRebuilder` locks the table and blocks fills
+for the whole rebuild. The shadow-table rebuild is a follow-up, to be taken up when volume shows
+the lock hurts.
 
 ### 7.3 Tier 2: asynchronous projections
 
@@ -344,8 +352,8 @@ normally milliseconds.
 |---|---|---|
 | `OrderReplayService.replayAt(orderId, version)` | the order after any version, one lookup | debugging, audit, point-in-time questions |
 | `executionsAt(orderId, version)` | the executions applied and not yet busted at that version | the same, for fills |
-| Rebuild (tier 1) | shadow table from the log, swap | after deploying a new projection, after fixing a projection bug |
-| Republish (tier 2) | re-stage events into the outbox | after rebuilding a consumer, after a consumer-side bug |
+| Rebuild (tier 1) | today: refill under a table lock; target: shadow table from the log, swap | after deploying a new projection, after fixing a projection bug |
+| Republish (tier 2) | re-stage `OrderExecution` records of an order or a trade date into the outbox (planned with the booking adapter) | booking resend, reconciliation break, a consumer that lost fills |
 | Reconciliation sampler | every few minutes compares a sample of `orders` to `replay` and checks contiguity; gauges `oms.event_log.inconsistent`, `oms.event_log.gaps` | always on; the proof that nothing writes an order without an event |
 | Replay harness | feeds the stored commands of `order_events` in order into a fresh database and diffs the snapshots | before a release; doubles as the load suite |
 
@@ -454,7 +462,7 @@ sequenceDiagram
         P->>DB: 7 UPDATE orders (cumQty 40, leavesQty 60, avgPx 171.95, tx_nr 3)
         P->>DB: 8 INSERT order_events v3 PARTIAL_FILL, exec_id EX-1, changes {cumQty, leavesQty, avgPx}
         P->>DB: 9 INSERT outbox ORDER (ORD-7F3A, 3) · EXECUTION (ORD-7F3A, 3, EX-1) · PROJECTION (OrderExecution EX-1 v3)
-        P->>DB: 10 UPSERT order_execution_projection (EX-1, v3) · position_projection (ACC-1, AAPL, +40)
+        P->>DB: 10 UPSERT order_execution_projection (EX-1, v3)
         P->>DB: COMMIT
     end
     P-->>CL: APPLIED, event_version 3
@@ -483,7 +491,7 @@ sequenceDiagram
         P->>DB: INSERT executions EX-2 (APPLIED, order_version 4)
         P->>DB: UPDATE orders (FILLED, cumQty 100, leavesQty 0, avgPx 171.98, tx_nr 4)
         P->>DB: INSERT order_events v4 FILL, exec_id EX-2, resulting_state FILLED
-        P->>DB: INSERT outbox ×3 (version 4) · UPSERT projections (EX-2 v4, position +100)
+        P->>DB: INSERT outbox ×3 (version 4) · UPSERT order_execution_projection (EX-2, v4)
         P->>DB: COMMIT
     end
 ```
@@ -598,16 +606,12 @@ that arrived after version 3):
 | f-7aa… | ExecutionCreateCmd | ORD-7F3A | Kafka | APPLIED | | 4 |
 | EOD-ORD-7F3A-20261107 | OrderCloseCmd | ORD-7F3A | scheduler | APPLIED | | 5 |
 
-`order_execution_projection` (two rows) and `position_projection` (one row):
+`order_execution_projection` (two rows):
 
 | order_id | execid | order_version | last_qty | last_px | cum_qty | leaves_qty | avg_px | state | account | symbol | trade_date |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | ORD-7F3A | EX-1 | 3 | 40 | 171.95 | 40 | 60 | 171.95 | LIVE | ACC-1 | AAPL | 2026-11-07 |
 | ORD-7F3A | EX-2 | 4 | 60 | 172.00 | 100 | 0 | 171.98 | FILLED | ACC-1 | AAPL | 2026-11-07 |
-
-| account | symbol | trade_date | net_qty | notional | fill_count | last_order_version |
-|---|---|---|---|---|---|---|
-| ACC-1 | AAPL | 2026-11-07 | 100 | 17198.00 | 2 | 4 |
 
 Kafka, all keyed by `ORD-7F3A`, in publication order per topic:
 
@@ -673,7 +677,7 @@ sequenceDiagram
         P->>DB: market order: INSERT executions EX-1 (order_version 3) · UPDATE orders M1 (40/60) · order_events M1 v3 PARTIAL_FILL exec_id EX-1
         P->>DB: client order: UPDATE orders ORD-7F3A (cumQty +40, leavesQty 60) · order_events ORD-7F3A v3 PARTIAL_FILL, causation ORD-7F3A-M1:3
         P->>DB: outbox: ORDER rows for both orders, EXECUTION and PROJECTION for M1, all keyed ORD-7F3A
-        P->>DB: projections: order_execution_projection (M1, EX-1), position (ACC-1, AAPL, +40)
+        P->>DB: projections: order_execution_projection (M1, EX-1)
         P->>DB: COMMIT
     end
     Note over V,DB: both orders' records land on the same partition, parent after child, in commit order
@@ -708,7 +712,7 @@ sequenceDiagram
         K->>P: ExecutionBustCmd execRefId EX-1
         P->>DB: lock root · EX-1 is APPLIED · bust allowed, FILLED → LIVE
         P->>DB: UPDATE executions EX-1 (BUSTED, busted_at_version 5) · UPDATE orders (LIVE, 60/40, avgPx 172.00, tx_nr 5)
-        P->>DB: INSERT order_events v5 EXEC_BUST, exec_id EX-1 · outbox ×3 · projections (EX-1 v5 reversal, position -40)
+        P->>DB: INSERT order_events v5 EXEC_BUST, exec_id EX-1 · outbox ×3 · order_execution_projection (EX-1 v5 reversal)
         Note over K: oms_order_executions receives EX-1 again with execType H and orderVersion 5, and booking reverses it
     end
 ```
@@ -785,7 +789,8 @@ recorded in each ticket's log.
 | Order trees: legs, place command, root lock, upward ripple; cancel and replace fan-out | planned | SPEC-0022, SPEC-0023 |
 | Replay harness, load baseline, `schema_version` on stored JSON | planned | SPEC-0024 |
 | Bust, correction and whack as execution lifecycle events; `FILLED → LIVE` | planned | SPEC-0030, on SPEC-0044 |
-| Projection tiers named, republish endpoint, shadow-table rebuild, `position_projection` | planned | SPEC-0051 |
+| Republish of `OrderExecution` records for one order or one trade date (booking resend and reconciliation) | planned | with the booking adapter (SPEC-0051 withdrawn 2026-11-08) |
+| Shadow-table rebuild of `order_execution_projection` without blocking fills | follow-up, when volume shows the table lock hurts | none yet |
 | Monthly partitions on `order_events`, archival of closed orders | planned | SPEC-0052 |
 | Booking adapter | planned | booking integration concept |
 
@@ -805,7 +810,7 @@ recorded in each ticket's log.
 | **Command log** | One row per command received, with its outcome: applied (and the event version), refused (and why) or failed. Written in its own transaction. |
 | **Outbox** | The table where a command transaction stages the Kafka messages it produces. The relay publishes them after commit. |
 | **Relay** | The one component that sends to Kafka. One leader, per-key chains, delete on acknowledgement. |
-| **Projection, tier 1** | A read model written inside the command transaction: `order_execution_projection`, `position_projection`. Consistent by construction, rebuildable from the log. |
+| **Projection, tier 1** | A read model written inside the command transaction: `order_execution_projection`. Consistent by construction, rebuildable from the log. |
 | **Projection, tier 2** | A read model fed from Kafka by a consumer group: the streaming blotter, booking state, analytics. Eventually consistent, refillable by republish. |
 | **Replica** | A logical PostgreSQL replica of the primary, serving the query instances. |
 | **Root order, leg** | In a tree, the client order is the root (leg CLI); market orders are its children (leg MKT). The root id is every Kafka key. |

@@ -53,9 +53,12 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
     @AfterEach
     void releaseTheHeldAggregate() {
         if (heldOrderId != null) {
-            outboxRepository.findAll().stream()
+            // One bulk delete: deleting the stuck row first would release the row behind it, which
+            // the relay may then publish and delete before a row-by-row delete reaches it.
+            outboxRepository.deleteAllByIdInBatch(outboxRepository.findAll().stream()
                     .filter(row -> heldOrderId.equals(row.getAggregateId()))
-                    .forEach(outboxRepository::delete);
+                    .map(OutboxMessage::getId)
+                    .toList());
         }
     }
 

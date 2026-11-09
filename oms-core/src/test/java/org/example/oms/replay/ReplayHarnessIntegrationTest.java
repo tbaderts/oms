@@ -115,6 +115,30 @@ class ReplayHarnessIntegrationTest {
                 "the replay target publishes nothing: it has no outbox relay");
     }
 
+    /**
+     * SPEC-0047: with pooled ids, an order's later event can have a smaller id than an earlier one
+     * (two instances draw ids from different blocks). The replay still applies each order's events
+     * in version order: here the partial order's two fills swap ids.
+     */
+    @Test
+    void replayHoldsBackAVersionWhoseIdComesFirst() {
+        List<String> orders = recordHistory();
+        String partial = orders.getFirst();
+        long v3 = jdbc.queryForObject("select id from order_events where order_id = ? and version = 3", Long.class, partial);
+        long v4 = jdbc.queryForObject("select id from order_events where order_id = ? and version = 4", Long.class, partial);
+        jdbc.update("update order_events set id = -1 where id = ?", v3);
+        jdbc.update("update order_events set id = ? where id = ?", v3, v4);
+        jdbc.update("update order_events set id = ? where id = -1", v4);
+
+        ReplayResult result = ReplayHarness.replay(source, target);
+
+        result.assertNoDifferences();
+        assertFalse(result.failed(), result.lines().toString());
+        assertEquals(9, result.diff().compared(), result.lines().toString());
+        assertEquals(orders, result.replayed().events().stream().map(StoredEvent::orderId).distinct().toList(),
+                "the replayed orders keep their recorded ids");
+    }
+
     /** AC-2: a recorded snapshot today's code does not reproduce fails the replay, naming the field. */
     @Test
     void failsWithDiffWhenReplayDiverges() {

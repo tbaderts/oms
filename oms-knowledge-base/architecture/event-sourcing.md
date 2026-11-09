@@ -21,6 +21,12 @@ command, resulting state, full snapshot) in the same transaction, through one ap
 
 ## Consequences
 - Replay is a lookup, not a fold; events are larger than deltas.
+- The event's snapshot is the only stored copy of the order as of that change: the outbox's
+  `ORDER` and `EXECUTION` rows point at it instead of copying it (SPEC-0047).
+- Ids of `orders`, `executions`, `order_events` and the projection table are drawn in blocks
+  of 50 (pooled-lo, SPEC-0047). With several instances, id order is therefore not commit order
+  across instances. Order by `(order_id, version)` where order matters; replay does
+  ([Testing Patterns](../oms-framework/testing-patterns.md)).
 - A path that changes an order without appending is a defect (policy P-05), detectable by replay.
 
 Capability: [Event Sourcing and Replay](../capabilities/event-sourcing-and-replay.md).

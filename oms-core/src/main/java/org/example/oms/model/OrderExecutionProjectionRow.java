@@ -35,7 +35,7 @@ public class OrderExecutionProjectionRow {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "order_execution_projection_sequence")
-    @SequenceGenerator(name = "order_execution_projection_sequence", sequenceName = "order_execution_projection_seq", allocationSize = 1)
+    @SequenceGenerator(name = "order_execution_projection_sequence", sequenceName = "order_execution_projection_seq", allocationSize = 50)
     private Long id;
 
     @Column(name = "order_id", nullable = false)

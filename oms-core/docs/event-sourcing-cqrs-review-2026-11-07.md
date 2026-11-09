@@ -569,6 +569,16 @@ message and the query API keeps serving the row shape. It is renamed `order_exec
 and the projection name is decoupled from the table name (SPEC-0045). The view remains the
 documented alternative if the duplication ever becomes a cost.
 
+**Decision, 2026-11-08.** Recommendation 4 is not taken. Positions are kept in the back office,
+not in the OMS, and the only projection the OMS needs is `order_execution_projection` for
+booking. SPEC-0051, which carried `position_projection`, is withdrawn. Its other parts go
+elsewhere:
+- republish (F-9) moves to the booking work, scoped to one order or one trade date, for operator
+  resend and reconciliation breaks;
+- the shadow-table rebuild (F-15) becomes a follow-up, to be taken up when volume shows the table
+  lock hurts;
+- the tier naming is kept in the target architecture.
+
 ---
 
 ## 6. Findings and fixes
@@ -689,7 +699,7 @@ flowchart LR
     end
     subgraph p3["Phase 3: build on it"]
         S30["SPEC-0030<br/>bust and correction"]
-        N6["NEW: projection tiers and republish<br/>F-9, F-15, position_view"]
+        N6["WITHDRAWN: projection tiers and position_view<br/>(republish moves to booking; F-15 rebuild a follow-up)"]
         E["SPEC-0022 / 0023<br/>order trees"]
         N7["NEW: partitioning and archival<br/>F-17"]
     end
@@ -716,7 +726,7 @@ flowchart LR
 | **SPEC-0050: expected version** | Optional `expectedVersion` on the command base and `CommandHeader`; refusal on mismatch; event version in `CommandResult` (section 7) | SPEC-0046 | a stale client is refused with a reason; a client can wait for its own write by version |
 | **SPEC-0021** (open) | Read-only profile, replica, query spec completion | none | query API served from the replica, including the execution view |
 | **SPEC-0030** (open) | Bust and correction as execution lifecycle events, `FILLED → LIVE`, reversal on `oms_order_executions` | SPEC-0044 | a bust reverses quantities, is in the log with `exec_id`, and reaches consumers with `execType = H` |
-| **SPEC-0051 (F): projection tiers and republish** | Tier definitions, republish endpoint, streaming service documented as tier 2, streaming rebuild, `position_projection` as the first aggregate projection, shadow-table rebuild (F-9, F-15) | SPEC-0044, SPEC-0021 | a projection can be rebuilt without blocking fills; a tier-2 consumer can be refilled by republish |
+| ~~**SPEC-0051 (F): projection tiers and republish**~~ (withdrawn 2026-11-08, see section 5.4) | ~~Tier definitions, republish endpoint, streaming service documented as tier 2, streaming rebuild, `position_projection` as the first aggregate projection, shadow-table rebuild (F-9, F-15)~~. Republish moves to the booking work; the shadow-table rebuild is a follow-up | — | — |
 | **SPEC-0022 / SPEC-0023** (open) | Order trees | SPEC-0048, SPEC-0049 | as in their tickets; root lock from SPEC-0048, causation from SPEC-0049 |
 | **SPEC-0052 (G): partitioning and archival** | Monthly partitions on `order_events`, archival of closed orders (F-17) | SPEC-0047, measurements from SPEC-0024 | a year of simulated volume stays within the agreed storage and vacuum budget |
 
@@ -724,8 +734,9 @@ flowchart LR
 and remove the two highest-severity gaps; they should go first. SPEC-0047 (C) needs the baseline
 from SPEC-0024 to prove it paid off. SPEC-0048 (D) is what makes a second instance safe and should
 land before any horizontal scaling. SPEC-0030 should wait for SPEC-0044 rather than invent its own
-execution status. SPEC-0051 (F) is where the projection framework earns its keep, with
-`position_projection` as the first read model that needs a table of its own.
+execution status. SPEC-0051 (F) was meant to be where the projection framework earns its keep,
+with `position_projection` as the first read model that needs a table of its own. It was withdrawn
+on 2026-11-08, because positions belong to the back office (see section 5.4).
 
 ---
 

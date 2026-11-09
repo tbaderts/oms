@@ -61,7 +61,7 @@ public class OrderExecutionProjection implements Projection {
         apply(row, record, context);
         repository.save(row);
 
-        return List.of(new StagedMessage(topic, OrderEventAppender.partitionKey(order), context.orderVersion(), record));
+        return List.of(new StagedMessage(topic, OrderEventAppender.partitionKey(order), order.getOrderId(), context.orderVersion(), record));
     }
 
     @Override

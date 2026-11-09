@@ -8,6 +8,7 @@ Back to the [knowledge base index](../index.md).
 
 - [Exchange Simulator](exchange-simulator.md) — FIX exchange simulator that acknowledges, fills, rejects and cancels OMS market orders so the lifecycle can run end to end.
 - [Execution Reporting Specification](execution-reporting.md) — Workflows for processing execution reports from venues and brokers: fills, corrections, busts and their effect on order state.
+- [Mission Control](mission-control.md) — Local load-test tool that creates orders over REST at a set rate, follows them on Kafka, charts their latency figures and lets an AI agent investigate a run.
 - [Order Grouping Specification](order-grouping.md) — Grouping client orders for the same security and price into one market order, and allocating fills back to the members. *(draft)*
 - [Order Lifecycle Management Specification](order-lifecycle.md) — Order states and transitions across the full lifecycle, combining state machine rules, business workflows and FIX semantics.
 - [Order Lifecycle Management: Replace, Cancel, and Reject Operations](order-replace.md) — Replace, cancel and reject workflows for client and market orders, with their state handling.

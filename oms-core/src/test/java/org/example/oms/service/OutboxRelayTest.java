@@ -48,6 +48,16 @@ class OutboxRelayTest {
 
     private static final int MAX_ATTEMPTS = 3;
 
+    /** Resolves every row to itself: the fake publisher records rows, not records (SPEC-0047). */
+    private static final OutboxPayloads PASS_THROUGH = new OutboxPayloads(null, null, null, null, null) {
+        @Override
+        public Map<OutboxMessage, Resolution> resolve(List<OutboxMessage> rows) {
+            Map<OutboxMessage, Resolution> resolved = new java.util.HashMap<>();
+            rows.forEach(row -> resolved.put(row, Resolution.of(row)));
+            return resolved;
+        }
+    };
+
     @Mock private OutboxRepository outboxRepository;
     @Mock private Leadership leadership;
 
@@ -57,7 +67,7 @@ class OutboxRelayTest {
 
     @BeforeEach
     void setUp() {
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 5_000);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 5_000);
     }
 
     @AfterEach
@@ -193,7 +203,7 @@ class OutboxRelayTest {
     @Test
     void timeoutLeavesUnfinishedRowsUntouched() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         OutboxMessage a2 = message(3L, "A");
@@ -215,7 +225,7 @@ class OutboxRelayTest {
     @Test
     void lateAcknowledgementAfterTheDrainChangesNothing() throws Exception {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage a2 = message(2L, "A");
         claim(a1, a2);
@@ -286,7 +296,7 @@ class OutboxRelayTest {
     @Test
     void aggregateWithASendStillInFlightIsSkipped() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         claim(a1, b1);
@@ -368,7 +378,7 @@ class OutboxRelayTest {
     @Test
     void aFullBatchIsFollowedByAnotherAtOnce() {
         when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
         when(outboxRepository.claimPending(any(Integer.class), any()))
                 .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
                 .thenReturn(List.of(message(3L, "C"), message(4L, "D")))
@@ -418,7 +428,7 @@ class OutboxRelayTest {
     void leadershipIsCheckedAgainBeforeEveryBatch() {
         // Leader when the drain starts and for its first batch, then the lock is lost.
         when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true, true, false);
-        relay = new OutboxRelay(outboxRepository, publisher, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
         when(outboxRepository.claimPending(any(Integer.class), any()))
                 .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
                 .thenReturn(List.of(message(3L, "C"), message(4L, "D")));
@@ -522,7 +532,7 @@ class OutboxRelayTest {
         }
 
         @Override
-        public CompletableFuture<SendResult<String, Object>> publishAsync(OutboxMessage message) {
+        public CompletableFuture<SendResult<String, Object>> publishAsync(OutboxMessage message, Object record) {
             sent.add(message.getId());
             return answer.apply(message);
         }
