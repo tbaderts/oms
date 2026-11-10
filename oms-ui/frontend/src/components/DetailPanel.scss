@@ -1,8 +1,8 @@
-// DetailPanel.scss - Well-organized order detail panel with VS Code Dark Theme
+// DetailPanel.scss - Well-organized order detail panel with SPEC-0058 tokens
 .detail-panel {
   padding: 0;
   background: var(--oms-surface);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--oms-font-family);
   max-height: 70vh;
   overflow-y: auto;
 
@@ -20,14 +20,14 @@
 
       .header-symbol {
         .symbol {
-          font-size: 1.5rem;
+          font-size: var(--oms-font-size-xl);
           font-weight: 700;
           color: var(--oms-text-strong);
           margin-right: 0.75rem;
         }
 
         .security-desc {
-          font-size: 0.875rem;
+          font-size: var(--oms-font-size-md);
           color: var(--oms-text-muted);
         }
       }
@@ -52,14 +52,14 @@
         gap: 0.25rem;
 
         .summary-label {
-          font-size: 0.75rem;
+          font-size: var(--oms-font-size-xs);
           color: var(--oms-text-muted);
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.04em;
         }
 
         .summary-value {
-          font-size: 1rem;
+          font-size: var(--oms-font-size-lg);
           font-weight: 600;
           color: var(--oms-text-strong);
         }
@@ -76,7 +76,7 @@
     margin-bottom: 0.5rem;
     background: var(--oms-bg);
     border: 1px solid var(--oms-border);
-    border-radius: 2px;
+    border-radius: var(--oms-radius-sm);
     overflow: hidden;
 
     &.collapsed .section-content {
@@ -98,21 +98,24 @@
       }
 
       .section-icon {
-        font-size: 1rem;
-        line-height: 1;
+        color: var(--oms-accent);
       }
 
       h4 {
         flex: 1;
         margin: 0;
-        font-size: 0.875rem;
+        font-size: var(--oms-font-size-md);
         font-weight: 600;
         color: var(--oms-text-strong);
       }
 
       .section-toggle {
         color: var(--oms-text-muted);
-        font-size: 0.75rem;
+        transition: transform 0.15s;
+
+        &.open {
+          transform: rotate(90deg);
+        }
       }
     }
 
@@ -146,14 +149,14 @@
     }
 
     .field-label {
-      font-size: 0.75rem;
+      font-size: var(--oms-font-size-xs);
       color: var(--oms-text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.04em;
     }
 
     .field-value {
-      font-size: 0.875rem;
+      font-size: var(--oms-font-size-md);
       color: var(--oms-text);
       word-break: break-word;
     }
@@ -166,13 +169,13 @@
   }
 
   .value-number {
-    font-family: 'Consolas', 'Courier New', monospace;
+    font-family: var(--oms-font-mono);
     color: var(--oms-syntax-number);
   }
 
   .value-date {
     color: var(--oms-text);
-    font-size: 0.8125rem;
+    font-size: var(--oms-font-size-sm);
   }
 
   .value-boolean {
@@ -192,66 +195,14 @@
   }
 
   .value-object {
-    font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 0.75rem;
+    font-family: var(--oms-font-mono);
+    font-size: var(--oms-font-size-xs);
     background: var(--oms-surface);
     padding: 0.5rem;
-    border-radius: 2px;
+    border-radius: var(--oms-radius-sm);
     margin: 0;
     overflow-x: auto;
     color: var(--oms-syntax-string);
-  }
-
-  // Badge styling
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    border-radius: 2px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-  }
-
-  .badge-default {
-    background: var(--oms-surface-raised);
-    color: var(--oms-text);
-  }
-
-  .badge-info {
-    background: rgba(0, 122, 204, 0.2);
-    color: var(--oms-accent);
-  }
-
-  .badge-warning {
-    background: rgba(204, 153, 0, 0.2);
-    color: #cca300;
-  }
-
-  .badge-success {
-    background: rgba(75, 191, 107, 0.2);
-    color: var(--oms-success);
-  }
-
-  .badge-error {
-    background: rgba(244, 71, 71, 0.2);
-    color: var(--oms-danger);
-  }
-
-  .badge-secondary {
-    background: var(--oms-surface-raised);
-    color: var(--oms-text-muted);
-  }
-
-  .badge-buy {
-    background: rgba(75, 191, 107, 0.2);
-    color: var(--oms-success);
-  }
-
-  .badge-sell {
-    background: rgba(244, 71, 71, 0.2);
-    color: var(--oms-danger);
   }
 
   // Empty state
@@ -260,7 +211,7 @@
     font-style: italic;
     text-align: center;
     padding: 2rem;
-    font-size: 0.875rem;
+    font-size: var(--oms-font-size-md);
   }
 
   // Scrollbar styling
@@ -274,7 +225,7 @@
 
   &::-webkit-scrollbar-thumb {
     background: var(--oms-border);
-    border-radius: 0;
+    border-radius: var(--oms-radius-lg);
 
     &:hover {
       background: var(--oms-border-hover);

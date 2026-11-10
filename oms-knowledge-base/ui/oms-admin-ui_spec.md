@@ -88,7 +88,7 @@ The main application component provides:
 - **Tab Navigation**: Switchable tabs for different domain objects (Orders, Quotes, Quote Requests, Executions)
 - **Feature Flags**: Configurable tab visibility via `FEATURE_FLAGS` constant
 - **Authorization Status**: Visual indicator showing OAuth token status
-- **Footer**: Branding and copyright information
+- **Footer**: Copyright with the current year and the app name (see Visual design)
 
 **Tab Configuration**:
 
@@ -214,10 +214,84 @@ of the most recent objects in memory:
 - The window size is `maxStreamingRows` from `/api/config` (default **2000**; server-side property
   `oms.ui.max-streaming-rows`). Missing, non-numeric or non-positive values fall back to the
   default.
-- When the window is full, the **oldest** rows (by first arrival) are evicted as new events arrive;
-  the toolbar record count never exceeds the limit.
+- When the window is full, the row that has gone **longest without an update** is evicted
+  (SPEC-0057; before, the first to arrive). An update moves a row to the newest end, so a busy order
+  that keeps getting fills stays. The toolbar record count never exceeds the limit.
 - On reconnect after a connection error, the window and the event counter are reset.
-- Switching to paging mode (or unmounting the blotter) unsubscribes the stream.
+- **Updates are batched per frame (SPEC-0057).**
+  - The rows live outside React state, in `services/rowStore.ts`, so an event costs O(1) and
+    renders nothing.
+  - Once per animation frame (`services/frameScheduler.ts`), what changed since the last frame
+    reaches AG Grid as one transaction (rows added, updated, removed), never as a new `rowData`.
+    The counters then render once.
+  - Updated cells flash through the columns' `enableCellChangeFlash`.
+  - The counters' once-per-frame render does not reach AG Grid. The `AgGridReact` element, its
+    column definitions and its callbacks are memoised, so React skips it. Row animation is off:
+    under churn every eviction would animate every row below it.
+- **The snapshot is bounded and loaded in bulk (SPEC-0057).**
+  - The blotter asks for at most `maxStreamingRows` snapshot rows (`snapshotLimit` in the stream
+    filter), and the server sends the newest.
+  - Snapshot rows are held back until the `SNAPSHOT_END` marker, then added in one transaction,
+    oldest first, so the newest counts as the most recently updated. A live event before any marker
+    (an older server) also ends the snapshot.
+  - "Loading snapshot..." shows until then.
+  - The time from subscribing to the snapshot being in the grid is recorded:
+    - a `performance.measure` named `oms:snapshot:<Order|Execution>`;
+    - the console line "<domain> snapshot shown: N rows in T ms".
+- **Requests in batches (SPEC-0057).** The client asks the server for 256 events and for 128 more
+  after each 128 it has taken in (`STREAM_BATCH`), never an unbounded number.
+- **Pause / Resume (SPEC-0057).**
+  - Pause freezes the grid. Events keep arriving into the bounded window.
+  - The info bar reads "Paused — N updates pending".
+  - Resume applies each row's latest state in one transaction.
+  - A hidden view behaves as paused, and catches up when shown. A background browser tab, where
+    frames stop, catches up the same way.
+- **"Showing N of M" (SPEC-0057).** N is the rows held.
+  - M is the server's count of matching rows at the snapshot (from `SNAPSHOT_END`), plus rows
+    created since: orders whose live event is their first version, and every live fill.
+  - Rows deleted on the server are not subtracted.
+  - Without a snapshot it reads "Showing N".
+- **Load harness (SPEC-0057).** `/?loadHarness&domain=Order&rate=2000&duration=60&keys=10000&maxRows=2000`
+  opens a page with a real live blotter fed by a synthetic stream (`src/loadHarness/`). The code
+  is loaded only for that URL.
+  - It measures, per run:
+    - events sent and applied;
+    - each event's ingest lag;
+    - frame intervals and long tasks;
+    - the JS heap minimum per minute.
+  - It judges the result against the budgets of SPEC-0057 AC-9 (sustained rate) and AC-10 (flat
+    memory), and sets `window.__omsLoadResult`.
+  - Run it on the production build, in Chrome (`performance.memory` is Chrome-only), with the
+    window in the foreground: Chrome throttles frames in background or covered windows.
+  - It needs oms-core for the metamodel.
+- **Status.** All live blotters share one RSocket connection. Each shows that connection's current
+  state from its first render, and every change after it. A blotter opened after the connection is
+  up therefore shows Connected and offers Disconnect (SPEC-0056).
+- **Views are kept mounted (SPEC-0056).**
+  - `App.tsx` mounts each view (data mode × tab) the first time it is shown, and then keeps it
+    mounted while hidden. A tab or mode switch never unsubscribes a live blotter and never
+    re-downloads its snapshot.
+  - Coming back shows the rows it had, plus the events that arrived meanwhile, within the window.
+  - A hidden REST blotter keeps its page, and does not auto-refresh until it is shown again.
+  - A live blotter subscribes again, with a fresh snapshot, only when:
+    - its filters or the Include Snapshot option change;
+    - the user clicks Connect in it;
+    - the shared connection comes back while its own stream is gone, because another blotter's
+      Connect re-opened it, after a Disconnect, or after its own connect failed.
+  - Closing the app unsubscribes.
+- **Shared saved state (SPEC-0056).** The live and paging blotters of a domain share one saved
+  column and filter choice (`BlotterStateService`).
+  - Only the blotter on screen saves it, and only after it has read the saved choice.
+  - A blotter shown again re-reads the choice and applies only what changed. Filters are compared
+    in their saved form, so an unchanged filter does not reload the snapshot.
+- **History-only columns (SPEC-0056).**
+  - Live mode shows only the columns the stream carries, listed in
+    `src/config/streamedFields.json`. oms-streaming-service's `StreamedFieldsTest` checks that list
+    against its DTOs.
+  - A saved column the stream does not carry stays in the saved choice for paging mode. It is not
+    shown live, and a note reads "History only: …". The live column selector does not offer it.
+    Examples: `id` and `status` on executions, `txNr` and the SLA timestamps on orders.
+  - Every default column is streamed, so the default columns are the same in both modes.
 
 **Paging (REST) mode.** The blotter fetches from the query API page by page, so all data stays
 reachable regardless of volume:
@@ -614,12 +688,12 @@ graph LR
 ### Overall Page Structure
 
 ```
-Header (Fixed, 60px)
-├── Navigation Tabs (50px)
-│   └── Toolbar / Controls (60px)
+Header (Fixed, 56px)
+├── Navigation Tabs (about 44px)
+│   └── Toolbar / Controls (about 56px)
 │       └── Data Grid (Flexible, scrollable)
-│           └── Pagination (50px)
-└── Footer (Fixed, 40px)
+│           └── Pagination (about 44px)
+└── Footer (Fixed, 28px)
 ```
 
 ### Responsive Behavior
@@ -629,13 +703,55 @@ Header (Fixed, 60px)
 - **Table Scroll**: Horizontal scroll bar for overflow columns
 - **Vertical Scroll**: Grid body scrolls independently with fixed header
 
-### Color Scheme
+### Visual design (SPEC-0058)
 
-- **Header Background**: White/light
-- **Navigation Underline**: Red (active tab)
-- **Button Style**: Orange/amber (Authorize), neutral for other buttons
-- **Table**: Alternating row colors (white/light gray)
-- **Text**: Black on white background
+- **Tokens are the only source of colour and type.**
+  - `src/theme/_tokens.scss` declares every colour, font size, spacing, radius and shadow as an
+    `--oms-*` custom property. No other stylesheet may write a colour literal (hex, `rgb()`,
+    `rgba()`, `hsl()`) or a font size other than `var(--oms-font-size-*)`.
+  - `src/theme/tokens.ts` mirrors the values AG Grid needs (`theme/agGridTheme.ts`).
+  - `src/theme/styleRules.test.ts` enforces this, and also that every stylesheet is imported and
+    that no rule targets a class nothing renders. `src/theme/contrast.test.ts` computes the WCAG
+    contrast of the palette.
+- **Palette.** Dark only.
+  - Slate neutrals: `--oms-bg` (page), `--oms-surface` (panels, header, footer),
+    `--oms-surface-raised` (inputs, grid header), `--oms-surface-overlay` (modals).
+  - Text: `--oms-text`, `--oms-text-muted`, `--oms-text-strong`.
+  - The brand accent is the Acme Capital logo's green, `--oms-accent`: primary buttons, the active
+    tab, the current page. Text on it uses `--oms-text-on-accent`.
+  - Tones, each with a `-bg` tint, for status and badges: `success`, `warning`, `danger`, `info`,
+    `neutral`, `violet`, `orange`, `teal`.
+  - Body text meets 4.5:1 on every surface; muted and badge text meet 3:1.
+- **Type.**
+  - The system UI font stack (no web font) and `--oms-font-mono` for ids and JSON.
+  - Six sizes, `--oms-font-size-2xs` (11 px) to `-xl` (20 px).
+  - Tabular figures in the grids and counters.
+- **Icons.** `src/components/icons/Icon.tsx` holds about 20 inline SVG icons drawn for the app.
+  - They are stroked in the current text colour and marked `aria-hidden`, so every use sits next
+    to its text, or on a button with an `aria-label`.
+  - Names: `id`, `instrument`, `order`, `execution`, `status`, `time`, `settlement`, `derivative`,
+    `misc`, `unassigned` (detail sections); `filter`, `columns`, `refresh`, `autosize`, `pause`,
+    `play`, `connect`, `disconnect`, `close`, `key`, `chevron` (actions).
+- **Badges.**
+  - Enum cells show the metamodel's label as it is ("Buy", "Sell Short", "Good Till Cancel"; domain
+    codes such as "CXL" or "ETF" stay as they are). oms-core's `MetamodelService.formatEnumLabel`
+    builds these labels.
+  - The colour comes from the value's tone:
+    - side: buy is success, sell is danger;
+    - state: new and live are info, filled is success, CXL is warning, REJ is danger, closed is
+      neutral;
+    - order type: market is violet, limit is info, stop is orange;
+    - time in force is teal.
+- **Header.** The logo, a divider and the app name sit on the left. On the right are the
+  REST | Streaming segmented control and Authorize as the green primary button. Once authorised,
+  it becomes a quiet green-tinted button. The tabs sit below, on the page background, with a green
+  underline for the active tab.
+- **Footer.** A quiet 28 px bar on the surface colour: "© <current year> Acme Capital · <app name>".
+- **Grid sizing.** Both blotters fit their columns to the grid's width (`theme/gridSizing.ts`:
+  AG Grid's `fitGridWidth` strategy, minimum 110 px).
+  - They fit again when the grid resizes or gets a new column set.
+  - Auto-Size fits the columns to their contents on demand.
+  - AG Grid's feature modules are registered once, in `theme/agGridModules.ts`.
 
 ## UI Wireframe Mockups
 
@@ -682,7 +798,7 @@ Header (Fixed, 60px)
 └─────────────────────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                          FOOTER SECTION                                     │
-│  [Acme Capital]  © 2025 Acme Capital Cloud OMS Reference Implementation     │
+│  © <current year> Acme Capital · OMS Admin Tool                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -771,18 +887,17 @@ Header (Fixed, 60px)
 #### 6. Footer Section
 
 **Location**: Bottom of page
-**Height**: ~40px
+**Height**: 28px
 
 | Element | Description |
 |---------|-------------|
-| Acme Capital Logo | Small footer branding |
-| Copyright Text | "© 2025 Acme Capital Cloud OMS Reference Implementation" |
+| Copyright Text | "© <current year> Acme Capital · <app name>", muted text on the surface colour (SPEC-0058) |
 
 ### Interactive Elements
 
 **Buttons**:
 
-1. **🔒 Authorize Button** - Opens authentication modal
+1. **Authorize Button** (key icon) - Opens authentication modal
 2. **Filters** - Opens filter configuration panel
 3. **Columns** - Opens column visibility selector
 4. **Refresh** - Reloads data from API
@@ -791,7 +906,7 @@ Header (Fixed, 60px)
 
 **Dropdowns**:
 
-- **Rows per page** - Select: 10, 25, 50, 100
+- **Rows per page** - Select: 50, 100, 250, 500
 
 **Tabs**:
 

@@ -4,6 +4,7 @@ import { DomainObjectType, FilterCondition, FilterRule } from '../types/types';
 import { MetamodelService } from '../services/MetamodelService';
 import { dateTimeService } from '../services/DateTimeService';
 import './FilterBuilder.scss';
+import Icon from './icons/Icon';
 
 interface FilterBuilderProps {
   domainObject: DomainObjectType;
@@ -99,7 +100,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
       <div className="filter-builder-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Filter Builder</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
         </div>
         
         <div className="modal-body">
@@ -182,9 +183,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
                   renderValueInput(rule.value2, (val) => updateRule(rule.id, { value2: val }), 'Value 2')
                 )}
 
-                <button onClick={() => removeRule(rule.id)} className="remove-button" aria-label="Remove rule">
-                  Remove
-                </button>
+                <button onClick={() => removeRule(rule.id)} className="remove-button" aria-label="Remove rule"><Icon name="close" size={14} /></button>
               </div>
             );
           })}

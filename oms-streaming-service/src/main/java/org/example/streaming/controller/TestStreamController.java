@@ -36,6 +36,8 @@ public class TestStreamController {
     public Flux<OrderEvent> streamOrdersSSE() {
         log.info("SSE client connected to order stream");
         return eventStreamProvider.getOrderEventStream(true)
+                // The SSE stream keeps its pre-SPEC-0057 shape: no SNAPSHOT_END marker.
+                .filter(event -> !OrderEvent.SNAPSHOT_END.equals(event.getEventType()))
                 .doOnSubscribe(sub -> log.info("SSE order stream started"))
                 .doOnCancel(() -> log.info("SSE order stream cancelled"))
                 .doOnError(error -> log.error("Error in SSE order stream", error));

@@ -1,0 +1,9 @@
+{
+  "_note": "SPEC-0057 AC-11, 2026-11-09, by the agent in the automation Chrome tab (throttled to about 2 frames/s, so the snapshot flush can wait up to ~500 ms for a frame) on the production build with AG Grid modules registered, rows drawn. Execution cache replayed to 8,222 fills (consumer group reset to earliest, as agreed with the user). An earlier 376 ms reading was taken while the grid drew no rows and is void.",
+  "measure": "oms:snapshot:Execution",
+  "durationMs": 928,
+  "budgetMs": 1000,
+  "showing": "Showing 2,000 of 8,222",
+  "rowsDrawn": true,
+  "orderSnapshotMs": 1055
+}

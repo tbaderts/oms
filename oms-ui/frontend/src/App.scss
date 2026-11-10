@@ -1,46 +1,50 @@
-// App.scss - VS Code Dark Theme
+// App.scss - The application shell (SPEC-0058): header, tabs, content area, footer, and the error
+// screen. Colours and font sizes come only from theme/_tokens.scss.
+
 .error-boundary {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  gap: 1rem;
-  padding: 2rem;
+  gap: var(--oms-space-4);
+  padding: var(--oms-space-6);
   text-align: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--oms-font-family);
   background: var(--oms-bg);
   color: var(--oms-text);
 
   h1 {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 500;
+    font-size: var(--oms-font-size-xl);
+    font-weight: 600;
+    color: var(--oms-text-strong);
   }
 
   .error-boundary-details {
     max-width: 640px;
-    padding: 0.75rem 1rem;
+    padding: var(--oms-space-3) var(--oms-space-4);
     background: var(--oms-surface);
     border: 1px solid var(--oms-border);
-    border-radius: 4px;
-    font-size: 0.85rem;
+    border-radius: var(--oms-radius-md);
+    font-family: var(--oms-font-mono);
+    font-size: var(--oms-font-size-sm);
     text-align: left;
     overflow: auto;
     white-space: pre-wrap;
   }
 
   button {
-    padding: 0.5rem 1.25rem;
+    padding: var(--oms-space-2) var(--oms-space-5);
     background: var(--oms-accent);
-    color: #ffffff;
+    color: var(--oms-text-on-accent);
     border: none;
-    border-radius: 4px;
+    border-radius: var(--oms-radius-md);
+    font-weight: 600;
     cursor: pointer;
 
     &:hover {
-      background: var(--oms-accent);
-      opacity: 0.9;
+      background: var(--oms-accent-hover);
     }
   }
 }
@@ -49,93 +53,98 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family: var(--oms-font-family);
   background: var(--oms-bg);
+  color: var(--oms-text);
 }
 
+// Header: brand on the left, mode switch and authorisation on the right.
 .oms-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 1.5rem;
-  height: 48px;
+  height: 56px;
+  padding: 0 var(--oms-space-5);
   background: var(--oms-surface);
   border-bottom: 1px solid var(--oms-border);
-  box-shadow: none;
 
   .header-left {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: var(--oms-space-4);
+    color: var(--oms-text-strong);
   }
 
-  .brand-logo {
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--oms-accent);
-    letter-spacing: -0.3px;
+  .header-logo {
+    display: block;
+  }
+
+  .header-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--oms-border-strong);
   }
 
   h1 {
-    font-size: 1.1rem;
     margin: 0;
-    color: var(--oms-text);
-    font-weight: 400;
+    font-size: var(--oms-font-size-lg);
+    font-weight: 500;
+    color: var(--oms-text-muted);
   }
 
   .header-right {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: var(--oms-space-4);
   }
 
+  // A segmented control: the active mode is a raised pill inside a recessed track.
   .mode-toggle {
     display: flex;
-    align-items: center;
+    padding: 3px;
+    gap: 2px;
+    background: var(--oms-bg);
     border: 1px solid var(--oms-border);
-    border-radius: 2px;
-    overflow: hidden;
+    border-radius: var(--oms-radius-md);
 
     .mode-button {
-      padding: 0.35rem 0.75rem;
-      background: var(--oms-bg);
+      padding: var(--oms-space-1) var(--oms-space-4);
+      background: transparent;
       color: var(--oms-text-muted);
       border: none;
+      border-radius: var(--oms-radius-sm);
       cursor: pointer;
-      font-size: 0.75rem;
-      font-weight: 400;
-      transition: all 0.15s;
-
-      &:not(:last-child) {
-        border-right: 1px solid var(--oms-border);
-      }
+      font-family: inherit;
+      font-size: var(--oms-font-size-sm);
+      font-weight: 500;
+      transition: background-color 0.15s, color 0.15s;
 
       &:hover {
-        background: var(--oms-hover);
         color: var(--oms-text);
       }
 
       &.active {
-        background: var(--oms-accent);
-        color: white;
-
-        &:hover {
-          background: var(--oms-accent-hover);
-        }
+        background: var(--oms-surface-raised);
+        color: var(--oms-text-strong);
+        box-shadow: inset 0 0 0 1px var(--oms-border-strong);
       }
     }
   }
 
   .authorize-button {
-    padding: 0.4rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--oms-space-2);
+    padding: var(--oms-space-2) var(--oms-space-4);
     background: var(--oms-accent);
-    color: white;
+    color: var(--oms-text-on-accent);
     border: none;
-    border-radius: 2px;
+    border-radius: var(--oms-radius-md);
     cursor: pointer;
-    font-size: 0.8125rem;
-    font-weight: 400;
-    transition: background-color 0.1s;
+    font-family: inherit;
+    font-size: var(--oms-font-size-sm);
+    font-weight: 600;
+    transition: background-color 0.15s;
 
     &:hover {
       background: var(--oms-accent-hover);
@@ -145,34 +154,39 @@
       background: var(--oms-accent-active);
     }
 
+    // Authorised: a quiet confirmation instead of a call to action.
     &.authorized {
-      background: var(--oms-success);
-      color: var(--oms-bg);
+      background: var(--oms-accent-bg);
+      color: var(--oms-accent);
+      box-shadow: inset 0 0 0 1px var(--oms-accent-bg-strong);
 
       &:hover {
-        background: #9fdf9c;
+        background: var(--oms-accent-bg-strong);
       }
     }
   }
 }
 
+// Tabs: text on the page, the active one underlined in the brand colour.
 .oms-tabs {
   display: flex;
-  gap: 0;
-  padding: 0 1rem;
-  background: var(--oms-surface);
+  gap: var(--oms-space-2);
+  padding: 0 var(--oms-space-5);
+  background: var(--oms-bg);
   border-bottom: 1px solid var(--oms-border);
 
   .tab {
-    padding: 0.625rem 1rem;
+    padding: var(--oms-space-3) var(--oms-space-2);
+    margin-bottom: -1px;
     background: transparent;
     border: none;
+    border-bottom: 2px solid transparent;
     cursor: pointer;
-    font-size: 0.8125rem;
+    font-family: inherit;
+    font-size: var(--oms-font-size-md);
+    font-weight: 500;
     color: var(--oms-text-muted);
-    border-bottom: 1px solid transparent;
-    transition: color 0.1s, border-color 0.1s;
-    position: relative;
+    transition: color 0.15s, border-color 0.15s;
 
     &:hover {
       color: var(--oms-text);
@@ -191,17 +205,25 @@
   background: var(--oms-bg);
 }
 
+// SPEC-0056: each view is wrapped so it can stay mounted while hidden. The wrapper fills the content
+// area, so a blotter's `height: 100%` still resolves and its grid gets the remaining height.
+.blotter-view {
+  height: 100%;
+}
+
+// Footer: a quiet bar, not a status bar (SPEC-0058).
 .oms-footer {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1rem;
-  height: 22px;
-  background: var(--oms-accent);
-  color: white;
-  font-size: 0.75rem;
+  height: 28px;
+  padding: 0 var(--oms-space-5);
+  background: var(--oms-surface);
+  border-top: 1px solid var(--oms-border);
+  color: var(--oms-text-muted);
+  font-size: var(--oms-font-size-xs);
+}
 
-  .footer-logo {
-    font-weight: 600;
-  }
+// The icon inside any button sits on the text's centre line.
+button .oms-icon {
+  flex-shrink: 0;
 }

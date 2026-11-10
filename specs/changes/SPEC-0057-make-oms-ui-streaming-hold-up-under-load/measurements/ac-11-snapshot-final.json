@@ -1,0 +1,9 @@
+{
+  "_note": "SPEC-0057 AC-11, 2026-11-10, measured by the agent on the current production build (SPEC-0057 fixes plus SPEC-0058, AG Grid modules registered, rows drawn) at http://localhost:8080. Execution cache replayed to 8,224 fills (consumer group reset to earliest, as agreed with the user). The automation tab is throttled to about 2 frames/s, so this is an upper bound; the earlier 928 ms reading (ac-11-snapshot.json) was taken on an older build in the same tab.",
+  "measure": "oms:snapshot:Execution",
+  "durationMs": 761,
+  "budgetMs": 1000,
+  "showing": "Showing 2,000 of 8,224",
+  "rowsDrawn": 29,
+  "orderSnapshotMs": 1232
+}

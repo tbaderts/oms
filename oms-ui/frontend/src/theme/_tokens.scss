@@ -1,70 +1,92 @@
-// _tokens.scss - OMS design tokens: the single source of truth for colour, spacing,
-// typography and shape across the admin UI. Components must use these tokens instead
-// of hard-coded values so the theme can be adjusted (or re-branded) in one place.
+// _tokens.scss - OMS design tokens (SPEC-0058): the only place colours and font sizes are written as
+// values. Every stylesheet uses these custom properties; theme/tokens.ts mirrors the ones AG Grid
+// needs; theme/styleRules.test.ts and theme/contrast.test.ts enforce both and check the contrast.
+//
+// Palette: slate neutrals with the Acme Capital logo's green as the brand accent. Blue is an
+// information colour only.
 
 :root {
-  /* Surfaces */
-  --oms-bg: #1e1e1e;
-  --oms-surface: #252526;
-  --oms-surface-raised: #2d2d30;
-  --oms-surface-overlay: #333333;
+  /* Surfaces, from the page up */
+  --oms-bg: #0e1318;
+  --oms-surface: #141a21;
+  --oms-surface-raised: #1a222b;
+  --oms-surface-overlay: #212b36;
+  --oms-odd-row: #11171d;
+  --oms-scrim: rgba(5, 8, 11, 0.7);
 
   /* Text */
-  --oms-text: #cccccc;
-  --oms-text-muted: #858585;
-  --oms-text-strong: #ffffff;
-  --oms-text-on-accent: #ffffff;
+  --oms-text: #d5dce4;
+  --oms-text-muted: #8c99a8;
+  --oms-text-strong: #f2f5f8;
+  --oms-text-on-accent: #06140c;
 
-  /* Accent */
-  --oms-accent: #007acc;
-  --oms-accent-hover: #0098ff;
-  --oms-accent-active: #094771;
-  --oms-accent-light: #4d9fd6;
-  --oms-accent-bg: rgba(0, 122, 204, 0.15);
-  --oms-accent-bg-strong: rgba(0, 122, 204, 0.3);
+  /* Brand accent */
+  --oms-accent: #22c55e;
+  --oms-accent-hover: #3fd477;
+  --oms-accent-active: #16a34a;
+  --oms-accent-bg: rgba(34, 197, 94, 0.14);
+  --oms-accent-bg-strong: rgba(34, 197, 94, 0.28);
 
-  /* Status */
-  --oms-success: #89d185;
-  --oms-success-bg: rgba(137, 209, 133, 0.15);
-  --oms-warning: #cca700;
-  --oms-warning-bg: rgba(204, 167, 0, 0.15);
-  --oms-danger: #f48771;
-  --oms-danger-bg: rgba(244, 135, 113, 0.12);
-  --oms-info: #75beff;
-  --oms-neutral: #6c757d;
-  --oms-neutral-bg: rgba(108, 117, 125, 0.15);
+  /* Tones: status and badge colours, each with a tint for its background */
+  --oms-success: #4ade80;
+  --oms-success-bg: rgba(74, 222, 128, 0.14);
+  --oms-warning: #f5b544;
+  --oms-warning-bg: rgba(245, 181, 68, 0.14);
+  --oms-danger: #f87171;
+  --oms-danger-bg: rgba(248, 113, 113, 0.14);
+  --oms-info: #60a5fa;
+  --oms-info-bg: rgba(96, 165, 250, 0.14);
+  --oms-neutral: #94a3b8;
+  --oms-neutral-bg: rgba(148, 163, 184, 0.14);
+  --oms-violet: #c4a5fd;
+  --oms-violet-bg: rgba(196, 165, 253, 0.14);
+  --oms-orange: #fdba74;
+  --oms-orange-bg: rgba(253, 186, 116, 0.14);
+  --oms-teal: #5eead4;
+  --oms-teal-bg: rgba(94, 234, 212, 0.14);
 
-  /* Borders & inputs */
-  --oms-border: #3e3e42;
-  --oms-border-light: #454545;
-  --oms-input-bg: #3c3c3c;
-  --oms-input-border: #3e3e42;
-  --oms-hover: #2a2d2e;
-  --oms-selection: #264f78;
-  --oms-overlay-bg: rgba(30, 30, 30, 0.9);
+  /* Borders, inputs, interaction */
+  --oms-border: #273240;
+  --oms-border-light: #2f3b4a;
+  --oms-border-strong: #364354;
+  --oms-border-hover: #46556a;
+  --oms-input-bg: #1a222b;
+  --oms-input-border: #364354;
+  --oms-hover: #1c2530;
+  --oms-selection: #16362a;
+  --oms-focus-ring: rgba(34, 197, 94, 0.45);
 
-  /* Syntax colours (JSON viewer) */
-  --oms-syntax-keyword: #569cd6;
-  --oms-syntax-string: #ce9178;
-  --oms-syntax-number: #b5cea8;
-  --oms-syntax-property: #9cdcfe;
-  --oms-syntax-punctuation: #d4d4d4;
+  /* JSON viewer */
+  --oms-syntax-keyword: #60a5fa;
+  --oms-syntax-string: #4ade80;
+  --oms-syntax-number: #f5b544;
+  --oms-syntax-property: #c4a5fd;
+  --oms-syntax-punctuation: #8c99a8;
 
-  /* Spacing scale */
+  /* Elevation */
+  --oms-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --oms-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* Spacing */
   --oms-space-1: 0.25rem;
   --oms-space-2: 0.5rem;
   --oms-space-3: 0.75rem;
   --oms-space-4: 1rem;
   --oms-space-5: 1.5rem;
+  --oms-space-6: 2rem;
 
   /* Shape */
-  --oms-radius-sm: 2px;
-  --oms-radius-md: 4px;
+  --oms-radius-sm: 3px;
+  --oms-radius-md: 6px;
+  --oms-radius-lg: 10px;
 
-  /* Typography */
-  --oms-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  /* Typography: six sizes */
+  --oms-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Helvetica Neue', sans-serif;
+  --oms-font-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --oms-font-size-2xs: 0.6875rem;
   --oms-font-size-xs: 0.75rem;
   --oms-font-size-sm: 0.8125rem;
   --oms-font-size-md: 0.875rem;
   --oms-font-size-lg: 1rem;
+  --oms-font-size-xl: 1.25rem;
 }

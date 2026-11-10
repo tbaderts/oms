@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import { DomainObjectType } from '../types/types';
 import { MetamodelService } from '../services/MetamodelService';
 import './ColumnSelector.scss';
+import Icon from './icons/Icon';
 
 interface ColumnSelectorProps {
   domainObject: DomainObjectType;
   currentColumns: string[];
   onApply: (columns: string[]) => void;
   onClose: () => void;
+  /** The fields that may be chosen; all of the domain object's fields when absent (SPEC-0056). */
+  availableFields?: string[];
 }
 
 const ColumnSelector: React.FC<ColumnSelectorProps> = ({
@@ -16,9 +19,18 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
   currentColumns,
   onApply,
   onClose,
+  availableFields,
 }) => {
   const metamodelService = MetamodelService.getInstance();
-  const metadata = metamodelService.getMetamodel(domainObject);
+  const fullMetadata = metamodelService.getMetamodel(domainObject);
+  // In live mode only the fields the stream carries can be chosen (SPEC-0056).
+  const metadata = availableFields
+    ? {
+        ...fullMetadata,
+        fields: fullMetadata.fields.filter(f => availableFields.includes(f.name)),
+        defaultColumns: fullMetadata.defaultColumns.filter(c => availableFields.includes(c)),
+      }
+    : fullMetadata;
   const [selectedColumns, setSelectedColumns] = useState<string[]>(currentColumns);
 
   const toggleColumn = (fieldName: string) => {
@@ -50,7 +62,7 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
       <div className="column-selector-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Select Columns</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
         </div>
 
         <div className="modal-body">

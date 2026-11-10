@@ -40,7 +40,34 @@ event whose `eventId` is at or below the snapshot's `eventVersion` for the same 
 because the snapshot already holds that state or a newer one. Newer events, and events for orders
 the snapshot does not hold, pass. `eventId` on both sides is the order's event-log version (the
 snapshot takes it from the Query API's `OrderDto.eventVersion`, live events from
-`OrderMessage.eventId`).
+`OrderMessage.eventId`). Before SPEC-0057 `OmsQueryClient` did not read `eventVersion`, so this
+deduplication never applied to real snapshots.
+
+**Bounded snapshot and its end marker (SPEC-0057).**
+- **The client says how many snapshot rows it keeps.** `StreamFilter.snapshotLimit` is optional.
+  Without it, the snapshot is unbounded, as before. It is kept within 0 and 100,000.
+- **Orders:**
+  - `OmsQueryClient.fetchOrderSnapshot` pages the Query API newest first (`sort=id,DESC`) and
+    stops at the limit.
+  - The first page's `totalElements` is the matching count.
+  - If oms-core is down, the newest matching cached orders by `transactTime` are sent instead.
+- **Executions:**
+  - The snapshot is the matching fills of the in-memory cache, newest by `transactTime`, up to the
+    limit.
+  - `executions.stream` now honours `includeSnapshot`; without it, only live fills follow.
+  - The filter is applied inside the provider, so it never drops the marker.
+  - The live sink replays its last events to a new subscriber. A replayed fill the snapshot
+    already accounted for, at the same or a lower `orderVersion`, is skipped.
+- **The marker.** After the last snapshot row, a `SNAPSHOT_END` event carries `snapshotTotal`:
+  how many rows matched, including those beyond the limit. Live events follow it.
+  `blotter.stream` filters the marker out and keeps its old shape.
+
+**Back-pressure (SPEC-0057).**
+- oms-ui requests events in batches of 256, over RSocket REQUEST_N.
+- On the server, the live part of each stream holds at most `streaming.subscriber.max-pending`
+  (default 10,000, env `SUBSCRIBER_MAX_PENDING`) unrequested events for one subscriber. Past that,
+  its stream ends with an error, which the blotter shows with Retry.
+- Each overflow is logged at WARN and counted in `oms_streaming_subscriber_overflow_total{route}`.
 
 ## Requirements
 
@@ -57,10 +84,12 @@ snapshot takes it from the Query API's `OrderDto.eventVersion`, live events from
 
 ## Known gaps
 
-- The RSocket routes have no automated tests. The snapshot-then-stream merge is covered only at unit
-  level (`KafkaEventStreamProviderTest`, with mocked Kafka and Query API).
+- The RSocket routes have no automated tests. The snapshot-then-stream merge, the snapshot limit and
+  marker, and the overflow bound are covered at unit level (`KafkaEventStreamProviderTest`,
+  `OmsQueryClientTest`, with mocked Kafka and a stubbed Query API).
 - `/api/test` endpoints (`TestStreamController`) are diagnostics, not a product interface.
 
 ## Verification
 
-`FilterServiceTest`, `OrderMessageMapperTest`, `MetadataServiceTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`FilterServiceTest`, `OrderMessageMapperTest`, `MetadataServiceTest`, `KafkaEventStreamProviderTest`,
+`OmsQueryClientTest`, `StreamFilterTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).

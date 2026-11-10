@@ -2,11 +2,11 @@
 id: SPEC-0058
 title: Give oms-ui a professional visual design
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
-modules: [oms-ui]
-approvals: []
+modules: [oms-ui, oms-core]
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-09
 blocked_from:
@@ -25,3 +25,16 @@ Follow-up to SPEC-0054, whose look-and-feel part only removed emoji: the token f
 ## Log
 
 - 2026-11-09 created
+- 2026-11-09 22:44 — autopilot on
+- 2026-11-09 23:04 — set modules = oms-ui, oms-core
+- 2026-11-09 23:04 — proposal gate passed; awaiting human approval
+- 2026-11-10 05:32 — proposal approved by Toni Badertscher
+- 2026-11-10 05:32 — proposal → design
+- 2026-11-10 05:35 — design → plan
+- 2026-11-10 05:36 — plan → implement
+- 2026-11-10 06:18 — verify run: fail
+- 2026-11-10 06:49 — verify run: pass
+- 2026-11-10 06:49 — implement → verify
+- 2026-11-10 06:52 — AC-9 sign-off: on 2026-11-10 the requester (Toni Badertscher) reviewed screenshots/before and screenshots/after and the running app, and answered 'Sign off' in the Claude Code session, accepting the design as it is, including 'Day' in normal case and the mix of 'Unack'/'Live' with 'CXL'/'REJ'/'EXP'.
+- 2026-11-10 06:52 — verify → done
+- 2026-11-10 06:53 — autopilot off

@@ -1,0 +1,41 @@
+{
+  "Order": [
+    "orderId",
+    "parentOrderId",
+    "rootOrderId",
+    "clOrdId",
+    "sendingTime",
+    "account",
+    "orderQty",
+    "cumQty",
+    "leavesQty",
+    "ordType",
+    "price",
+    "stopPx",
+    "securityId",
+    "side",
+    "symbol",
+    "timeInForce",
+    "transactTime",
+    "exDestination",
+    "expireTime",
+    "text",
+    "rejectReason",
+    "state",
+    "cancelState"
+  ],
+  "Execution": [
+    "orderId",
+    "avgPx",
+    "cumQty",
+    "execId",
+    "lastCapacity",
+    "lastMkt",
+    "lastPx",
+    "lastQty",
+    "transactTime",
+    "execType",
+    "leavesQty",
+    "orderVersion"
+  ]
+}

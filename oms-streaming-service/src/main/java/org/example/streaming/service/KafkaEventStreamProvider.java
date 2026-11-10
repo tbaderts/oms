@@ -2,10 +2,10 @@ package org.example.streaming.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 
 import org.example.common.model.msg.OrderExecution;
@@ -25,8 +25,11 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.core.instrument.MeterRegistry;
 import reactor.core.Disposable;
+import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.kafka.receiver.KafkaReceiver;
 
@@ -52,9 +55,17 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     private final OrderMessageMapper orderMessageMapper;
     private final OrderExecutionMapper orderExecutionMapper;
     private final FilterService filterService;
+    private final MeterRegistry meterRegistry;
 
     @Value("${streaming.buffer.max-size:10000}")
     private int maxCacheSize;
+
+    /**
+     * The most live events held for one subscriber that is not requesting (SPEC-0057). Past it, that
+     * subscriber's stream ends with an error rather than the server buffering without limit.
+     */
+    @Value("${streaming.subscriber.max-pending:10000}")
+    private int maxPendingPerSubscriber = 10_000;
 
     // Hot stream sinks for broadcasting events to multiple subscribers
     private final Sinks.Many<OrderEvent> orderEventSink = Sinks.many()
@@ -79,13 +90,28 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
             OmsQueryClient omsQueryClient,
             OrderMessageMapper orderMessageMapper,
             OrderExecutionMapper orderExecutionMapper,
-            FilterService filterService) {
+            FilterService filterService,
+            MeterRegistry meterRegistry) {
         this.orderMessageReceiver = orderMessageReceiver;
         this.orderExecutionReceiver = orderExecutionReceiver;
         this.omsQueryClient = omsQueryClient;
         this.orderMessageMapper = orderMessageMapper;
         this.orderExecutionMapper = orderExecutionMapper;
         this.filterService = filterService;
+        this.meterRegistry = meterRegistry;
+    }
+
+    /**
+     * Bounds what one slow subscriber can make the server hold (SPEC-0057): the client requests in
+     * batches, and live events it has not requested wait here, up to {@link #maxPendingPerSubscriber}.
+     * Past that its stream ends with an error; the snapshot part is pulled on demand and not buffered.
+     */
+    private <T> Flux<T> boundedForSubscriber(Flux<T> live, String route) {
+        return live.onBackpressureBuffer(maxPendingPerSubscriber, overflowing -> {
+            log.warn("Subscriber on {} is not keeping up: more than {} events pending, ending its stream",
+                    route, maxPendingPerSubscriber);
+            meterRegistry.counter("oms.streaming.subscriber.overflow", "route", route).increment();
+        }, BufferOverflowStrategy.ERROR);
     }
 
     @PostConstruct
@@ -214,6 +240,10 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         return fill.getOrderId() + "/" + fill.getExecId();
     }
 
+    private static String executionKey(ExecutionDto execution) {
+        return execution.getOrderId() + "/" + execution.getExecId();
+    }
+
     /**
      * Evict oldest executions when cache exceeds max size.
      */
@@ -263,12 +293,12 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
             // only comparable within one order: a live event at or below the snapshot's version is
             // already reflected in it, or older, and would roll the subscriber's view back.
             Map<String, Long> snapshotVersions = new ConcurrentHashMap<>();
-            AtomicBoolean snapshotComplete = new AtomicBoolean(false);
-            
-            // Fetch filtered snapshot from OMS Core Query API  
-            Flux<OrderEvent> snapshotStream = (filter != null && !filter.isEmpty()
-                    ? omsQueryClient.fetchOrdersWithFilter(filter)
-                    : omsQueryClient.fetchAllOrders())
+
+            // The newest orders matching the filter, at most the client's limit, then a marker with
+            // how many matched (SPEC-0057).
+            int limit = filter.effectiveSnapshotLimit();
+            OmsQueryClient.OrderSnapshot snapshot = omsQueryClient.fetchOrderSnapshot(filter, limit);
+            Flux<OrderEvent> snapshotStream = snapshot.rows()
                     .map(this::convertQueryDtoToOrderDto)
                     .doOnNext(order -> {
                         orderCache.put(order.getOrderId(), order);
@@ -277,18 +307,15 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                         }
                     })
                     .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"))
-                    .doOnComplete(() -> {
-                        snapshotComplete.set(true);
-                        log.info("Snapshot stream completed with {} versioned orders",
-                                snapshotVersions.size());
-                    })
+                    .concatWith(snapshot.matching().map(matching -> {
+                        log.info("Order snapshot sent: limit={}, matching={}, versioned={}",
+                                limit, matching, snapshotVersions.size());
+                        return OrderEvent.snapshotEnd(matching);
+                    }))
                     .onErrorResume(e -> {
                         log.warn("Failed to fetch snapshot from OMS Core, using cache: {}", e.getMessage());
-                        snapshotComplete.set(true);
                         // Fallback to cache if OMS Core is not available
-                        return Flux.fromIterable(orderCache.values())
-                                .filter(order -> filterPredicate.test(OrderEvent.fromOrder(order, "CACHE")))
-                                .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"));
+                        return cachedOrderSnapshot(filterPredicate, limit);
                     })
                     .cache(); // FIX: cache the cold Flux to prevent double subscription
             
@@ -316,7 +343,7 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
 
             // FIX: Use concatWith instead of Flux.merge + delaySubscription to avoid double
             // subscription on the cold snapshot flux. The snapshot is cached above.
-            return snapshotStream.concatWith(liveStream);
+            return snapshotStream.concatWith(boundedForSubscriber(liveStream, "orders.stream"));
         }
 
         // No snapshot - just return filtered live stream
@@ -330,20 +357,65 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                 })
                 .filter(filterPredicate);
 
-        return liveStream;
+        return boundedForSubscriber(liveStream, "orders.stream");
+    }
+
+    /**
+     * The snapshot from the order cache when oms-core cannot be reached: the newest matching orders by
+     * {@code transactTime}, at most {@code limit}, then the marker with the matching count (SPEC-0057).
+     */
+    private Flux<OrderEvent> cachedOrderSnapshot(Predicate<OrderEvent> filterPredicate, int limit) {
+        List<OrderDto> matching = orderCache.values().stream()
+                .filter(order -> filterPredicate.test(OrderEvent.fromOrder(order, "CACHE")))
+                .sorted(Comparator.comparing(OrderDto::getTransactTime,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
+        return Flux.fromIterable(matching)
+                .take(limit)
+                .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"))
+                .concatWith(Mono.fromSupplier(() -> OrderEvent.snapshotEnd(matching.size())));
     }
 
     @Override
-    public Flux<ExecutionEvent> getExecutionEventStream(boolean includeSnapshot) {
-        Flux<ExecutionEvent> liveStream = executionEventSink.asFlux();
-        
-        if (includeSnapshot) {
-            Flux<ExecutionEvent> snapshotStream = Flux.fromIterable(executionCache.values())
-                    .map(exec -> ExecutionEvent.fromExecution(exec, "SNAPSHOT"));
-            return snapshotStream.concatWith(liveStream);
+    public Flux<ExecutionEvent> getExecutionEventStream(StreamFilter filter) {
+        // The filter is applied here, not by the caller, so that it never drops the marker (SPEC-0057).
+        Predicate<ExecutionEvent> filterPredicate = filterService.createExecutionEventPredicate(filter);
+        Flux<ExecutionEvent> liveStream = executionEventSink.asFlux().filter(filterPredicate);
+
+        if (filter != null && filter.isIncludeSnapshot()) {
+            int limit = filter.effectiveSnapshotLimit();
+            // The version of every matching fill the snapshot accounted for, sent or beyond the limit.
+            // The live sink replays its last events to a new subscriber; a fill at or below the
+            // version the snapshot saw is not new and must not count as a new row (SPEC-0057 AC-8).
+            Map<String, Long> snapshotVersions = new ConcurrentHashMap<>();
+            Flux<ExecutionEvent> snapshotStream = Flux.defer(() -> {
+                List<ExecutionDto> matching = executionCache.values().stream()
+                        .filter(exec -> filterPredicate.test(ExecutionEvent.fromExecution(exec, "CACHE")))
+                        .sorted(Comparator.comparing(KafkaEventStreamProvider::executionTime,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
+                        .toList();
+                matching.forEach(exec -> snapshotVersions.put(executionKey(exec),
+                        exec.getOrderVersion() != null ? exec.getOrderVersion() : Long.MAX_VALUE));
+                log.info("Execution snapshot: limit={}, matching={}", limit, matching.size());
+                return Flux.fromIterable(matching)
+                        .take(limit)
+                        .map(exec -> ExecutionEvent.fromExecution(exec, "SNAPSHOT"))
+                        .concatWith(Mono.fromSupplier(() -> ExecutionEvent.snapshotEnd(matching.size())));
+            });
+            Flux<ExecutionEvent> newLiveStream = liveStream.filter(event -> {
+                Long seen = event.getExecution() != null ? snapshotVersions.get(executionKey(event.getExecution())) : null;
+                Long version = event.getExecution() != null ? event.getExecution().getOrderVersion() : null;
+                return seen == null || (version != null && version > seen);
+            });
+            return snapshotStream.concatWith(boundedForSubscriber(newLiveStream, "executions.stream"));
         }
-        
-        return liveStream;
+
+        return boundedForSubscriber(liveStream, "executions.stream");
+    }
+
+    /** When a fill happened: its transactTime, or when the streaming service received it. */
+    private static Instant executionTime(ExecutionDto execution) {
+        return execution.getTransactTime() != null ? execution.getTransactTime() : execution.getEventTime();
     }
 
     @Override

@@ -1,0 +1,36 @@
+{
+  "_note": "SPEC-0057 AC-9, run by the user on 2026-11-09 in their own Chrome tab (window in front), production build on http://localhost:8080/?loadHarness&domain=Order&rate=2000&duration=60&keys=10000&maxRows=2000. Raw window.__omsLoadResult; the page read 'AC-9: PASS · AC-10: not measured' (a 60 s run has no second minute for AC-10).",
+  "params": {
+    "domain": "Order",
+    "rate": 2000,
+    "duration": 60,
+    "keys": 10000,
+    "maxRows": 2000
+  },
+  "sent": 120000,
+  "applied": 120000,
+  "lagMs": {
+    "p50": 0,
+    "p99": 6,
+    "max": 27
+  },
+  "frameMs": {
+    "p50": 6,
+    "p95": 24,
+    "max": 121
+  },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [
+    23.9
+  ],
+  "ac9": {
+    "pass": true
+  },
+  "ac10": {
+    "pass": null,
+    "minute2": null,
+    "last": null,
+    "growthPct": null
+  },
+  "_invalid": "INVALID: measured before AG Grid modules were registered (found 2026-11-09). api.applyTransaction failed with AG Grid error #200 and did nothing, so the grid never drew a row while the harness counted events as applied; the run lacks the rendering cost the budget judges. Re-measure on the build with theme/agGridModules.ts."
+}

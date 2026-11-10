@@ -30,6 +30,8 @@ export interface StreamFilter {
   logicalOperator?: LogicalOperator;
   filters: StreamFilterCondition[];
   includeSnapshot: boolean;
+  /** At most this many snapshot rows, the newest; omitted means unbounded (SPEC-0057). */
+  snapshotLimit?: number;
 }
 
 /**
@@ -49,8 +51,8 @@ export interface StreamRequest {
 /**
  * Event types from the streaming service
  */
-export type OrderEventType = 'SNAPSHOT' | 'UPDATE' | 'CREATE' | 'CACHE';
-export type ExecutionEventType = 'NEW' | 'CORRECT' | 'BUST' | 'SNAPSHOT';
+export type OrderEventType = 'SNAPSHOT' | 'SNAPSHOT_END' | 'UPDATE' | 'CREATE' | 'CACHE';
+export type ExecutionEventType = 'NEW' | 'CORRECT' | 'BUST' | 'SNAPSHOT' | 'SNAPSHOT_END';
 
 /**
  * Order event wrapper from streaming service
@@ -62,6 +64,8 @@ export interface OrderEvent {
   sequenceNumber: number;
   timestamp: string;
   order: StreamingOrderDto;
+  /** On the SNAPSHOT_END marker only: how many orders match on the server (SPEC-0057). */
+  snapshotTotal?: number;
 }
 
 /**
@@ -74,6 +78,8 @@ export interface ExecutionEvent {
   sequenceNumber: number;
   timestamp: string;
   execution: StreamingExecutionDto;
+  /** On the SNAPSHOT_END marker only: how many executions match on the server (SPEC-0057). */
+  snapshotTotal?: number;
 }
 
 /**

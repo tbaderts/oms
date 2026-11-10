@@ -43,7 +43,11 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(export PATH=\"$HOME/.local/bin:$PATH\")",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "ClaudeInChromeDomain(localhost:3001)",
+      "ClaudeInChromeDomain(localhost:8080)",
+      "ClaudeInChromeDomain(localhost:8085)",
+      "mcp__claude-in-chrome__tabs_context_mcp"
     ]
   },
   "enabledMcpjsonServers": [

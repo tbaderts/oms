@@ -94,9 +94,11 @@ public class TradeBlotterController {
     @MessageMapping("executions.stream")
     public Flux<ExecutionEvent> streamExecutions(@Payload(required = false) StreamFilter filter) {
         log.info("Client subscribed to executions stream with filter: {}", filter);
-        
-        return eventStreamProvider.getExecutionEventStream(true)
-                .filter(filterService.createExecutionEventPredicate(filter))
+
+        // As for orders: a snapshot unless the client asks for none, filtered inside the provider so
+        // that the SNAPSHOT_END marker is not dropped (SPEC-0057).
+        StreamFilter effectiveFilter = filter != null ? filter : StreamFilter.withSnapshot();
+        return eventStreamProvider.getExecutionEventStream(effectiveFilter)
                 .doOnSubscribe(sub -> log.debug("Executions stream subscription started"))
                 .doOnCancel(() -> log.debug("Executions stream subscription cancelled"))
                 .doOnError(error -> log.error("Error in executions stream", error));
@@ -120,19 +122,21 @@ public class TradeBlotterController {
                 ? request.getFilter() 
                 : StreamFilter.withSnapshot();
         
-        return switch (request.getStreamType()) {
+        Flux<OrderEvent> stream = switch (request.getStreamType()) {
             case ORDERS -> eventStreamProvider.getOrderEventStream(filter);
-            case EXECUTIONS -> eventStreamProvider.getExecutionEventStream(true)
-                    .map(this::toOrderEvent)
-                    .filter(filterService.createOrderEventPredicate(filter));
-            case ALL -> {
-                Flux<OrderEvent> orders = eventStreamProvider.getOrderEventStream(filter);
-                Flux<OrderEvent> executions = eventStreamProvider.getExecutionEventStream(true)
-                        .map(this::toOrderEvent)
-                        .filter(filterService.createOrderEventPredicate(filter));
-                yield Flux.merge(orders, executions);
-            }
+            case EXECUTIONS -> blotterExecutions(filter);
+            case ALL -> Flux.merge(eventStreamProvider.getOrderEventStream(filter), blotterExecutions(filter));
         };
+        // blotter.stream keeps its pre-SPEC-0057 shape: no SNAPSHOT_END marker.
+        return stream.filter(event -> !OrderEvent.SNAPSHOT_END.equals(event.getEventType()));
+    }
+
+    /** Executions as order events for blotter.stream: the unbounded snapshot, then live fills. */
+    private Flux<OrderEvent> blotterExecutions(StreamFilter filter) {
+        return eventStreamProvider.getExecutionEventStream(true)
+                .filter(event -> !OrderEvent.SNAPSHOT_END.equals(event.getEventType()))
+                .map(this::toOrderEvent)
+                .filter(filterService.createOrderEventPredicate(filter));
     }
 
     /**

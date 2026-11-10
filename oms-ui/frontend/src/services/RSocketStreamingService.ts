@@ -27,6 +27,26 @@ import { FilterCondition } from '../types/types';
 import { Buffer } from 'buffer';
 
 /**
+ * Events requested from the server at a time (SPEC-0057). The client asks for more, half a batch at
+ * a time, only after it has processed that many, so at most one batch is outstanding: a slow blotter
+ * applies back-pressure instead of the stream being buffered without limit.
+ */
+export const STREAM_BATCH = 256;
+
+/** Requests the first batch and returns the hook to call after each event has been processed. */
+function boundedDemand(sub: { request: (n: number) => void }): () => void {
+  let processedSinceRequest = 0;
+  sub.request(STREAM_BATCH);
+  return () => {
+    processedSinceRequest++;
+    if (processedSinceRequest >= STREAM_BATCH / 2) {
+      processedSinceRequest = 0;
+      sub.request(STREAM_BATCH / 2);
+    }
+  };
+}
+
+/**
  * RSocket streaming service for real-time order and execution updates
  * Implements the filtered streaming protocol as specified in FILTERED_STREAMING.md
  */
@@ -191,7 +211,8 @@ export class RSocketStreamingService {
    */
   public convertToStreamFilter(
     uiFilters: FilterCondition[],
-    includeSnapshot: boolean = true
+    includeSnapshot: boolean = true,
+    snapshotLimit?: number
   ): StreamFilter {
     const conditions: StreamFilterCondition[] = uiFilters
       .filter(f => f.field && f.value)
@@ -201,6 +222,8 @@ export class RSocketStreamingService {
       logicalOperator: 'AND',
       filters: conditions,
       includeSnapshot,
+      // At most this many snapshot rows, the newest (SPEC-0057); omitted: unbounded
+      ...(snapshotLimit !== undefined ? { snapshotLimit } : {}),
     };
   }
 
@@ -266,6 +289,7 @@ export class RSocketStreamingService {
     
     let active = true;
     let subscription: any = null;
+    let demand: (() => void) | null = null;
 
     this.socket.requestStream({
       data: Buffer.from(JSON.stringify(filter)),
@@ -286,11 +310,13 @@ export class RSocketStreamingService {
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse order event:', e);
+        } finally {
+          demand?.();
         }
       },
       onSubscribe: (sub: any) => {
         subscription = sub;
-        sub.request(2147483647); // Request unlimited events
+        demand = boundedDemand(sub);
       },
     });
 
@@ -321,6 +347,7 @@ export class RSocketStreamingService {
     
     let active = true;
     let subscription: any = null;
+    let demand: (() => void) | null = null;
 
     this.socket.requestStream({
       data: Buffer.from(JSON.stringify(filter)),
@@ -341,11 +368,13 @@ export class RSocketStreamingService {
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse execution event:', e);
+        } finally {
+          demand?.();
         }
       },
       onSubscribe: (sub: any) => {
         subscription = sub;
-        sub.request(2147483647); // Request unlimited events
+        demand = boundedDemand(sub);
       },
     });
 
@@ -376,6 +405,7 @@ export class RSocketStreamingService {
     
     let active = true;
     let subscription: any = null;
+    let demand: (() => void) | null = null;
 
     this.socket.requestStream({
       data: Buffer.from(JSON.stringify(request)),
@@ -396,11 +426,13 @@ export class RSocketStreamingService {
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse blotter event:', e);
+        } finally {
+          demand?.();
         }
       },
       onSubscribe: (sub: any) => {
         subscription = sub;
-        sub.request(2147483647);
+        demand = boundedDemand(sub);
       },
     });
 

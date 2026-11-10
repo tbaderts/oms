@@ -1,104 +1,103 @@
-/* EnumCellRenderer.scss - Consistent badge styles for enum values */
+/* EnumCellRenderer.scss - Status badges (SPEC-0058). A badge shows the metamodel's label as it is
+   ("Sell Short"), in normal case; its colour comes from the tone tokens by meaning. Unknown values
+   fall back to the neutral tone. */
 
 .enum-cell {
-  padding: 0.25rem 0.5rem;
-  border-radius: 2px;
-  font-weight: 600;
-  font-size: 0.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
-  min-width: 50px;
-  text-align: center;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  padding: 2px var(--oms-space-2);
+  border-radius: var(--oms-radius-sm);
   font-family: inherit;
+  font-size: var(--oms-font-size-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--oms-neutral);
+  background-color: var(--oms-neutral-bg);
 }
 
-/* Side Colors - BUY/SELL */
+/* Side */
 .enum-buy {
-  background-color: rgba(75, 191, 107, 0.2);
   color: var(--oms-success);
+  background-color: var(--oms-success-bg);
 }
 
 .enum-sell, .enum-sell-short {
-  background-color: rgba(244, 71, 71, 0.2);
   color: var(--oms-danger);
+  background-color: var(--oms-danger-bg);
 }
 
-/* State Colors */
-.enum-new {
-  background-color: rgba(0, 122, 204, 0.2);
-  color: var(--oms-accent);
+.enum-subscribe, .enum-redeem {
+  color: var(--oms-info);
+  background-color: var(--oms-info-bg);
 }
 
-.enum-unack {
-  background-color: rgba(204, 163, 0, 0.2);
-  color: #cca300;
-}
-
-.enum-live {
-  background-color: rgba(0, 122, 204, 0.2);
-  color: var(--oms-accent);
+/* Order state */
+.enum-new, .enum-unack, .enum-live {
+  color: var(--oms-info);
+  background-color: var(--oms-info-bg);
 }
 
 .enum-filled {
-  background-color: rgba(75, 191, 107, 0.2);
   color: var(--oms-success);
+  background-color: var(--oms-success-bg);
 }
 
-.enum-partially-filled {
-  background-color: rgba(234, 179, 8, 0.2);
-  color: #facc15;
-}
-
-.enum-cxl, .enum-exp, .enum-closed {
-  background-color: rgba(107, 114, 128, 0.2);
-  color: #9ca3af;
+.enum-cxl, .enum-pcxl, .enum-pmod {
+  color: var(--oms-warning);
+  background-color: var(--oms-warning-bg);
 }
 
 .enum-rej {
-  background-color: rgba(244, 71, 71, 0.2);
   color: var(--oms-danger);
+  background-color: var(--oms-danger-bg);
 }
 
-/* Order Type Colors */
-.enum-market {
-  background-color: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
+/* .enum-closed, .enum-exp: the neutral default */
+
+/* Order type */
+.enum-market, .enum-market-on-close {
+  color: var(--oms-violet);
+  background-color: var(--oms-violet-bg);
 }
 
 .enum-limit {
-  background-color: rgba(0, 122, 204, 0.2);
-  color: var(--oms-accent);
+  color: var(--oms-info);
+  background-color: var(--oms-info-bg);
 }
 
 .enum-stop, .enum-stop-limit {
-  background-color: rgba(249, 115, 22, 0.2);
-  color: #fb923c;
+  color: var(--oms-orange);
+  background-color: var(--oms-orange-bg);
 }
 
-/* Execution Instructions */
-.enum-no-cross, .enum-ok-to-cross, .enum-mid-peg {
-  background-color: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
-}
-
-/* Handling Instructions */
+/* Execution and handling instructions */
+.enum-no-cross, .enum-ok-to-cross, .enum-mid-peg,
 .enum-auto, .enum-broker-intervention-ok, .enum-manual {
-  background-color: rgba(20, 184, 166, 0.2);
-  color: #2dd4bf;
+  color: var(--oms-violet);
+  background-color: var(--oms-violet-bg);
 }
 
-/* Time In Force */
-.enum-day, .enum-good-till-cancel, .enum-immediate-or-cancel, .enum-fill-or-kill {
-  background-color: rgba(217, 70, 239, 0.2);
-  color: #e879f9;
+/* Time in force */
+.enum-day, .enum-good-till-cancel, .enum-at-the-opening, .enum-immediate-or-cancel,
+.enum-fill-or-kill, .enum-good-till-crossing, .enum-good-till-date, .enum-at-the-close {
+  color: var(--oms-teal);
+  background-color: var(--oms-teal-bg);
 }
 
-/* Default/Unknown */
-.enum-default {
-  background-color: rgba(107, 114, 128, 0.2);
-  color: #9ca3af;
+/* Execution status */
+.enum-applied {
+  color: var(--oms-success);
+  background-color: var(--oms-success-bg);
+}
+
+.enum-busted {
+  color: var(--oms-danger);
+  background-color: var(--oms-danger-bg);
+}
+
+.enum-corrected {
+  color: var(--oms-warning);
+  background-color: var(--oms-warning-bg);
 }

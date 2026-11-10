@@ -5,9 +5,11 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -290,10 +292,30 @@ public class MetamodelService {
             values.add(
                     EnumValueDto.builder()
                             .value(enumConstant.name())
-                            .label(formatDisplayName(enumConstant.name()))
+                            .label(formatEnumLabel(enumConstant.name()))
                             .build());
         }
         return values;
+    }
+
+    /** Domain codes an enum constant may contain; they stay as they are in a label (SPEC-0058). */
+    private static final Set<String> ENUM_ACRONYMS = Set.of(
+            "ISIN", "RIC", "CLI", "MKT", "CS", "FUT", "OPT", "ETF", "ETN", "MF",
+            "CXL", "PCXL", "PMOD", "REJ", "EXP", "OK", "GTC", "IOC", "FOK");
+
+    /**
+     * The label of an enum constant, as a badge shows it (SPEC-0058): words split on '_', each in
+     * Title case except domain codes. {@code SELL_SHORT -> "Sell Short"}, {@code CXL -> "CXL"}.
+     * Not {@link #formatDisplayName}: that splits camelCase field names, and on an all-caps constant
+     * puts a space before every letter.
+     */
+    static String formatEnumLabel(String constant) {
+        return Arrays.stream(constant.split("_"))
+                .filter(word -> !word.isEmpty())
+                .map(word -> ENUM_ACRONYMS.contains(word)
+                        ? word
+                        : word.charAt(0) + word.substring(1).toLowerCase(Locale.ROOT))
+                .collect(Collectors.joining(" "));
     }
 
     private String formatDisplayName(String fieldName) {

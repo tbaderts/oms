@@ -116,7 +116,8 @@ class TradeBlotterExecutionStreamTest {
                 queryClient,
                 new OrderMessageMapper(),
                 new OrderExecutionMapper(),
-                new FilterService());
+                new FilterService(),
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         // @Value is not applied outside Spring; at 0 every cache put would be evicted at once.
         ReflectionTestUtils.setField(provider, "maxCacheSize", 100);
         provider.startConsuming();

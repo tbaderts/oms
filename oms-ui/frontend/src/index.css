@@ -8,8 +8,7 @@ body {
 }
 
 code {
-  font-family: 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: var(--oms-font-mono);
 }
 
 * {
@@ -28,7 +27,7 @@ code {
 
 ::-webkit-scrollbar-thumb {
   background: var(--oms-border);
-  border-radius: 0;
+  border-radius: var(--oms-radius-sm);
 }
 
 ::-webkit-scrollbar-thumb:hover {

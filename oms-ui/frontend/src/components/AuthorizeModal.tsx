@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { AuthTokenService } from '../services/AuthTokenService';
 import './AuthorizeModal.scss';
+import Icon from './icons/Icon';
 
 interface AuthorizeModalProps {
   onClose: () => void;
@@ -26,7 +27,7 @@ const AuthorizeModal: React.FC<AuthorizeModalProps> = ({ onClose }) => {
       <div className="authorize-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Authorization</h2>
-          <button className="close-button" onClick={onClose}>&times;</button>
+          <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>
         </div>
 
         <div className="modal-body">

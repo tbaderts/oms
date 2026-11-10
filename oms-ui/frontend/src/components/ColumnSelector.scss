@@ -1,4 +1,4 @@
-// ColumnSelector.scss - VS Code Dark Theme with consistent panel styling
+// ColumnSelector.scss - SPEC-0058 tokens with consistent panel styling
 @keyframes slideDown {
   from {
     opacity: 0;
@@ -13,12 +13,12 @@
 .column-selector-modal {
   background: var(--oms-surface);
   padding: 0;
-  border-radius: 0;
+  border-radius: var(--oms-radius-lg);
   width: 90%;
   max-width: 600px;
   max-height: 80vh;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--oms-shadow-lg);
   border: 1px solid var(--oms-border);
   animation: slideDown 0.2s ease-out;
   display: flex;
@@ -38,19 +38,22 @@
       gap: 0.5rem;
       margin: 0;
       color: var(--oms-text-strong);
-      font-size: 1rem;
+      font-size: var(--oms-font-size-lg);
       font-weight: 600;
 
-      .modal-icon {
-        font-size: 1.125rem;
-      }
     }
 
     .close-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: var(--oms-radius-sm);
       background: none;
       border: none;
       color: var(--oms-text-muted);
-      font-size: 1.25rem;
+      font-size: var(--oms-font-size-xl);
       cursor: pointer;
       padding: 0;
       line-height: 1;
@@ -100,14 +103,14 @@
     background: var(--oms-bg);
     color: var(--oms-text);
     border: 1px solid var(--oms-border);
-    border-radius: 2px;
+    border-radius: var(--oms-radius-sm);
     cursor: pointer;
-    font-size: 0.8125rem;
+    font-size: var(--oms-font-size-sm);
     transition: all 0.1s;
 
     &:hover {
       background: var(--oms-accent);
-      color: white;
+      color: var(--oms-text-on-accent);
       border-color: var(--oms-accent);
     }
   }
@@ -116,7 +119,7 @@
     display: flex;
     align-items: center;
     margin-left: auto;
-    font-size: 0.8125rem;
+    font-size: var(--oms-font-size-sm);
     color: var(--oms-text-muted);
 
     .count {
@@ -135,7 +138,7 @@
   overflow-y: auto;
   background: var(--oms-bg);
   border: 1px solid var(--oms-border);
-  border-radius: 2px;
+  border-radius: var(--oms-radius-sm);
   
   &::-webkit-scrollbar {
     width: 10px;
@@ -173,7 +176,7 @@
   }
 
   &.selected {
-    background: rgba(0, 122, 204, 0.1);
+    background: var(--oms-accent-bg);
   }
 
   input[type="checkbox"] {
@@ -187,38 +190,38 @@
     flex: 1;
     font-weight: 500;
     color: var(--oms-text);
-    font-size: 0.875rem;
+    font-size: var(--oms-font-size-md);
   }
 
   .field-type {
     color: var(--oms-text-muted);
-    font-size: 0.75rem;
+    font-size: var(--oms-font-size-xs);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.04em;
   }
 
   .complex-badge {
     display: inline-flex;
     align-items: center;
     padding: 0.2rem 0.5rem;
-    background: rgba(234, 179, 8, 0.2);
-    color: #facc15;
-    border-radius: 2px;
-    font-size: 0.7rem;
+    background: var(--oms-warning-bg);
+    color: var(--oms-warning);
+    border-radius: var(--oms-radius-sm);
+    font-size: var(--oms-font-size-2xs);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.04em;
   }
 }
 
 .primary-button {
   padding: 0.5rem 1.25rem;
   background: var(--oms-accent);
-  color: white;
+  color: var(--oms-text-on-accent);
   border: none;
-  border-radius: 2px;
+  border-radius: var(--oms-radius-sm);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--oms-font-size-md);
   font-weight: 500;
   transition: background-color 0.1s;
 
@@ -232,9 +235,9 @@
   background: transparent;
   color: var(--oms-text);
   border: 1px solid var(--oms-border);
-  border-radius: 2px;
+  border-radius: var(--oms-radius-sm);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--oms-font-size-md);
   transition: all 0.1s;
 
   &:hover {

@@ -28,6 +28,23 @@ public class OrderEvent {
     private Long eventId;         // Database event ID for deduplication
     private Long sequenceNumber;
     private Instant timestamp;
+    /** On the {@code SNAPSHOT_END} marker only: the number of orders matching the filter (SPEC-0057). */
+    private Long snapshotTotal;
+
+    /** Event type of the marker that ends the snapshot (SPEC-0057). */
+    public static final String SNAPSHOT_END = "SNAPSHOT_END";
+
+    /**
+     * The marker sent after the last snapshot order: the client loads the snapshot then, and shows
+     * how many orders matched although it was sent at most its limit.
+     */
+    public static OrderEvent snapshotEnd(long matching) {
+        return OrderEvent.builder()
+                .eventType(SNAPSHOT_END)
+                .snapshotTotal(matching)
+                .timestamp(Instant.now())
+                .build();
+    }
     
     /**
      * Creates an OrderEvent from an OrderDto.

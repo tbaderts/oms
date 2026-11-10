@@ -1,0 +1,15 @@
+{
+  "_note": "SPEC-0057 AC-9 evidence, 2026-11-10, run by the user in their own Chrome tab with the window in front, on the current production build (SPEC-0057 incl. the grid memoisation fix, AG Grid modules registered, SPEC-0058), http://localhost:8080/?loadHarness&domain=Order&rate=2000&duration=60&keys=10000&maxRows=2000. Valid: hiddenMs 0, stalledMs 0.",
+  "params": { "domain": "Order", "rate": 2000, "duration": 60, "keys": 10000, "maxRows": 2000 },
+  "valid": true,
+  "hiddenMs": 0,
+  "stalledMs": 0,
+  "sent": 120000,
+  "applied": 120000,
+  "lagMs": { "p50": 3, "p99": 13, "max": 33 },
+  "frameMs": { "p50": 18, "p95": 30, "max": 73 },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [30.4],
+  "ac9": { "pass": true },
+  "ac10": { "pass": null, "minute2": null, "last": null, "growthPct": null }
+}

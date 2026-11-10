@@ -39,12 +39,25 @@ public interface EventStreamProvider {
     }
 
     /**
-     * Returns a stream of execution events.
-     * 
+     * Returns a stream of execution events matching the filter (SPEC-0057). With
+     * {@code includeSnapshot}, the newest matching executions come first, at most the filter's
+     * snapshot limit, then a {@code SNAPSHOT_END} marker with the matching count; without it, only
+     * live executions.
+     *
+     * @param filter the stream filter (null = all executions, live only)
+     * @return Flux of execution events
+     */
+    Flux<ExecutionEvent> getExecutionEventStream(StreamFilter filter);
+
+    /**
+     * Returns a stream of all execution events, with or without the unbounded snapshot.
+     *
      * @param includeSnapshot whether to include initial snapshot
      * @return Flux of execution events
      */
-    Flux<ExecutionEvent> getExecutionEventStream(boolean includeSnapshot);
+    default Flux<ExecutionEvent> getExecutionEventStream(boolean includeSnapshot) {
+        return getExecutionEventStream(includeSnapshot ? StreamFilter.withSnapshot() : StreamFilter.liveOnly());
+    }
 
     /**
      * Returns current orders from cache.

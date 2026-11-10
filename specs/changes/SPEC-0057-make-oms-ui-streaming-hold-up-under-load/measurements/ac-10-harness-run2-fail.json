@@ -1,0 +1,48 @@
+{
+  "_note": "SPEC-0057 AC-10 run 2, by the user on 2026-11-09, valid (window in front throughout: hiddenMs 0, stalledMs 0), http://localhost:8080/?loadHarness&domain=Order&rate=1000&duration=600&keys=20000&maxRows=2000. A real failure: the heap's per-minute minimum rose 48.9 -> 76.7 MB (+57%) and frame p95 reached 97 ms. Cause found: every render handed AG Grid a new columnDefs array and a new inline defaultColDef, so at one render per frame AG Grid rebuilt its columns about 60 times a second (StreamingBlotter.test.tsx 'hands the grid the same column definitions on every flush' failed against that code). Fixed by memoising columnDefs and a constant DEFAULT_COL_DEF; RowStore itself measured flat (4.0 MB after GC every minute of the same churn in Node). AC-9 here judges the 1,000/s run against the 2,000/s budgets and is not the AC-9 run.",
+  "params": {
+    "domain": "Order",
+    "rate": 1000,
+    "duration": 600,
+    "keys": 20000,
+    "maxRows": 2000
+  },
+  "valid": true,
+  "hiddenMs": 0,
+  "stalledMs": 0,
+  "sent": 600000,
+  "applied": 600000,
+  "lagMs": {
+    "p50": 0,
+    "p99": 5,
+    "max": 132
+  },
+  "frameMs": {
+    "p50": 6,
+    "p95": 97,
+    "max": 164
+  },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [
+    29,
+    48.9,
+    60.3,
+    59.4,
+    62.1,
+    68.5,
+    72.1,
+    71.3,
+    73.3,
+    76.7
+  ],
+  "ac9": {
+    "pass": false
+  },
+  "ac10": {
+    "pass": false,
+    "minute2": 51312482,
+    "last": 80432821,
+    "growthPct": 57
+  },
+  "_invalid": "INVALID: measured before AG Grid modules were registered (found 2026-11-09). api.applyTransaction failed with AG Grid error #200 and did nothing, so the grid never drew a row while the harness counted events as applied; the run lacks the rendering cost the budget judges. Re-measure on the build with theme/agGridModules.ts."
+}

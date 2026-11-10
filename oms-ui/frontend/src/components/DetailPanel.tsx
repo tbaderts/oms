@@ -1,58 +1,64 @@
 // DetailPanel.tsx - Well-organized detail panel for viewing order data
 import React, { useState } from 'react';
 import { dateTimeService } from '../services/DateTimeService';
+import Icon, { IconName } from './icons/Icon';
+import EnumCellRenderer from './EnumCellRenderer';
+import { MetamodelService } from '../services/MetamodelService';
+import { DomainObjectType } from '../types/types';
 import './DetailPanel.scss';
 
 interface DetailPanelProps {
   data: any;
+  /** Whose metamodel labels the badges show (SPEC-0058); without it a badge shows the raw value. */
+  domainObject?: DomainObjectType;
   columns?: string[];
 }
 
 // Field groupings for organized display
-const fieldGroups: Record<string, { title: string; fields: string[]; icon: string }> = {
+const fieldGroups: Record<string, { title: string; fields: string[]; icon: IconName }> = {
   identification: {
     title: 'Identification',
-    icon: 'ID',
+    icon: 'id',
     fields: ['orderId', 'clOrdId', 'origClOrdId', 'parentOrderId', 'rootOrderId', 'sessionId'],
   },
   instrument: {
     title: 'Instrument',
-    icon: 'INST',
+    icon: 'instrument',
     fields: ['symbol', 'securityId', 'securityIdSource', 'securityDesc', 'securityType', 'securityExchange'],
   },
   orderDetails: {
     title: 'Order Details',
-    icon: 'ORD',
+    icon: 'order',
     fields: ['side', 'ordType', 'orderQty', 'price', 'stopPx', 'cashOrderQty', 'timeInForce', 'expireTime'],
   },
   execution: {
     title: 'Execution',
-    icon: 'EXEC',
+    icon: 'execution',
     fields: ['cumQty', 'leavesQty', 'placeQty', 'allocQty', 'exDestination', 'handlInst', 'execInst'],
   },
   status: {
     title: 'Status',
-    icon: 'ST',
+    icon: 'status',
     fields: ['state', 'cancelState', 'rejectReason', 'positionEffect'],
   },
   timing: {
     title: 'Timing',
-    icon: 'TIME',
+    icon: 'time',
     fields: ['sendingTime', 'transactTime', 'tifTimestamp'],
   },
   settlement: {
     title: 'Settlement',
-    icon: 'SETL',
+    icon: 'settlement',
     fields: ['account', 'settlCurrency', 'priceType'],
   },
   derivatives: {
     title: 'Derivatives',
-    icon: 'DER',
+    icon: 'derivative',
     fields: ['maturityMonthYear', 'strikePrice', 'putOrCall', 'underlyingSecurityType', 'leg'],
   },
   other: {
     title: 'Other',
-    icon: 'MISC',
+    icon: 'misc',
     fields: ['id', 'tx', 'txNr', 'text'],
   },
 };
@@ -107,26 +113,27 @@ const fieldDisplayNames: Record<string, string> = {
   text: 'Text',
 };
 
-// State badge colors
-const stateBadgeColors: Record<string, string> = {
-  NEW: 'badge-info',
-  UNACK: 'badge-warning',
-  LIVE: 'badge-success',
-  FILLED: 'badge-success',
-  CXL: 'badge-error',
-  REJ: 'badge-error',
-  CLOSED: 'badge-secondary',
-  EXP: 'badge-secondary',
-};
+// Fields shown as badges, like their grid cells (SPEC-0058)
+const BADGE_FIELDS = new Set(['side', 'ordType', 'state', 'cancelState', 'timeInForce']);
 
-// Side badge colors
-const sideBadgeColors: Record<string, string> = {
-  BUY: 'badge-buy',
-  SELL: 'badge-sell',
-  SELL_SHORT: 'badge-sell',
-};
+/** The metamodel's label for an enum value ("Sell Short"), or the value itself without one. */
+function enumLabel(domainObject: DomainObjectType | undefined, field: string, value: string): string {
+  if (!domainObject) return value;
+  try {
+    const metadata = MetamodelService.getInstance().getMetamodel(domainObject);
+    return metadata.fields.find(f => f.name === field)?.enumValues?.find(e => e.value === value)?.label ?? value;
+  } catch {
+    // The metamodel is not loaded (it always is behind a blotter): show the value.
+    return value;
+  }
+}
 
-const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
+const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
+  /** A badge exactly as the grid draws it: the label, in the value's tone. */
+  const badge = (field: string, value: string) => (
+    <EnumCellRenderer value={value} valueFormatted={enumLabel(domainObject, field, value)} />
+  );
+
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['identification', 'instrument', 'orderDetails', 'status'])
   );
@@ -154,21 +161,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
       return <span className="value-null">—</span>;
     }
 
-    // Format state with badge
-    if (key === 'state' && typeof value === 'string') {
-      const badgeClass = stateBadgeColors[value] || 'badge-default';
-      return <span className={`badge ${badgeClass}`}>{value}</span>;
-    }
-
-    // Format side with badge
-    if (key === 'side' && typeof value === 'string') {
-      const badgeClass = sideBadgeColors[value] || 'badge-default';
-      return <span className={`badge ${badgeClass}`}>{value}</span>;
-    }
-
-    // Format cancelState with badge
-    if (key === 'cancelState' && typeof value === 'string') {
-      return <span className="badge badge-error">{value}</span>;
+    // Enum fields as badges, like their grid cells
+    if (BADGE_FIELDS.has(key) && typeof value === 'string') {
+      return badge(key, value);
     }
 
     // Format numbers with proper formatting
@@ -238,9 +233,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
     return (
       <div key={groupKey} className={`detail-section ${isExpanded ? 'expanded' : 'collapsed'}`}>
         <div className="section-header" onClick={() => toggleSection(groupKey)}>
-          <span className="section-icon">{group.icon}</span>
+          <Icon name={group.icon} className="section-icon" />
           <h4>{group.title}</h4>
-          <span className="section-toggle">{isExpanded ? '▼' : '▶'}</span>
+          <Icon name="chevron" className={`section-toggle${isExpanded ? ' open' : ''}`} />
         </div>
         {isExpanded && (
           <div className="section-content">
@@ -268,19 +263,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
             <span className="security-desc">{data.securityDesc || ''}</span>
           </div>
           <div className="header-badges">
-            {data.side && (
-              <span className={`badge ${sideBadgeColors[data.side] || 'badge-default'}`}>
-                {data.side}
-              </span>
-            )}
-            {data.ordType && (
-              <span className="badge badge-info">{data.ordType}</span>
-            )}
-            {data.state && (
-              <span className={`badge ${stateBadgeColors[data.state] || 'badge-default'}`}>
-                {data.state}
-              </span>
-            )}
+            {data.side && badge('side', data.side)}
+            {data.ordType && badge('ordType', data.ordType)}
+            {data.state && badge('state', data.state)}
           </div>
         </div>
         <div className="header-summary">
@@ -315,11 +300,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data }) => {
         {getUnassignedFields().length > 0 && (
           <div className="detail-section expanded">
             <div className="section-header" onClick={() => toggleSection('_unassigned')}>
-              <span className="section-icon">UNASSIGNED</span>
+              <Icon name="unassigned" className="section-icon" />
               <h4>Additional Fields</h4>
-              <span className="section-toggle">
-                {expandedSections.has('_unassigned') ? '▼' : '▶'}
-              </span>
+              <Icon name="chevron" className={`section-toggle${expandedSections.has('_unassigned') ? ' open' : ''}`} />
             </div>
             {expandedSections.has('_unassigned') && (
               <div className="section-content">

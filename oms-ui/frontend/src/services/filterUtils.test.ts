@@ -1,5 +1,23 @@
 // filterUtils.test.ts - Tests for shared filter conversion helpers
-import { convertFiltersToState, convertFiltersFromState } from './filterUtils';
+import { convertFiltersToState, convertFiltersFromState, sameSavedFilters } from './filterUtils';
+
+// SPEC-0056: a blotter shown again compares its filters with the saved ones in the saved form, so a
+// detail the saved form does not keep (a BETWEEN upper bound) is not mistaken for a change.
+describe('sameSavedFilters', () => {
+  it('treats filters equal to the saved ones as unchanged, including a BETWEEN filter', () => {
+    const between = [{ field: 'avgPx', operation: '__between', value: 10, value2: 20 }];
+    expect(sameSavedFilters(between, convertFiltersToState(between))).toBe(true);
+  });
+
+  it('sees a changed value', () => {
+    const filters = [{ field: 'orderId', operation: '__like', value: 'O-1' }];
+    expect(sameSavedFilters(filters, { orderId__like: 'O-2' })).toBe(false);
+  });
+
+  it('treats missing saved filters as none', () => {
+    expect(sameSavedFilters([], undefined)).toBe(true);
+  });
+});
 
 describe('filterUtils', () => {
   describe('convertFiltersToState', () => {

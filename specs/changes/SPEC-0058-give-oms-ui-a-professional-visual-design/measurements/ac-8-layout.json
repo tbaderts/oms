@@ -1,0 +1,11 @@
+{
+  "_note": "SPEC-0058 AC-8, measured 2026-11-10 by the agent in Chrome on the production build (http://localhost:8080) after the review fixes. 'available' is the grid header width minus the vertical scrollbar; budget: columnSum within 2 px of it, and the page-size gap at least 8 px.",
+  "windowWidth": 1867,
+  "grids": [
+    { "view": "rest:orders", "columns": 11, "columnSum": 1808, "available": 1808, "diff": 0 },
+    { "view": "streaming:orders", "columns": 11, "columnSum": 1808, "available": 1808, "diff": 0 },
+    { "view": "streaming:executions", "columns": 9, "columnSum": 1818, "available": 1818, "diff": 0 }
+  ],
+  "pageSizeSelector": { "label": "Rows per page", "gapPx": 8 },
+  "earlierFailure": "Before the review fix the paging grid ended at 1,460 of 1,818 px: Blotter.tsx rebuilt columnDefs on every render, resetting the fitted widths."
+}

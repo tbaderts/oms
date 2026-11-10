@@ -1,0 +1,48 @@
+{
+  "_note": "SPEC-0057 AC-10 evidence, run 3, by the user on 2026-11-09 after the column-definition fix, valid (hiddenMs 0, stalledMs 0), production build on http://localhost:8080/?loadHarness&domain=Order&rate=1000&duration=600&keys=20000&maxRows=2000. Heap minimum per minute 19.4-20.9 MB, minute 10 is 6% below minute 2 (budget: at most 10% above).",
+  "params": {
+    "domain": "Order",
+    "rate": 1000,
+    "duration": 600,
+    "keys": 20000,
+    "maxRows": 2000
+  },
+  "valid": true,
+  "hiddenMs": 0,
+  "stalledMs": 0,
+  "sent": 600000,
+  "applied": 600000,
+  "lagMs": {
+    "p50": 3,
+    "p99": 6,
+    "max": 86
+  },
+  "frameMs": {
+    "p50": 6,
+    "p95": 6,
+    "max": 79
+  },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [
+    20.9,
+    20.8,
+    20.8,
+    20.2,
+    19.8,
+    19.8,
+    19.4,
+    19.7,
+    19.9,
+    19.6
+  ],
+  "ac9": {
+    "pass": true
+  },
+  "ac10": {
+    "pass": true,
+    "minute2": 21828635,
+    "last": 20597048,
+    "growthPct": -6
+  },
+  "_invalid": "INVALID: measured before AG Grid modules were registered (found 2026-11-09). api.applyTransaction failed with AG Grid error #200 and did nothing, so the grid never drew a row while the harness counted events as applied; the run lacks the rendering cost the budget judges. Re-measure on the build with theme/agGridModules.ts."
+}

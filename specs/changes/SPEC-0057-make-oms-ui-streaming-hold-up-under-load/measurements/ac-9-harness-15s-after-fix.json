@@ -1,0 +1,12 @@
+{
+  "_note": "SPEC-0057 AC-9 check, not the AC-9 evidence (15 s, not 60 s). Run by the user on 2026-11-10 on the build with the grid memoised (bundle main.d176bfb6.js). Valid. Frame p95 36 ms (was 127 ms).",
+  "params": { "domain": "Order", "rate": 2000, "duration": 15, "keys": 10000, "maxRows": 2000 },
+  "valid": true, "hiddenMs": 0, "stalledMs": 0,
+  "sent": 30000, "applied": 30000,
+  "lagMs": { "p50": 3, "p99": 14, "max": 42 },
+  "frameMs": { "p50": 18, "p95": 36, "max": 67 },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [78.1],
+  "ac9": { "pass": true },
+  "ac10": { "pass": null, "minute2": null, "last": null, "growthPct": null }
+}

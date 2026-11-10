@@ -1,0 +1,12 @@
+{
+  "_note": "SPEC-0057 AC-10 run 1, by the user on 2026-11-09, http://localhost:8080/?loadHarness&domain=Order&rate=1000&duration=600&keys=20000&maxRows=2000. Not valid evidence: a single 73 s frame gap (frameMs.max 73,450) equal to the worst lag (73,432) with no long task means Chrome stopped animating the page (window hidden or covered); flushes stopped again near 388 s and had not resumed when the harness reported (applied 388,541 of 600,000). The harness also took AC-10's last minute from post-run samples (index 10, 60.6 MB) instead of the run's tenth minute (index 9, 93.4 MB). Both harness defects are fixed after this run; it is kept here as a record.",
+  "params": { "domain": "Order", "rate": 1000, "duration": 600, "keys": 20000, "maxRows": 2000 },
+  "sent": 600000,
+  "applied": 388541,
+  "lagMs": { "p50": 1, "p99": 73432, "max": 73432 },
+  "frameMs": { "p50": 6, "p95": 67, "max": 73450 },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [27.8, 50.8, 55.8, 53.2, 52, 55.5, 58.8, 59.7, 93, 93.4, 60.6],
+  "ac9": { "pass": false },
+  "ac10": { "pass": false, "minute2": 53262339, "last": 63521150, "growthPct": 19 }
+}

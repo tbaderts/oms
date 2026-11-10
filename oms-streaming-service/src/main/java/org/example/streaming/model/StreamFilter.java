@@ -54,11 +54,31 @@ public class StreamFilter {
     /** Whether to include initial snapshot from REST API */
     @Builder.Default
     private boolean includeSnapshot = true;
-    
+
+    /** The most snapshot rows a client keeps; no client may make the server page more (SPEC-0057). */
+    public static final int MAX_SNAPSHOT_LIMIT = 100_000;
+
+    /**
+     * How many snapshot rows the client keeps, its {@code maxStreamingRows} (SPEC-0057). The server
+     * sends at most that many, the newest. Null means unbounded, as before SPEC-0057.
+     */
+    private Integer snapshotLimit;
+
     public enum LogicalOperator {
         AND, OR
     }
-    
+
+    /**
+     * The snapshot limit to apply: {@code Integer.MAX_VALUE} when none was sent, otherwise
+     * {@link #snapshotLimit} kept within 0 and {@link #MAX_SNAPSHOT_LIMIT}.
+     */
+    public int effectiveSnapshotLimit() {
+        if (snapshotLimit == null) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.clamp(snapshotLimit, 0, MAX_SNAPSHOT_LIMIT);
+    }
+
     public boolean isEmpty() {
         return filters == null || filters.isEmpty();
     }

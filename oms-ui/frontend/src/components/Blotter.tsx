@@ -1,14 +1,17 @@
 // Blotter.tsx - Core data grid component with AG Grid integration
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import '../theme/agGridModules';
 import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent, RowDoubleClickedEvent } from 'ag-grid-community';
 import { omsGridTheme } from '../theme/agGridTheme';
+import { FIT_COLUMNS_TO_WIDTH, fitColumnsOnResize } from '../theme/gridSizing';
+import Icon from './icons/Icon';
 import { DomainObjectType, FilterCondition } from '../types/types';
 import { OMSApiService } from '../services/OMSApiService';
 import { ColumnConfigService } from '../services/ColumnConfigService';
 import { BlotterStateService } from '../services/BlotterStateService';
 import { MetamodelService } from '../services/MetamodelService';
-import { convertFiltersToState, convertFiltersFromState } from '../services/filterUtils';
+import { convertFiltersToState, convertFiltersFromState, sameSavedFilters } from '../services/filterUtils';
 import { rowIdOf } from '../services/rowId';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
@@ -18,12 +21,21 @@ import './Blotter.scss';
 interface BlotterProps {
   domainObject: DomainObjectType;
   pageSize?: number;
+  /**
+   * Whether this blotter's view is the one shown (SPEC-0056). Views are kept mounted while hidden;
+   * a hidden blotter neither saves its state nor auto-refreshes, and re-reads the shared saved
+   * columns and filters when it is shown again, since the live blotter may have changed them.
+   */
+  active?: boolean;
 }
 
 // Page-size options for the paging-mode selector; 500 is the query API maximum.
 const PAGE_SIZE_OPTIONS = [50, 100, 250, 500];
 
-const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp = 100 }) => {
+/** One object for every render (SPEC-0058), like the live blotter's. */
+const DEFAULT_COL_DEF = { sortable: true, filter: true, resizable: true };
+
+const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp = 100, active = true }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +73,8 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
           setFilters(convertFiltersFromState(savedState.filters));
           setVisibleColumns(savedState.visibleColumns);
           setSortModel(savedState.sortModel);
-          setCurrentPage(savedState.currentPage);
+          // The live blotter saves no paging (0): start on the first page then (SPEC-0056).
+          setCurrentPage(savedState.currentPage > 0 ? savedState.currentPage : 1);
           if (savedState.pageSize > 0) {
             setPageSize(savedState.pageSize);
           }
@@ -78,8 +91,29 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     initializeBlotter();
   }, [domainObject]);
 
-  // Save state whenever it changes
+  // Shown again: take the columns and filters the other mode may have saved meanwhile (SPEC-0056).
+  const activeRef = useRef(active);
   useEffect(() => {
+    const wasActive = activeRef.current;
+    activeRef.current = active;
+    if (!active || wasActive || !initialized) return;
+    const savedState = stateService.getState(domainObject);
+    if (savedState && savedState.visibleColumns && savedState.visibleColumns.length > 0) {
+      if (JSON.stringify(savedState.visibleColumns) !== JSON.stringify(visibleColumns)) {
+        setVisibleColumns(savedState.visibleColumns);
+      }
+      if (!sameSavedFilters(filters, savedState.filters)) {
+        setFilters(convertFiltersFromState(savedState.filters || {}));
+      }
+    }
+    // Only the transition matters; the current columns and filters are compared, not watched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // Save state whenever it changes, only while shown: a hidden blotter's copy may be stale. Not
+  // before the saved state was read: the empty initial state would overwrite it (SPEC-0056).
+  useEffect(() => {
+    if (!initialized || !activeRef.current) return;
     stateService.saveState(domainObject, {
       filters: convertFiltersToState(filters),
       visibleColumns,
@@ -87,18 +121,18 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
       pageSize,
       currentPage,
     });
-  }, [filters, visibleColumns, sortModel, currentPage, pageSize, domainObject]);
+  }, [filters, visibleColumns, sortModel, currentPage, pageSize, domainObject, initialized]);
 
-  // Auto-refresh
+  // Auto-refresh, only while shown (SPEC-0056)
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !active) return;
 
     const interval = setInterval(() => {
       loadData();
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [autoRefresh, filters, sortModel, currentPage]);
+  }, [autoRefresh, active, filters, sortModel, currentPage]);
 
   // Reload data when filters, sort, page, or page size changes (only after initialization)
   useEffect(() => {
@@ -139,8 +173,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
 
   const onGridReady = (params: GridReadyEvent) => {
     gridApiRef.current = params.api;
-    // Auto-size columns to fit content
-    params.api.autoSizeAllColumns();
+    // Columns fit the grid's width (autoSizeStrategy); Auto-Size fits them to their content on demand.
   };
 
   const onFilterChanged = (event: FilterChangedEvent) => {
@@ -191,6 +224,16 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     gridApiRef.current?.autoSizeAllColumns();
   };
 
+  // The same definitions until the columns change (SPEC-0058): new ones on a render would reset the
+  // columns to their metamodel widths after they were fitted to the panel.
+  const visibleColumnsKey = visibleColumns.join(',');
+  const columnDefs = useMemo(
+    () => (initialized ? columnConfigService.getColumnConfig(domainObject, visibleColumns) : []),
+    // visibleColumnsKey stands for visibleColumns; the service is a singleton.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [initialized, domainObject, visibleColumnsKey]
+  );
+
   // Don't render until metadata is loaded
   if (!initialized) {
     return (
@@ -200,7 +243,6 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     );
   }
 
-  const columnDefs = columnConfigService.getColumnConfig(domainObject, visibleColumns);
   const metadata = metamodelService.getMetamodel(domainObject);
 
   return (
@@ -216,12 +258,13 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
             onClick={() => setShowFilterBuilder(true)}
             className={filters.length > 0 ? 'filter-active' : ''}
           >
+            <Icon name="filter" />
             Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
           </button>
-          <button onClick={() => setShowColumnSelector(true)}>Columns</button>
-          <button onClick={handleRefresh}>Refresh</button>
-          <button onClick={handleAutoSize}>Auto-Size</button>
-          <label>
+          <button onClick={() => setShowColumnSelector(true)}><Icon name="columns" />Columns</button>
+          <button onClick={handleRefresh}><Icon name="refresh" />Refresh</button>
+          <button onClick={handleAutoSize}><Icon name="autosize" />Auto-Size</button>
+          <label className="toolbar-toggle">
             <input
               type="checkbox"
               checked={autoRefresh}
@@ -244,13 +287,10 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
           rowData={data}
           columnDefs={columnDefs}
           getRowId={(params) => rowIdOf(domainObject, params.data)}
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-          }}
-          rowHeight={28}
-          headerHeight={32}
+          defaultColDef={DEFAULT_COL_DEF}
+          autoSizeStrategy={FIT_COLUMNS_TO_WIDTH}
+          onGridSizeChanged={fitColumnsOnResize}
+          onNewColumnsLoaded={fitColumnsOnResize}
           pagination={false}
           onGridReady={onGridReady}
           onFilterChanged={onFilterChanged}
@@ -266,7 +306,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
         </span>
         <div className="pagination-controls">
           <label className="page-size-selector">
-            Page size
+            Rows per page
             <select
               value={pageSize}
               onChange={(e) => {
@@ -323,7 +363,8 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
       {showDetailModal && selectedItem && (
         <DetailModal
           data={selectedItem}
-          title={metadata.displayName}
+          title={`${domainObject} details`}
+          domainObject={domainObject}
           onClose={() => setShowDetailModal(false)}
         />
       )}

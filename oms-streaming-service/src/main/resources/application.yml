@@ -44,6 +44,11 @@ streaming:
     replay-size: ${REPLAY_BUFFER_SIZE:100}
     timeout-seconds: 30
 
+  # Per-subscriber bound (SPEC-0057): live events held for a client that has not requested them.
+  # Past it the client's stream ends with an error; the UI's Retry reloads with a snapshot.
+  subscriber:
+    max-pending: ${SUBSCRIBER_MAX_PENDING:10000}
+
   # CORS configuration for Trade Blotter UI
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}

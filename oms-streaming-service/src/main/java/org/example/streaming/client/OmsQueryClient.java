@@ -129,6 +129,54 @@ public class OmsQueryClient {
     }
 
     /**
+     * A bounded order snapshot (SPEC-0057): at most {@code limit} rows, newest first, and the number
+     * of orders matching the filter. Both come from one first page, fetched once.
+     */
+    public record OrderSnapshot(Flux<OrderDto> rows, Mono<Long> matching) {}
+
+    /**
+     * Fetches the newest {@code limit} orders matching the filter, newest (highest id) first, and
+     * stops paging once the limit is reached. {@code limit} 0 fetches only the count.
+     *
+     * @param filter optional filter criteria (null = all orders)
+     * @param limit the most rows to return, at least 0
+     */
+    public OrderSnapshot fetchOrderSnapshot(StreamFilter filter, int limit) {
+        Map<String, String> filterParams = filter != null ? filter.toQueryParams() : Map.of();
+        int pageSize = Math.clamp(limit, 1, DEFAULT_PAGE_SIZE);
+        Mono<PagedOrderDto> firstPage = fetchOrdersPage(0, pageSize, filterParams).cache();
+        Mono<Long> matching = firstPage.map(OmsQueryClient::matchingOf);
+        if (limit <= 0) {
+            return new OrderSnapshot(Flux.empty(), matching);
+        }
+        Flux<OrderDto> rows = firstPage
+                .expand(paged -> {
+                    PageMetadata page = paged.getPage();
+                    if (page == null) {
+                        return Mono.empty();
+                    }
+                    boolean morePages = page.getNumber() < page.getTotalPages() - 1;
+                    boolean belowLimit = (long) (page.getNumber() + 1) * pageSize < limit;
+                    return morePages && belowLimit
+                            ? fetchOrdersPage(page.getNumber() + 1, pageSize, filterParams)
+                            : Mono.empty();
+                })
+                .flatMapIterable(PagedOrderDto::getContent)
+                .take(limit)
+                .doOnSubscribe(s -> log.info("Fetching order snapshot from OMS Core: limit={}, filter={}",
+                        limit, filterParams))
+                .doOnError(e -> log.error("Error fetching order snapshot from OMS Core", e));
+        return new OrderSnapshot(rows, matching);
+    }
+
+    private static long matchingOf(PagedOrderDto paged) {
+        if (paged.getPage() != null && paged.getPage().getTotalElements() != null) {
+            return paged.getPage().getTotalElements();
+        }
+        return paged.getContent() != null ? paged.getContent().size() : 0;
+    }
+
+    /**
      * Fetches orders with a specific filter (legacy method - kept for compatibility).
      * 
      * @param symbol optional symbol filter
@@ -213,6 +261,9 @@ public class OmsQueryClient {
     private OrderDto toOrderDto(JsonNode node) {
         return OrderDto.builder()
                 .id(getLong(node, "id"))
+                // The order's event-log version: live events at or below it are already in the
+                // snapshot (SPEC-0018); read since SPEC-0057, it was dropped before.
+                .eventVersion(getLong(node, "eventVersion"))
                 .orderId(getText(node, "orderId"))
                 .parentOrderId(getText(node, "parentOrderId"))
                 .rootOrderId(getText(node, "rootOrderId"))

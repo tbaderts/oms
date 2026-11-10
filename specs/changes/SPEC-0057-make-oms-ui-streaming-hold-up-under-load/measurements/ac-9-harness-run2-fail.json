@@ -1,0 +1,15 @@
+{
+  "_note": "SPEC-0057 AC-9 run 2, by the user on 2026-11-10 in their own Chrome tab (window in front), production build with AG Grid modules registered (rows drawn), http://localhost:8080/?loadHarness&domain=Order&rate=2000&duration=60&keys=10000&maxRows=2000. Valid (hiddenMs 0, stalledMs 0). A real failure: frame p95 127 ms against the 50 ms budget (p50 49 ms). Every other AC-9 budget met: applied = sent, lag p99 41 ms (budget 1,000), no long task over 250 ms after 1 s.",
+  "params": { "domain": "Order", "rate": 2000, "duration": 60, "keys": 10000, "maxRows": 2000 },
+  "valid": true,
+  "hiddenMs": 0,
+  "stalledMs": 0,
+  "sent": 120000,
+  "applied": 120000,
+  "lagMs": { "p50": 10, "p99": 41, "max": 78 },
+  "frameMs": { "p50": 49, "p95": 127, "max": 152 },
+  "longTasksOverBudget": [],
+  "heapMinimumPerMinuteMB": [27.5],
+  "ac9": { "pass": false },
+  "ac10": { "pass": null, "minute2": null, "last": null, "growthPct": null }
+}
