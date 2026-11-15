@@ -5,7 +5,7 @@ title: "Developer Cockpit"
 description: "Electron desktop tool for the spec workflow, the knowledge base, requirements and storyboards."
 tags: [component, electron, tooling, storyboards]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T12:00:00Z"
 component: "developer-cockpit"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-29T12:00:00Z" }
 sources:
@@ -20,6 +20,9 @@ sources:
   - resource: "repo:developer-cockpit/src/main/services/MonitorService.ts"
   - resource: "repo:developer-cockpit/src/shared/prometheusParser.ts"
   - resource: "repo:developer-cockpit/src/renderer/views/monitor/MonitorView.tsx"
+  - resource: "repo:developer-cockpit/src/main/ai/KbChatTools.ts"
+  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatPanel.tsx"
+  - resource: "repo:developer-cockpit/test/main/kbChat.ipc.test.ts"
 ---
 # Developer Cockpit
 
@@ -52,6 +55,30 @@ The **Knowledge Base** view shows the bundle as a folder tree to any depth (`KbS
 one node per folder, id = its path such as `domain/model`), and each folder lists only its own
 documents. Navigation files (`index.md`, `log.md`) are not listed but stay searchable; deprecated
 (archived) documents are struck through and marked. Nothing in the tree is hard-coded.
+
+### KB Chat
+
+The **Chat** button opens a panel in the Knowledge Base view (SPEC-0062). It answers questions
+about the knowledge base and summarises documents, using the AI provider set under Settings → AI.
+
+- **Tools.** The chat connects over MCP to the
+  [knowledge server](knowledge-server.md) at `ai.knowledgeServerUrl` (Settings → AI, default
+  `http://localhost:8091/mcp`).
+  - It gives the model only the three read-only KB tools: `searchKnowledgeBase`,
+    `readKnowledgeBase` and `getKnowledgeBaseOverview`. Order tools such as `searchOrders` are
+    left out.
+  - When the server is unreachable, the chat falls back to local tools: `search_knowledge_base`
+    over the cockpit's own index, and `read_knowledge_base_document`, which reads only indexed KB
+    documents. The panel then shows "Knowledge server unavailable — using local search". The
+    cockpit tries the server again after 60 s.
+- **Sources.** Each answer lists the documents its tools found or read. Clicking one opens it in
+  the document viewer.
+- **Summarise this document.** This button asks the chat to read and summarise the open document.
+- **Conversation.** The chat is multi-turn for the session. Each question is sent with the last 10
+  question/answer pairs, and Clear starts over. Nothing is persisted.
+- **Usage.** Runs are recorded in the AI usage log with the feature `kb-chat`.
+- **Code.** The main process has `KbChatTools` and the `ai:kbChat` IPC channel, with
+  `AiService.runChat` behind it. The renderer has the `kbChat` store and `KbChatPanel`.
 
 ## Storyboards
 

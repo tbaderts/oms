@@ -6,10 +6,14 @@ import { TableOfContents } from './TableOfContents';
 import { KbSearchBar } from './KbSearchBar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { Button } from '@/components/ui/button';
+import { MessageSquare } from 'lucide-react';
+import { KbChatPanel } from './KbChatPanel';
 
 export function KnowledgeBaseView() {
   const { categories, selectedDocument, loading, loadCategories, selectDocument } = useKnowledgeBaseStore();
   const [tocHeadings, setTocHeadings] = useState<{ level: number; text: string; id: string }[]>([]);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     loadCategories();
@@ -47,7 +51,18 @@ export function KnowledgeBaseView() {
       </div>
 
       {/* Center - Document content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden">
+        <Button
+          variant={chatOpen ? 'secondary' : 'outline'}
+          size="sm"
+          className="absolute right-3 top-3 z-10"
+          onClick={() => setChatOpen((o) => !o)}
+          aria-pressed={chatOpen}
+          aria-label={chatOpen ? 'Close the knowledge base chat' : 'Open the knowledge base chat'}
+        >
+          <MessageSquare className="mr-1 h-4 w-4" />
+          Chat
+        </Button>
         {loading ? (
           <LoadingSpinner />
         ) : selectedDocument ? (
@@ -63,8 +78,12 @@ export function KnowledgeBaseView() {
         )}
       </div>
 
-      {/* Right panel - Table of contents */}
-      {selectedDocument && tocHeadings.length > 0 && (
+      {/* Right panel - KB chat (SPEC-0062), or the table of contents */}
+      {chatOpen ? (
+        <div className="w-96 shrink-0 border-l border-border">
+          <KbChatPanel />
+        </div>
+      ) : selectedDocument && tocHeadings.length > 0 && (
         <div className="hidden w-52 border-l border-border lg:block">
           <ScrollArea className="h-full">
             <div className="p-3">

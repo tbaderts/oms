@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { dateTimeService } from '../services/DateTimeService';
 import Icon, { IconName } from './icons/Icon';
 import EnumCellRenderer from './EnumCellRenderer';
+import { execTypeLabel, formatNumber, formatPrice, isPriceField } from '../services/fieldFormat';
 import { MetamodelService } from '../services/MetamodelService';
 import { DomainObjectType } from '../types/types';
 import './DetailPanel.scss';
@@ -34,7 +35,7 @@ const fieldGroups: Record<string, { title: string; fields: string[]; icon: IconN
   execution: {
     title: 'Execution',
     icon: 'execution',
-    fields: ['cumQty', 'leavesQty', 'placeQty', 'allocQty', 'exDestination', 'handlInst', 'execInst'],
+    fields: ['execId', 'execType', 'lastQty', 'lastPx', 'avgPx', 'cumQty', 'leavesQty', 'placeQty', 'allocQty', 'exDestination', 'handlInst', 'execInst'],
   },
   status: {
     title: 'Status',
@@ -166,15 +167,18 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
       return badge(key, value);
     }
 
-    // Format numbers with proper formatting
+    // The FIX exec type code, named as in the grid (SPEC-0059)
+    if (key === 'execType' && typeof value === 'string') {
+      return <EnumCellRenderer value={value} valueFormatted={execTypeLabel(value)} />;
+    }
+
+    // Numbers as in the grid: prices with 2 to 8 decimals, others with separators (SPEC-0059)
     if (typeof value === 'number') {
-      if (key.toLowerCase().includes('qty') || key.toLowerCase().includes('quantity')) {
-        return <span className="value-number">{value.toLocaleString()}</span>;
+      if (key === 'id' || key === 'txNr') {
+        return <span className="value-number">{value}</span>;
       }
-      if (key.toLowerCase().includes('price') || key === 'price' || key === 'stopPx') {
-        return <span className="value-number">{value.toFixed(2)}</span>;
-      }
-      return <span className="value-number">{value}</span>;
+      const formatted = isPriceField(key) ? formatPrice(value) : formatNumber(value);
+      return <span className="value-number">{formatted}</span>;
     }
 
     // Format dates/times - use DateTimeService for locale-aware formatting of ISO-8601 instants
@@ -271,11 +275,11 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
         <div className="header-summary">
           <div className="summary-item">
             <span className="summary-label">Quantity</span>
-            <span className="summary-value">{data.orderQty?.toLocaleString() || '—'}</span>
+            <span className="summary-value">{data.orderQty != null ? formatNumber(data.orderQty) : '—'}</span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Price</span>
-            <span className="summary-value">{data.price?.toFixed(2) || '—'}</span>
+            <span className="summary-value">{data.price != null ? formatPrice(data.price) : '—'}</span>
           </div>
           <div className="summary-item">
             <span className="summary-label">Account</span>

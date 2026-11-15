@@ -364,3 +364,32 @@ describe('AiService.runAgent (AC-4, AC-5, AC-6, AC-8)', () => {
     expect(events.some((e) => e.type === 'ai:done')).toBe(true);
   });
 });
+
+describe('AiService provider stream errors (SPEC-0062 AC-8)', () => {
+  it('an error stream part in an Assistant run yields ai:error{provider} then exactly one ai:done', async () => {
+    const model = {
+      specificationVersion: 'v4',
+      provider: 'fake',
+      modelId: 'm',
+      supportedUrls: {},
+      doGenerate: async () => {
+        throw new Error('not used');
+      },
+      doStream: async () => {
+        throw new Error('rate limited');
+      },
+    } as unknown as import('ai').LanguageModel;
+    const { service, events } = makeService({
+      config: { ...DEFAULT_CONFIG.ai, provider: 'anthropic' },
+      env: { ANTHROPIC_API_KEY: 'k' },
+      model,
+    });
+    await service.runAgent({ prompt: 'p', runId: 'r-err' });
+    const errors = events.filter((e) => e.type === 'ai:error');
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ runId: 'r-err', code: 'provider' });
+    expect((errors[0] as { message: string }).message).toContain('rate limited');
+    expect(types(events).filter((t) => t === 'ai:done')).toHaveLength(1);
+    expect(types(events).indexOf('ai:error')).toBeLessThan(types(events).indexOf('ai:done'));
+  });
+});

@@ -45,7 +45,14 @@ export interface AiConfig {
   baseUrl?: string;
   /** MCP servers exposing tools to the agent. Empty/absent = KB-search tool only. */
   mcpServers?: AiMcpServer[];
+  /**
+   * The knowledge server's MCP endpoint (streamable HTTP) used by the KB chat (SPEC-0062). When it
+   * is unreachable the chat falls back to local KB search and read tools.
+   */
+  knowledgeServerUrl?: string;
 }
+
+export const DEFAULT_KNOWLEDGE_SERVER_URL = 'http://localhost:8091/mcp';
 
 export interface KnowledgeBaseConfig {
   rootPath: string;
@@ -104,6 +111,7 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     // baseUrl is intentionally absent (the `local` provider has no default endpoint; a missing
     // baseUrl is a surfaced configuration error, AC-3). mcpServers defaults to "none configured".
     mcpServers: [],
+    knowledgeServerUrl: DEFAULT_KNOWLEDGE_SERVER_URL,
   },
   knowledgeBase: {
     rootPath: 'oms-knowledge-base',

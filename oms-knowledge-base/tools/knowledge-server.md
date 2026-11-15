@@ -5,7 +5,7 @@ title: "Knowledge Server (MCP)"
 description: "oms-mcp-server: a Spring AI MCP server that indexes this knowledge base and gives AI assistants search, read and overview tools for it, plus order search against oms-core."
 tags: [component, mcp, spring-ai, knowledge-base, search]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T12:00:00Z"
 component: "mcp-server"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
@@ -23,6 +23,10 @@ sources:
 assistant) read this knowledge base and look up orders. It runs over stdio for a client that starts
 it as a subprocess, or as an HTTP service in docker-compose. Capability:
 [Knowledge Services](../capabilities/knowledge-services.md).
+
+The developer cockpit's [KB Chat](developer-cockpit.md#kb-chat) uses only the three KB tools
+(`searchKnowledgeBase`, `readKnowledgeBase`, `getKnowledgeBaseOverview`) over `/mcp`. When this
+server is down, the chat falls back to the cockpit's local search.
 
 ## Tools
 

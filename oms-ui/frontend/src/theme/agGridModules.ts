@@ -1,10 +1,13 @@
-// agGridModules.ts - Registers AG Grid's features (AG Grid 33+ ships them as modules that must be
-// registered once). Imported for its side effect by both grids.
+// agGridModules.ts - Registers the AG Grid modules the blotters use (AG Grid 33+ ships features as
+// modules that must be registered once). Imported for its side effect by both grids.
 //
-// All Community modules, not a hand-picked list: the grids use the client-side row model,
-// api.applyTransaction (the live blotter, SPEC-0057), cell change flashing, column auto-size, sorting
-// and column filters. Without its module a feature fails at run time with AG Grid error #200 (seen as
-// a live grid that showed no rows), and nothing at build or test time catches a missing one.
-import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+// The list is theme/gridModules.ts (SPEC-0060), proven complete and minimal by
+// theme/gridModules.test.tsx. A feature whose module is missing fails at run time with AG Grid
+// error #200 (SPEC-0057 saw it as a live grid with no rows); ValidationModule reports that error
+// in the console, so it is registered in development and left out of the production bundle.
+import { ModuleRegistry, ValidationModule } from 'ag-grid-community';
+import { OMS_GRID_MODULES } from './gridModules';
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+ModuleRegistry.registerModules(
+  process.env.NODE_ENV === 'production' ? OMS_GRID_MODULES : [...OMS_GRID_MODULES, ValidationModule],
+);

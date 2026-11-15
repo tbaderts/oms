@@ -94,6 +94,7 @@ const api: CockpitAPI = {
   ai: {
     available: () => ipcRenderer.invoke('ai:available'),
     run: (runId, prompt, options) => ipcRenderer.invoke('ai:run', runId, prompt, options),
+    kbChat: (runId, messages, options) => ipcRenderer.invoke('ai:kbChat', runId, messages, options),
     stop: (runId) => ipcRenderer.invoke('ai:stop', runId),
     usage: () => ipcRenderer.invoke('ai:usage'),
   },

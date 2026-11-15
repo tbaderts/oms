@@ -5,7 +5,7 @@ title: "User Interface Specification: OMS Admin Tool"
 description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, ag-grid]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T12:00:00Z"
 ---
 # User Interface Specification: OMS Admin Tool
 
@@ -70,7 +70,7 @@ Built with modern React patterns using functional components and hooks:
 ## Key Features
 
 - **Blotter Display**: Tabular view (blotter) for Orders, Quote Requests, Quotes, and Executions
-- **Dynamic Filtering**: Users can apply filters on any column with server-side filtering via Query API
+- **Dynamic Filtering**: Users can apply filters on any column with server-side filtering via Query API. Column filters are AG Grid Community's text, number and date filters; boolean columns filter on the "Yes"/"No" they show (SPEC-0060)
 - **Metamodel-driven Table**: Table columns generated from backend metamodel with automatic type handling
 - **Configurable Columns**: Users can select which attributes to display with state persistence
 - **State Persistence**: Filter, column, and sort preferences saved per domain object type
@@ -207,9 +207,11 @@ column is empty because of a naming mismatch.
 
 ### Blotter Data Modes
 
-The header's mode toggle switches every blotter between two data modes (SPEC-0054):
+The header's mode toggle switches every blotter between two data modes (SPEC-0054). Since SPEC-0059
+the toggle reads **Live** (streaming, the default) and **History** (REST paging); the internal mode
+names and saved blotter state are unchanged.
 
-**Real-time (streaming) mode.** The blotter subscribes over RSocket and keeps a **rolling window**
+**Live (streaming) mode.** The blotter subscribes over RSocket and keeps a **rolling window**
 of the most recent objects in memory:
 
 - The window size is `maxStreamingRows` from `/api/config` (default **2000**; server-side property
@@ -294,13 +296,58 @@ of the most recent objects in memory:
     Examples: `id` and `status` on executions, `txNr` and the SLA timestamps on orders.
   - Every default column is streamed, so the default columns are the same in both modes.
 
-**Paging (REST) mode.** The blotter fetches from the query API page by page, so all data stays
+**History (REST paging) mode.** The blotter fetches from the query API page by page, so all data stays
 reachable regardless of volume:
 
 - The page size is selected in the pagination bar: **50 / 100 / 250 / 500** (500 is the query API
   maximum). The selection is persisted per domain object in `BlotterStateService`.
 - Changing the page size resets to the first page.
 - A partial last page (total not a multiple of the page size) renders its remaining rows.
+
+### Formatting, Toolbar and Keyboard (SPEC-0059)
+
+**Numbers.** Number columns are right-aligned (cell and header, AG Grid `rightAligned`). Prices
+(`price`, `strikePrice`, `stopPx` and every `*Px` field) show at least 2 and at most 8 decimals with thousands
+separators (`170.00`, `1,234.50`); quantities and other numbers show separators and only the
+decimals they have (`1,000`, `10.5`). The detail panel uses the same rules. One module holds them:
+`services/fieldFormat.ts` (locale `en-US`).
+
+**Exec Type.** `execType` is the FIX ExecType code (a string, not an enum), so the UI names it:
+`0` New, `4` Canceled, `5` Replaced, `8` Rejected, `C` Expired, `F` Trade, `G` Trade Correct,
+`H` Trade Cancel, and the other FIX 4.4 codes. An unknown code is shown as it is. It is drawn as a
+badge, in the grid and the detail panel.
+
+**Identifiers.** `orderId`, `execId`, `clOrdId`, `rootOrderId`, `parentOrderId` and the other id
+columns are at least 220 px wide. Ids of one order tree share a long prefix (an exec id is its order
+id plus `-F1`), so a narrower cell truncates the *start* and keeps the distinguishing end visible
+(`…-F1`); hovering shows the full id (`components/IdCell.tsx`).
+
+**Default sort.** Executions in History load newest first (`sort=id,DESC`) until the user sorts a
+column, like orders; `/api/executions` alone would return them oldest first.
+
+**Toolbar.** Both blotters use one `BlotterToolbar` component: title, record count, Filters
+(with the active filter count), Columns and Auto-Size, plus each mode's own actions (Live:
+connection status, Pause/Resume, Connect/Disconnect, Include Snapshot; History: Refresh,
+Auto-refresh).
+
+**Keyboard.**
+
+| Key | Where | Action |
+|---|---|---|
+| Escape | detail modal, filter builder, column selector, authorization | close |
+| Enter | a focused grid row | open its details |
+| F | blotter | open Filters |
+| C | blotter | open Columns |
+| R | History blotter | refresh |
+| P | Live blotter | pause or resume |
+
+Shortcuts work in the visible blotter only, not while typing in a text field (a focused checkbox
+does not block them), not with Ctrl, Meta or Alt held, and not while a visible dialog is open
+(`hooks/useKeyboard.ts`). Each button's tooltip and `aria-keyshortcuts` name its key.
+
+The four dialogs (details, filters, columns, authorization) are `role="dialog"` with `aria-modal`:
+opening one moves focus into it, Escape or Close returns focus to where it was, and a dialog left
+open in a hidden view ignores Escape (`useDialog`).
 
 ### 7. Detail Panel (`DetailPanel.tsx`)
 
@@ -744,7 +791,7 @@ Header (Fixed, 56px)
     - order type: market is violet, limit is info, stop is orange;
     - time in force is teal.
 - **Header.** The logo, a divider and the app name sit on the left. On the right are the
-  REST | Streaming segmented control and Authorize as the green primary button. Once authorised,
+  Live | History segmented control and Authorize as the green primary button. Once authorised,
   it becomes a quiet green-tinted button. The tabs sit below, on the page background, with a green
   underline for the active tab.
 - **Footer.** A quiet 28 px bar on the surface colour: "© <current year> Acme Capital · <app name>".
@@ -774,8 +821,8 @@ Header (Fixed, 56px)
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      TOOLBAR / CONTROLS SECTION                             │
 │  Orders  19 records                                                         │
-│                                   [Filters] [Columns] [Refresh] [Auto-Size] │
-│                                                              ☐ Auto-refresh │
+│                    [Filters] [Columns] [Auto-Size] [Refresh] ☐ Auto-refresh │
+│  (History; Live shows status, [Pause] [Connect] ☐ Include Snapshot instead) │
 └─────────────────────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                      DATA GRID / TABLE SECTION                              │

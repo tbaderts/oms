@@ -2,11 +2,11 @@
 id: SPEC-0060
 title: Finish design tokens and trim AG Grid modules
 type: refactor
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-ui]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-10
 blocked_from:
@@ -25,3 +25,15 @@ Follow-up to SPEC-0058 (visual design), from its verification follow-ups: finish
 ## Log
 
 - 2026-11-10 created
+- 2026-11-15 12:03 — autopilot on
+- 2026-11-15 12:06 — proposal gate passed; awaiting human approval
+- 2026-11-15 12:09 — proposal approved by Toni Badertscher
+- 2026-11-15 12:09 — proposal → design
+- 2026-11-15 12:12 — design → plan
+- 2026-11-15 12:12 — plan → implement
+- 2026-11-15 16:13 — verify run: pass
+- 2026-11-15 16:14 — implement → verify
+- 2026-11-15 16:21 — verify run: pass
+- 2026-11-15 16:24 — verify run: pass
+- 2026-11-15 16:25 — verify → done
+- 2026-11-15 16:25 — autopilot off

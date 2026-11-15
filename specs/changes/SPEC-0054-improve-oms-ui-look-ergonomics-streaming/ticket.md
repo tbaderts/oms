@@ -4,7 +4,7 @@ title: Improve oms-ui look, ergonomics, streaming limits
 type: feature
 status: done
 awaiting:
-autopilot: true
+autopilot: false
 modules: [oms-ui]
 approvals: [proposal]
 owner: Toni Badertscher
@@ -36,3 +36,4 @@ oms-ui is the admin interface for oms. it was built a while ago and is fairly ba
 - 2026-11-08 07:13 — verify run: fail
 - 2026-11-08 07:16 — verify run: pass
 - 2026-11-08 07:16 — verify → done
+- 2026-11-15 11:13 — autopilot off

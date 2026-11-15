@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useConfigStore } from '@/stores/config';
-import type { CockpitConfig } from '@shared/types/config';
+import { DEFAULT_KNOWLEDGE_SERVER_URL, type CockpitConfig } from '@shared/types/config';
 import type { AiUsageSummary as AiUsageSummaryType } from '@shared/types/ai';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -231,6 +231,18 @@ export function SettingsView() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Used when no explicit key is set above. The main process reads <code>{draft.ai.apiKeyEnvVar}</code> from the environment.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="knowledgeServerUrl">Knowledge server MCP URL</Label>
+                <Input
+                  id="knowledgeServerUrl"
+                  value={draft.ai.knowledgeServerUrl ?? DEFAULT_KNOWLEDGE_SERVER_URL}
+                  onChange={(e) => updateAi({ knowledgeServerUrl: e.target.value })}
+                  placeholder={DEFAULT_KNOWLEDGE_SERVER_URL}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The Knowledge Base chat uses this server's search and read tools. When it is unreachable, the chat falls back to local search.
                 </p>
               </div>
               <div className="space-y-2">

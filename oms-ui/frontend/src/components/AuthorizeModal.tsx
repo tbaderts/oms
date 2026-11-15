@@ -1,5 +1,6 @@
 // AuthorizeModal.tsx - OAuth token management interface
 import React, { useState } from 'react';
+import { useDialog } from '../hooks/useKeyboard';
 import { AuthTokenService } from '../services/AuthTokenService';
 import './AuthorizeModal.scss';
 import Icon from './icons/Icon';
@@ -9,6 +10,7 @@ interface AuthorizeModalProps {
 }
 
 const AuthorizeModal: React.FC<AuthorizeModalProps> = ({ onClose }) => {
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   const authService = AuthTokenService.getInstance();
   const [token, setToken] = useState(authService.getToken() || '');
 
@@ -24,7 +26,7 @@ const AuthorizeModal: React.FC<AuthorizeModalProps> = ({ onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="authorize-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="authorize-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Authorization" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Authorization</h2>
           <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>

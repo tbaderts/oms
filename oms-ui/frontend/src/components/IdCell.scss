@@ -1,0 +1,16 @@
+// IdCell.scss - start-truncated identifiers (SPEC-0059): the cell runs right-to-left so the
+// ellipsis falls at the start; <bdi> keeps the id itself left-to-right.
+.id-cell {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  font-family: var(--oms-font-mono);
+
+  bdi {
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+}

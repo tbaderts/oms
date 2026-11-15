@@ -105,10 +105,10 @@ beforeEach(() => {
 test('tells each blotter whether its view is shown', async () => {
   render(<App />);
   await waitFor(() => expect(mockOrderSubscriptions).toBe(1));
-  fireEvent.click(screen.getByRole('button', { name: 'REST' }));
+  fireEvent.click(screen.getByRole('button', { name: 'History' }));
   expect(document.querySelector('.rest-order-blotter')?.getAttribute('data-active')).toBe('true');
 
-  fireEvent.click(screen.getByRole('button', { name: 'Streaming' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Live' }));
   expect(document.querySelector('.rest-order-blotter')?.getAttribute('data-active')).toBe('false');
 });
 
@@ -144,8 +144,8 @@ test('switching tabs and modes subscribes each live blotter once', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Executions' }));
   await waitFor(() => expect(mockExecutionSubscriptions).toBe(1));
   fireEvent.click(screen.getByRole('button', { name: 'Orders' }));
-  fireEvent.click(screen.getByRole('button', { name: 'REST' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Streaming' }));
+  fireEvent.click(screen.getByRole('button', { name: 'History' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Live' }));
   fireEvent.click(screen.getByRole('button', { name: 'Executions' }));
   fireEvent.click(screen.getByRole('button', { name: 'Orders' }));
 

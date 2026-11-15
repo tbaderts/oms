@@ -4,6 +4,11 @@ import { DomainObjectType, FieldMetadata } from '../types/types';
 import { MetamodelService } from './MetamodelService';
 import { dateTimeService } from './DateTimeService';
 import EnumCellRenderer from '../components/EnumCellRenderer';
+import IdCell from '../components/IdCell';
+import { execTypeLabel, formatNumber, formatPrice, isIdField, isPriceField } from './fieldFormat';
+
+/** Identifier columns are at least this wide, so an exec id and its order id can be told apart (SPEC-0059). */
+export const ID_COLUMN_WIDTH = 220;
 
 export class ColumnConfigService {
   private static instance: ColumnConfigService;
@@ -62,20 +67,31 @@ export class ColumnConfigService {
         return dateTimeService.formatForDisplay(params.value);
       };
     } else if (field.type === 'number') {
-      colDef.valueFormatter = (params: any) => {
-        if (params.value == null) return '';
-        return params.value.toLocaleString();
-      };
+      // Right-aligned so digits line up; prices with 2 to 8 decimals, other numbers as they are (SPEC-0059)
+      colDef.type = 'rightAligned';
+      const format = isPriceField(field.name) ? formatPrice : formatNumber;
+      colDef.valueFormatter = (params: any) => format(params.value);
     } else if (field.type === 'boolean') {
-      colDef.cellRenderer = (params: any) => {
-        return params.value ? 'Yes' : 'No';
-      };
+      // Shown as Yes/No and filtered on that text, with Community's text filter (SPEC-0060)
+      const yesNo = (value: unknown) => (value ? 'Yes' : 'No');
+      colDef.valueFormatter = (params: any) => yesNo(params.value);
+      colDef.filterValueGetter = (params: any) => yesNo(params.data?.[field.name]);
     } else if (field.type === 'enum' && field.enumValues) {
       const enumMap = new Map(field.enumValues.map(ev => [ev.value, ev.label]));
       colDef.valueFormatter = (params: any) => {
         return enumMap.get(params.value) || params.value;
       };
       colDef.cellRenderer = EnumCellRenderer;
+    } else if (field.name === 'execType') {
+      // A FIX code string, not an enum: label it here and show it as a badge like the enums (SPEC-0059)
+      colDef.valueFormatter = (params: any) => (params.value == null ? '' : execTypeLabel(params.value));
+      colDef.cellRenderer = EnumCellRenderer;
+    }
+
+    if (isIdField(field.name)) {
+      colDef.width = Math.max(field.width ?? 0, ID_COLUMN_WIDTH);
+      colDef.minWidth = Math.max(field.minWidth ?? 0, ID_COLUMN_WIDTH);
+      colDef.cellRenderer = IdCell;
     }
 
     return colDef;
@@ -87,9 +103,8 @@ export class ColumnConfigService {
         return 'agNumberColumnFilter';
       case 'date':
         return 'agDateColumnFilter';
-      case 'boolean':
-        return 'agSetColumnFilter';
       default:
+        // Text, enums, ids and booleans (on their Yes/No text): the set filter is Enterprise-only.
         return 'agTextColumnFilter';
     }
   }

@@ -1,5 +1,17 @@
 # Knowledge Base Log
 
+## 2026-11-15
+
+[Design System](ui/design-system.md#modules) (SPEC-0060): the grid font sizes and the logo now
+take their values from tokens, and the token rule covers the TS/TSX sources too. The grids register
+only the AG Grid modules they use, checked by a real-grid test, which makes the main bundle 69 kB
+smaller gzipped. Boolean columns filter on Yes/No with the Community text filter.
+
+The OMS UI blotters became more comfortable to work in (SPEC-0059): right-aligned numbers, prices
+with 2 to 8 decimals, FIX ExecType names, readable start-truncated ids, newest-first executions,
+keyboard shortcuts (Escape, Enter, F, C, R, P), the Live / History mode names and one shared
+toolbar. See [Admin UI](ui/admin-ui.md#formatting-toolbar-and-keyboard-spec-0059).
+
 ## 2026-11-14
 
 Reorganised and reviewed the whole knowledge base (SPEC-0061). See the

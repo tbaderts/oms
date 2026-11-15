@@ -23,11 +23,38 @@ export interface McpTools {
  * the plain shape directly sidesteps `tool()`'s overloads (which fail to infer through a
  * `jsonSchema`-derived schema) while keeping the same runtime behaviour.
  */
-type ToolLike = {
+export type ToolLike = {
   description?: string;
   inputSchema: unknown;
   execute: (input: never) => Promise<unknown>;
 };
+
+/**
+ * The local `search_knowledge_base` tool backed by the cockpit's `KbService` (SPEC-0042). Shared by
+ * the assistant's registry and the KB chat's local fallback (SPEC-0062).
+ */
+export function kbSearchTool(kb: { search: (query: string) => KbSearchResult[] }): ToolLike {
+  return {
+    description:
+      'Search the OMS knowledge base (Markdown documents) for documents relevant to a query. ' +
+      `Returns up to ${KB_SEARCH_MAX_RESULTS} matching documents (title, path, category).`,
+    inputSchema: jsonSchema(kbSearchInput.shape),
+    execute: async (input) => {
+      const q = (input as KbSearchInput).query;
+      const results = kb.search(q).slice(0, KB_SEARCH_MAX_RESULTS);
+      const out: KbSearchToolResult = {
+        query: q,
+        count: results.length,
+        results: results.map((r) => ({
+          title: r.document.title,
+          path: r.document.relativePath,
+          category: r.document.category,
+        })),
+      };
+      return out;
+    },
+  };
+}
 
 /**
  * Collects the tools an AI run can use (AC-4): a local `search_knowledge_base` tool backed by the
@@ -48,28 +75,7 @@ export class McpToolRegistry {
     mcpServers: AiMcpServer[] = [],
     log: (msg: string) => void = console.warn,
   ): Promise<McpTools> {
-    const kbTool: ToolLike = {
-      description:
-        'Search the OMS knowledge base (Markdown documents) for documents relevant to a query. ' +
-        `Returns up to ${KB_SEARCH_MAX_RESULTS} matching documents (title, path, category).`,
-      inputSchema: jsonSchema(kbSearchInput.shape),
-      execute: async (input) => {
-        const q = (input as KbSearchInput).query;
-        const results = kb.search(q).slice(0, KB_SEARCH_MAX_RESULTS);
-        const out: KbSearchToolResult = {
-          query: q,
-          count: results.length,
-          results: results.map((r) => ({
-            title: r.document.title,
-            path: r.document.relativePath,
-            category: r.document.category,
-          })),
-        };
-        return out;
-      },
-    };
-
-    const tools: Record<string, unknown> = { search_knowledge_base: kbTool };
+    const tools: Record<string, unknown> = { search_knowledge_base: kbSearchTool(kb) };
 
     const clients: Client[] = [];
     for (const server of mcpServers) {
@@ -93,7 +99,7 @@ export class McpToolRegistry {
   }
 
   /** Connects to a configured server (streamable-HTTP transport) with a short timeout. */
-  private static async connect(url: string): Promise<Client> {
+  static async connect(url: string): Promise<Client> {
     const transport = new StreamableHTTPClientTransport(new URL(url));
     const client = new Client({ name: 'developer-cockpit', version: '1.0.0' });
     const timeout = new Promise<never>((_, reject) =>
@@ -109,7 +115,7 @@ export class McpToolRegistry {
   }
 
   /** Wraps one MCP tool as an AI-SDK tool; the result is the concatenated text content. */
-  private static wrapMcpTool(client: Client, serverName: string, t: { name: string; description?: string; inputSchema?: Record<string, unknown> }): ToolLike {
+  static wrapMcpTool(client: Client, serverName: string, t: { name: string; description?: string; inputSchema?: Record<string, unknown> }): ToolLike {
     return {
       description: t.description ?? `MCP tool ${t.name} (server: ${serverName})`,
       inputSchema: jsonSchema(t.inputSchema ?? { type: 'object', properties: {} }),

@@ -847,3 +847,69 @@ describe('StreamingBlotter rolling window (SPEC-0054)', () => {
     expect(container.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{25FB}-\u{25FE}]/u);
   });
 });
+
+// SPEC-0059: keyboard shortcuts and the shared toolbar in the Live blotter.
+describe('StreamingBlotter ergonomics (SPEC-0059)', () => {
+  beforeEach(() => {
+    mockColumnArgs = [];
+    mockSavedState = null;
+    mockSavedColumns = null;
+  });
+
+  it('P pauses and resumes', async () => {
+    render(<StreamingBlotter domainObject="Execution" />);
+    await settle();
+    fireEvent.keyDown(document.body, { key: 'p' });
+    expect(screen.getByRole('button', { name: 'Resume' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.keyDown(document.body, { key: 'P' });
+    expect(screen.getByRole('button', { name: 'Pause' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('F and C open their dialogs; Enter opens the detail modal', async () => {
+    render(<StreamingBlotter domainObject="Execution" />);
+    await settle();
+    fireEvent.keyDown(document.body, { key: 'f' });
+    expect(document.querySelector('.filter-builder-modal')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document.body, { key: 'c' });
+    expect(document.querySelector('.modal-overlay')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.querySelector('.modal-overlay')).toBeNull();
+
+    act(() => mockGridProps.onCellKeyDown({ event: { key: 'Enter' }, data: { orderId: 'O-1', execId: 'E-1' } }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Execution details' })).toBeInTheDocument();
+  });
+
+  it('shortcuts are ignored while typing in a text field; a focused checkbox does not block them', async () => {
+    render(<StreamingBlotter domainObject="Execution" />);
+    await settle();
+    const field = document.createElement('input');
+    field.type = 'text';
+    document.body.appendChild(field);
+    fireEvent.keyDown(field, { key: 'p' });
+    field.remove();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    const snapshot = document.querySelector('.snapshot-toggle input') as HTMLElement;
+    fireEvent.keyDown(snapshot, { key: 'p' });
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument();
+  });
+
+  it('an inactive blotter ignores shortcuts', async () => {
+    render(<StreamingBlotter domainObject="Execution" active={false} />);
+    await settle();
+    fireEvent.keyDown(document.body, { key: 'f' });
+    expect(document.querySelector('.filter-builder-modal')).toBeNull();
+  });
+
+  it('uses the shared toolbar with the live actions', async () => {
+    render(<StreamingBlotter domainObject="Execution" />);
+    await settle();
+    const toolbar = screen.getByTestId('blotter-toolbar');
+    expect(toolbar.getAttribute('data-mode')).toBe('live');
+    expect(screen.getByRole('button', { name: 'Pause' }).getAttribute('title')).toBe('Pause (P)');
+    expect(screen.getByRole('button', { name: 'Pause' }).getAttribute('aria-keyshortcuts')).toBe('P');
+    expect(screen.getByText('Include Snapshot')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Refresh/ })).toBeNull();
+    expect(screen.queryByText('Auto-refresh')).toBeNull();
+  });
+});

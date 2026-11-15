@@ -1,4 +1,5 @@
 import React from 'react';
+import { useDialog } from '../hooks/useKeyboard';
 import DetailPanel from './DetailPanel';
 import Icon from './icons/Icon';
 import { DomainObjectType } from '../types/types';
@@ -14,9 +15,10 @@ interface DetailModalProps {
 }
 
 const DetailModal: React.FC<DetailModalProps> = ({ data, title, domainObject, onClose }) => {
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="detail-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>
           <button className="close-button" onClick={onClose} aria-label="Close details">

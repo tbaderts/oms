@@ -78,7 +78,7 @@ describe('ai IPC', () => {
 
   it('registers the ai:available, ai:run, ai:stop, ai:usage channels', async () => {
     const ctx = await setup({ key: 'k' });
-    expect(ctx.channels().sort()).toEqual(['ai:available', 'ai:run', 'ai:stop', 'ai:usage']);
+    expect(ctx.channels().sort()).toEqual(['ai:available', 'ai:kbChat', 'ai:run', 'ai:stop', 'ai:usage']);
     ctx.runtime.dispose();
   });
 

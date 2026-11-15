@@ -1,4 +1,5 @@
 // FilterBuilder.tsx - Advanced filter UI for constructing complex queries
+import { useDialog } from '../hooks/useKeyboard';
 import React, { useState } from 'react';
 import { DomainObjectType, FilterCondition, FilterRule } from '../types/types';
 import { MetamodelService } from '../services/MetamodelService';
@@ -20,6 +21,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
   onClose,
 }) => {
   const metamodelService = MetamodelService.getInstance();
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   const filterableFields = metamodelService.getFilterableFields(domainObject);
 
   const [rules, setRules] = useState<FilterRule[]>(() => {
@@ -97,7 +99,7 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="filter-builder-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="filter-builder-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Filter Builder" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Filter Builder</h2>
           <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>

@@ -2,11 +2,11 @@
 id: SPEC-0059
 title: Improve trader ergonomics in oms-ui blotters
 type: feature
-status: proposal
+status: done
 awaiting:
 autopilot: false
 modules: [oms-ui]
-approvals: []
+approvals: [proposal]
 owner: Toni Badertscher
 created: 2026-11-09
 blocked_from:
@@ -25,3 +25,17 @@ Follow-up to SPEC-0054, which barely touched ergonomics. Observed in the running
 ## Log
 
 - 2026-11-09 created
+- 2026-11-15 11:13 — autopilot on
+- 2026-11-15 11:15 — proposal gate passed; awaiting human approval
+- 2026-11-15 11:16 — proposal approved by Toni Badertscher
+- 2026-11-15 11:16 — proposal → design
+- 2026-11-15 11:18 — design → plan
+- 2026-11-15 11:18 — plan → implement
+- 2026-11-15 11:29 — verify run: pass
+- 2026-11-15 11:29 — implement → verify
+- 2026-11-15 11:34 — reopened at implement: spec-reviewer findings: truncation CSS untested (AC-4), checkboxes block shortcuts, hidden dialogs block shortcuts, dialogs lack focus handling/role and AuthorizeModal ignores Escape, strikePrice inconsistent, toolbar diagram stale.
+- 2026-11-15 11:40 — verify run: pass
+- 2026-11-15 11:40 — implement → verify
+- 2026-11-15 11:42 — verify run: pass
+- 2026-11-15 11:42 — verify → done
+- 2026-11-15 11:42 — autopilot off

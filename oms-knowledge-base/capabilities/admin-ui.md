@@ -4,7 +4,7 @@ title: "Admin UI"
 description: "The React admin tool and trade blotter for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, blotter]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -16,7 +16,10 @@ sources:
 
 ## Summary
 
-Operators and traders see orders and executions in real time and can send commands from the UI.
+Operators and traders see orders and executions in real time (Live) or page through them
+(History) and can send commands from the UI. Numbers are aligned and formatted, FIX codes are
+named, ids stay readable, and the blotters work from the keyboard (SPEC-0059; see
+[Formatting, Toolbar and Keyboard](../ui/admin-ui.md#formatting-toolbar-and-keyboard-spec-0059)).
 
 ## Actors
 

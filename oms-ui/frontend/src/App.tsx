@@ -88,17 +88,22 @@ const OmsApp: React.FC = () => {
         <div className="header-right">
           {featureFlags.streamingEnabled && (
             <div className="mode-toggle" role="group" aria-label="Data mode">
-              <button
-                className={`mode-button ${dataMode === 'rest' ? 'active' : ''}`}
-                onClick={() => setDataMode('rest')}
-              >
-                REST
-              </button>
+              {/* Named for what the trader sees (SPEC-0059); the internal modes stay 'streaming' and 'rest'. */}
               <button
                 className={`mode-button ${dataMode === 'streaming' ? 'active' : ''}`}
+                aria-pressed={dataMode === 'streaming'}
                 onClick={() => setDataMode('streaming')}
+                title="Live: orders and executions as they happen"
               >
-                Streaming
+                Live
+              </button>
+              <button
+                className={`mode-button ${dataMode === 'rest' ? 'active' : ''}`}
+                aria-pressed={dataMode === 'rest'}
+                onClick={() => setDataMode('rest')}
+                title="History: search and page through stored orders and executions"
+              >
+                History
               </button>
             </div>
           )}

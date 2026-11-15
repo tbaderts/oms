@@ -1,8 +1,8 @@
 import { isStepCount, streamText } from 'ai';
 import type { LanguageModel } from 'ai';
 import type { AiConfig } from '../../shared/types/config';
-import type { AiEvent, AiModelInfo, AiRunOptions, AiStatus } from '../../shared/types/ai';
-import { aiStatus } from '../../shared/types/ai';
+import type { AiEvent, AiModelInfo, AiRunOptions, AiStatus, KbChatMessage } from '../../shared/types/ai';
+import { aiStatus, KB_CHAT_MAX_MESSAGES } from '../../shared/types/ai';
 import { forConfig } from './adapters';
 
 /** Bounded: the renderer may pass anything, the server clamps (P-13). */
@@ -85,9 +85,21 @@ export class AiService {
    * in tool calls).
    */
   async runAgent(params: { prompt: string; runId: string; options?: AiRunOptions }): Promise<void> {
-    const { prompt, runId } = params;
-    const feature = params.options?.feature ?? 'assistant';
-    const maxSteps = clampSteps(params.options?.maxSteps);
+    await this.loop(params.runId, [{ role: 'user', content: params.prompt }], SYSTEM, params.options?.feature ?? 'assistant', params.options?.maxSteps);
+  }
+
+  /**
+   * The KB chat (SPEC-0062): the same bounded tool loop over a conversation. Only the last
+   * `KB_CHAT_MAX_MESSAGES` messages are sent (10 earlier turns plus the new question, AC-6), each
+   * bounded to `MAX_PROMPT_CHARS`. Usage is recorded under `options.feature` (default `kb-chat`).
+   */
+  async runChat(params: { runId: string; messages: KbChatMessage[]; system?: string; options?: AiRunOptions }): Promise<void> {
+    const messages = params.messages.slice(-KB_CHAT_MAX_MESSAGES);
+    await this.loop(params.runId, messages, params.system ?? KB_CHAT_SYSTEM, params.options?.feature ?? 'kb-chat', params.options?.maxSteps);
+  }
+
+  private async loop(runId: string, messages: KbChatMessage[], system: string, feature: string, steps: number | undefined): Promise<void> {
+    const maxSteps = clampSteps(steps);
     const model = this.resolveModel();
     if (!model) {
       this.deps.broadcast(this.error(runId, notConfiguredReason(this.config, this.env), 'configuration'));
@@ -98,8 +110,8 @@ export class AiService {
     try {
       const result = streamText({
         model,
-        system: SYSTEM,
-        messages: [{ role: 'user', content: prompt.slice(0, MAX_PROMPT_CHARS) }],
+        system,
+        messages: messages.map((m) => ({ role: m.role, content: m.content.slice(0, MAX_PROMPT_CHARS) })),
         tools: (this.deps.tools ?? {}) as Record<string, never>,
         stopWhen: isStepCount(maxSteps),
         maxOutputTokens: this.config.maxTokens,
@@ -189,6 +201,14 @@ export class AiService {
               output: summarize(part.output),
             });
             break;
+          case 'error': {
+            // A provider failure arrives as a stream part, not a throw (SPEC-0062 AC-8).
+            const err = (part as { error?: unknown }).error;
+            const message = err instanceof Error ? err.message : String(err ?? 'unknown error');
+            this.deps.log?.(`[ai] run ${runId} failed: ${message}`);
+            this.deps.broadcast(this.error(runId, `AI run failed: ${message}`, 'provider'));
+            break;
+          }
           case 'abort':
             await finish(true, false);
             break;
@@ -271,4 +291,13 @@ const SYSTEM = [
   'You are the developer cockpit assistant for an order management system (OMS).',
   'Answer concisely and factually, using the tools available to you when they help.',
   'Do not invent identifiers, endpoints, or file paths that a tool did not return.',
+].join(' ');
+
+/** The KB chat's system prompt (SPEC-0062): answer from the knowledge base, cite what was read. */
+export const KB_CHAT_SYSTEM = [
+  'You answer questions about the OMS knowledge base (Markdown documentation) for a developer.',
+  'Always search the knowledge base with your tools before answering, and read the relevant documents when you need their content or are asked for a summary.',
+  'Answer only from what the tools returned; if nothing relevant is found, say so instead of guessing.',
+  'Cite the documents you used by their path, written as oms-knowledge-base/<path>.',
+  'Be concise; use Markdown.',
 ].join(' ');

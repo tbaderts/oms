@@ -17,4 +17,6 @@ export const omsTokens = {
   border: '#273240',
   hover: '#1c2530',
   selection: '#16362a',
+  fontSizeSm: '0.8125rem',
+  fontSizeXs: '0.75rem',
 } as const;

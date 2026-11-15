@@ -1,11 +1,12 @@
 // StreamingBlotter.tsx - Real-time blotter component with RSocket streaming
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { GridApi, GridReadyEvent, RowDoubleClickedEvent, GetRowIdParams } from 'ag-grid-community';
+import { GridApi, GridReadyEvent, RowDoubleClickedEvent, GetRowIdParams, CellKeyDownEvent } from 'ag-grid-community';
 import { omsGridTheme } from '../theme/agGridTheme';
 import { FIT_COLUMNS_TO_WIDTH, fitColumnsOnResize } from '../theme/gridSizing';
 import Icon from './icons/Icon';
 import '../theme/agGridModules';
+import { LIVE_DEFAULT_COL_DEF } from '../theme/gridOptions';
 import { DomainObjectType, FilterCondition } from '../types/types';
 import {
   StreamFilter,
@@ -27,6 +28,8 @@ import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import { mergeLiveSelection, splitColumns, streamedFieldsOf } from '../services/streamedFields';
 import DetailModal from './DetailModal';
+import BlotterToolbar from './BlotterToolbar';
+import { useShortcuts } from '../hooks/useKeyboard';
 import './Blotter.scss';
 
 interface StreamingBlotterProps {
@@ -67,14 +70,6 @@ export type StreamingServiceLike = Pick<RSocketStreamingService,
  * by transaction (SPEC-0057).
  */
 const NO_ROWS: any[] = [];
-
-/** One object for every render, so AG Grid does not re-apply column defaults each frame (SPEC-0057). */
-const DEFAULT_COL_DEF = {
-  sortable: true,
-  filter: true,
-  resizable: true,
-  enableCellChangeFlash: true,
-};
 
 /**
  * Without a SNAPSHOT_END marker (an older server), the snapshot counts as complete once no snapshot
@@ -604,6 +599,20 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     setShowDetailModal(true);
   }, []);
 
+  // Enter on a focused row opens its details, like a double click (SPEC-0059)
+  const onCellKeyDown = useCallback((event: CellKeyDownEvent) => {
+    if ((event.event as KeyboardEvent | undefined)?.key === 'Enter' && event.data) {
+      setSelectedItem(event.data);
+      setShowDetailModal(true);
+    }
+  }, []);
+
+  useShortcuts(active, {
+    f: () => setShowFilterBuilder(true),
+    c: () => setShowColumnSelector(true),
+    p: () => setPaused(p => !p),
+  });
+
   const handleApplyFilters = (newFilters: FilterCondition[]) => {
     setFilters(newFilters);
     setShowFilterBuilder(false);
@@ -683,15 +692,16 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
       rowData={NO_ROWS}
       columnDefs={columnDefs}
       getRowId={getRowId}
-      defaultColDef={DEFAULT_COL_DEF}
+      defaultColDef={LIVE_DEFAULT_COL_DEF}
       autoSizeStrategy={FIT_COLUMNS_TO_WIDTH}
       onGridSizeChanged={fitColumnsOnResize}
       onNewColumnsLoaded={fitColumnsOnResize}
       animateRows={false}
       onGridReady={onGridReady}
       onRowDoubleClicked={onRowDoubleClicked}
+      onCellKeyDown={onCellKeyDown}
     />
-  ), [columnDefs, getRowId, onGridReady, onRowDoubleClicked]);
+  ), [columnDefs, getRowId, onGridReady, onRowDoubleClicked, onCellKeyDown]);
 
   if (!initialized) {
     return (
@@ -709,57 +719,54 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
   return (
     <div className="blotter-container streaming-blotter">
-      {/* Toolbar */}
-      <div className="blotter-toolbar">
-        <div className="toolbar-left">
-          <h2>{metadata.displayName}</h2>
-          <span className="record-count">{view.rowCount} records</span>
+      <BlotterToolbar
+        mode="live"
+        title={metadata.displayName}
+        recordCount={view.rowCount}
+        filterCount={filters.length}
+        onFilters={() => setShowFilterBuilder(true)}
+        onColumns={() => setShowColumnSelector(true)}
+        onAutoSize={handleAutoSize}
+        status={
           <span className={`streaming-status ${getConnectionStatusClass()}`}>
             <span className="status-dot" aria-hidden="true" />
             {connectionState}
           </span>
-        </div>
-        <div className="toolbar-right">
-          <button
-            onClick={() => setShowFilterBuilder(true)}
-            className={filters.length > 0 ? 'filter-active' : ''}
-          >
-            <Icon name="filter" />
-            Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
-          </button>
-          <button onClick={() => setShowColumnSelector(true)}><Icon name="columns" />Columns</button>
-          <button onClick={handleAutoSize}><Icon name="autosize" />Auto-Size</button>
-          <button
-            onClick={() => setPaused(p => !p)}
-            className={paused ? 'resume-button' : 'pause-button'}
-            aria-pressed={paused}
-          >
-            <Icon name={paused ? 'play' : 'pause'} />
-            {paused ? 'Resume' : 'Pause'}
-          </button>
-
-          {connectionState === 'connected' ? (
-            <button onClick={handleDisconnect} className="disconnect-button">
-              <Icon name="disconnect" />
-              Disconnect
+        }
+        actions={
+          <>
+            <button
+              onClick={() => setPaused(p => !p)}
+              className={paused ? 'resume-button' : 'pause-button'}
+              aria-pressed={paused}
+              title={paused ? 'Resume (P)' : 'Pause (P)'}
+              aria-keyshortcuts="P"
+            >
+              <Icon name={paused ? 'play' : 'pause'} />
+              {paused ? 'Resume' : 'Pause'}
             </button>
-          ) : (
-            <button onClick={handleReconnect} className="connect-button">
-              <Icon name="connect" />
-              Connect
-            </button>
-          )}
-          
-          <label className="toolbar-toggle snapshot-toggle">
-            <input
-              type="checkbox"
-              checked={includeSnapshot}
-              onChange={(e) => setIncludeSnapshot(e.target.checked)}
-            />
-            Include Snapshot
-          </label>
-        </div>
-      </div>
+            {connectionState === 'connected' ? (
+              <button onClick={handleDisconnect} className="disconnect-button">
+                <Icon name="disconnect" />
+                Disconnect
+              </button>
+            ) : (
+              <button onClick={handleReconnect} className="connect-button">
+                <Icon name="connect" />
+                Connect
+              </button>
+            )}
+            <label className="toolbar-toggle snapshot-toggle">
+              <input
+                type="checkbox"
+                checked={includeSnapshot}
+                onChange={(e) => setIncludeSnapshot(e.target.checked)}
+              />
+              Include Snapshot
+            </label>
+          </>
+        }
+      />
 
       {/* Streaming Info Bar */}
       <div className="streaming-info-bar">

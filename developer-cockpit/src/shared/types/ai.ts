@@ -142,6 +142,23 @@ export const aiToolResult = z.object({
   output: z.string(),
 });
 
+/** One turn of a KB chat conversation (SPEC-0062); the last message of a run is the user's. */
+export interface KbChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Where a KB chat run's tools come from: the knowledge server over MCP, or the local fallback. */
+export type KbChatToolSource = 'knowledge-server' | 'local';
+
+/** `ai:kbChat` result: the run started (or why not), and which tool source it uses (AC-3). */
+export interface KbChatStartResult extends AiRunStartResult {
+  source?: KbChatToolSource;
+}
+
+/** At most 10 earlier turns (question + answer) plus the new question (AC-6). */
+export const KB_CHAT_MAX_MESSAGES = 21;
+
 export const KB_SEARCH_MAX_RESULTS = 5;
 
 /** The local knowledge-base search tool's input (the AI SDK validates it during the loop). */

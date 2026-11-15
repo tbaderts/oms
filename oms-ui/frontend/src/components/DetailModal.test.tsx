@@ -22,3 +22,16 @@ describe('DetailModal (SPEC-0058)', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+// SPEC-0059 AC-6: Escape closes the modal; other keys do not.
+describe('DetailModal keyboard (SPEC-0059)', () => {
+  it('Escape closes', () => {
+    const onClose = jest.fn();
+    render(<DetailModal data={{ orderId: 'ORD-1' }} title="Order details" onClose={onClose} />);
+    expect(screen.getByRole('dialog', { name: 'Order details' }).getAttribute('aria-modal')).toBe('true');
+    fireEvent.keyDown(document, { key: 'a' });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

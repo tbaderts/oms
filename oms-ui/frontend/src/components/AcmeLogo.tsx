@@ -1,4 +1,5 @@
 import React from 'react';
+import { omsTokens } from '../theme/tokens';
 
 interface AcmeLogoProps {
   width?: number | string;
@@ -11,7 +12,7 @@ const AcmeLogo: React.FC<AcmeLogoProps> = ({
   width = 200, 
   height = 50, 
   className = '',
-  color = '#0f172a' // Slate-900 default
+  color = 'currentColor' // the surrounding text colour, so the logo follows the theme (SPEC-0060)
 }) => {
   return (
     <svg 
@@ -30,10 +31,10 @@ const AcmeLogo: React.FC<AcmeLogoProps> = ({
         stroke={color} 
         strokeWidth="2"
       />
-      {/* A rising chart line cutting through or overlaying */}
-      <path 
-        d="M15 80 L40 55 L55 70 L85 30" 
-        stroke="#22c55e" 
+      {/* A rising chart line in the brand green, --oms-accent */}
+      <path
+        d="M15 80 L40 55 L55 70 L85 30"
+        stroke={omsTokens.accent}
         strokeWidth="6" 
         strokeLinecap="round" 
         strokeLinejoin="round"

@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import '../theme/agGridModules';
-import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent, RowDoubleClickedEvent } from 'ag-grid-community';
+import { HISTORY_DEFAULT_COL_DEF } from '../theme/gridOptions';
+import { GridApi, GridReadyEvent, FilterChangedEvent, SortChangedEvent, RowDoubleClickedEvent, CellKeyDownEvent } from 'ag-grid-community';
 import { omsGridTheme } from '../theme/agGridTheme';
 import { FIT_COLUMNS_TO_WIDTH, fitColumnsOnResize } from '../theme/gridSizing';
 import Icon from './icons/Icon';
@@ -16,6 +17,8 @@ import { rowIdOf } from '../services/rowId';
 import FilterBuilder from './FilterBuilder';
 import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
+import BlotterToolbar from './BlotterToolbar';
+import { useShortcuts } from '../hooks/useKeyboard';
 import './Blotter.scss';
 
 interface BlotterProps {
@@ -31,9 +34,6 @@ interface BlotterProps {
 
 // Page-size options for the paging-mode selector; 500 is the query API maximum.
 const PAGE_SIZE_OPTIONS = [50, 100, 250, 500];
-
-/** One object for every render (SPEC-0058), like the live blotter's. */
-const DEFAULT_COL_DEF = { sortable: true, filter: true, resizable: true };
 
 const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp = 100, active = true }) => {
   const [data, setData] = useState<any[]>([]);
@@ -148,9 +148,11 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     try {
       const omsApiService = await OMSApiService.getInstance();
       
+      // Without a chosen sort, executions come newest first like orders; /api/executions would
+      // otherwise return them by id ascending, oldest first (SPEC-0059).
       const sort = sortModel.length > 0
         ? { field: sortModel[0].colId, direction: sortModel[0].sort }
-        : undefined;
+        : domainObject === 'Execution' ? { field: 'id', direction: 'desc' as const } : undefined;
 
       let response;
       if (domainObject === 'Order') {
@@ -204,6 +206,14 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     setShowDetailModal(true);
   };
 
+  // Enter on a focused row opens its details, like a double click (SPEC-0059)
+  const onCellKeyDown = (event: CellKeyDownEvent) => {
+    if ((event.event as KeyboardEvent | undefined)?.key === 'Enter' && event.data) {
+      setSelectedItem(event.data);
+      setShowDetailModal(true);
+    }
+  };
+
   const handleApplyFilters = (newFilters: FilterCondition[]) => {
     setFilters(newFilters);
     setCurrentPage(1); // Reset to first page
@@ -223,6 +233,12 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
   const handleAutoSize = () => {
     gridApiRef.current?.autoSizeAllColumns();
   };
+
+  useShortcuts(active, {
+    f: () => setShowFilterBuilder(true),
+    c: () => setShowColumnSelector(true),
+    r: () => loadData(),
+  });
 
   // The same definitions until the columns change (SPEC-0058): new ones on a render would reset the
   // columns to their metamodel widths after they were fitted to the panel.
@@ -247,33 +263,28 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
 
   return (
     <div className="blotter-container">
-      {/* Toolbar */}
-      <div className="blotter-toolbar">
-        <div className="toolbar-left">
-          <h2>{metadata.displayName}</h2>
-          <span className="record-count">{totalCount} records</span>
-        </div>
-        <div className="toolbar-right">
-          <button
-            onClick={() => setShowFilterBuilder(true)}
-            className={filters.length > 0 ? 'filter-active' : ''}
-          >
-            <Icon name="filter" />
-            Filters {filters.length > 0 && <span className="filter-badge">{filters.length}</span>}
-          </button>
-          <button onClick={() => setShowColumnSelector(true)}><Icon name="columns" />Columns</button>
-          <button onClick={handleRefresh}><Icon name="refresh" />Refresh</button>
-          <button onClick={handleAutoSize}><Icon name="autosize" />Auto-Size</button>
-          <label className="toolbar-toggle">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-            />
-            Auto-refresh
-          </label>
-        </div>
-      </div>
+      <BlotterToolbar
+        mode="history"
+        title={metadata.displayName}
+        recordCount={totalCount}
+        filterCount={filters.length}
+        onFilters={() => setShowFilterBuilder(true)}
+        onColumns={() => setShowColumnSelector(true)}
+        onAutoSize={handleAutoSize}
+        actions={
+          <>
+            <button onClick={handleRefresh} title="Refresh (R)" aria-keyshortcuts="R"><Icon name="refresh" />Refresh</button>
+            <label className="toolbar-toggle">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Auto-refresh
+            </label>
+          </>
+        }
+      />
 
       {/* Error Display */}
       {error && <div className="error-message">{error}</div>}
@@ -287,7 +298,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
           rowData={data}
           columnDefs={columnDefs}
           getRowId={(params) => rowIdOf(domainObject, params.data)}
-          defaultColDef={DEFAULT_COL_DEF}
+          defaultColDef={HISTORY_DEFAULT_COL_DEF}
           autoSizeStrategy={FIT_COLUMNS_TO_WIDTH}
           onGridSizeChanged={fitColumnsOnResize}
           onNewColumnsLoaded={fitColumnsOnResize}
@@ -296,6 +307,7 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
           onFilterChanged={onFilterChanged}
           onSortChanged={onSortChanged}
           onRowDoubleClicked={onRowDoubleClicked}
+          onCellKeyDown={onCellKeyDown}
         />
       </div>
 

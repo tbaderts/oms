@@ -34,6 +34,7 @@ const mockPagedExecutions = (page: number) => ({
 
 // Plain variables, not jest.fn: CRA's jest config resets mock implementations before each test.
 let mockGetExecutionsCalls: any[][] = [];
+let mockGetOrdersCalls: any[][] = [];
 let mockResponse: any = mockExecutions;
 jest.mock('../services/OMSApiService', () => ({
   OMSApiService: {
@@ -41,6 +42,10 @@ jest.mock('../services/OMSApiService', () => ({
       getExecutions: async (...args: any[]) => {
         mockGetExecutionsCalls.push(args);
         return typeof mockResponse === 'function' ? mockResponse(args[2]) : mockResponse;
+      },
+      getOrders: async (...args: any[]) => {
+        mockGetOrdersCalls.push(args);
+        return { content: [], page: { totalElements: 0, totalPages: 1, size: 100, number: 0 } };
       },
     }),
   },
@@ -50,6 +55,7 @@ jest.mock('../services/MetamodelService', () => ({
     getInstance: () => ({
       getMetamodelAsync: async () => undefined,
       getMetamodel: () => ({ displayName: 'Executions', defaultColumns: ['execId'], fields: [], primaryKey: 'execId' }),
+      getFilterableFields: () => [],
     }),
   },
 }));
@@ -320,5 +326,95 @@ describe('Blotter professional chrome (SPEC-0054)', () => {
 
     const container = document.querySelector('.blotter-container') as HTMLElement;
     expect(container.textContent).not.toMatch(EMOJI_PATTERN);
+  });
+});
+
+// SPEC-0059: newest first by default, keyboard shortcuts, the shared toolbar.
+describe('Blotter ergonomics (SPEC-0059)', () => {
+  beforeEach(() => {
+    mockColumnArgs = [];
+    mockSavedState = null;
+    mockSaveCalls = 0;
+    mockGetExecutionsCalls = [];
+    mockGetOrdersCalls = [];
+    mockResponse = mockExecutions;
+  });
+  const lastExecSort = () => mockGetExecutionsCalls[mockGetExecutionsCalls.length - 1][1];
+
+  it('executions load newest first by default', async () => {
+    render(<Blotter domainObject="Execution" />);
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBeGreaterThan(0));
+    expect(lastExecSort()).toEqual({ field: 'id', direction: 'desc' });
+  });
+
+  it('a chosen sort replaces the default', async () => {
+    render(<Blotter domainObject="Execution" />);
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBeGreaterThan(0));
+    await act(async () => {
+      mockGridProps.onSortChanged({ api: { getColumnState: () => [{ colId: 'lastPx', sort: 'asc' }] } });
+    });
+    await waitFor(() => expect(lastExecSort()).toEqual({ field: 'lastPx', direction: 'asc' }));
+  });
+
+  it('orders keep their request: no sort unless the user chose one', async () => {
+    render(<Blotter domainObject="Order" />);
+    await waitFor(() => expect(mockGetOrdersCalls.length).toBeGreaterThan(0));
+    expect(mockGetOrdersCalls[mockGetOrdersCalls.length - 1][1]).toBeUndefined();
+  });
+
+  it('keyboard shortcuts: F filters, C columns, R refresh, Enter details', async () => {
+    render(<Blotter domainObject="Execution" />);
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBeGreaterThan(0));
+
+    const loads = mockGetExecutionsCalls.length;
+    fireEvent.keyDown(document.body, { key: 'r' });
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBe(loads + 1));
+
+    fireEvent.keyDown(document.body, { key: 'f' });
+    expect(document.querySelector('.filter-builder-modal')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.querySelector('.filter-builder-modal')).toBeNull();
+
+    fireEvent.keyDown(document.body, { key: 'c' });
+    expect(document.querySelector('.modal-overlay')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.querySelector('.modal-overlay')).toBeNull();
+
+    await act(async () => {
+      mockGridProps.onCellKeyDown({ event: { key: 'Enter' }, data: mockExecutions.content[0] });
+    });
+    expect(screen.getByRole('heading', { level: 2, name: 'Execution details' })).toBeInTheDocument();
+  });
+
+  it('shortcuts are ignored while typing in a text field; a focused checkbox does not block them', async () => {
+    render(<Blotter domainObject="Execution" />);
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBeGreaterThan(0));
+    const field = document.createElement('input');
+    field.type = 'text';
+    document.body.appendChild(field);
+    fireEvent.keyDown(field, { key: 'f' });
+    field.remove();
+    expect(document.querySelector('.filter-builder-modal')).toBeNull();
+    const autoRefresh = screen.getByLabelText('Auto-refresh');
+    fireEvent.keyDown(autoRefresh, { key: 'f' });
+    expect(document.querySelector('.filter-builder-modal')).not.toBeNull();
+  });
+
+  it('an inactive blotter ignores shortcuts', async () => {
+    render(<Blotter domainObject="Execution" active={false} />);
+    fireEvent.keyDown(document.body, { key: 'f' });
+    expect(document.querySelector('.filter-builder-modal')).toBeNull();
+  });
+
+  it('uses the shared toolbar with the history actions', async () => {
+    render(<Blotter domainObject="Execution" />);
+    const toolbar = await screen.findByTestId('blotter-toolbar');
+    expect(toolbar.getAttribute('data-mode')).toBe('history');
+    expect(screen.getByRole('button', { name: /Refresh/ }).getAttribute('title')).toBe('Refresh (R)');
+    expect(screen.getByText('Auto-refresh')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Refresh/ }).getAttribute('aria-keyshortcuts')).toBe('R');
+    expect(screen.queryByRole('button', { name: /Pause/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Connect|Disconnect/ })).toBeNull();
+    expect(screen.queryByText('Include Snapshot')).toBeNull();
   });
 });

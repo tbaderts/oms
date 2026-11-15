@@ -1,4 +1,5 @@
 // ColumnSelector.tsx - Column visibility and ordering management
+import { useDialog } from '../hooks/useKeyboard';
 import React, { useState } from 'react';
 import { DomainObjectType } from '../types/types';
 import { MetamodelService } from '../services/MetamodelService';
@@ -22,6 +23,7 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
   availableFields,
 }) => {
   const metamodelService = MetamodelService.getInstance();
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
   const fullMetadata = metamodelService.getMetamodel(domainObject);
   // In live mode only the fields the stream carries can be chosen (SPEC-0056).
   const metadata = availableFields
@@ -59,7 +61,7 @@ const ColumnSelector: React.FC<ColumnSelectorProps> = ({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="column-selector-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="column-selector-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="Select Columns" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Select Columns</h2>
           <button className="close-button" onClick={onClose} aria-label="Close"><Icon name="close" size={18} /></button>

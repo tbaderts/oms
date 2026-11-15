@@ -11,7 +11,7 @@ import type {
   TemplateSource,
 } from '../apiExplorer';
 import type { KbDocument, KbCategory, KbSearchResult } from './kb';
-import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary } from './ai';
+import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary, KbChatMessage, KbChatStartResult } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
 import type { MonitorHealthResult, MonitorMetricsResult } from './monitor';
@@ -160,6 +160,8 @@ export interface CockpitAPI {
     available(): Promise<AiStatus>;
     /** Starts a run; answers immediately, the results stream as `ai:*` events keyed by runId. */
     run(runId: string, prompt: string, options?: AiRunOptions): Promise<AiRunStartResult>;
+    /** Starts a KB chat run over the conversation so far (SPEC-0062); results stream as `ai:*` events. */
+    kbChat(runId: string, messages: KbChatMessage[], options?: AiRunOptions): Promise<KbChatStartResult>;
     /** Aborts a run; a no-op (never a throw) when the runId is unknown. */
     stop(runId: string): Promise<void>;
     /** The accumulated usage totals for the Settings summary (AC-7). */

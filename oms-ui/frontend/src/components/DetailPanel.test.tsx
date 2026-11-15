@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import DetailPanel from './DetailPanel';
 
 describe('DetailPanel', () => {
@@ -80,5 +80,21 @@ describe('DetailPanel badges (SPEC-0058)', () => {
     const { container } = render(<DetailPanel data={{ orderId: 'ORD-1', state: 'CXL' }} />);
 
     expect(container.querySelector('.header-badges .enum-cell')?.textContent).toBe('CXL');
+  });
+});
+
+// SPEC-0059: the detail panel formats like the grid and names the FIX exec type.
+describe('DetailPanel formatting (SPEC-0059)', () => {
+  it('shows the exec type label and formatted prices and quantities', () => {
+    render(<DetailPanel data={{ orderId: 'ORD-1', execId: 'ORD-1-F1', execType: 'F', lastPx: 170, avgPx: 86.96, lastQty: 1000, price: 1234.5, orderQty: 2500 }} />);
+    fireEvent.click(screen.getByRole('heading', { name: 'Execution' }));
+    const execution = screen.getByRole('heading', { name: 'Execution' }).closest('.detail-section') as HTMLElement;
+    expect(within(execution).getByText('Trade')).toBeInTheDocument();
+    expect(within(execution).getByText('170.00')).toBeInTheDocument();
+    expect(within(execution).getByText('86.96')).toBeInTheDocument();
+    expect(within(execution).getByText('1,000')).toBeInTheDocument();
+    const order = screen.getByRole('heading', { name: 'Order Details' }).closest('.detail-section') as HTMLElement;
+    expect(within(order).getByText('1,234.50')).toBeInTheDocument();
+    expect(within(order).getByText('2,500')).toBeInTheDocument();
   });
 });
