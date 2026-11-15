@@ -2,7 +2,7 @@
 
 ## What Was Created
 
-A complete, production-ready OMS Admin UI following the specification in `oms-knowledge-base/ui/oms-admin-ui_spec.mc`.
+A complete, production-ready OMS Admin UI following the specification in `oms-knowledge-base/ui/admin-ui.md`.
 
 ### Components Created
 
@@ -147,7 +147,7 @@ oms-ui/
 
 ## Additional Resources
 
-- Full specification: `oms-knowledge-base/ui/oms-admin-ui_spec.mc`
+- Full specification: `oms-knowledge-base/ui/admin-ui.md`
 - Architecture details: `OMS_ADMIN_UI_README.md`
 - AG Grid docs: https://www.ag-grid.com/
 - React docs: https://react.dev/

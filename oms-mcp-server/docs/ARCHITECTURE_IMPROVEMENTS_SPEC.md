@@ -65,7 +65,7 @@ This spec assesses the current implementation against the state of the art for *
 
 Each area presents options with trade-offs and a recommendation. A phased roadmap at the end sequences the work.
 
-**Out of scope:** the `searchOrders` OMS query tool (a thin client to oms-core; unaffected by retrieval changes) and the knowledge-base *content* itself (covered by `oms-knowledge-base-strategy.md`).
+**Out of scope:** the `searchOrders` OMS query tool (a thin client to oms-core; unaffected by retrieval changes) and the knowledge-base *content* itself (covered by `oms-knowledge-base/semantic-layer/knowledge-base-strategy.md`).
 
 ---
 
@@ -86,7 +86,7 @@ oms-mcp-server (Spring Boot 4.0.2, Spring AI 2.0.0-M1, Java 25)
         └── HealthTools
 ```
 
-**Corpus:** 26 markdown files, ~704 KB, in `oms-knowledge-base/` (`oms-framework/`, `oms-concepts/`, `illustrations/`, plus strategy docs).
+**Corpus:** 26 markdown files, ~704 KB, in `oms-knowledge-base/` (`framework/`, `domain/concepts/`, `illustrations/`, plus strategy docs).
 
 **Tool surface (10 tools):**
 
@@ -128,7 +128,7 @@ Consequences:
 **F4. Chunking is structure-blind.**
 `DocumentIndexerService` splits with Spring AI's generic `TokenTextSplitter` (1000 tokens, 200 overlap). For markdown specs this means:
 - Chunks routinely cut across section boundaries, mixing unrelated topics in one embedding.
-- A chunk carries no information about *where* it sits in the document — a chunk from "domain-model_spec.md → Order → State Transitions" embeds and renders identically to body text with no context.
+- A chunk carries no information about *where* it sits in the document — a chunk from "domain-model.md → Order → State Transitions" embeds and renders identically to body text with no context.
 - Tables and code blocks get split mid-structure.
 
 Ironically, the server already has a `MarkdownParser` that extracts sections and headings for the keyword tools — the structural knowledge exists but isn't used for the vector pipeline.
@@ -267,7 +267,7 @@ Replace `TokenTextSplitter` with markdown-structure-aware splitting, reusing the
 1. **Split on headings** — each section (H2/H3 granularity) becomes one chunk. Merge tiny sections (< ~100 tokens) with siblings; split oversized sections (> ~1200 tokens) at paragraph boundaries, never inside tables or code fences.
 2. **Prepend a breadcrumb header to every chunk** before embedding *and* in the returned text:
    ```
-   [domain-model_spec.md > Order > State Transitions]
+   [domain-model.md > Order > State Transitions]
    <section text…>
    ```
    This contextualizes the embedding (disambiguating, e.g., "State Transitions" of an Order vs. a Task) and gives the reading agent immediate orientation.
@@ -305,8 +305,8 @@ Every search hit returns a **stable, actionable citation**:
 
 ```json
 {
-  "citation": "oms-framework/domain-model_spec.md#state-transitions",
-  "breadcrumb": "domain-model_spec.md > Order > State Transitions",
+  "citation": "domain/model/domain-model.md#state-transitions",
+  "breadcrumb": "domain-model.md > Order > State Transitions",
   "lines": "142-198",
   "score": 0.0163,
   "docStatus": "Complete",
@@ -317,7 +317,7 @@ Every search hit returns a **stable, actionable citation**:
 Properties of the scheme:
 - `path#anchor` uses GitHub-style heading slugs — human-readable, valid in markdown links, stable as long as the heading survives.
 - The **same address works in `readKnowledgeBase`** — a hit is always one tool call away from its full context.
-- Line ranges let agents cite precisely in code review comments and commit messages ("per `domain-model_spec.md#state-transitions` (L142–198) …"), which is exactly the spec-driven-development behavior the project wants to encourage.
+- Line ranges let agents cite precisely in code review comments and commit messages ("per `domain-model.md#state-transitions` (L142–198) …"), which is exactly the spec-driven-development behavior the project wants to encourage.
 - Excerpts are **section-aligned** (from the chunk model of §4.5), never arbitrary 240-char windows.
 
 ### 5.3 B3 — Return format & budgets
@@ -329,7 +329,7 @@ Properties of the scheme:
 
 ### 5.4 B4 — Use MCP resources and prompts, not only tools
 
-- **Resources:** register every KB document as an MCP resource (`kb://oms-framework/domain-model_spec.md`), with the overview index as a resource too. Clients like Claude Desktop/Claude Code let users *attach* resources directly — "pin the domain model spec to this conversation" without any tool round-trip. Spring AI's MCP server supports resource registration (`McpServerFeatures.SyncResourceSpecification`); only tools are wired today in `McpConfig`.
+- **Resources:** register every KB document as an MCP resource (`kb://domain/model/domain-model.md`), with the overview index as a resource too. Clients like Claude Desktop/Claude Code let users *attach* resources directly — "pin the domain model spec to this conversation" without any tool round-trip. Spring AI's MCP server supports resource registration (`McpServerFeatures.SyncResourceSpecification`); only tools are wired today in `McpConfig`.
 - **Prompts:** register 2–3 MCP prompts encoding the team's spec-driven workflow, e.g. `implement-from-spec(specPath)` ("Read the spec section, restate constraints, write tests first, then implement, citing spec anchors") and `validate-against-spec(filePath, specPath)`. This moves the guidance currently buried in `COPILOT_PROMPTS_LIBRARY.md` into the protocol where every MCP client can discover it.
 
 ---
@@ -481,7 +481,7 @@ This avoids the classic trap of rewriting the platform *while* redesigning the r
 - **nomic-embed-text task prefixes** — Nomic AI model card (`search_query:` / `search_document:` instruction prefixes)
 - **Apache Lucene** — `lucene-core` (BM25, HNSW vectors via `KnnFloatVectorField`, highlighting)
 - **Spring AI MCP server** — Spring AI reference docs (tool/resource/prompt specifications, `MethodToolCallbackProvider`)
-- Internal: `oms-knowledge-base/oms-knowledge-base-strategy.md`; `oms-mcp-server/docs/ARCHITECTURE.md` (current system); the golden query set in `oms-mcp-server/src/test/resources/retrieval-evals/golden-queries.yaml`. (`COPILOT_PROMPTS_LIBRARY.md` and `ARCHITECTURE_ANALYSIS.md` were consolidated away and removed.)
+- Internal: `oms-knowledge-base/semantic-layer/knowledge-base-strategy.md`; `oms-mcp-server/docs/ARCHITECTURE.md` (current system); the golden query set in `oms-mcp-server/src/test/resources/retrieval-evals/golden-queries.yaml`. (`COPILOT_PROMPTS_LIBRARY.md` and `ARCHITECTURE_ANALYSIS.md` were consolidated away and removed.)
 
 ---
 

@@ -1,6 +1,6 @@
 # OMS Admin UI Implementation
 
-This document describes the comprehensive OMS Admin UI implementation based on the specification in `oms-knowledge-base/ui/oms-admin-ui_spec.mc`.
+This document describes the comprehensive OMS Admin UI implementation based on the specification in `oms-knowledge-base/ui/admin-ui.md`.
 
 ## Overview
 
@@ -265,7 +265,7 @@ npm test
 
 ## References
 
-- Specification: `oms-knowledge-base/ui/oms-admin-ui_spec.mc`
+- Specification: `oms-knowledge-base/ui/admin-ui.md`
 - AG Grid Docs: https://www.ag-grid.com/react-data-grid/
 - React 18 Docs: https://react.dev/
 - TypeScript Docs: https://www.typescriptlang.org/

@@ -170,7 +170,7 @@ curl http://localhost:8091/api/kb/documents
 curl "http://localhost:8091/api/kb/search/keyword?query=state+machine&topK=5"
 
 # Read a document
-curl "http://localhost:8091/api/kb/documents/read?path=oms-knowledge-base/oms-concepts/order-lifecycle.md"
+curl "http://localhost:8091/api/kb/documents/read?path=oms-knowledge-base/domain/concepts/order-lifecycle.md"
 ```
 
 ---

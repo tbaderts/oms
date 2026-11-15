@@ -15,7 +15,7 @@ import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary } from '.
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
 import type { MonitorHealthResult, MonitorMetricsResult } from './monitor';
-import type { UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
+import type { Capability, UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
 import type { GitStatus, GitLogEntry, GitDiff, GitBranch, GitBranchResult } from './git';
 import type { SpecFile, SpecValidationResult, CodeGenTask, CodeGenResult, DomainEntity } from './specs';
 import type {
@@ -64,6 +64,7 @@ export interface CockpitAPI {
 
   // Requirements
   requirements: {
+    getCapabilities(): Promise<Capability[]>;
     getUseCases(): Promise<UseCase[]>;
     getFunctionalRequirements(): Promise<FunctionalRequirement[]>;
     getNonFunctionalRequirements(): Promise<NonFunctionalRequirement[]>;

@@ -29,8 +29,8 @@ import org.springframework.stereotype.Repository;
  *   <li>Uniqueness check: existsBySessionIdAndClOrdId</li>
  * </ul>
  *
- * @see <a href="file:///oms-knowledge-base/oms-framework/oms-state-store.md">State Store - Spring Data JPA Repository Pattern</a>
- * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Order Entity</a>
+ * @see <a href="file:///oms-knowledge-base/architecture/concepts/state-store.md">State Store</a>
+ * @see <a href="file:///oms-knowledge-base/domain/model/domain-model.md">Domain Model - Order Entity</a>
  */
 @Repository
 public interface OrderRepository

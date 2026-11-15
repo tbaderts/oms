@@ -20,8 +20,8 @@ import org.mapstruct.*;
  *   <li>Ignores derived/calculated fields (cumQty, leavesQty, state)</li>
  * </ul>
  *
- * @see <a href="file:///oms-knowledge-base/oms-framework/openapi-contracts.md">OpenAPI Contracts - MapStruct Integration</a>
- * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Order Entity Mapping</a>
+ * @see <a href="file:///oms-knowledge-base/architecture/patterns/contract-first-codegen.md">Contract-first Code Generation</a>
+ * @see <a href="file:///oms-knowledge-base/domain/model/domain-model.md">Domain Model - Order Entity Mapping</a>
  */
 @Mapper(componentModel = "spring")
 public interface OrderMapper {

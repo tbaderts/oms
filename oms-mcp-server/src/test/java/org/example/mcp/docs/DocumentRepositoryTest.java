@@ -210,4 +210,68 @@ class DocumentRepositoryTest {
             assertThat(DocumentRepository.clamp(15, 0, 10)).isEqualTo(10);
         }
     }
+
+    /** SPEC-0061: documents moved by the knowledge base reorganisation stay readable under their old ids. */
+    @Nested
+    class MovedDocuments {
+
+        private DocumentRepository moved;
+        private String baseName;
+
+        @BeforeEach
+        void createMovedDoc() throws IOException {
+            Files.createDirectories(tempDir.resolve("domain/concepts"));
+            Files.writeString(tempDir.resolve("domain/concepts/order-lifecycle.md"), """
+                    ---
+                    type: Specification
+                    title: "Order Lifecycle"
+                    description: "States of an order."
+                    tags: [orders]
+                    status: draft
+                    aliases: [old-concepts/order-lifecycle]
+                    ---
+                    # Order Lifecycle
+
+                    Moved body.
+                    """);
+            moved = new DocumentRepository(tempDir.toAbsolutePath().toString(), new MarkdownParser());
+            baseName = tempDir.getFileName().toString();
+        }
+
+        @Test
+        void resolvesFormerIdThroughAliases() {
+            for (String requested : List.of("old-concepts/order-lifecycle.md", "old-concepts/order-lifecycle",
+                    baseName + "/old-concepts/order-lifecycle.md")) {
+                DocumentRepository.ResolvedDoc doc = moved.readResolved(requested);
+                assertThat(doc.path()).as(requested).isEqualTo(baseName + "/domain/concepts/order-lifecycle.md");
+                assertThat(doc.movedFrom()).as(requested).isEqualTo(requested);
+                assertThat(doc.content()).contains("Moved body.");
+            }
+            assertThat(moved.readContent("old-concepts/order-lifecycle.md")).contains("Moved body.");
+        }
+
+        @Test
+        void currentPathIsNotAMove() {
+            DocumentRepository.ResolvedDoc doc = moved.readResolved("domain/concepts/order-lifecycle.md");
+            assertThat(doc.movedFrom()).isNull();
+            assertThat(doc.content()).contains("Moved body.");
+        }
+
+        @Test
+        void unknownIdStillNotFound() {
+            assertThatThrownBy(() -> moved.readResolved("old-concepts/never-existed.md"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("not found");
+        }
+
+        @Test
+        void categoryFallsBackToTopLevelFolder() {
+            DocMeta lifecycle = moved.listAll().stream()
+                    .filter(d -> d.name().equals("order-lifecycle.md")).findFirst().orElseThrow();
+            assertThat(lifecycle.category()).isEqualTo("domain");
+            DocMeta rootDoc = moved.listAll().stream()
+                    .filter(d -> d.name().equals("readme.md")).findFirst().orElseThrow();
+            assertThat(rootDoc.category()).isNull();
+        }
+    }
 }

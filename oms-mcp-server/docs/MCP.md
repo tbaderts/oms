@@ -387,7 +387,7 @@ Then restart the server. The startup log shows
 
 ### Document Not Found
 
-**Symptoms:** "Document not found: oms-knowledge-base/my_spec.md"
+**Symptoms:** "Document not found under configured base directories: <path>"
 
 **Check:**
 1. File exists in specified path

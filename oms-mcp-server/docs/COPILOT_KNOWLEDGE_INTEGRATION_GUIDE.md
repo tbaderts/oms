@@ -107,7 +107,7 @@ Save these as snippets or keep them handy:
 ```
 @workspace I need to create the Order entity class. Please:
 1. Search the knowledge base for the Order entity specification
-2. Read the relevant domain-model_spec.md sections in full
+2. Read the relevant domain model sections (oms-knowledge-base/domain/model/) in full
 3. Generate the Java Order class following the spec
 4. Include all core attributes mentioned in the spec
 5. Add validation annotations based on spec requirements
@@ -115,7 +115,7 @@ Save these as snippets or keep them handy:
 
 **What Copilot Will Do:**
 - Call `searchKnowledgeBase("Order entity specification")`
-- Call `readKnowledgeBase("oms-knowledge-base/oms-framework/domain-model_spec.md", "3-order-entity-specification")`
+- Call `readKnowledgeBase("oms-knowledge-base/domain/model/domain-model.md", "3-order-entity-specification")`
 - Generate code based on spec content
 - Include comments citing the spec (`path#anchor`)
 
@@ -137,7 +137,7 @@ Save these as snippets or keep them handy:
 ```java
 /**
  * Tests Order state transitions according to OMS State Machine specification
- * Reference: oms-knowledge-base/oms-framework/domain-model_spec.md - State Machine Engine
+ * Reference: oms-knowledge-base/domain/model/domain-model.md - State Machine Engine
  */
 @Test
 public void testOrderStateTransition_NewToLive_ValidTransition() {
@@ -172,7 +172,7 @@ public void testOrderStateTransition_NewToLive_ValidTransition() {
 **Your Prompt:**
 ```
 @workspace Our Order validation is scattered. Please:
-1. Read the "Validation Engine" section from domain-model_spec.md
+1. Read oms-knowledge-base/framework/validation-engine.md (the rule engine is not built; see its status note)
 2. Read software-architecture-methodology_spec.md for patterns
 3. Analyze our current validation code
 4. Refactor to use the spec's predicate-based approach
@@ -243,8 +243,8 @@ Add spec references in your code:
  * Order Management System - Order Entity
  * 
  * Specification References:
- * - oms-knowledge-base/oms-framework/domain-model_spec.md § 5. Domain Model
- * - oms-knowledge-base/oms-framework/domain-model_spec.md - Base Entity Model Structure
+ * - oms-knowledge-base/domain/model/domain-model.md § 5. Domain Model
+ * - oms-knowledge-base/domain/model/domain-model.md - Base Entity Model Structure
  * 
  * Key Requirements:
  * - Extends base Order from OMS Core Libraries
@@ -252,7 +252,7 @@ Add spec references in your code:
  * - Supports state machine lifecycle management
  * - Extensible via Java inheritance for asset classes
  * 
- * @see <a href="file:///home/tbaderts/data/workspace/oms/oms-knowledge-base/oms-framework/domain-model_spec.md">OMS Spec</a>
+ * @see <a href="file:///home/tbaderts/data/workspace/oms/oms-knowledge-base/domain/model/domain-model.md">OMS Spec</a>
  */
 @Entity
 @Table(name = "orders")
@@ -335,7 +335,7 @@ the relevant spec sections and requirements
 ```
 @workspace I need to implement the State Machine Engine. Please:
 
-1. Read oms-knowledge-base/oms-framework/domain-model_spec.md section "State Machine Engine"
+1. Read oms-knowledge-base/domain/model/domain-model.md section "State Machine Engine"
 2. List all requirements from the spec
 3. Generate the StateMachine interface and base implementation
 4. Include validation of state transitions
@@ -361,7 +361,7 @@ the relevant spec sections and requirements
 ```
 @workspace Create the validation engine for Orders:
 
-1. Read oms-knowledge-base/oms-framework/domain-model_spec.md section "Validation Engine"
+1. Read oms-knowledge-base/domain/model/domain-model.md section "Validation Engine"
 2. The spec mentions "predicate-based" approach - implement that
 3. Generate OrderValidationRules using Java Predicates
 4. Make it extensible as spec requires

@@ -67,7 +67,7 @@ async function startStubMcpServer(): Promise<{ url: string; close: () => void }>
 
 describe('McpToolRegistry (AC-4, AC-8)', () => {
   it('build() always includes search_knowledge_base, executable against the KB', async () => {
-    const hits = [kbHit(doc('Order lifecycle', 'oms-concepts/order-lifecycle.md', 'oms-concepts'))];
+    const hits = [kbHit(doc('Order lifecycle', 'domain/concepts/order-lifecycle.md', 'domain'))];
     const { tools, close } = await McpToolRegistry.build({ search: (q) => (q === 'orders' ? hits : []) }, []);
     expect(Object.keys(tools)).toEqual(['search_knowledge_base']);
 
@@ -76,7 +76,7 @@ describe('McpToolRegistry (AC-4, AC-8)', () => {
     expect(result).toEqual({
       query: 'orders',
       count: 1,
-      results: [{ title: 'Order lifecycle', path: 'oms-concepts/order-lifecycle.md', category: 'oms-concepts' }],
+      results: [{ title: 'Order lifecycle', path: 'domain/concepts/order-lifecycle.md', category: 'domain' }],
     });
     await close();
   });

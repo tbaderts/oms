@@ -28,8 +28,8 @@ export const DOCS: DocMeta[] = [
   doc('functional-requirements/FR-010-deduplicate.md', { type: 'Requirement', title: 'Dedupe', id: 'FR-010' }),
   doc('functional-requirements/FR-002-validate.md', { type: 'Requirement', title: 'Validate', id: 'FR-002', trustTier: 'human-reviewed' }),
   doc('non-functional-requirements/NFR-001-idempotency.md', { type: 'Requirement', title: 'Idempotency', id: 'NFR-001' }),
-  doc('oms-concepts/index.md', {}),
-  doc('oms-concepts/order-lifecycle.md', { type: 'Specification', title: 'Order Lifecycle', status: 'stable' }),
-  doc('oms-concepts/legacy-notes.md', null, { status: 'Active' }),
-  doc('oms-concepts/sub/deep.md', { type: 'Diagram', title: 'Deep Diagram' }),
+  doc('concepts/index.md', {}),
+  doc('concepts/order-lifecycle.md', { type: 'Specification', title: 'Order Lifecycle', status: 'stable' }),
+  doc('concepts/legacy-notes.md', null, { status: 'Active' }),
+  doc('concepts/sub/deep.md', { type: 'Diagram', title: 'Deep Diagram' }),
 ];

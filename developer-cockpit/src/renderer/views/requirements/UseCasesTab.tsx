@@ -6,6 +6,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function UseCasesTab() {
   const useCases = useRequirementsStore((s) => s.useCases);
+  const capabilities = useRequirementsStore((s) => s.capabilities);
+  const functionalReqs = useRequirementsStore((s) => s.functionalReqs);
+  const nonFunctionalReqs = useRequirementsStore((s) => s.nonFunctionalReqs);
+  const requirementTitle = (id: string) =>
+    functionalReqs.find((r) => r.id === id)?.title ?? nonFunctionalReqs.find((r) => r.id === id)?.title;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useCases.find((uc) => uc.id === selectedId);
 
@@ -48,6 +53,14 @@ export function UseCasesTab() {
                 <h4 className="font-medium mb-1">Description</h4>
                 <p className="text-muted-foreground">{selected.description}</p>
               </div>
+              {selected.capability && (
+                <div>
+                  <h4 className="font-medium mb-1">Capability</h4>
+                  <p className="text-muted-foreground">
+                    {capabilities.find((c) => c.id === selected.capability)?.title ?? selected.capability}
+                  </p>
+                </div>
+              )}
               {selected.preconditions.length > 0 && (
                 <div>
                   <h4 className="font-medium mb-1">Preconditions</h4>
@@ -64,11 +77,29 @@ export function UseCasesTab() {
                   </ol>
                 </div>
               )}
+              {selected.alternativeFlows.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-1">Alternative Flows</h4>
+                  <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                    {selected.alternativeFlows.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
               {selected.postconditions.length > 0 && (
                 <div>
                   <h4 className="font-medium mb-1">Postconditions</h4>
                   <ul className="list-disc pl-5 text-muted-foreground space-y-1">
                     {selected.postconditions.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </div>
+              )}
+              {selected.requirements.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-1">Requirements</h4>
+                  <ul className="space-y-0.5 text-muted-foreground">
+                    {selected.requirements.map((id) => (
+                      <li key={id}><span className="font-mono">{id}</span> {requirementTitle(id)}</li>
+                    ))}
                   </ul>
                 </div>
               )}

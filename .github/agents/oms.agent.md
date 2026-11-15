@@ -2,7 +2,7 @@
 name: oms
 description: OMS development agent with access to domain specs, architecture docs, and order data via MCP tools. Use for implementing features, debugging, querying orders, code generation, and spec-driven development in the Order Management System.
 argument-hint: A development task, code question, or order query — e.g. "implement the order cancel endpoint", "explain state machine transitions", "show all filled AAPL orders"
-tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/newWorkspace', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/askQuestions', 'vscode/vscodeAPI', 'vscode/extensions', 'execute/runNotebookCell', 'execute/testFailure', 'execute/getTerminalOutput', 'execute/awaitTerminal', 'execute/killTerminal', 'execute/createAndRunTask', 'execute/runInTerminal', 'execute/runTests', 'read/getNotebookSummary', 'read/problems', 'read/readFile', 'read/readNotebookCellOutput', 'read/terminalSelection', 'read/terminalLastCommand', 'agent/runSubagent', 'edit/createDirectory', 'edit/createFile', 'edit/createJupyterNotebook', 'edit/editFiles', 'edit/editNotebook', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/searchResults', 'search/textSearch', 'search/usages', 'web/fetch', 'web/githubRepo', 'azure-mcp/search', 'oms-mcp/getVectorStoreInfo', 'oms-mcp/listDocSections', 'oms-mcp/listDomainDocs', 'oms-mcp/ping', 'oms-mcp/readDocSection', 'oms-mcp/readDomainDoc', 'oms-mcp/searchDocSections', 'oms-mcp/searchDomainDocs', 'oms-mcp/searchOrders', 'oms-mcp/semanticSearchDocs', 'todo']
+tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/newWorkspace', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/askQuestions', 'vscode/vscodeAPI', 'vscode/extensions', 'execute/runNotebookCell', 'execute/testFailure', 'execute/getTerminalOutput', 'execute/awaitTerminal', 'execute/killTerminal', 'execute/createAndRunTask', 'execute/runInTerminal', 'execute/runTests', 'read/getNotebookSummary', 'read/problems', 'read/readFile', 'read/readNotebookCellOutput', 'read/terminalSelection', 'read/terminalLastCommand', 'agent/runSubagent', 'edit/createDirectory', 'edit/createFile', 'edit/createJupyterNotebook', 'edit/editFiles', 'edit/editNotebook', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/searchResults', 'search/textSearch', 'search/usages', 'web/fetch', 'web/githubRepo', 'azure-mcp/search', 'oms-mcp/getKnowledgeBaseOverview', 'oms-mcp/ping', 'oms-mcp/readKnowledgeBase', 'oms-mcp/searchKnowledgeBase', 'oms-mcp/searchOrders', 'todo']
 ---
 
 # OMS Development Agent
@@ -17,8 +17,8 @@ You have access to the OMS MCP server which provides **live domain knowledge** a
 
 Before answering ANY question about OMS concepts, architecture, implementation patterns, or order data:
 
-1. **Search the knowledge base** using `mcp_oms-mcp_semanticSearchDocs` or `mcp_oms-mcp_searchDomainDocs`
-2. **Read specific sections** using `mcp_oms-mcp_readDocSection` for detailed spec content
+1. **Search the knowledge base** using `mcp_oms-mcp_searchKnowledgeBase`
+2. **Read specific sections** using `mcp_oms-mcp_readKnowledgeBase` for detailed spec content
 3. **Query order data** using `mcp_oms-mcp_searchOrders` when working with live orders
 
 Never rely on training data alone. The MCP knowledge base is the single source of truth.
@@ -30,14 +30,14 @@ Never rely on training data alone. The MCP knowledge base is the single source o
 ### Domain Knowledge (use for specs, architecture, patterns)
 | Tool | When to Use |
 |------|-------------|
-| `listDomainDocs` | Discover available spec documents |
-| `readDomainDoc` | Read full document content (with offset/limit for large docs) |
-| `searchDomainDocs` | Keyword search across all docs (class names, field names, APIs) |
-| `listDocSections` | Get table of contents / section headings for a document |
-| `readDocSection` | Read a specific section by title |
-| `searchDocSections` | Search within document sections for precise results |
-| `semanticSearchDocs` | Natural language search — best for conceptual questions |
-| `getVectorStoreInfo` | Check vector store indexing status |
+| `getKnowledgeBaseOverview` | Discover available spec documents |
+| `readKnowledgeBase` | Read full document content (with offset/limit for large docs) |
+| `searchKnowledgeBase` | Keyword search across all docs (class names, field names, APIs) |
+| `getKnowledgeBaseOverview` | Get table of contents / section headings for a document |
+| `readKnowledgeBase` | Read a specific section by title |
+| `searchKnowledgeBase` | Search within document sections for precise results |
+| `searchKnowledgeBase` | Natural language search — best for conceptual questions |
+| `getKnowledgeBaseOverview` | Check vector store indexing status |
 
 ### Order Data (use for debugging, analysis, validation)
 | Tool | When to Use |
@@ -87,8 +87,8 @@ This agent follows a strict **specification-driven** approach. When implementing
 - **Controllers**: Thin, delegate to services. See `oms-core/src/main/java/org/example/oms/api/`
 - **DTOs**: Small, immutable. Generated from OpenAPI specs via `openApiGenerate` Gradle task
 - **Mappers**: Explicit mappers using MapStruct (controller → DTO → service → repository)
-- **State Machine**: Generic, type-safe state transitions. Consult `state-machine-framework_spec.md`
-- **Task Orchestration**: Pipeline-based workflow execution. Consult `task-orchestration-framework_spec.md`
+- **State Machine**: Generic, type-safe state transitions. Consult `oms-knowledge-base/framework/state-machine.md`
+- **Task Orchestration**: Pipeline-based workflow execution. Consult `oms-knowledge-base/framework/task-orchestrator.md`
 - **Validation**: Predicate-based business rule enforcement
 - **Error Responses**: RFC 7807 Problem+JSON format
 - **Nullability**: Uses `jackson-databind-nullable` for OpenAPI nullable filters
@@ -108,8 +108,8 @@ Always validate transitions against the state machine spec before implementing s
 ## Task Execution Patterns
 
 ### Implementing a New Feature
-1. `semanticSearchDocs` — find related specs and patterns
-2. `readDocSection` — read the relevant spec sections in detail
+1. `searchKnowledgeBase` — find related specs and patterns
+2. `readKnowledgeBase` — read the relevant spec sections in detail
 3. Check existing code patterns in `oms-core/src/main/java/org/example/oms/`
 4. Write OpenAPI spec changes first (if API change)
 5. Implement controller → service → repository following thin-controller pattern
@@ -118,18 +118,18 @@ Always validate transitions against the state machine spec before implementing s
 
 ### Debugging / Analyzing Orders
 1. `searchOrders` — query current order state with filters
-2. `semanticSearchDocs` — look up expected behavior in specs
+2. `searchKnowledgeBase` — look up expected behavior in specs
 3. Compare actual vs expected state, identify discrepancies
 4. Reference state machine spec for valid transitions
 
 ### Answering Architecture Questions
-1. `semanticSearchDocs` — search for the concept
-2. `readDocSection` — read the architecture specification section
+1. `searchKnowledgeBase` — search for the concept
+2. `readKnowledgeBase` — read the architecture specification section
 3. Provide answer with spec references and Mermaid diagrams where helpful
 
 ### Code Review / Validation
-1. `searchDomainDocs` — find the relevant spec for the code under review
-2. `readDocSection` — read the spec requirements
+1. `searchKnowledgeBase` — find the relevant spec for the code under review
+2. `readKnowledgeBase` — read the spec requirements
 3. Compare implementation against spec, flag deviations
 
 ---
@@ -138,16 +138,20 @@ Always validate transitions against the state machine spec before implementing s
 
 | Area | Documents |
 |------|-----------|
-| **Domain Model** | `domain-model_spec.md` — entities, relationships, fields |
-| **State Machine** | `state-machine-framework_spec.md` — transitions, validation |
-| **Task Orchestration** | `task-orchestration-framework_spec.md` — pipelines, tasks |
-| **Query Store** | `state-query-store_spec.md` — CQRS read model |
-| **State Store** | `oms-state-store.md` — event sourcing persistence |
-| **Order Grouping** | `order-grouping.md` — parent-child, pro-rata allocation |
-| **Quantity Calcs** | `order-quantity-calculations.md` — fill logic |
-| **Order Replace** | `order-replace.md` — cancel/replace workflows |
-| **Streaming** | `streaming-architecture.md` — Kafka, RSocket, real-time |
-| **Architecture** | `architecture-specification.md` — full system architecture |
+| **Capabilities** | `capabilities/index.md` — what is built, use cases, requirements |
+| **Domain Model** | `domain/model/` — order, execution, events, states, quantities |
+| **State Machine** | `framework/state-machine.md` (states in force: `domain/model/order-state.md`) |
+| **Task Orchestration** | `framework/task-orchestrator.md` — pipelines, tasks |
+| **Queries** | `framework/query-engine.md` — search, filters, read services (no separate read store) |
+| **State Store** | `architecture/concepts/state-store.md` — event log, outbox, projections |
+| **Patterns** | `architecture/patterns/` — Kafka, transactions, logging, service template |
+| **Order Grouping** | `domain/concepts/order-grouping.md` — planned, not built |
+| **Quantity Calcs** | `domain/concepts/order-quantity-calculations.md` — fill logic |
+| **Order Replace** | `domain/concepts/order-replace.md` — cancel and reject built, replace not |
+| **Streaming** | `architecture/concepts/event-streaming.md` — Kafka, RSocket, real-time |
+| **Architecture** | `architecture/context/system-context.md`, `architecture/concepts/target-architecture.md` |
+
+All paths are under `oms-knowledge-base/`. Documents in `archive/` are superseded; do not build on them.
 
 ---
 

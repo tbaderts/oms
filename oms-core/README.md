@@ -69,7 +69,9 @@ staged until a relay runs.
 
 ## Architecture
 
-See [docs/architecture-specification.md](docs/architecture-specification.md) for the full picture.
+See the knowledge base for the full picture: [system context](../oms-knowledge-base/architecture/context/system-context.md),
+[state store](../oms-knowledge-base/architecture/concepts/state-store.md) and
+[target architecture](../oms-knowledge-base/architecture/concepts/target-architecture.md).
 The short version of the write path:
 
 ```text

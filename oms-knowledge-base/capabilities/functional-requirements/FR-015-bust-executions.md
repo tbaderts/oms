@@ -1,0 +1,24 @@
+---
+aliases: [functional-requirements/FR-015-bust-executions]
+type: Requirement
+title: "Bust executions"
+description: "An ExecutionBustCmd reverses a previously applied execution and restores the order quantities and state."
+tags: [functional, execution-processing]
+status: draft
+updated: "2026-11-14T12:00:00Z"
+id: "FR-015"
+priority: "should"
+implementation: "not-implemented"
+capability: "/capabilities/execution-processing.md"
+generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
+sources:
+  - resource: "repo:oms-contracts/src/main/avro/ExecutionBustCmd.avsc"
+  - resource: "/domain/concepts/execution-reporting.md"
+---
+# Bust executions
+
+Specified in [Execution Reporting](../../domain/concepts/execution-reporting.md) (bust workflows). The command schema exists; no dispatcher handles it (the API answers 501).
+
+Capability: [execution-processing](../execution-processing.md).
+
+Recording side built in SPEC-0044: the `EXEC_BUST` event with `exec_id`, the execution status (`BUSTED`), and the `OrderExecution` record with ExecType `H` on `oms_order_executions`, through `OrderEventAppender.appendExecutionLifecycleEvent`. Command processing remains not implemented (SPEC-0030).

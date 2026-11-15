@@ -23,7 +23,7 @@ import org.example.common.model.State;
  * <p>Processors obtain the machine through {@link OrderStateMachines}, where a configuration per leg
  * will be chosen once order trees exist.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle</a>
  */
 public final class OrderStateMachineConfig {
 

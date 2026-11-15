@@ -15,7 +15,7 @@ It talks to oms-core only through Kafka and the shared contracts in `oms-contrac
 | OrderCancelReject (35=9) | `OrderCancelRejectCmd` |
 
 How orders are evaluated, and every configuration option, are described in
-[oms-knowledge-base/oms-concepts/exchange-simulator.md](../oms-knowledge-base/oms-concepts/exchange-simulator.md).
+[oms-knowledge-base/architecture/context/exchange-simulator.md](../oms-knowledge-base/architecture/context/exchange-simulator.md).
 
 ## Run
 

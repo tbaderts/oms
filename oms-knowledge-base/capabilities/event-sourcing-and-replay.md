@@ -4,6 +4,7 @@ title: "Event Sourcing and Replay"
 description: "The append-only order event log and the ability to rebuild any order from it."
 tags: [event-sourcing, audit, replay]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -19,23 +20,30 @@ Every change of an order is recorded as an event with a snapshot, giving a compl
 
 ## Behaviour
 
-See [Order Event](../domain/order-event.md) and the [Event Sourcing decision](../architecture/event-sourcing.md).
+See [Order Event](../domain/model/order-event.md) and the [Event Sourcing decision](../architecture/decisions/ADR-002-event-sourcing.md).
+
+## Use cases
+
+- [UC-008 Audit and replay an order's history](use-cases/UC-008-audit-order-history.md)
 
 ## Requirements
 
-- [FR-020 Record every order change as a versioned event](../functional-requirements/FR-020-append-event-per-change.md)
-- [FR-021 Reconstruct orders from their events](../functional-requirements/FR-021-replay-orders.md)
-- [FR-022 Leave no partial writes on failure](../functional-requirements/FR-022-atomic-command-processing.md)
-- [NFR-003 Auditability](../non-functional-requirements/NFR-003-auditability.md)
-- [NFR-008 Replayability](../non-functional-requirements/NFR-008-replayability.md)
+- [FR-020 Record every order change as a versioned event](functional-requirements/FR-020-append-event-per-change.md)
+- [FR-021 Reconstruct orders from their events](functional-requirements/FR-021-replay-orders.md)
+- [FR-022 Leave no partial writes on failure](functional-requirements/FR-022-atomic-command-processing.md)
+- [NFR-003 Auditability](non-functional-requirements/NFR-003-auditability.md)
+- [NFR-008 Replayability](non-functional-requirements/NFR-008-replayability.md)
+- [FR-049 Log every command and its outcome](functional-requirements/FR-049-log-every-command.md)
+- [FR-051 Record who, where and what changed on every event](functional-requirements/FR-051-record-event-metadata.md)
+- [FR-052 Reconcile orders with their event log](functional-requirements/FR-052-reconcile-event-log.md)
 
 ## Interfaces and domain
 
-[Query API](../interfaces/query-api.md) (`GET /api/query/orders/{orderId}/events`); [Order Event](../domain/order-event.md).
+[Query API](../domain/interfaces/query-api.md) (`GET /api/query/orders/{orderId}/events`); [Order Event](../domain/model/order-event.md).
 
 ## Detailed specifications
 
-- [OMS State Store](../oms-framework/oms-state-store.md)
+- [OMS State Store](../architecture/concepts/state-store.md)
 
 ## Runtime reconciliation (SPEC-0049)
 
@@ -65,4 +73,4 @@ See [Order Event](../domain/order-event.md) and the [Event Sourcing decision](..
 
 ## Verification
 
-`EventSourcingIntegrationTest`, `ExchangeWorkflowIntegrationTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`EventSourcingIntegrationTest`, `ExchangeWorkflowIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).

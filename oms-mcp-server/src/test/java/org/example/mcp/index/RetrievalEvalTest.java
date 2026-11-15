@@ -3,6 +3,7 @@ package org.example.mcp.index;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +13,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.example.mcp.index.KnowledgeIndexService.SearchHit;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,7 +43,9 @@ class RetrievalEvalTest {
      *  Measured 2026-06-10: recall@5 = 1.000, MRR = 0.903 (25 queries). */
     private static final double RECALL_AT_5_BASELINE = 0.90;
 
-    /** MRR floor. Measured 2026-10-27 after the SPEC-0010 restructure (151 documents): MRR = 0.828. */
+    /** MRR floor. Measured 2026-10-27 after the SPEC-0010 restructure (151 documents): MRR = 0.828.
+     *  Measured 2026-11-14 after the SPEC-0061 reorganisation (204 concepts, 42 queries):
+     *  recall@5 = 1.000, MRR = 0.808; use cases and requirements now compete for the top rank. */
     private static final double MRR_BASELINE = 0.80;
 
     private static final Path KB_PATH = Paths.get("../oms-knowledge-base");
@@ -83,6 +88,7 @@ class RetrievalEvalTest {
                     break;
                 }
             }
+            log.debug("RANK {} for \"{}\" top: {}", found, gq.query(), rankedDocs.stream().limit(3).toList());
             if (found > 0) {
                 recalled++;
                 reciprocalRankSum += 1.0 / found;
@@ -104,6 +110,41 @@ class RetrievalEvalTest {
                         .formatted(recallAt5, RECALL_AT_5_BASELINE, String.join("\n", misses)));
         assertTrue(mrr >= MRR_BASELINE,
                 "MRR regression: %.3f < baseline %.2f".formatted(mrr, MRR_BASELINE));
+    }
+
+    /** Every expected document of the golden set exists, so a moved or deleted page cannot hide a miss (SPEC-0061). */
+    @Test
+    void expectedPathsExist() {
+        List<String> missing = loadGoldenQueries().stream()
+                .flatMap(q -> q.expected().stream())
+                .distinct()
+                .filter(p -> !Files.isRegularFile(KB_PATH.resolveSibling(p)))
+                .toList();
+        assertTrue(missing.isEmpty(), "golden set expects documents that do not exist: " + missing);
+    }
+
+    /** At least one golden query per top-level section of the knowledge base (SPEC-0061 AC-9). */
+    @Test
+    void goldenSetCoversEveryTopLevelFolder() throws IOException {
+        Set<String> sections;
+        try (Stream<Path> dirs = Files.list(KB_PATH)) {
+            sections = dirs.filter(Files::isDirectory)
+                    .map(d -> d.getFileName().toString())
+                    // not searched by default (archive), or not part of the bundle
+                    .filter(name -> !Set.of("archive", "storyboards", "animations").contains(name))
+                    .filter(name -> !name.startsWith("."))
+                    .collect(Collectors.toCollection(java.util.TreeSet::new));
+        }
+        Set<String> covered = loadGoldenQueries().stream()
+                .flatMap(q -> q.expected().stream())
+                .map(p -> p.split("/"))
+                .filter(parts -> parts.length > 2)
+                .map(parts -> parts[1])
+                .collect(Collectors.toSet());
+        Set<String> uncovered = new java.util.TreeSet<>(sections);
+        uncovered.removeAll(covered);
+        assertTrue(sections.size() >= 9, "expected the SPEC-0061 sections, found " + sections);
+        assertTrue(uncovered.isEmpty(), "sections without a golden query: " + uncovered);
     }
 
     @SuppressWarnings("unchecked")

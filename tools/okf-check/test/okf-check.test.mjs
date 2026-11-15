@@ -40,7 +40,7 @@ const hasError = (r, file, rule) =>
 test('valid fixture has no findings', () => {
   const r = checkBundle(VALID, { repo: VALID });
   assert.deepEqual(r.errors, []);
-  assert.equal(r.concepts, 5);
+  assert.equal(r.concepts, 9);
 });
 
 test('skips storyboards subtree: storyboards/ at the bundle root is not part of the bundle (SPEC-0014)', () => {
@@ -51,14 +51,26 @@ test('skips storyboards subtree: storyboards/ at the bundle root is not part of 
     'storyboards/d/s/steps/a.md': '---\nid: a\ntitle: A\nkind: system\n---\n',
   });
   assert.deepEqual(r.errors, []);
-  assert.equal(r.concepts, 5);
+  assert.equal(r.concepts, 9);
   // only the root-level folder is skipped; a nested folder of the same name is still checked
   const nested = variant({ 'sub/storyboards/x.md': '# no front matter\n' });
   assert.ok(nested.errors.some((e) => e.file.includes('x.md')), JSON.stringify(nested.errors));
 });
 
-const CAP = 'capability-x.md';
-const FR = 'functional-requirements/FR-001-foo.md';
+const CAP = 'capabilities/capability-x.md';
+const FR = 'capabilities/functional-requirements/FR-001-foo.md';
+const UC = 'capabilities/use-cases/UC-001-do-foo.md';
+const ACTOR = 'capabilities/actors/user.md';
+const ADR = 'decisions/ADR-001-use-foo.md';
+const OLD = 'archive/old-foo.md';
+const CONV = 'okf-conventions.md';
+const A = 'concept-a.md';
+/** Conventions that switch on the review rules (OMS-REVIEWED, OMS-RETIRED). */
+const reviewSettings = replaceIn('type_vocabulary:', 'reviewed_since: "2026-11-14T00:00:00Z"\nretired_terms: [ReadySet, Spring Boot 3]\ntype_vocabulary:');
+/** Every concept outside archive/ reviewed on 2026-11-14. */
+const reviewedEverywhere = () => Object.fromEntries(
+  [A, B, CAP, FR, UC, ACTOR, ADR, CONV].map((f) => [f, (s) => s.replace(/^---\n/, '---\nupdated: "2026-11-14T09:00:00Z"\n').replace(/\nupdated: "2026-10-27T10:00:00\+02:00"/, '')]),
+);
 
 test('repository sources exist and implemented requirements cite code and tests', () => {
   hasError(variant({ [CAP]: replaceIn('repo:src/main/Foo.java', 'repo:src/main/Missing.java') }), CAP, 'OMS-SRC');
@@ -102,16 +114,19 @@ test('capability rules', () => {
 });
 
 test('requirement rules', () => {
-  const FR2 = 'functional-requirements/FR-002-bar.md';
-  const addToIndex = (file) => ({ 'functional-requirements/index.md': (s) => s + `- [x](${file.split('/').pop()}) — x\n` });
+  const FR2 = 'capabilities/functional-requirements/FR-002-bar.md';
+  const addToIndex = (file) => ({
+    'capabilities/functional-requirements/index.md': (s) => s + `- [x](${file.split('/').pop()}) — x\n`,
+    [UC]: (s) => s + `- [x](../functional-requirements/${file.split('/').pop()})\n`,
+  });
   const second = (edit = (s) => s) => ({ ...addToIndex(FR2), [FR2]: () => edit(readFileSync(join(VALID, FR), 'utf8')) });
   hasError(variant(second()), FR2, 'OMS-REQ'); // duplicate id FR-001
   hasError(variant({ [FR]: replaceIn('id: FR-001', 'id: FR-1') }), FR, 'OMS-REQ');
   hasError(variant({ [FR]: replaceIn('id: FR-001\n', '') }), FR, 'OMS-REQ');
   hasError(variant({ [FR]: replaceIn('priority: must', 'priority: high') }), FR, 'OMS-REQ');
   hasError(variant({ [FR]: replaceIn('implementation: implemented', 'implementation: done') }), FR, 'OMS-REQ');
-  hasError(variant({ [FR]: replaceIn('capability: /capability-x.md', 'capability: /capability-y.md') }), FR, 'OMS-REQ');
-  hasError(variant({ [FR]: replaceIn('capability: /capability-x.md', 'capability: /concept-a.md') }), FR, 'OMS-REQ');
+  hasError(variant({ [FR]: replaceIn('capability: /capabilities/capability-x.md', 'capability: /capabilities/capability-y.md') }), FR, 'OMS-REQ');
+  hasError(variant({ [FR]: replaceIn('capability: /capabilities/capability-x.md', 'capability: /concept-a.md') }), FR, 'OMS-REQ');
   hasError(variant({ [FR]: replaceIn('id: FR-001', 'id: NFR-001') }), FR, 'OMS-REQ'); // NFR in the FR folder
   assert.deepEqual(variant(second((s) => s.replace('id: FR-001', 'id: FR-002'))).errors, []);
 });
@@ -198,4 +213,95 @@ test('real bundle conforms', () => {
   const r = checkBundle(REAL);
   assert.deepEqual(r.errors.map((e) => `${e.file} [${e.rule}] ${e.message}`), []);
   assert.ok(r.concepts >= 33, `only ${r.concepts} concepts parsed`);
+});
+
+// ----- SPEC-0061 rules -----
+
+const only = (r, rule) => r.errors.filter((e) => e.rule === rule);
+
+test('use case rules (OMS-UC)', () => {
+  hasError(variant({ [UC]: replaceIn('id: UC-001', 'id: UC-1') }), UC, 'OMS-UC');
+  hasError(variant({ [UC]: replaceIn('id: UC-001\n', '') }), UC, 'OMS-UC');
+  hasError(variant({ [UC]: replaceIn('actors: [/capabilities/actors/user.md]', 'actors: []') }), UC, 'OMS-UC');
+  hasError(variant({ [UC]: replaceIn('actors: [/capabilities/actors/user.md]', 'actors: [/concept-a.md]') }), UC, 'OMS-UC');
+  hasError(variant({ [UC]: replaceIn('capability: /capabilities/capability-x.md', 'capability: /concept-a.md') }), UC, 'OMS-UC');
+  hasError(variant({ [UC]: replaceIn('- [FR-001 Foo is handled](../functional-requirements/FR-001-foo.md)', 'None.') }), UC, 'OMS-UC');
+  // file name must start with the id, and the folder is fixed
+  hasError(variant({ [UC]: replaceIn('id: UC-001', 'id: UC-002') }), UC, 'OMS-UC');
+  const UC2 = 'sub/UC-002-elsewhere.md';
+  hasError(variant({
+    [UC2]: () => readFileSync(join(VALID, UC), 'utf8').replace('id: UC-001', 'id: UC-002').replace('../functional-requirements/', '../capabilities/functional-requirements/'),
+    'sub/index.md': (s) => s + '- [UC-002](UC-002-elsewhere.md) — x\n',
+  }), UC2, 'OMS-UC');
+  // ids are unique: a second UC-001 in the folder fails
+  const DUP = 'capabilities/use-cases/UC-001-again.md';
+  const dup = variant({
+    [DUP]: () => readFileSync(join(VALID, UC), 'utf8'),
+    'capabilities/use-cases/index.md': (s) => s + '- [UC-001 again](UC-001-again.md) — x\n',
+  });
+  assert.ok(dup.errors.some((e) => e.rule === 'OMS-UC' && /duplicate id UC-001/.test(e.message)), JSON.stringify(dup.errors));
+});
+
+test('actor rules (OMS-ACTOR)', () => {
+  hasError(variant({ [ACTOR]: replaceIn('kind: human', 'kind: robot') }), ACTOR, 'OMS-ACTOR');
+  hasError(variant({ [ACTOR]: replaceIn('kind: human\n', '') }), ACTOR, 'OMS-ACTOR');
+});
+
+test('decision rules (OMS-ADR)', () => {
+  hasError(variant({ [ADR]: replaceIn('id: ADR-001', 'id: ADR-1') }), ADR, 'OMS-ADR');
+  hasError(variant({ [ADR]: replaceIn('id: ADR-001\n', '') }), ADR, 'OMS-ADR');
+  hasError(variant({ [ADR]: replaceIn('id: ADR-001', 'id: ADR-002') }), ADR, 'OMS-ADR');
+});
+
+test('capabilities link a use case and every requirement is traced to one (OMS-CAP, OMS-TRACE)', () => {
+  hasError(variant({ [CAP]: replaceIn('Use cases: [UC-001 Do foo](use-cases/UC-001-do-foo.md).', 'No use cases.') }), CAP, 'OMS-CAP');
+  hasError(variant({ [UC]: replaceIn('- [FR-001 Foo is handled](../functional-requirements/FR-001-foo.md)', 'See [the capability](../capability-x.md).') }), FR, 'OMS-TRACE');
+});
+
+test('requirements live under capabilities/ (OMS-REQ)', () => {
+  const moved = 'functional-requirements/FR-009-root.md';
+  const r = variant({
+    [moved]: () => readFileSync(join(VALID, FR), 'utf8').replace('id: FR-001', 'id: FR-009').replace('../capability-x.md', '../capabilities/capability-x.md'),
+    'functional-requirements/index.md': '# FR\n\n- [FR-009](FR-009-root.md) — x\n',
+    'index.md': (s) => s + '- [FR](functional-requirements/index.md) — x\n',
+  });
+  hasError(r, moved, 'OMS-REQ');
+});
+
+test('review date applies outside archive/ when the conventions set it (OMS-REVIEWED)', () => {
+  // off by default: the valid fixture has no reviewed_since
+  assert.deepEqual(only(variant({}), 'OMS-REVIEWED'), []);
+  const clean = variant({ ...reviewedEverywhere(), [CONV]: (s) => reviewSettings(s.replace(/^---\n/, '---\nupdated: "2026-11-14T09:00:00Z"\n')) });
+  assert.deepEqual(clean.errors, [], 'every concept reviewed: no errors');
+  const missing = variant({ [CONV]: reviewSettings });
+  hasError(missing, B, 'OMS-REVIEWED'); // no updated at all
+  hasError(missing, A, 'OMS-REVIEWED'); // updated before reviewed_since
+  assert.ok(!missing.errors.some((e) => e.file === OLD && e.rule === 'OMS-REVIEWED'), 'archive/ is exempt');
+});
+
+test('retired terms may not appear in prose outside archive/ (OMS-RETIRED)', () => {
+  const base = { ...reviewedEverywhere(), [CONV]: (s) => reviewSettings(s.replace(/^---\n/, '---\nupdated: "2026-11-14T09:00:00Z"\n')) };
+  const withB = (edit) => variant({ ...base, [B]: (s) => edit(base[B](s)) });
+  hasError(withB((s) => s + '\nThe read store is readyset.\n'), B, 'OMS-RETIRED'); // case-insensitive
+  hasError(withB((s) => s + '\nBuilt on Spring Boot 3.\n'), B, 'OMS-RETIRED');
+  assert.deepEqual(withB((s) => s + '\n```\nReadySet\n```\n\nThe `ReadySet` name.\n').errors, [], 'code is exempt');
+  assert.deepEqual(withB((s) => s.replace('status: draft', 'status: draft\npoint_in_time: true') + '\nOld: ReadySet.\n').errors, [], 'point-in-time records are exempt');
+  // the archive document mentions ReadySet and is exempt
+  assert.ok(!variant(base).errors.some((e) => e.rule === 'OMS-RETIRED'));
+});
+
+test('archive documents are deprecated and say what replaced them (OMS-ARCHIVE)', () => {
+  hasError(variant({ [OLD]: replaceIn('status: deprecated', 'status: draft') }), OLD, 'OMS-ARCHIVE');
+  hasError(variant({ [OLD]: replaceIn('superseded_by: /capabilities/capability-x.md\n', '') }), OLD, 'OMS-ARCHIVE');
+  hasError(variant({ [OLD]: replaceIn('superseded_by: /capabilities/capability-x.md', 'superseded_by: /gone.md') }), OLD, 'OMS-ARCHIVE');
+  assert.deepEqual(variant({ [OLD]: replaceIn('superseded_by: /capabilities/capability-x.md', 'superseded_by: none') }).errors, []);
+  // deprecated outside archive/ without superseded_by
+  hasError(variant({ [B]: replaceIn('status: draft', 'status: deprecated') }), B, 'OMS-ARCHIVE');
+});
+
+test('aliases are unique and do not shadow a concept (OMS-ALIAS)', () => {
+  hasError(variant({ [B]: replaceIn('status: draft', 'status: draft\naliases: [sub/old-foo]') }), B, 'OMS-ALIAS');
+  hasError(variant({ [B]: replaceIn('status: draft', 'status: draft\naliases: [concept-a]') }), B, 'OMS-ALIAS');
+  hasError(variant({ [B]: replaceIn('status: draft', 'status: draft\naliases: old-b') }), B, 'OMS-ALIAS');
+  assert.deepEqual(variant({ [B]: replaceIn('status: draft', 'status: draft\naliases: [old/b]') }).errors, []);
 });

@@ -10,110 +10,200 @@
 queries:
   - query: "order state transitions and lifecycle"
     expected:
-      - oms-knowledge-base/oms-concepts/order-lifecycle.md
-      - oms-knowledge-base/oms-framework/state-machine-framework_spec.md
+      - oms-knowledge-base/domain/model/order-state.md
+      - oms-knowledge-base/domain/concepts/order-lifecycle.md
+      - oms-knowledge-base/framework/state-machine.md
 
   - query: "how do I cancel an order"
     expected:
-      - oms-knowledge-base/oms-concepts/order-replace.md
-      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+      - oms-knowledge-base/domain/concepts/order-replace.md
+      - oms-knowledge-base/domain/concepts/order-lifecycle.md
 
   - query: "replace an order that is partially filled"
     expected:
-      - oms-knowledge-base/oms-concepts/order-replace.md
+      - oms-knowledge-base/domain/concepts/order-replace.md
 
   - query: "leavesQty cumQty calculation partial fill"
     expected:
-      - oms-knowledge-base/oms-concepts/order-quantity-calculations.md
-      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+      - oms-knowledge-base/domain/model/order-quantities.md
+      - oms-knowledge-base/domain/concepts/order-quantity-calculations.md
+      - oms-knowledge-base/domain/concepts/order-lifecycle.md
 
   - query: "execution bust workflow"
     expected:
-      - oms-knowledge-base/oms-concepts/execution-reporting.md
+      - oms-knowledge-base/domain/concepts/execution-reporting.md
 
   - query: "trade correction handling"
     expected:
-      - oms-knowledge-base/oms-concepts/execution-reporting.md
+      - oms-knowledge-base/domain/concepts/execution-reporting.md
 
   - query: "FIX execution report message processing"
     expected:
-      - oms-knowledge-base/oms-concepts/execution-reporting.md
+      - oms-knowledge-base/domain/concepts/execution-reporting.md
 
   - query: "RFC 7807 problem details error responses"
     expected:
-      - oms-knowledge-base/oms-framework/error-handling.md
+      - oms-knowledge-base/framework/exception-handling.md
 
   - query: "retry with backoff and circuit breaker"
     expected:
-      - oms-knowledge-base/oms-framework/error-handling.md
+      - oms-knowledge-base/architecture/patterns/kafka-messaging.md
+      - oms-knowledge-base/framework/exception-handling.md
 
   - query: "idempotency keys and error recovery"
     expected:
-      - oms-knowledge-base/oms-framework/error-handling.md
+      - oms-knowledge-base/framework/exception-handling.md
 
   - query: "which validations run when a new order is submitted"
     expected:
-      - oms-knowledge-base/oms-framework/validation-rules.md
+      - oms-knowledge-base/capabilities/functional-requirements/FR-002-validate-new-orders.md
+      - oms-knowledge-base/capabilities/use-cases/UC-001-submit-order.md
+      - oms-knowledge-base/framework/validation-engine.md
 
   - query: "block order allocation to client accounts"
     expected:
-      - oms-knowledge-base/oms-concepts/order-grouping.md
-      - oms-knowledge-base/illustrations/order_allocation_diagrams.md
-      - oms-knowledge-base/oms-concepts/order-quantity-calculations.md
+      - oms-knowledge-base/domain/concepts/block-order-allocation.md
+      - oms-knowledge-base/capabilities/block-allocation.md
+      - oms-knowledge-base/domain/concepts/order-grouping.md
+      - oms-knowledge-base/architecture/illustrations/order-allocation-diagrams.md
+      - oms-knowledge-base/domain/concepts/order-quantity-calculations.md
 
   - query: "kafka topics event streaming design"
     expected:
-      - oms-knowledge-base/oms-concepts/streaming-architecture.md
+      - oms-knowledge-base/domain/interfaces/message-api.md
+      - oms-knowledge-base/architecture/patterns/kafka-messaging.md
+      - oms-knowledge-base/architecture/concepts/event-streaming.md
 
   - query: "event sourcing CQRS separate read model"
     expected:
-      - oms-knowledge-base/oms-framework/state-query-store_spec.md
-      - oms-knowledge-base/oms-concepts/streaming-architecture.md
-      - oms-knowledge-base/oms-concepts/order-lifecycle.md
+      - oms-knowledge-base/architecture/decisions/ADR-003-shared-table-cqrs.md
+      - oms-knowledge-base/architecture/concepts/state-store.md
+      - oms-knowledge-base/capabilities/event-sourcing-and-replay.md
+      - oms-knowledge-base/framework/query-engine.md
+      - oms-knowledge-base/architecture/concepts/event-streaming.md
+      - oms-knowledge-base/domain/concepts/order-lifecycle.md
 
   - query: "MapStruct mapping between entities and DTOs"
     expected:
-      - oms-knowledge-base/oms-framework/domain-model_spec.md
+      - oms-knowledge-base/domain/model/domain-model.md
 
   - query: "Order entity fields and sub-domain extension"
     expected:
-      - oms-knowledge-base/oms-framework/domain-model_spec.md
+      - oms-knowledge-base/domain/model/domain-model.md
 
   - query: "generate code from OpenAPI specification gradle"
     expected:
-      - oms-knowledge-base/oms-framework/openapi-contracts.md
+      - oms-knowledge-base/architecture/patterns/contract-first-codegen.md
 
   - query: "Avro schema generation for events"
     expected:
-      - oms-knowledge-base/oms-framework/openapi-contracts.md
-      - oms-knowledge-base/oms-concepts/streaming-architecture.md
+      - oms-knowledge-base/domain/interfaces/message-api.md
+      - oms-knowledge-base/architecture/patterns/contract-first-codegen.md
+      - oms-knowledge-base/architecture/concepts/event-streaming.md
 
   - query: "task orchestration pipeline with context passing"
     expected:
-      - oms-knowledge-base/oms-framework/task-orchestration-framework_spec.md
+      - oms-knowledge-base/framework/task-orchestrator.md
 
   - query: "state machine guards and actions configuration"
     expected:
-      - oms-knowledge-base/oms-framework/state-machine-framework_spec.md
+      - oms-knowledge-base/framework/state-machine.md
 
   - query: "integration testing with Testcontainers"
     expected:
-      - oms-knowledge-base/oms-framework/testing-patterns.md
+      - oms-knowledge-base/delivery/testing.md
 
   - query: "test data builder pattern"
     expected:
-      - oms-knowledge-base/oms-framework/testing-patterns.md
+      - oms-knowledge-base/delivery/testing.md
 
   - query: "JPA repository patterns for the state store"
     expected:
-      - oms-knowledge-base/oms-framework/oms-state-store.md
-      - oms-knowledge-base/oms-framework/state-query-store_spec.md
+      - oms-knowledge-base/framework/query-engine.md
+      - oms-knowledge-base/architecture/concepts/state-store.md
 
   - query: "team values and engineering principles"
     expected:
-      - oms-knowledge-base/oms-methodolgy/manifesto.md
+      - oms-knowledge-base/delivery/manifesto.md
 
   - query: "how should AI agents be used in development"
     expected:
-      - oms-knowledge-base/oms-methodolgy/ai-augmented-development.md
-      - oms-knowledge-base/oms-methodolgy/agent.md
+      - oms-knowledge-base/delivery/ai-augmented-development.md
+
+  # SPEC-0061: at least one query per top-level section of the reorganised knowledge base
+
+  - query: "why is the outbox used instead of publishing to Kafka directly"
+    expected:
+      - oms-knowledge-base/architecture/decisions/ADR-005-transactional-outbox.md
+      - oms-knowledge-base/architecture/patterns/kafka-messaging.md
+      - oms-knowledge-base/architecture/patterns/transaction-handling.md
+
+  - query: "how is the trace id propagated across services and Kafka"
+    expected:
+      - oms-knowledge-base/architecture/patterns/logging-and-tracing.md
+
+  - query: "what technical debt and known shortcuts does the system have"
+    expected:
+      - oms-knowledge-base/architecture/technical-debt/technical-debt-register.md
+
+  - query: "how are dynamic order search filters turned into JPA queries"
+    expected:
+      - oms-knowledge-base/capabilities/functional-requirements/FR-018-search-orders.md
+      - oms-knowledge-base/framework/query-engine.md
+
+  - query: "which kafka topics does the OMS publish and what is the record key"
+    expected:
+      - oms-knowledge-base/domain/interfaces/message-api.md
+
+  - query: "which use cases and actors does order cancellation have"
+    expected:
+      - oms-knowledge-base/capabilities/use-cases/UC-003-cancel-order.md
+      - oms-knowledge-base/capabilities/order-cancellation.md
+
+  - query: "is amending an order quantity or price implemented"
+    expected:
+      - oms-knowledge-base/capabilities/functional-requirements/FR-036-replace-orders.md
+      - oms-knowledge-base/capabilities/order-replace.md
+      - oms-knowledge-base/capabilities/use-cases/UC-017-replace-order.md
+      - oms-knowledge-base/domain/concepts/order-replace.md
+
+  - query: "MCP tools for searching and reading the knowledge base"
+    expected:
+      - oms-knowledge-base/tools/knowledge-server.md
+
+  - query: "load test tool that creates orders at a set rate and charts latency"
+    expected:
+      - oms-knowledge-base/tools/mission-control.md
+
+  - query: "spec ticket stages proposal design plan and their gates"
+    expected:
+      - oms-knowledge-base/delivery/spec-driven-development.md
+
+  - query: "is there a CI pipeline that builds and tests the modules"
+    expected:
+      - oms-knowledge-base/delivery/ci-cd.md
+
+  - query: "which docker compose services run locally and on which ports"
+    expected:
+      - oms-knowledge-base/infrastructure/local-docker-stack.md
+
+  - query: "where do logs traces and metrics go loki tempo mimir"
+    expected:
+      - oms-knowledge-base/infrastructure/observability.md
+
+  - query: "kubernetes platform with postgres and kafka operators"
+    expected:
+      - oms-knowledge-base/infrastructure/cozystack.md
+
+  - query: "UI colour tokens and contrast rules"
+    expected:
+      - oms-knowledge-base/ui/design-system.md
+
+  - query: "how is the knowledge base organised for people and AI agents"
+    expected:
+      - oms-knowledge-base/semantic-layer/knowledge-base-strategy.md
+
+  - query: "which rules does the knowledge base checker enforce"
+    expected:
+      - oms-knowledge-base/semantic-layer/schema-and-constraints.md
+      - oms-knowledge-base/okf-conventions.md

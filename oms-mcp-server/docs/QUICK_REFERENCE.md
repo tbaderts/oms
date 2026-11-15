@@ -48,7 +48,7 @@ Returns `pong`.
 ```
 getKnowledgeBaseOverview()
   → searchKnowledgeBase("execution bust workflow")
-  → readKnowledgeBase("oms-knowledge-base/oms-concepts/execution-reporting.md",
+  → readKnowledgeBase("oms-knowledge-base/domain/concepts/execution-reporting.md",
                       "5-execution-bust-workflows")
   → generate/validate code, citing path#anchor
 ```

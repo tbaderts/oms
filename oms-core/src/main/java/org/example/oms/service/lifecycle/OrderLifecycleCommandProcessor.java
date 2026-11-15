@@ -46,8 +46,8 @@ import lombok.extern.slf4j.Slf4j;
  * is a result, not an exception, and leaves no trace: the transaction is rolled back. An optimistic
  * locking conflict is rethrown, because retrying it can succeed.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle</a>
- * @see <a href="file:///oms-knowledge-base/oms-concepts/exchange-simulator.md">Exchange Simulator</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle</a>
+ * @see <a href="file:///oms-knowledge-base/architecture/context/exchange-simulator.md">Exchange Simulator</a>
  */
 @Service
 @Slf4j

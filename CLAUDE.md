@@ -48,7 +48,7 @@ include `oms-contracts` so they still build standalone.
 
 ## Team Manifesto & Core Values
 
-The team follows these principles (from `oms-knowledge-base/oms-methodolgy/manifesto.md`):
+The team follows these principles (from `oms-knowledge-base/delivery/manifesto.md`):
 
 1. **Truthfulness and Transparency** - Honest opinions, open discussion of challenges
 2. **Ownership and Accountability** - Take responsibility for work quality
@@ -149,10 +149,15 @@ oms/
 ├── oms-ui/                      # React frontend
 │   └── frontend/
 ├── oms-mcp-server/              # MCP server for AI integration
-├── oms-knowledge-base/          # Documentation
-│   ├── oms-concepts/
-│   ├── oms-framework/
-│   └── oms-methodolgy/
+├── oms-knowledge-base/          # Documentation (OKF bundle; start at index.md)
+│   ├── capabilities/            # Capabilities, use cases, actors, FR/NFR requirements
+│   ├── domain/                  # Domain model, concepts, interfaces
+│   ├── framework/               # State machine, validation, task orchestrator, query engine, errors
+│   ├── architecture/            # Context, concepts, decisions (ADRs), patterns, technical debt
+│   ├── infrastructure/          # Docker stack, Cozystack (planned), observability
+│   ├── ui/  tools/  delivery/   # UI specs and design system; dev tools; how we build and ship
+│   ├── semantic-layer/          # How the KB is organised and checked
+│   └── archive/                 # Superseded documents (deprecated)
 └── CLAUDE.md                    # This file
 ```
 
@@ -252,12 +257,18 @@ cd oms-mcp-server
 
 ## Documentation References
 
-Key documentation files in `oms-knowledge-base/`:
-- `oms-methodolgy/manifesto.md` - Team values and principles
-- `oms-methodolgy/software-architecture-methodology.md` - Architecture approach
-- `oms-framework/domain-model_spec.md` - Domain model specifications
-- `oms-framework/state-query-store_spec.md` - Query service specs
-- `oms-concepts/streaming-architecture.md` - Event streaming concepts
+Key documentation files in `oms-knowledge-base/` (layout and rules:
+`semantic-layer/knowledge-base-strategy.md`; checker: `node tools/okf-check/okf-check.mjs oms-knowledge-base`):
+- `capabilities/index.md` - What the OMS does, what is built, use cases and requirements
+- `domain/model/` - Order, execution, event log, outbox, states, quantities, glossary
+- `domain/concepts/order-lifecycle.md` - Order lifecycle (transitions in force: `domain/model/order-state.md`)
+- `architecture/patterns/` - How to write Kafka, transaction, logging and service code that fits
+- `architecture/decisions/` - Architecture decision records (ADR-nnn)
+- `framework/query-engine.md` - How queries are answered
+- `delivery/manifesto.md` - Team values and principles
+
+A moved document keeps its former path in `aliases`; the MCP server resolves old paths.
+Superseded documents live in `archive/` and are hidden from search by default.
 
 ## Important Notes
 

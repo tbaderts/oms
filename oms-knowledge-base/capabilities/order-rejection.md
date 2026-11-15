@@ -4,6 +4,7 @@ title: "Order Rejection"
 description: "The market refusing an order, and what the OMS records about the refusal."
 tags: [reject, order-lifecycle, orders]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: ["OrderRejectCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -28,20 +29,24 @@ The market (today the [exchange simulator](exchange-simulation.md)).
 
 Handled by the shared lifecycle pipeline (see [Order Cancellation](order-cancellation.md)) with action `REJECT`.
 
+## Use cases
+
+- [UC-004 Reject an order at the venue](use-cases/UC-004-reject-order.md)
+
 ## Requirements
 
-- [FR-011 Apply market rejects](../functional-requirements/FR-011-reject-orders.md)
-- [FR-012 Expose the reject reason](../functional-requirements/FR-012-expose-reject-reason.md)
-- [NFR-001 Idempotent command handling](../non-functional-requirements/NFR-001-idempotent-command-handling.md)
+- [FR-011 Apply market rejects](functional-requirements/FR-011-reject-orders.md)
+- [FR-012 Expose the reject reason](functional-requirements/FR-012-expose-reject-reason.md)
+- [NFR-001 Idempotent command handling](non-functional-requirements/NFR-001-idempotent-command-handling.md)
 
 ## Interfaces and domain
 
-[Command API](../interfaces/command-api.md), [Kafka Topics](../interfaces/kafka-topics.md); [Order](../domain/order.md).
+[Command API](../domain/interfaces/command-api.md), [Kafka Topics](../domain/interfaces/message-api.md); [Order](../domain/model/order.md).
 
 ## Detailed specifications
 
-- [Order Lifecycle Management Specification](../oms-concepts/order-lifecycle.md)
-- [Replace, Cancel and Reject Operations](../oms-concepts/order-replace.md) (reject sections)
+- [Order Lifecycle Management Specification](../domain/concepts/order-lifecycle.md)
+- [Replace, Cancel and Reject Operations](../domain/concepts/order-replace.md) (reject sections)
 
 ## Known gaps
 
@@ -49,4 +54,4 @@ None known.
 
 ## Verification
 
-`OrderLifecycleCommandProcessorTest`, `ExchangeWorkflowIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OrderLifecycleCommandProcessorTest`, `ExchangeWorkflowIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../delivery/testing.md).

@@ -10,7 +10,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Reads the stored command and snapshot JSON of an {@code order_events} row under the upcasting
- * rule (SPEC-0024, documented in oms-knowledge-base/oms-framework/oms-state-store.md):
+ * rule (SPEC-0024, documented in oms-knowledge-base/architecture/concepts/state-store.md):
  *
  * <ul>
  *   <li>a row without {@code schema_version} was written before the column existed and is version

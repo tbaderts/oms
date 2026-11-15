@@ -88,6 +88,33 @@ class KnowledgeBaseToolsTest {
 
                 Part of [Widget Intake](x-capture.md). Counting happens on the conveyor.
                 """);
+        Files.createDirectories(kb.resolve("domain"));
+        Files.writeString(kb.resolve("domain/relocated.md"), """
+                ---
+                type: Specification
+                title: "Relocated Spec"
+                description: "A document that moved in SPEC-0061."
+                tags: [moved]
+                status: draft
+                aliases: [old-folder/relocated]
+                ---
+                # Relocated Spec
+
+                The relocated spec mentions quuxwidget handling.
+                """);
+        Files.writeString(kb.resolve("x-retired.md"), """
+                ---
+                type: Specification
+                title: "Retired Spec"
+                description: "Superseded design."
+                tags: [old]
+                status: deprecated
+                superseded_by: /domain/relocated.md
+                ---
+                # Retired Spec
+
+                The retired spec described zorbleflux storage that was never built.
+                """);
         Files.writeString(kb.resolve("index.md"), "# Index\n\n- [Widget Intake](x-capture.md) — navigationonly\n");
         Files.writeString(kb.resolve("log.md"), "# Log\n\n## 2026-10-27\n\nlogonlyword entry.\n");
 
@@ -239,5 +266,29 @@ class KnowledgeBaseToolsTest {
         assertTrue(result.contains("Complete"));
         assertTrue(result.contains("`#order-states`"));
         assertTrue(result.contains("BM25 keyword"), "should state search mode when embeddings are off");
+    }
+
+    @Test
+    void readKnowledgeBaseReportsMove() {
+        String result = tools.readKnowledgeBase("old-folder/relocated.md", null, null, null);
+        assertTrue(result.startsWith("> Moved: `old-folder/relocated.md` is now `" + base + "/domain/relocated.md`."), result);
+        assertTrue(result.contains("quuxwidget"), result);
+        assertTrue(result.contains("## `" + base + "/domain/relocated.md`"), "the current path is shown:\n" + result);
+        String section = tools.readKnowledgeBase(base + "/old-folder/relocated.md", "relocated-spec", null, null);
+        assertTrue(section.startsWith("> Moved:") && section.contains("quuxwidget"), section);
+    }
+
+    @Test
+    void searchHidesDeprecatedByDefault() {
+        assertFalse(tools.searchKnowledgeBase("zorbleflux storage", 5, null, null, null, null).contains("x-retired.md"),
+                "deprecated documents are hidden by default");
+        assertTrue(tools.searchKnowledgeBase("zorbleflux storage", 5, null, "deprecated", null, null).contains("x-retired.md"),
+                "asking for deprecated finds them");
+    }
+
+    @Test
+    void categoryFilterUsesTopLevelFolder() {
+        String result = tools.searchKnowledgeBase("quuxwidget", 5, "domain", null, null, null);
+        assertTrue(result.contains("domain/relocated.md"), result);
     }
 }

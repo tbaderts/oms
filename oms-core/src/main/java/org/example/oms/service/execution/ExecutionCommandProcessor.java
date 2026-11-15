@@ -41,8 +41,8 @@ import org.example.oms.service.command.LoadedOrders;
  *   <li>ProjectTask - Updates the projections and stages their messages (SPEC-0020)</li>
  * </ol>
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - 6-Task Pipeline</a>
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Transitions</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/execution-reporting.md">Execution Reporting - 6-Task Pipeline</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle - State Transitions</a>
  */
 @Service
 @Slf4j

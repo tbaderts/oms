@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.example.mcp.docs.DocumentRepository;
 import org.example.mcp.docs.FrontMatter;
 import org.example.mcp.docs.MarkdownAnchors;
 import org.example.mcp.docs.MarkdownParser;
@@ -44,7 +45,7 @@ public class SectionChunker {
         List<String> anchors = MarkdownAnchors.assignAnchors(sections);
         String docName = path.substring(path.lastIndexOf('/') + 1);
         SectionChunk template = new SectionChunk(path, "", docName, docName, 0, 1, 1, "",
-                meta.category(), okf.status(), okf.version(), okf.type(), okf.tags(), okf.trustTier());
+                DocumentRepository.category(meta.category(), path.substring(path.indexOf('/') + 1)), okf.status(), okf.version(), okf.type(), okf.tags(), okf.trustTier());
 
         List<SectionChunk> segments = new ArrayList<>();
 

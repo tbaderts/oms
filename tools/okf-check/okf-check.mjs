@@ -26,6 +26,14 @@ const MATURITIES = new Set(['implemented', 'partial', 'planned']);
 const PRIORITIES = new Set(['must', 'should', 'could', 'wont']);
 const IMPLEMENTATIONS = new Set(['implemented', 'partial', 'not-implemented']);
 const PROVENANCE_TYPES = new Set(['Capability', 'Requirement', 'Domain Concept', 'Glossary', 'Interface', 'Architecture', 'Component', 'Decision']);
+const ACTOR_KINDS = new Set(['human', 'system', 'external']);
+
+/** Folder layout of the capability catalogue (SPEC-0061), relative to the bundle root. */
+export const FR_DIR = 'capabilities/functional-requirements';
+export const NFR_DIR = 'capabilities/non-functional-requirements';
+export const USE_CASE_DIR = 'capabilities/use-cases';
+export const ACTOR_DIR = 'capabilities/actors';
+export const ARCHIVE_DIR = 'archive';
 
 // ----- parsing -----
 
@@ -124,7 +132,9 @@ export function checkBundle(bundleDir, { repo } = {}) {
     checkConcept(fm, (rule, message) => err(p, rule, message), vocabulary);
   }
 
+  const settings = parsed.get(convPath)?.fm || {};
   checkStructure(bundle, repoRoot, concepts, parsed, err);
+  checkReview(bundle, concepts, parsed, err, settings);
   checkIndexes(bundle, dirs, concepts, parsed, err);
   for (const p of files.filter((f) => f.endsWith(`${sep}log.md`))) checkLog(p, parsed.get(p), err);
 
@@ -177,6 +187,8 @@ function checkStructure(bundle, repoRoot, concepts, parsed, err) {
   const fmOf = (p) => parsed.get(p)?.fm;
   const typeOf = (p) => fmOf(p)?.type;
   const requirementIds = new Map();
+  const useCaseIds = new Map();
+  const decisionIds = new Map();
 
   for (const p of concepts) {
     const fm = fmOf(p);
@@ -200,12 +212,52 @@ function checkStructure(bundle, repoRoot, concepts, parsed, err) {
       if (!Array.isArray(fm.sources) || !fm.sources.length) e('OMS-PROV', 'sources must be a non-empty list');
     }
 
+    const linkedTypes = () => linkTargets(parsed.get(p).body)
+      .map((t) => resolveLink(bundle, p, t)).filter(Boolean).map((abs) => typeOf(abs));
+    const folderOf = relative(bundle, dirname(p)).split(sep).join('/');
+    const fileName = p.split(sep).pop();
+
     if (fm.type === 'Capability') {
       if (!MATURITIES.has(fm.maturity)) e('OMS-CAP', `maturity must be one of ${[...MATURITIES].join(', ')} (found ${JSON.stringify(fm.maturity)})`);
       if (!Array.isArray(fm.commands) || !fm.commands.every((c) => typeof c === 'string')) e('OMS-CAP', 'commands must be a list of command names (use [] for none)');
-      const linksRequirement = linkTargets(parsed.get(p).body)
-        .map((t) => resolveLink(bundle, p, t)).some((abs) => abs && typeOf(abs) === 'Requirement');
-      if (!linksRequirement) e('OMS-CAP', 'must link at least one Requirement concept');
+      const types = linkedTypes();
+      if (!types.includes('Requirement')) e('OMS-CAP', 'must link at least one Requirement concept');
+      if (!types.includes('Use Case')) e('OMS-CAP', 'must link at least one Use Case concept');
+    }
+
+    if (fm.type === 'Use Case') {
+      const id = fm.id;
+      if (typeof id !== 'string' || !/^UC-\d{3}$/.test(id)) e('OMS-UC', `id must match UC-nnn (found ${JSON.stringify(id)})`);
+      else {
+        if (!fileName.startsWith(`${id}-`)) e('OMS-UC', `file name must start with ${id}-`);
+        if (useCaseIds.has(id)) e('OMS-UC', `duplicate id ${id}`);
+        else useCaseIds.set(id, p);
+      }
+      if (folderOf !== USE_CASE_DIR) e('OMS-UC', `use cases live in ${USE_CASE_DIR}/`);
+      const actors = Array.isArray(fm.actors) ? fm.actors : [];
+      if (!actors.length) e('OMS-UC', 'actors must be a non-empty list of Actor paths');
+      for (const a of actors) {
+        const abs = typeof a === 'string' ? resolveLink(bundle, p, a) : null;
+        if (!abs || typeOf(abs) !== 'Actor') e('OMS-UC', `actor ${JSON.stringify(a)} is not an Actor concept`);
+      }
+      const cap = typeof fm.capability === 'string' ? resolveLink(bundle, p, fm.capability) : null;
+      if (!cap || typeOf(cap) !== 'Capability') e('OMS-UC', `capability must point to a Capability concept (found ${JSON.stringify(fm.capability)})`);
+      if (!linkedTypes().includes('Requirement')) e('OMS-UC', 'must link at least one Requirement concept');
+    }
+
+    if (fm.type === 'Actor') {
+      if (!ACTOR_KINDS.has(fm.kind)) e('OMS-ACTOR', `kind must be one of ${[...ACTOR_KINDS].join(', ')} (found ${JSON.stringify(fm.kind)})`);
+      if (folderOf !== ACTOR_DIR) e('OMS-ACTOR', `actors live in ${ACTOR_DIR}/`);
+    }
+
+    if (fm.type === 'Decision') {
+      const id = fm.id;
+      if (typeof id !== 'string' || !/^ADR-\d{3}$/.test(id)) e('OMS-ADR', `id must match ADR-nnn (found ${JSON.stringify(id)})`);
+      else {
+        if (!fileName.startsWith(`${id}-`)) e('OMS-ADR', `file name must start with ${id}-`);
+        if (decisionIds.has(id)) e('OMS-ADR', `duplicate id ${id}`);
+        else decisionIds.set(id, p);
+      }
     }
 
     if (fm.type === 'Requirement') {
@@ -213,8 +265,8 @@ function checkStructure(bundle, repoRoot, concepts, parsed, err) {
       const m = typeof id === 'string' ? id.match(/^(FR|NFR)-\d{3}$/) : null;
       if (!m) e('OMS-REQ', `id must match FR-nnn or NFR-nnn (found ${JSON.stringify(id)})`);
       else {
-        const folder = m[1] === 'FR' ? 'functional-requirements' : 'non-functional-requirements';
-        if (relative(bundle, dirname(p)).split(sep).join('/') !== folder) e('OMS-REQ', `${id} must live in ${folder}/`);
+        const folder = m[1] === 'FR' ? FR_DIR : NFR_DIR;
+        if (folderOf !== folder) e('OMS-REQ', `${id} must live in ${folder}/`);
         if (requirementIds.has(id)) e('OMS-REQ', `duplicate id ${id} (also ${relative(bundle, requirementIds.get(id)).split(sep).join('/')})`);
         else requirementIds.set(id, p);
       }
@@ -225,6 +277,80 @@ function checkStructure(bundle, repoRoot, concepts, parsed, err) {
       if (fm.implementation === 'implemented' || fm.implementation === 'partial') {
         if (!repoPaths.some(isMainSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a main source (repo:…/src/…)`);
         if (!repoPaths.some(isTestSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a test source (repo:…/src/test/… or *.test.*)`);
+      }
+    }
+  }
+
+  // OMS-TRACE: every requirement is exercised by at least one use case
+  const traced = new Set(concepts.filter((p) => typeOf(p) === 'Use Case')
+    .flatMap((p) => linkTargets(parsed.get(p).body).map((t) => resolveLink(bundle, p, t)).filter(Boolean)));
+  for (const p of concepts.filter((c) => typeOf(c) === 'Requirement')) {
+    if (!traced.has(p)) err(p, 'OMS-TRACE', 'requirement is not linked from any Use Case');
+  }
+}
+
+/** Body text that is prose: fenced code blocks and inline code spans removed. */
+export function proseText(body) {
+  const out = [];
+  let fence = null;
+  for (const line of body.split(/\r?\n/)) {
+    const f = line.trim().match(/^(`{3,}|~{3,})/);
+    if (f) {
+      if (!fence) fence = f[1][0];
+      else if (f[1][0] === fence) fence = null;
+      continue;
+    }
+    if (!fence) out.push(line.replace(/`[^`]*`/g, ''));
+  }
+  return out.join('\n');
+}
+
+/** Concept id: bundle-relative path without `.md`. */
+const conceptId = (bundle, p) => relative(bundle, p).split(sep).join('/').replace(/\.md$/, '');
+
+/** Review, archive and alias rules (SPEC-0061). Settings come from the conventions' front matter. */
+function checkReview(bundle, concepts, parsed, err, settings) {
+  const archiveRoot = join(bundle, ARCHIVE_DIR) + sep;
+  const inArchive = (p) => p.startsWith(archiveRoot);
+  const reviewedSince = typeof settings.reviewed_since === 'string' ? Date.parse(settings.reviewed_since) : NaN;
+  const retired = (Array.isArray(settings.retired_terms) ? settings.retired_terms : [])
+    .filter((t) => typeof t === 'string' && t.trim()).map((t) => t.toLowerCase());
+  const ids = new Set(concepts.map((p) => conceptId(bundle, p)));
+  const aliasOwners = new Map();
+
+  for (const p of concepts) {
+    const { fm, body } = parsed.get(p);
+    if (!fm) continue;
+    const e = (rule, message) => err(p, rule, message);
+
+    if (!inArchive(p)) {
+      if (!Number.isNaN(reviewedSince)) {
+        const updated = typeof fm.updated === 'string' ? Date.parse(fm.updated) : NaN;
+        if (Number.isNaN(updated) || updated < reviewedSince) e('OMS-REVIEWED', `updated must be on or after ${settings.reviewed_since} (found ${JSON.stringify(fm.updated)})`);
+      }
+      if (retired.length && fm.point_in_time !== true) {
+        const prose = proseText(body).toLowerCase();
+        for (const term of retired) if (prose.includes(term)) e('OMS-RETIRED', `retired term "${term}" in prose; correct it, put it in code, or move the document to ${ARCHIVE_DIR}/`);
+      }
+    } else if (fm.status !== 'deprecated') {
+      e('OMS-ARCHIVE', `documents in ${ARCHIVE_DIR}/ must have status: deprecated`);
+    }
+
+    if (fm.status === 'deprecated') {
+      const s = fm.superseded_by;
+      const target = typeof s === 'string' && s !== 'none' ? resolveLink(bundle, p, s) : null;
+      if (s !== 'none' && !(target && parsed.get(target)?.fm)) e('OMS-ARCHIVE', `deprecated concept needs superseded_by: a concept path or none (found ${JSON.stringify(s)})`);
+    }
+
+    if (fm.aliases !== undefined) {
+      if (!Array.isArray(fm.aliases) || !fm.aliases.every((a) => typeof a === 'string' && a.trim())) {
+        e('OMS-ALIAS', 'aliases must be a list of former concept ids');
+        continue;
+      }
+      for (const a of fm.aliases) {
+        if (ids.has(a)) e('OMS-ALIAS', `alias ${a} names an existing concept`);
+        if (aliasOwners.has(a)) e('OMS-ALIAS', `alias ${a} is also claimed by ${conceptId(bundle, aliasOwners.get(a))}`);
+        else aliasOwners.set(a, p);
       }
     }
   }

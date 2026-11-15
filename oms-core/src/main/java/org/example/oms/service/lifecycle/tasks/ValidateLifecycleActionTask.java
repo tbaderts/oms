@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
  * precondition stops holding once its action has been applied, which is what makes the commands
  * idempotent: a redelivered command is refused here and writes nothing.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle</a>
  */
 @Component
 @RequiredArgsConstructor

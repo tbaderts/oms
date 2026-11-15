@@ -32,7 +32,7 @@ describe('storyboards IPC', () => {
   async function setup(opts: { saveTo?: string | null; writable?: boolean } = {}) {
     ws = createStoryboardWorkspace();
     ws.writeExample();
-    ws.write({ 'oms-knowledge-base/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }, '\nOrders are accepted.\n') });
+    ws.write({ 'oms-knowledge-base/capabilities/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }, '\nOrders are accepted.\n') });
     const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-cfg-'));
     dirs.push(cfgDir);
     const configService = new ConfigService(cfgDir);
@@ -153,8 +153,8 @@ describe('storyboards IPC', () => {
     expect(events.map((e) => e.type)).toContain('storyboards:changed');
     expect((await invoke('storyboards:scan')).catalogue).toEqual([]);
     // a requirement edit invalidates the link index
-    ws.write({ 'oms-knowledge-base/functional-requirements/FR-002-x.md': md({ id: 'FR-002', title: 'X' }) });
-    runtime!.onWatcherPath(path.join(ws.root, 'oms-knowledge-base/functional-requirements/FR-002-x.md'), 'add');
+    ws.write({ 'oms-knowledge-base/capabilities/functional-requirements/FR-002-x.md': md({ id: 'FR-002', title: 'X' }) });
+    runtime!.onWatcherPath(path.join(ws.root, 'oms-knowledge-base/capabilities/functional-requirements/FR-002-x.md'), 'add');
     expect((await invoke('storyboards:links')).requirements).toEqual(['FR-001', 'FR-002']);
   });
 });

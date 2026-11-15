@@ -78,7 +78,7 @@ export const mockKbApi = {
   async listDocuments(): Promise<DocMeta[]> {
     return [
       {
-        path: 'oms-knowledge-base/oms-concepts/order-lifecycle.md',
+        path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md',
         name: 'order-lifecycle.md',
         size: 650,
         lastModifiedIso: '2026-02-16T10:00:00Z',
@@ -87,8 +87,8 @@ export const mockKbApi = {
         category: 'Domain & Business Logic',
       },
       {
-        path: 'oms-knowledge-base/oms-framework/testing-patterns.md',
-        name: 'testing-patterns.md',
+        path: 'oms-knowledge-base/delivery/testing.md',
+        name: 'testing.md',
         size: 1400,
         lastModifiedIso: '2026-02-16T09:30:00Z',
         version: '1.0',
@@ -96,8 +96,8 @@ export const mockKbApi = {
         category: 'Framework & Architecture',
       },
       {
-        path: 'oms-knowledge-base/oms-framework/error-handling.md',
-        name: 'error-handling.md',
+        path: 'oms-knowledge-base/framework/exception-handling.md',
+        name: 'exception-handling.md',
         size: 1400,
         lastModifiedIso: '2026-02-16T09:00:00Z',
         version: '1.0',
@@ -120,7 +120,7 @@ export const mockKbApi = {
   async searchHybrid(): Promise<HybridSearchHit[]> {
     return [
       {
-        path: 'oms-knowledge-base/oms-concepts/order-lifecycle.md',
+        path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md',
         keywordScore: 0.89,
         semanticScore: 0.98,
         hybridScore: 0.94,

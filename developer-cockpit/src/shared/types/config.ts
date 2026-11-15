@@ -49,7 +49,6 @@ export interface AiConfig {
 
 export interface KnowledgeBaseConfig {
   rootPath: string;
-  categories: string[];
   fileExtensions: string[];
   excludePatterns: string[];
 }
@@ -108,7 +107,6 @@ export const DEFAULT_CONFIG: CockpitConfig = {
   },
   knowledgeBase: {
     rootPath: 'oms-knowledge-base',
-    categories: ['oms-concepts', 'oms-framework', 'oms-methodolgy'],
     fileExtensions: ['.md', '.mdx'],
     excludePatterns: ['node_modules', '.git', 'build', 'dist'],
   },

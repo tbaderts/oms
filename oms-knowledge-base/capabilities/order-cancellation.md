@@ -4,6 +4,7 @@ title: "Order Cancellation"
 description: "Client cancel requests and the market's cancel confirmations and refusals."
 tags: [cancel, order-lifecycle, orders]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: ["OrderCancelRequestCmd", "OrderCancelCmd", "OrderCancelRejectCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -34,23 +35,27 @@ publication). `LifecycleAction` is the rule table (target state,
 cancel state, event, whether open quantity closes, effect on `rejectReason`). Concurrent updates fail
 with an optimistic-lock conflict (409).
 
+## Use cases
+
+- [UC-003 Cancel a working order](use-cases/UC-003-cancel-order.md)
+
 ## Requirements
 
-- [FR-007 Accept cancel requests](../functional-requirements/FR-007-request-cancel.md)
-- [FR-008 Apply market cancels](../functional-requirements/FR-008-confirm-cancel.md)
-- [FR-009 Apply cancel rejects](../functional-requirements/FR-009-reject-cancel-request.md)
-- [FR-010 Ignore redelivered lifecycle commands](../functional-requirements/FR-010-deduplicate-lifecycle-commands.md)
-- [NFR-001 Idempotent command handling](../non-functional-requirements/NFR-001-idempotent-command-handling.md)
-- [NFR-002 Optimistic concurrency](../non-functional-requirements/NFR-002-optimistic-concurrency.md)
+- [FR-007 Accept cancel requests](functional-requirements/FR-007-request-cancel.md)
+- [FR-008 Apply market cancels](functional-requirements/FR-008-confirm-cancel.md)
+- [FR-009 Apply cancel rejects](functional-requirements/FR-009-reject-cancel-request.md)
+- [FR-010 Ignore redelivered lifecycle commands](functional-requirements/FR-010-deduplicate-lifecycle-commands.md)
+- [NFR-001 Idempotent command handling](non-functional-requirements/NFR-001-idempotent-command-handling.md)
+- [NFR-002 Optimistic concurrency](non-functional-requirements/NFR-002-optimistic-concurrency.md)
 
 ## Interfaces and domain
 
-[Command API](../interfaces/command-api.md), [Kafka Topics](../interfaces/kafka-topics.md); [Order State](../domain/order-state.md).
+[Command API](../domain/interfaces/command-api.md), [Kafka Topics](../domain/interfaces/message-api.md); [Order State](../domain/model/order-state.md).
 
 ## Detailed specifications
 
-- [Order Lifecycle Management Specification](../oms-concepts/order-lifecycle.md)
-- [Replace, Cancel and Reject Operations](../oms-concepts/order-replace.md) (cancel sections; the replace parts are not built)
+- [Order Lifecycle Management Specification](../domain/concepts/order-lifecycle.md)
+- [Replace, Cancel and Reject Operations](../domain/concepts/order-replace.md) (cancel sections; the replace parts are not built)
 
 ## Known gaps
 
@@ -58,4 +63,4 @@ with an optimistic-lock conflict (409).
 
 ## Verification
 
-`OrderLifecycleCommandProcessorTest`, `ExchangeWorkflowIntegrationTest`, `CommandControllerWebMvcTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OrderLifecycleCommandProcessorTest`, `ExchangeWorkflowIntegrationTest`, `CommandControllerWebMvcTest`. Conventions: [Testing Patterns](../delivery/testing.md).

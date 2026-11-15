@@ -103,7 +103,7 @@ public class OrderEvent {
     /**
      * The schema version of this event's command and snapshot JSON, stamped by the appender
      * (SPEC-0024). null on rows written before the column existed: the upcasting rule in
-     * oms-knowledge-base/oms-framework/oms-state-store.md treats those as version 1.
+     * oms-knowledge-base/architecture/concepts/state-store.md treats those as version 1.
      */
     @Column(name = "schema_version")
     private Integer schemaVersion;

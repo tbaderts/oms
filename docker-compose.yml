@@ -337,20 +337,6 @@ services:
       - app-net
     restart: unless-stopped
 
-  qdrant:
-    image: qdrant/qdrant:v1.19.0
-    container_name: mcp-qdrant
-    ports:
-      - "6333:6333"  # HTTP API
-      - "6334:6334"  # gRPC API
-    volumes:
-      - qdrant_storage:/qdrant/storage
-    environment:
-      - QDRANT__SERVICE__GRPC_PORT=6334
-    restart: unless-stopped
-    networks:
-      - app-net
-
 networks:
   app-net:
     driver: bridge
@@ -359,7 +345,5 @@ volumes:
   postgres:
   pgadmin:
   grafana-storage: {}
-  qdrant_storage:
-    driver: local
   mcp-kb-index:
     driver: local

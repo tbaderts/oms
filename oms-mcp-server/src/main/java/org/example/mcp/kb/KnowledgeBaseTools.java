@@ -77,8 +77,10 @@ public class KnowledgeBaseTools {
             human-reviewed). Optional filters, all must match: \
             type (OKF concept type, e.g. 'Capability', 'Requirement', 'Specification', 'Interface', 'Decision'), \
             tag (one tag, e.g. 'order-lifecycle'), \
-            status ('draft', 'stable', 'deprecated'; legacy 'Active'/'Complete' mean stable, 'Draft' means draft) \
-            and category (legacy header category).""")
+            status ('draft', 'stable', 'deprecated'; legacy 'Active'/'Complete' mean stable, 'Draft' means draft; \
+            deprecated documents are left out unless status='deprecated' is asked for) \
+            and category (top-level section of the knowledge base, e.g. 'architecture', 'framework', 'domain', \
+            'capabilities', 'tools', 'delivery', 'infrastructure', 'ui', 'semantic-layer').""")
     public String searchKnowledgeBase(String query, Integer topK, String category, String status,
                                       String type, String tag) {
         log.info("[MCP] searchKnowledgeBase query='{}' topK={} category={} status={} type={} tag={}",
@@ -131,7 +133,8 @@ public class KnowledgeBaseTools {
     @Tool(name = "readKnowledgeBase", description = """
             Read a knowledge base document or a single section of it. \
             'path' is a document path as returned by searchKnowledgeBase or getKnowledgeBaseOverview \
-            (e.g. 'oms-knowledge-base/oms-framework/domain-model_spec.md'). \
+            (e.g. 'oms-knowledge-base/domain/concepts/order-lifecycle.md'). A former path of a document that \
+            has moved still works: the answer starts with a 'Moved:' line naming the current path. \
             'anchor' (optional) selects one section by its anchor from a citation 'path#anchor' \
             (a section title also works). Without an anchor the whole document is returned: \
             first its metadata (type, status, trust tier, tags, description), then the body with its \
@@ -142,21 +145,26 @@ public class KnowledgeBaseTools {
         if (!StringUtils.hasText(path)) {
             return "Error: path must be provided.";
         }
-        String raw;
+        DocumentRepository.ResolvedDoc doc;
         try {
-            raw = documentRepository.readContent(path.trim());
+            doc = documentRepository.readResolved(path.trim());
         } catch (Exception e) {
             return "Error: " + e.getMessage() + "\nUse getKnowledgeBaseOverview() to list valid paths.";
         }
+        String raw = doc.content();
+        // A document found under a former id (SPEC-0061) is shown under its current path
+        String shownPath = doc.movedFrom() == null ? path.trim() : doc.path();
+        String moved = doc.movedFrom() == null ? ""
+                : "> Moved: `" + doc.movedFrom() + "` is now `" + doc.path() + "`.\n\n";
         FrontMatter frontMatter = FrontMatter.parse(raw);
         // The body keeps the file's line numbers: front matter lines are blank, not removed
         String body = frontMatter.blankedContent();
 
         if (StringUtils.hasText(anchor)) {
-            return readSection(path.trim(), body, anchor.trim());
+            return moved + readSection(shownPath, body, anchor.trim());
         }
         OkfMetadata okf = OkfMetadata.derive(frontMatter, markdownParser.extractMetadata(raw), Instant.now());
-        return readWholeDoc(path.trim(), body, okf, offset, limit);
+        return moved + readWholeDoc(shownPath, body, okf, offset, limit);
     }
 
     private String readSection(String path, String content, String anchor) {
@@ -390,7 +398,7 @@ public class KnowledgeBaseTools {
     }
 
     private static String groupOf(String path) {
-        // "oms-knowledge-base/oms-framework/x.md" -> "oms-framework"
+        // "oms-knowledge-base/domain/concepts/order-lifecycle.md" -> "concepts"
         String[] parts = path.split("/");
         return parts.length >= 3 ? parts[parts.length - 2] : "(root)";
     }

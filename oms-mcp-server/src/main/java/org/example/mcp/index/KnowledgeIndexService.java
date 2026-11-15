@@ -31,6 +31,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
+import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
@@ -205,9 +206,10 @@ public class KnowledgeIndexService {
     }
 
     /**
-     * Searches the index. Every non-blank filter must match: {@code category} (bold header),
-     * {@code status} (OKF value; legacy header values are mapped, see
-     * {@link OkfMetadata#normalizeStatus}), {@code type} (OKF concept type) and {@code tag}.
+     * Searches the index. Every non-blank filter must match: {@code category} (bold header, else the
+     * top-level folder), {@code status} (OKF value; legacy header values are mapped, see
+     * {@link OkfMetadata#normalizeStatus}; without it, deprecated documents are left out),
+     * {@code type} (OKF concept type) and {@code tag}.
      * All filters are case-insensitive.
      */
     public SearchResponse search(String query, int topK, String category, String status,
@@ -314,6 +316,12 @@ public class KnowledgeIndexService {
         boolean any = false;
         any |= addFilter(builder, FIELD_CATEGORY_FILTER, category);
         any |= addFilter(builder, FIELD_STATUS_FILTER, status == null ? null : OkfMetadata.normalizeStatus(status));
+        if (status == null || status.isBlank()) {
+            // Deprecated (archived) documents are left out unless asked for: they are known to mislead
+            builder.add(MatchAllDocsQuery.INSTANCE, BooleanClause.Occur.FILTER);
+            builder.add(new TermQuery(new Term(FIELD_STATUS_FILTER, "deprecated")), BooleanClause.Occur.MUST_NOT);
+            any = true;
+        }
         any |= addFilter(builder, FIELD_TYPE_FILTER, type);
         any |= addFilter(builder, FIELD_TAG_FILTER, tag);
         return any ? builder.build() : null;

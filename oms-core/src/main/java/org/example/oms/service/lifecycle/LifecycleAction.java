@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
  * {@code ValidateLifecycleActionTask}, so the whole rule set reads in two places rather than four
  * processors.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle</a>
  */
 @Getter
 @RequiredArgsConstructor

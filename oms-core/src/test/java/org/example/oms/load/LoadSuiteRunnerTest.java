@@ -42,7 +42,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Runs only with {@code OMS_LOAD_SUITE=true}, against oms-core with Kafka on and the exchange
  * simulator connected (the root docker compose). It submits MARKET orders through the command API,
  * waits for every one to reach a terminal state, and writes a report of throughput and the SLA
- * timers' percentiles over this run. See oms-knowledge-base/oms-concepts/exchange-simulator.md §8.
+ * timers' percentiles over this run. See oms-knowledge-base/architecture/context/exchange-simulator.md §8.
  *
  * <p>It also reads PostgreSQL's WAL position before and after the run, through
  * {@code OMS_LOAD_DB_URL}, {@code OMS_LOAD_DB_USER} and {@code OMS_LOAD_DB_PASSWORD} (the compose

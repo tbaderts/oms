@@ -22,7 +22,7 @@ Back to the [knowledge base index](../index.md).
 
 ## Partially implemented
 
-- [Execution Processing](execution-processing.md) — Applying venue fills to orders; busts and manual cancels of executions are specified but not built.
+- [Execution Processing](execution-processing.md) — Applying venue fills to orders; busts, corrections and manual cancels are recorded in the event log but have no command handlers yet.
 
 ## Planned
 
@@ -32,3 +32,13 @@ Back to the [knowledge base index](../index.md).
 - [Order Replace](order-replace.md) — Amending a working order's quantity or price (FIX OrderCancelReplaceRequest); specified, not built.
 - [Post-Trade Analytics](post-trade-analytics.md) — An analytics platform fed by OMS events, kept out of the OMS itself.
 - [Quotes](quotes.md) — Requesting and providing quotes (RFQ); schemas exist, nothing else.
+
+## Catalogue
+
+- [Use Cases](use-cases/index.md) — how actors use each capability (UC-nnn)
+- [Actors](actors/index.md) — the people and systems that interact with the OMS
+- [Functional Requirements](functional-requirements/index.md) — FR-nnn, one per document, traced to code and tests
+- [Non-functional Requirements](non-functional-requirements/index.md) — NFR-nnn with metric and target
+
+The developer cockpit's *Requirements* view shows this catalogue: capabilities with their maturity,
+use cases, requirements and actors.

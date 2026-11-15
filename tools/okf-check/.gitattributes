@@ -1,0 +1,2 @@
+# okf-check fixtures are matched byte-for-byte by the tests
+test/fixtures/** text eol=lf

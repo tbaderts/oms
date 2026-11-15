@@ -36,9 +36,9 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>PublishOrderEventTask - Publishes event to outbox</li>
  * </ol>
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Machine</a>
- * @see <a href="file:///oms-knowledge-base/oms-framework/validation-rules.md">Validation Rules - Order Validation</a>
- * @see <a href="file:///oms-knowledge-base/oms-framework/openapi-contracts.md">OpenAPI Contracts - Command API</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle - State Machine</a>
+ * @see <a href="file:///oms-knowledge-base/framework/validation-engine.md">Validation Rules - Order Validation</a>
+ * @see <a href="file:///oms-knowledge-base/architecture/patterns/contract-first-codegen.md">Contract-first Code Generation</a>
  */
 @Service
 @Slf4j

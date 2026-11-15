@@ -19,6 +19,7 @@ const api: CockpitAPI = {
     stat: (path) => ipcRenderer.invoke('fs:stat', path),
   },
   requirements: {
+    getCapabilities: () => ipcRenderer.invoke('requirements:getCapabilities'),
     getUseCases: () => ipcRenderer.invoke('requirements:getUseCases'),
     getFunctionalRequirements: () => ipcRenderer.invoke('requirements:getFunctionalRequirements'),
     getNonFunctionalRequirements: () => ipcRenderer.invoke('requirements:getNonFunctionalRequirements'),

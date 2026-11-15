@@ -1,13 +1,15 @@
 import { create } from 'zustand';
-import type { UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from '@shared/types/requirements';
+import type { Capability, UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from '@shared/types/requirements';
 
 interface RequirementsState {
+  capabilities: Capability[];
   useCases: UseCase[];
   functionalReqs: FunctionalRequirement[];
   nonFunctionalReqs: NonFunctionalRequirement[];
   actors: Actor[];
   loading: boolean;
 
+  loadCapabilities: () => Promise<void>;
   loadUseCases: () => Promise<void>;
   loadFunctionalReqs: () => Promise<void>;
   loadNonFunctionalReqs: () => Promise<void>;
@@ -16,11 +18,19 @@ interface RequirementsState {
 }
 
 export const useRequirementsStore = create<RequirementsState>((set) => ({
+  capabilities: [],
   useCases: [],
   functionalReqs: [],
   nonFunctionalReqs: [],
   actors: [],
   loading: false,
+
+  loadCapabilities: async () => {
+    try {
+      const capabilities = await window.cockpit.requirements.getCapabilities();
+      set({ capabilities });
+    } catch { /* ignore */ }
+  },
 
   loadUseCases: async () => {
     try {
@@ -54,13 +64,14 @@ export const useRequirementsStore = create<RequirementsState>((set) => ({
     set({ loading: true });
     const api = window.cockpit.requirements;
     try {
-      const [useCases, functionalReqs, nonFunctionalReqs, actors] = await Promise.all([
+      const [capabilities, useCases, functionalReqs, nonFunctionalReqs, actors] = await Promise.all([
+        api.getCapabilities(),
         api.getUseCases(),
         api.getFunctionalRequirements(),
         api.getNonFunctionalRequirements(),
         api.getActors(),
       ]);
-      set({ useCases, functionalReqs, nonFunctionalReqs, actors, loading: false });
+      set({ capabilities, useCases, functionalReqs, nonFunctionalReqs, actors, loading: false });
     } catch {
       set({ loading: false });
     }

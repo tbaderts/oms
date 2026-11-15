@@ -6,6 +6,12 @@ import { fileURLToPath } from 'url';
 
 /** developer-cockpit/, resolved from this file so tests do not depend on the working directory. */
 export const COCKPIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+/**
+ * A workspace root saved on the other platform, which cannot resolve here: a Windows path on POSIX,
+ * a POSIX path (on a drive where it does not exist) on Windows.
+ */
+export const FOREIGN_ROOT = process.platform === 'win32' ? '/nonexistent-posix-home/oms' : 'C:\\data\\workspace\\oms';
+
 /** The OMS repository root. */
 export const REPO_ROOT = path.dirname(COCKPIT_ROOT);
 

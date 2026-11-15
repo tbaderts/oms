@@ -1,9 +1,10 @@
 ---
 type: Capability
 title: "Execution Processing"
-description: "Applying venue fills to orders; busts and manual cancels of executions are specified but not built."
+description: "Applying venue fills to orders; busts, corrections and manual cancels are recorded in the event log but have no command handlers yet."
 tags: [executions, fills, quantities]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "partial"
 commands: ["ExecutionCreateCmd", "ExecutionBustCmd", "ExecutionWhackCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -19,7 +20,9 @@ sources:
 
 ## Summary
 
-Fills reported by a venue update the order's quantities and state. Corrections (bust, whack) are not built yet.
+Fills reported by a venue update the order's quantities and state. The event log can already record busts,
+corrections and whacks of an execution (`EXEC_BUST`, `EXEC_CORRECT`, `EXEC_WHACK`, SPEC-0044), but
+`ExecutionBustCmd` and `ExecutionWhackCmd` have no handler yet (SPEC-0030).
 
 ## Actors
 
@@ -43,26 +46,31 @@ Since SPEC-0046:
 - **Every fill stores its command.** The processor requires the `ExecutionCreateCmd`; the
   command-less overload is gone.
 - **Command log.** Every fill command, applied or not, is recorded in the
-  [command log](../domain/command-log.md).
+  [command log](../domain/model/command-log.md).
+
+## Use cases
+
+- [UC-005 Report a fill](use-cases/UC-005-report-fill.md)
+- [UC-006 Correct an execution (planned)](use-cases/UC-006-correct-execution.md)
 
 ## Requirements
 
-- [FR-013 Apply fills to LIVE orders](../functional-requirements/FR-013-apply-fills.md)
-- [FR-014 Publish fills with the resulting position](../functional-requirements/FR-014-publish-fills.md)
-- [FR-015 Bust executions](../functional-requirements/FR-015-bust-executions.md)
-- [FR-016 Manually cancel (whack) executions](../functional-requirements/FR-016-whack-executions.md)
-- [FR-017 Reject duplicate executions](../functional-requirements/FR-017-reject-duplicate-execution.md)
-- [NFR-001 Idempotent command handling](../non-functional-requirements/NFR-001-idempotent-command-handling.md)
+- [FR-013 Apply fills to LIVE orders](functional-requirements/FR-013-apply-fills.md)
+- [FR-014 Publish fills with the resulting position](functional-requirements/FR-014-publish-fills.md)
+- [FR-015 Bust executions](functional-requirements/FR-015-bust-executions.md)
+- [FR-016 Manually cancel (whack) executions](functional-requirements/FR-016-whack-executions.md)
+- [FR-017 Reject duplicate executions](functional-requirements/FR-017-reject-duplicate-execution.md)
+- [NFR-001 Idempotent command handling](non-functional-requirements/NFR-001-idempotent-command-handling.md)
 
 ## Interfaces and domain
 
-[Command API](../interfaces/command-api.md), [Kafka Topics](../interfaces/kafka-topics.md); [Execution](../domain/execution.md), [Order Quantities](../domain/order-quantities.md).
+[Command API](../domain/interfaces/command-api.md), [Kafka Topics](../domain/interfaces/message-api.md); [Execution](../domain/model/execution.md), [Order Quantities](../domain/model/order-quantities.md).
 
 ## Detailed specifications
 
-- [Execution Reporting](../oms-concepts/execution-reporting.md)
-- [Order Quantity Calculations](../oms-concepts/order-quantity-calculations.md)
-- [Order Allocation Diagrams](../illustrations/order_allocation_diagrams.md)
+- [Execution Reporting](../domain/concepts/execution-reporting.md)
+- [Order Quantity Calculations](../domain/concepts/order-quantity-calculations.md)
+- [Order Allocation Diagrams](../architecture/illustrations/order-allocation-diagrams.md)
 
 ## Known gaps
 
@@ -73,11 +81,11 @@ Since SPEC-0046:
 - Execution Reporting describes trade corrections and order-tree propagation that are not built.
 - No SLA ingress time is taken for an `ExecutionCreateCmd` received over REST. Its command is
   recorded in the fill's event, as over Kafka (SPEC-0018).
-- Differences from [Order Lifecycle](../oms-concepts/order-lifecycle.md), which reads as current behaviour:
+- Differences from [Order Lifecycle](../domain/concepts/order-lifecycle.md), which reads as current behaviour:
   - §9.4 "Fill Without Acknowledgment" says to process a fill that arrives before the ack; the code
     refuses any fill unless the order is LIVE (FR-013).
   - §4.6 "UNACK → FILLED (Immediate Fill)" is not in the standard state machine.
 
 ## Verification
 
-`ExchangeWorkflowIntegrationTest`, `EventSourcingIntegrationTest`, `OrderLifecycleIntegrationTest`, `OrderMapperExecutionTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`ExchangeWorkflowIntegrationTest`, `EventSourcingIntegrationTest`, `OrderLifecycleIntegrationTest`, `OrderMapperExecutionTest`. Conventions: [Testing Patterns](../delivery/testing.md).

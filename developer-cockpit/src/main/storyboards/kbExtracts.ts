@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseFrontMatter, readBounded } from './parse';
 
-const REQUIREMENT_DIRS = ['functional-requirements', 'non-functional-requirements'];
+import { REQUIREMENT_DIRS } from '../services/kbLayout';
 const MAX_BYTES = 64 * 1024;
 
 /**

@@ -206,7 +206,7 @@ describe('AiService.runAgent (AC-4, AC-5, AC-6, AC-8)', () => {
       config: { ...DEFAULT_CONFIG.ai, provider: 'anthropic' },
       env: { ANTHROPIC_API_KEY: 'k' },
       model: fakeModel({ calls, script }),
-      tools: { search_knowledge_base: kbTool([{ query: 'order lifecycle', count: 1, results: [{ title: 'Order lifecycle', path: 'oms-concepts/order-lifecycle.md', category: 'oms-concepts' }] }]) },
+      tools: { search_knowledge_base: kbTool([{ query: 'order lifecycle', count: 1, results: [{ title: 'Order lifecycle', path: 'domain/concepts/order-lifecycle.md', category: 'domain' }] }]) },
     });
     await service.runAgent({ prompt: 'how does the order lifecycle work', runId: 'r' });
 

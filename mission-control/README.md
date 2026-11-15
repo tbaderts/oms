@@ -17,7 +17,7 @@ how long each step took, measured from the moment the order was due to be sent:
 Next to these it records the OMS's own checkpoint deltas from the `OrderMessage` SLA fields.
 
 **Further reading:** concepts and definitions are in
-[oms-knowledge-base/oms-concepts/mission-control.md](../oms-knowledge-base/oms-concepts/mission-control.md).
+[oms-knowledge-base/tools/mission-control.md](../oms-knowledge-base/tools/mission-control.md).
 
 ## Run it
 

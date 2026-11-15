@@ -26,8 +26,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Order must be in LIVE state
  * </ul>
  *
- * @see <a href="file:///oms-knowledge-base/oms-framework/validation-rules.md">Validation Rules - Execution Validation Patterns</a>
- * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - Execution Pipeline</a>
+ * @see <a href="file:///oms-knowledge-base/framework/validation-engine.md">Validation Rules - Execution Validation Patterns</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/execution-reporting.md">Execution Reporting - Execution Pipeline</a>
  */
 @Component
 @Slf4j

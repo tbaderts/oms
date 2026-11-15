@@ -51,6 +51,7 @@ export class KbService {
           const { data: frontmatter, content } = matter(raw);
           const stat = fs.statSync(fullPath);
           const category = relativeTo.split('/')[0] || 'root';
+          const folder = relativeTo || 'root';
           const title = (frontmatter.title as string) || this.titleFromFilename(entry.name);
 
           this.documents.push({
@@ -58,6 +59,7 @@ export class KbService {
             relativePath: relPath,
             title,
             category,
+            folder,
             content,
             frontmatter,
             lastModified: stat.mtimeMs,
@@ -76,40 +78,43 @@ export class KbService {
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
+  /**
+   * The folder tree of the knowledge base, nested to any depth, sorted by name with `root` (the files
+   * at the bundle root) last. Navigation files (index.md, log.md) are not counted (SPEC-0061).
+   */
   getCategories(): KbCategory[] {
-    const categoryMap = new Map<string, { docs: number; subcats: Map<string, number> }>();
-
+    const root: KbCategory[] = [];
+    const nodes = new Map<string, KbCategory>();
+    const node = (id: string): KbCategory => {
+      let n = nodes.get(id);
+      if (n) return n;
+      const parts = id.split('/');
+      n = { id, name: parts[parts.length - 1], path: path.join(this.kbPath, ...(id === 'root' ? [] : parts)), documentCount: 0, subcategories: [] };
+      nodes.set(id, n);
+      if (parts.length === 1) root.push(n);
+      else node(parts.slice(0, -1).join('/')).subcategories.push(n);
+      return n;
+    };
     for (const doc of this.documents) {
-      const parts = doc.relativePath.split('/');
-      const topCategory = parts[0] || 'root';
-
-      if (!categoryMap.has(topCategory)) {
-        categoryMap.set(topCategory, { docs: 0, subcats: new Map() });
-      }
-      const cat = categoryMap.get(topCategory)!;
-      cat.docs++;
-
-      if (parts.length > 2) {
-        const subcat = parts[1];
-        cat.subcats.set(subcat, (cat.subcats.get(subcat) || 0) + 1);
-      }
+      node(doc.folder); // a folder appears even when it holds only its index.md
+      if (isNavigation(doc)) continue;
+      // count the document in its folder and every folder above it
+      const parts = doc.folder === 'root' ? ['root'] : doc.folder.split('/');
+      for (let i = 1; i <= parts.length; i++) node(parts.slice(0, i).join('/')).documentCount++;
     }
-
-    return Array.from(categoryMap.entries()).map(([name, data]) => ({
-      name,
-      path: path.join(this.kbPath, name),
-      documentCount: data.docs,
-      subcategories: Array.from(data.subcats.entries()).map(([subName, count]) => ({
-        name: subName,
-        path: path.join(this.kbPath, name, subName),
-        documentCount: count,
-        subcategories: [],
-      })),
-    }));
+    const sort = (list: KbCategory[]) => {
+      list.sort((x, y) => (x.id === 'root' ? 1 : y.id === 'root' ? -1 : x.name.localeCompare(y.name)));
+      list.forEach((c) => sort(c.subcategories));
+      return list;
+    };
+    return sort(root);
   }
 
-  getDocuments(category: string): KbDocument[] {
-    return this.documents.filter((d) => d.category === category);
+  /** The documents directly in one folder (a category id such as `domain/model`, or `root`), navigation files left out. */
+  getDocuments(folder: string): KbDocument[] {
+    return this.documents
+      .filter((d) => d.folder === folder && !isNavigation(d))
+      .sort((x, y) => x.title.localeCompare(y.title));
   }
 
   getDocument(docPath: string): KbDocument | undefined {
@@ -125,4 +130,10 @@ export class KbService {
       matches: r.matches?.map((m) => m.value ?? '') ?? [],
     }));
   }
+}
+
+/** index.md and log.md are navigation (OKF reserved files), not documents to list. */
+function isNavigation(doc: KbDocument): boolean {
+  const name = doc.relativePath.split('/').pop();
+  return name === 'index.md' || name === 'log.md';
 }

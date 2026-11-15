@@ -4,6 +4,7 @@ import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { detectWorkspaceRoot } from '../../src/main/services/ConfigService';
 import { expandRoots, safeRealpath } from '../../src/main/storyboards/roots';
+import { FOREIGN_ROOT } from '../fixtures/workspace';
 
 const dirs: string[] = [];
 const tmp = (prefix: string): string => {
@@ -26,7 +27,7 @@ describe('expandRoots', () => {
   it('an unresolvable (foreign-platform) root degrades to no roots instead of throwing', () => {
     // Regression: a saved `C:\…` path on POSIX used to throw ENOENT during startup and take the
     // whole main process down before the window opened.
-    const r = expandRoots('C:\\data\\workspace\\oms', ['oms-knowledge-base/storyboards']);
+    const r = expandRoots(FOREIGN_ROOT, ['oms-knowledge-base/storyboards']);
     expect(r.roots).toEqual([]);
     expect(r.missing).toEqual(['oms-knowledge-base/storyboards']);
   });

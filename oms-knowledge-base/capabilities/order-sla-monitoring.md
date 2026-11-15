@@ -4,6 +4,7 @@ title: "Order SLA Monitoring"
 description: "Timestamping order checkpoints and exposing latency metrics for service-level monitoring."
 tags: [sla, latency, metrics]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-02T16:40:00Z" }
@@ -52,19 +53,21 @@ Grafana provisions two dashboards from `oms-core/grafana/dashboards` into the **
 - **OMS Services** (`oms-services`), per `service_name`: HTTP rate, errors and p95, JVM memory,
   CPU, threads, Kafka records and lag, warnings and errors, recent traces.
 
+## Use cases
+
+- [UC-013 Monitor order latency and processing](use-cases/UC-013-monitor-latency.md)
+
 ## Requirements
 
-- [FR-030 Measure order latency at SLA checkpoints](../functional-requirements/FR-030-measure-order-latency.md)
-- [NFR-006 Order latency measurement](../non-functional-requirements/NFR-006-order-latency-measurement.md)
+- [FR-030 Measure order latency at SLA checkpoints](functional-requirements/FR-030-measure-order-latency.md)
+- [NFR-006 Order latency measurement](non-functional-requirements/NFR-006-order-latency-measurement.md)
 
 ## Interfaces and domain
 
-[Order](../domain/order.md) (checkpoint fields).
+[Order](../domain/model/order.md) (checkpoint fields).
 
 ## Known gaps
 
-- `SetOrderStateTask` and `OrderSlaRecorder` link to an SLA Measurement page
-  (`oms-concepts/sla-measurement.md`) that does not exist; this capability is the closest description.
 - No latency targets or alerts are defined; dashboards exist, alert rules do not.
 - `leg` is not populated yet, so client and market orders are not separated in practice.
 
@@ -72,4 +75,4 @@ Grafana provisions two dashboards from `oms-core/grafana/dashboards` into the **
 
 `OrderSlaRecorderTest`, `OrderLifecycleCommandProcessorTest` (accept cases), `OrderFlowMetricsTest`,
 `OrderFlowMetricsIntegrationTest`, `EndOfDayMetricsTest`, `GrafanaDashboardsTest`, and the
-S38 checks of `oms-core/scripts/lgtm-smoke-test.ps1` (every dashboard query returns data). Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+S38 checks of `oms-core/scripts/lgtm-smoke-test.ps1` (every dashboard query returns data). Conventions: [Testing Patterns](../delivery/testing.md).

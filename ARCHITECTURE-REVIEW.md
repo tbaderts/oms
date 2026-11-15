@@ -11,7 +11,7 @@ OMS is a Gradle **composite-build monorepo**: `settings.gradle` uses `includeBui
 |---|---|---|---|
 | oms-core | Sync REST command/query API, Kafka consumer, transactional outbox | 4.0.3 | Avro 7.9.2 |
 | oms-streaming-service | Kafka → RSocket streaming, in-memory caches, snapshots | 4.0.2 | Avro **7.9.0** |
-| oms-mcp-server | Spring AI MCP server: docs tools, Qdrant semantic search, KB explorer | 4.0.3 | Spring AI **2.0.0-M2** from milestone repo |
+| oms-mcp-server | Spring AI MCP server: docs tools, semantic search (Qdrant at the time of this review; embedded Lucene since July 2026), KB explorer | 4.0.3 | Spring AI **2.0.0-M2** from milestone repo |
 | oms-ui | React (CRA) blotter UI + thin Boot static host | 4.0.2 | React 18, AG-Grid |
 | oms-kb-explorer | Vite/React doc viewer (not in Gradle build) | — | React 19 |
 | oms-knowledge-base | Docs only (markdown) | — | — |

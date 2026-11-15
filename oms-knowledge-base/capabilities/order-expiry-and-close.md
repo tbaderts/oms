@@ -4,6 +4,7 @@ title: "Order Expiry and Close"
 description: "Orders expiring when their time in force runs out, and orders being closed administratively or at end of day."
 tags: [expiry, close, end-of-day, order-lifecycle, orders]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: ["OrderExpireCmd", "OrderCloseCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-02T12:00:00Z" }
@@ -79,20 +80,26 @@ an EXP order, but refused on a CLOSED one.
 The [exchange simulator](exchange-simulation.md) stops working an order once the OMS publishes it
 in a final state, so an expired order gets no further fills.
 
+## Use cases
+
+- [UC-014 Expire and close orders at end of day](use-cases/UC-014-end-of-day.md)
+
 ## Requirements
 
-- [NFR-001 Idempotent command handling](../non-functional-requirements/NFR-001-idempotent-command-handling.md)
-- [NFR-002 Optimistic concurrency on orders](../non-functional-requirements/NFR-002-optimistic-concurrency.md)
+- [NFR-001 Idempotent command handling](non-functional-requirements/NFR-001-idempotent-command-handling.md)
+- [NFR-002 Optimistic concurrency on orders](non-functional-requirements/NFR-002-optimistic-concurrency.md)
+- [FR-055 Expire orders when their time in force runs out](functional-requirements/FR-055-expire-orders.md)
+- [FR-056 Close finished orders at end of day](functional-requirements/FR-056-close-finished-orders.md)
 
 ## Interfaces and domain
 
-[Command API](../interfaces/command-api.md), [Avro Messages](../interfaces/avro-messages.md),
-[Kafka Topics](../interfaces/kafka-topics.md); [Order State](../domain/order-state.md),
-[Order](../domain/order.md).
+[Command API](../domain/interfaces/command-api.md), [Avro Messages](../domain/interfaces/message-api.md),
+[Kafka Topics](../domain/interfaces/message-api.md); [Order State](../domain/model/order-state.md),
+[Order](../domain/model/order.md).
 
 ## Detailed specifications
 
-- [Order Lifecycle Management Specification](../oms-concepts/order-lifecycle.md) (§4.10, §4.11)
+- [Order Lifecycle Management Specification](../domain/concepts/order-lifecycle.md) (§4.10, §4.11)
 
 ## Known gaps
 
@@ -115,4 +122,4 @@ in a final state, so an expired order gets no further fills.
 
 `OrderStateMachineConfigTest`, `OrderLifecycleCommandProcessorTest`, `CommandListenerTest`,
 `OrderExpiryCloseIntegrationTest`, `EndOfDayIntegrationTest`, `EndOfDaySchedulerTest`,
-`ExchangeEngineTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`ExchangeEngineTest`. Conventions: [Testing Patterns](../delivery/testing.md).

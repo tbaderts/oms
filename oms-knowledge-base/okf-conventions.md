@@ -4,7 +4,10 @@ title: "Knowledge Base Conventions (OKF)"
 description: "How the OMS knowledge base follows the Open Knowledge Format: document types, required metadata, lifecycle and how to add a document."
 tags: [knowledge-base, okf, conventions]
 status: stable
-type_vocabulary: [Concept Paper, Specification, Diagram, Methodology, Assessment, Strategy, Reference, Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision]
+updated: "2026-11-14T12:00:00Z"
+reviewed_since: "2026-11-14T00:00:00Z"
+retired_terms: [ReadySet, logical replication, Spring Boot 3, oms-methodolgy, oms-concepts/, oms-framework/]
+type_vocabulary: [Concept Paper, Specification, Diagram, Methodology, Assessment, Strategy, Reference, Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision, Use Case, Actor, Pattern]
 ---
 # Knowledge Base Conventions (OKF)
 
@@ -37,13 +40,16 @@ checker rejects any other value, so add a type here (with a definition below) be
 | Strategy | A plan for how something should evolve |
 | Reference | Lookup material such as these conventions |
 | Capability | Something the OMS can do for its users, built or planned (folder `capabilities/`) |
-| Requirement | One functional (`FR-nnn`) or non-functional (`NFR-nnn`) requirement (folders `functional-requirements/`, `non-functional-requirements/`) |
-| Domain Concept | A business object or value set of the domain, such as an entity or the order states (folder `domain/`) |
-| Glossary | Definitions of domain terms (folder `domain/`) |
-| Interface | An API, topic set or message catalogue other systems use (folder `interfaces/`) |
-| Architecture | An overview of how the system is put together (folder `architecture/`) |
-| Component | One deployable module or library (folder `architecture/`) |
-| Decision | An architecture decision: context, decision, consequences (folder `architecture/`) |
+| Use Case | How an actor uses a capability: preconditions, main and alternative flows, postconditions, requirements exercised (folder `capabilities/use-cases/`) |
+| Actor | A person or system that interacts with the OMS (folder `capabilities/actors/`) |
+| Requirement | One functional (`FR-nnn`) or non-functional (`NFR-nnn`) requirement (folders `capabilities/functional-requirements/`, `capabilities/non-functional-requirements/`) |
+| Domain Concept | A business object or value set of the domain, such as an entity or the order states (folder `domain/model/`) |
+| Glossary | Definitions of domain terms (folder `domain/model/`) |
+| Interface | An API, topic set or message catalogue other systems use (folder `domain/interfaces/`) |
+| Architecture | An overview of how the system or its platform is put together (folders `architecture/`, `infrastructure/`) |
+| Component | One deployable module or library (folders `architecture/context/`, `tools/`) |
+| Decision | An architecture decision record, `ADR-nnn`: context, decision, consequences (folder `architecture/decisions/`) |
+| Pattern | How a recurring technical problem is solved in this codebase, to follow when writing code (folder `architecture/patterns/`) |
 
 ### Keys of the structured types
 
@@ -53,7 +59,7 @@ These are project keys on top of the common front matter; the checker enforces t
 |---|---|---|
 | Capability | `maturity` | `implemented`, `partial` (some behaviour missing) or `planned` |
 | Capability | `commands` | The command schemas (`*Cmd` in `oms-contracts`) this capability handles; `[]` for none. Each command belongs to exactly one capability |
-| Requirement | `id` | `FR-nnn` or `NFR-nnn`, unique; FR files live in `functional-requirements/`, NFR files in `non-functional-requirements/` |
+| Requirement | `id` | `FR-nnn` or `NFR-nnn`, unique; FR files live in `capabilities/functional-requirements/`, NFR files in `capabilities/non-functional-requirements/` |
 | Requirement | `priority` | MoSCoW: `must`, `should`, `could`, `wont`. The priorities set in SPEC-0010 are an initial proposal by the authoring agent, not a team decision; review them |
 | Requirement | `implementation` | `implemented` (built and covered by the cited tests), `partial` (built only in part, or only partly covered by tests; the document says which) or `not-implemented` |
 | Requirement | `capability` | Bundle path of the capability it belongs to, e.g. `/capabilities/order-capture.md` |
@@ -61,9 +67,18 @@ These are project keys on top of the common front matter; the checker enforces t
 | Domain Concept | `entity` | The JPA entity class it describes, when it describes one |
 | Interface | `covers` | What it documents: `openapi:<path>`, `http:<base path>`, `avro:<Schema>`, `kafka:<topic>`. Every such item of the system appears in exactly one interface |
 | Component | `component` | The module or compose service name |
+| Use Case | `id` | `UC-nnn`, unique; the file name starts with it |
+| Use Case | `actors` | Non-empty list of bundle paths to Actor concepts |
+| Use Case | `capability` | Bundle path of the capability it belongs to |
+| Actor | `kind` | `human`, `system` or `external` |
+| Decision | `id` | `ADR-nnn`, unique; the file name starts with it |
 
 Every Capability and Requirement links to the other (a capability lists its requirements; a
-requirement names its capability), and the file names of requirements start with their id.
+requirement names its capability), and the file names of requirements start with their id. A
+Capability also links at least one Use Case, and every Requirement is linked from at least one Use
+Case body (under `## Requirements`), so each requirement has a reason. Use cases have the sections
+`## Preconditions`, `## Main Flow`, `## Alternative Flows`, `## Postconditions` and `## Requirements`,
+which the developer cockpit reads.
 
 ### Sources and provenance of the structured types
 
@@ -112,13 +127,15 @@ updated: "2026-02-14T00:00:00Z"
 | `sources` | no | Where the content comes from (OKF provenance), e.g. code paths or tickets |
 | `generated` | no | `{ by, at }`: who produced the content (`human:<id>`, `process:<id>` or `<tool>/<version>`) |
 | `verified` | no | List of `{ by, at }` review events; a `human:` reviewer makes the document *human-reviewed* |
+| `aliases` | no | Former ids of a moved document (bundle path without `.md`); the MCP server resolves them. Unique across the bundle |
+| `superseded_by` | for `deprecated` | Bundle path of the document that replaced it, or `none` |
+| `point_in_time` | no | `true` for a dated record (assessment, review) that describes the system of its day; it is exempt from the retired-terms rule |
 
 Timestamps are always ISO 8601 with an explicit offset (`2026-02-14T00:00:00Z`) and quoted.
 Unknown keys are allowed and must be preserved by tools.
 
-Documents may still carry the older bold header (`**Version:**`, `**Status:**`,
-`**Last Updated:**`) under the title. It is kept for tools that do not read front matter yet; the
-front matter is the source of truth. Keep the bold lines within the first 20 lines of the file.
+The older bold header (`**Version:**`, `**Status:**`, `**Last Updated:**`) was removed in SPEC-0061;
+the front matter is the only metadata. Do not add it back.
 
 ### Status mapping from the old headers
 
@@ -135,6 +152,23 @@ The OKF trust tier comes from `verified`: no entry means *unverified*, only tool
 (SPEC-0009) added no `verified` entries; add one when you have reviewed a document against the
 code.
 
+## Layout, review and archive
+
+The sections of the bundle and what belongs in each are described in the
+[Knowledge Base Strategy](semantic-layer/knowledge-base-strategy.md). Three settings in this page's
+front matter keep the content honest:
+
+- `reviewed_since`: every document outside `archive/` must have `updated` on or after it. A full
+  review moves it forward; the last one is recorded in
+  [the November 2026 review](semantic-layer/kb-review-2026-11.md).
+- `retired_terms`: words that describe things the OMS does not have or no longer uses. They may not
+  appear in prose (code spans are fine) outside `archive/` and point-in-time records.
+- `archive/`: superseded documents, each `status: deprecated` with `superseded_by`. Search leaves
+  them out by default. Do not link to them from current documents except to explain history.
+
+Every rule the checker applies is listed in
+[Schema and Constraints](semantic-layer/schema-and-constraints.md).
+
 ## Indexes and log
 
 - [`index.md`](index.md) at the root declares `okf_version: "0.2"` and links every root document
@@ -145,13 +179,14 @@ code.
 
 ## Links
 
-Use ordinary markdown links. Relative links (`../oms-framework/validation-rules.md`) and
-bundle-relative links starting with `/` (`/oms-framework/validation-rules.md`) both work. Every
+Use ordinary markdown links. Relative links (`../framework/validation-engine.md`) and
+bundle-relative links starting with `/` (`/framework/validation-engine.md`) both work. Every
 internal link must point to an existing file.
 
 ## Adding or changing a document
 
-1. Create the file in the folder that fits, with front matter as above.
+1. Create the file in the folder that fits, with front matter as above and `updated` set to today.
+   To move a document, `git mv` it, add its old id to `aliases`, and fix the links to it.
 2. Add a bullet to that folder's `index.md` (create the index if the folder is new, and link it
    from the parent index).
 3. For a notable change, add a line under today's date in `log.md`.

@@ -27,7 +27,7 @@ function fakeIpcMain() {
 function fakeKb(): Pick<KbService, 'search'> {
   return {
     search: (query: string) => [
-      { score: 0.9, document: { title: `Doc for ${query}`, relativePath: 'oms-knowledge-base/functional-requirements/FR-001-accept.md', category: 'functional-requirements' } },
+      { score: 0.9, document: { title: `Doc for ${query}`, relativePath: 'oms-knowledge-base/capabilities/functional-requirements/FR-001-accept.md', category: 'functional-requirements' } },
     ],
   };
 }

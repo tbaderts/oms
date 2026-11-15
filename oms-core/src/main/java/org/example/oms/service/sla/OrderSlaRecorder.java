@@ -42,7 +42,7 @@ import lombok.RequiredArgsConstructor;
  * change here. In the meantime the four metric names already carry the split that matters
  * operationally: whether a breach was our processing or the broker round trip.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/sla-measurement.md">SLA Measurement</a>
+ * @see <a href="file:///oms-knowledge-base/capabilities/order-sla-monitoring.md">SLA Measurement</a>
  */
 @Component
 @RequiredArgsConstructor

@@ -1,13 +1,49 @@
 # Knowledge Base Log
 
+## 2026-11-14
+
+Reorganised and reviewed the whole knowledge base (SPEC-0061). See the
+[review register](semantic-layer/kb-review-2026-11.md) for what happened to each of the 161 earlier
+documents, and the [Knowledge Base Strategy](semantic-layer/knowledge-base-strategy.md) for the new
+layout.
+
+- **New sections.** [Capabilities](capabilities/index.md) (now with use cases, actors and the
+  requirements), [Domain](domain/index.md) (model, concepts, interfaces),
+  [Core Framework](framework/index.md), [Architecture](architecture/index.md) (context, concepts,
+  decisions as ADR-001 to ADR-005, patterns, technical debt, assessments, illustrations),
+  [Infrastructure](infrastructure/index.md), [User Interface](ui/index.md), [Tools](tools/index.md),
+  [Software Delivery](delivery/index.md), [Semantic Layer](semantic-layer/index.md) and the
+  [Archive](archive/index.md). The old folders `oms-concepts`, `oms-framework`, `oms-methodolgy`,
+  `illustrations` and `interfaces` are gone; every moved document keeps its old id in `aliases`.
+- **Reviewed against the code.** Wrong facts were corrected (stack versions, topic names, tables,
+  MCP tools, the Qdrant claim); specifications describing more than is built got an implementation
+  status banner (order lifecycle, replace, execution reporting, grouping, validation engine,
+  exception handling, …); superseded documents were archived (the February review, the
+  ReadySet-era read store and state store designs, the old OpenAPI guide, the February strategy,
+  the old architecture specification, a generic role profile).
+- **Written.** Implementation patterns (Kafka messaging, transaction handling, logging and tracing,
+  service template, contract-first code generation), the technical debt register, the state store and
+  query engine, infrastructure (local Docker stack, observability, Cozystack as planned), the design
+  system, the market adapter (planned), delivery (spec-driven development, CI/CD, release), the
+  knowledge graph and the schema and constraints.
+- **Capability catalogue.** 8 actors and 22 use cases (UC-001 to UC-022); every requirement is
+  exercised by a use case. New requirements FR-047 to FR-056 and NFR-011 for behaviour built since
+  SPEC-0010 (command log, expected version, event metadata, reconciliation, order history, fills
+  with order, expiry and end of day, several instances) and for this ticket. NFR-005 is now
+  implemented, NFR-010 partial.
+- **Tools.** The checker enforces the new layout, use cases, actors, ADR ids, review date, retired
+  terms, archive and aliases; `check-kb-refs` finds dead references anywhere in the repository. The
+  knowledge server resolves old paths and hides deprecated documents from search by default; the
+  developer cockpit's Requirements view opens on the capability catalogue.
+
 ## 2026-10-31
 
 `sessionId` is required by the command contract (SPEC-0034). `oms-cmd-api.yml` 2.0.0 marks
 `Order.sessionId` required and non-empty, matching what oms-core already enforced. Over HTTP, a
 body that breaks the contract is now answered with the `validation-failed` problem, which lists
-each failing field. [FR-002](functional-requirements/FR-002-validate-new-orders.md),
-[error handling](oms-framework/error-handling.md) and
-[OpenAPI contracts](oms-framework/openapi-contracts.md) are updated.
+each failing field. [FR-002](capabilities/functional-requirements/FR-002-validate-new-orders.md),
+[error handling](framework/exception-handling.md) and
+[OpenAPI contracts](architecture/patterns/contract-first-codegen.md) are updated.
 
 ## 2026-10-29
 
@@ -16,7 +52,7 @@ presents, edits and exports. It is outside the OKF bundle (see the exception in
 [okf-conventions.md](okf-conventions.md)) and has its own check, `npm run check:storyboards`.
 The first storyboard, *Place and fill a client order*, follows an order from the trader through the
 OMS and the exchange simulator to the blotter, with an evidence card pinned to the code it
-describes. The [Developer Cockpit](architecture/developer-cockpit.md) page describes the new view.
+describes. The [Developer Cockpit](tools/developer-cockpit.md) page describes the new view.
 
 ## 2026-10-28
 
@@ -25,21 +61,21 @@ id) and a *Folders* view with status and trust filters, a metadata header on eve
 (type, status, trust tier, staleness, keys, sources), a links / "cited by" panel, and links between
 documents that open in the explorer. The MCP server adds `okf.sources` and
 `/api/kb/documents/links`. New requirement
-[FR-046](functional-requirements/FR-046-okf-aware-kb-explorer.md).
+[FR-046](capabilities/functional-requirements/FR-046-okf-aware-kb-explorer.md).
 
 ## 2026-10-27
 
 The MCP server now reads this bundle as OKF (SPEC-0011): its tools show each concept's type,
 status, trust tier and staleness, search can filter by type, tag and status, whole-document reads
 list links and "cited by", and `index.md`/`log.md` are no longer treated as concepts. New
-requirement [FR-045](functional-requirements/FR-045-okf-aware-knowledge-tools.md); the
+requirement [FR-045](capabilities/functional-requirements/FR-045-okf-aware-knowledge-tools.md); the
 [Knowledge Services](capabilities/knowledge-services.md) gap on OKF metadata is closed.
 
 Structured the knowledge base around what the OMS does (SPEC-0010): 19
 [capabilities](capabilities/index.md) (12 implemented, 1 partial, 6 planned), 44
-[functional](functional-requirements/index.md) and 10
-[non-functional requirements](non-functional-requirements/index.md), [domain](domain/index.md)
-concepts and a glossary, [interfaces](interfaces/index.md) covering every API path, controller,
+[functional](capabilities/functional-requirements/index.md) and 10
+[non-functional requirements](capabilities/non-functional-requirements/index.md), [domain](domain/index.md)
+concepts and a glossary, [interfaces](domain/interfaces/index.md) covering every API path, controller,
 Kafka topic and Avro schema, and the [architecture](architecture/index.md) (system context,
 components, decisions). Every new document cites the code, contracts and tests it describes
 (`repo:` sources), is marked `draft` and machine-generated, and awaits human review. Findings

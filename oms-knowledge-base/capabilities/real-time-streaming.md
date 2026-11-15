@@ -4,6 +4,7 @@ title: "Real-time Streaming"
 description: "Pushing live orders and executions to the trade blotter over RSocket, after an initial snapshot."
 tags: [streaming, rsocket, trade-blotter]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -26,7 +27,7 @@ Admin UI / trade blotter users.
 
 RSocket routes `orders.stream`, `executions.stream`, `blotter.stream`, `orders.snapshot`,
 `executions.snapshot` and `health` (`TradeBlotterController`). The snapshot comes from the oms-core
-[Query API](../interfaces/query-api.md); live updates from the `oms_orders` and
+[Query API](../domain/interfaces/query-api.md); live updates from the `oms_orders` and
 `oms_order_executions` topics. Metadata over HTTP under `/trade-blotter`.
 
 Fills come from `oms_order_executions` (since SPEC-0019; before, `oms_executions`). Each record
@@ -69,18 +70,22 @@ deduplication never applied to real snapshots.
   its stream ends with an error, which the blotter shows with Retry.
 - Each overflow is logged at WARN and counted in `oms_streaming_subscriber_overflow_total{route}`.
 
+## Use cases
+
+- [UC-010 Watch orders live on the blotter](use-cases/UC-010-watch-blotter.md)
+
 ## Requirements
 
-- [FR-025 Filter streamed orders and executions](../functional-requirements/FR-025-filter-streams.md)
-- [FR-026 Map OMS messages to blotter records](../functional-requirements/FR-026-map-blotter-records.md)
+- [FR-025 Filter streamed orders and executions](functional-requirements/FR-025-filter-streams.md)
+- [FR-026 Map OMS messages to blotter records](functional-requirements/FR-026-map-blotter-records.md)
 
 ## Interfaces and domain
 
-[Kafka Topics](../interfaces/kafka-topics.md); component [Streaming Service](../architecture/streaming-service.md).
+[Kafka Topics](../domain/interfaces/message-api.md); component [Streaming Service](../architecture/context/streaming-service.md).
 
 ## Detailed specifications
 
-- [Trade Blotter Backend Component Specification](../oms-concepts/streaming-architecture.md)
+- [Trade Blotter Backend Component Specification](../architecture/concepts/event-streaming.md)
 
 ## Known gaps
 
@@ -92,4 +97,4 @@ deduplication never applied to real snapshots.
 ## Verification
 
 `FilterServiceTest`, `OrderMessageMapperTest`, `MetadataServiceTest`, `KafkaEventStreamProviderTest`,
-`OmsQueryClientTest`, `StreamFilterTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OmsQueryClientTest`, `StreamFilterTest`. Conventions: [Testing Patterns](../delivery/testing.md).

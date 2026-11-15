@@ -43,7 +43,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * Request bodies that break the contract (a required field missing, a string too short). The
-     * format is the one in oms-framework/error-handling.md: every failing field, keyed by its path
+     * format is the one in framework/exception-handling.md: every failing field, keyed by its path
      * (e.g. {@code order.sessionId}), so the caller can see what to fix. Spring's default body only
      * said "Invalid request content."
      */

@@ -8,7 +8,7 @@ test('builds the header with keys and classified sources', () => {
     type: 'Requirement', title: 'Accept new orders', description: 'Creates orders.', status: 'draft',
     trustTier: 'unverified', version: '1.0', updated: '2026-10-01T00:00:00Z', tags: ['functional', 'order-capture'],
     id: 'FR-001', priority: 'must', implementation: 'implemented', capability: '/capabilities/order-capture.md',
-    sources: ['repo:oms-core/src/main/java/Foo.java', '/oms-concepts/order-lifecycle.md', 'https://example.com', 'free text'],
+    sources: ['repo:oms-core/src/main/java/Foo.java', '/domain/concepts/order-lifecycle.md', 'https://example.com', 'free text'],
   }));
   assert.ok(h);
   assert.equal(h.title, 'Accept new orders');
@@ -28,7 +28,7 @@ test('builds the header with keys and classified sources', () => {
   ]);
   assert.deepEqual(h.sources, [
     { kind: 'repo', path: 'oms-core/src/main/java/Foo.java' },
-    { kind: 'doc', path: 'oms-knowledge-base/oms-concepts/order-lifecycle.md' },
+    { kind: 'doc', path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md' },
     { kind: 'url', href: 'https://example.com' },
     { kind: 'text', value: 'free text' },
   ]);

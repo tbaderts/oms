@@ -15,13 +15,13 @@ test('folder tree nests, index.md is the folder entry, log.md at root, each conc
   const caps = root.folders.find((f) => f.name === 'capabilities')!;
   assert.deepEqual(caps.docs.map(displayTitle), ['Execution Processing', 'Order Capture', 'Quotes']);
   assert.deepEqual(root.folders.map((f) => f.name),
-    ['capabilities', 'functional-requirements', 'non-functional-requirements', 'oms-concepts']);
-  const concepts = root.folders.find((f) => f.name === 'oms-concepts')!;
-  assert.equal(concepts.index?.path, 'oms-knowledge-base/oms-concepts/index.md');
+    ['capabilities', 'concepts', 'functional-requirements', 'non-functional-requirements']);
+  const concepts = root.folders.find((f) => f.name === 'concepts')!;
+  assert.equal(concepts.index?.path, 'oms-knowledge-base/concepts/index.md');
   assert.ok(!names(concepts.docs).includes('index.md'));
   assert.deepEqual(concepts.folders.map((f) => f.name), ['sub']);
   assert.deepEqual(names(concepts.folders[0].docs), ['deep.md']);
-  assert.equal(concepts.folders[0].path, 'oms-knowledge-base/oms-concepts/sub');
+  assert.equal(concepts.folders[0].path, 'oms-knowledge-base/concepts/sub');
   const listed = allDocs(root);
   assert.equal(listed.length, DOCS.length);
   assert.equal(new Set(listed).size, DOCS.length);

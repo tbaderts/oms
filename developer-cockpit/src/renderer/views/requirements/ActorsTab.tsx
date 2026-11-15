@@ -20,7 +20,7 @@ export function ActorsTab() {
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {actors.map((actor) => {
-        const Icon = TYPE_ICONS[actor.type] || User;
+        const Icon = TYPE_ICONS[actor.kind] || User;
         return (
           <Card key={actor.id}>
             <CardHeader className="pb-3">
@@ -28,7 +28,7 @@ export function ActorsTab() {
                 <Icon className="h-5 w-5 text-primary" />
                 <CardTitle className="text-base">{actor.name || actor.id}</CardTitle>
               </div>
-              <Badge variant="outline" className="w-fit">{actor.type}</Badge>
+              <Badge variant="outline" className="w-fit">{actor.kind}</Badge>
             </CardHeader>
             <CardContent className="text-sm">
               <p className="text-muted-foreground mb-3">{actor.description}</p>

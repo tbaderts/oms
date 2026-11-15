@@ -21,7 +21,7 @@ import java.util.function.Function;
  * </ul>
  *
  * @param <S> The state enum type
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Transition Validation</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle - State Transition Validation</a>
  */
 public class StateMachine<S extends Enum<S>> {
 

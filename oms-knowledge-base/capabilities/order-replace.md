@@ -4,11 +4,12 @@ title: "Order Replace"
 description: "Amending a working order's quantity or price (FIX OrderCancelReplaceRequest); specified, not built."
 tags: [replace, amend, order-lifecycle]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "planned"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "/oms-concepts/order-replace.md"
+  - resource: "/domain/concepts/order-replace.md"
 ---
 # Order Replace
 
@@ -20,13 +21,17 @@ Clients will be able to amend working orders. Nothing of this is built: there is
 
 As proposed in the specification: a replace request sets cancelState PMOD; the market confirms (new quantity/price) or refuses.
 
+## Use cases
+
+- [UC-017 Replace a working order (planned)](use-cases/UC-017-replace-order.md)
+
 ## Requirements
 
-- [FR-036 Replace (amend) orders](../functional-requirements/FR-036-replace-orders.md)
+- [FR-036 Replace (amend) orders](functional-requirements/FR-036-replace-orders.md)
 
 ## Detailed specifications
 
-- [Replace, Cancel and Reject Operations](../oms-concepts/order-replace.md) — its front matter says `stable` and its old header "Active", but the replace part describes behaviour that does not exist.
+- [Replace, Cancel and Reject Operations](../domain/concepts/order-replace.md) — its front matter says `stable` and its old header "Active", but the replace part describes behaviour that does not exist.
 
 ## Known gaps
 

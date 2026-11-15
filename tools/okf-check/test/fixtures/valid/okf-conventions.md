@@ -4,6 +4,6 @@ title: Conventions
 description: Type vocabulary of the fixture bundle.
 tags: [conventions]
 status: stable
-type_vocabulary: [Reference, Specification, Capability, Requirement]
+type_vocabulary: [Reference, Specification, Capability, Requirement, Use Case, Actor, Decision]
 ---
 # Conventions

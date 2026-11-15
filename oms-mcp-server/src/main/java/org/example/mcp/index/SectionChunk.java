@@ -6,9 +6,9 @@ import java.util.List;
  * One indexable unit of the knowledge base: a markdown section (or part of an
  * oversized section), carrying everything needed for a stable citation.
  *
- * @param path       portable doc path, e.g. "oms-knowledge-base/oms-framework/domain-model_spec.md"
+ * @param path       portable doc path, e.g. "oms-knowledge-base/domain/model/domain-model.md"
  * @param anchor     GitHub-style heading slug, e.g. "state-transitions" (empty for the preamble)
- * @param breadcrumb human-readable location, e.g. "domain-model_spec.md > Order > State Transitions"
+ * @param breadcrumb human-readable location, e.g. "domain-model.md > Order > State Transitions"
  * @param title      heading title of the section this chunk belongs to
  * @param level      heading level (1-6), 0 for the preamble
  * @param startLine  1-based first line of the chunk in the source document

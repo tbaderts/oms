@@ -153,7 +153,7 @@ Design choices that matter for agents:
 MCP exposes three capability types; this server uses all three.
 
 - **Resources** — every KB document is published as `kb://<path>`
-  (e.g. `kb://oms-knowledge-base/oms-framework/domain-model_spec.md`). Clients
+  (e.g. `kb://oms-knowledge-base/domain/model/domain-model.md`). Clients
   like Claude Code/Desktop let a user **attach a whole spec to the
   conversation** with no tool round-trip — ideal when working inside one spec
   for a while.

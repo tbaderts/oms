@@ -4,6 +4,7 @@ title: "Event Publication"
 description: "Getting order and execution changes onto Kafka reliably through the transactional outbox."
 tags: [kafka, outbox, events]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -23,12 +24,12 @@ Streaming service, exchange simulator and any downstream consumer.
 
 ## Behaviour
 
-Commands stage [outbox messages](../domain/outbox-message.md); `OutboxRelay` drains them through
+Commands stage [outbox messages](../domain/model/outbox-message.md); `OutboxRelay` drains them through
 `MessagePublisher` (the only Kafka producer). The broker is off the request path. See the
-[Transactional Outbox decision](../architecture/transactional-outbox.md).
+[Transactional Outbox decision](../architecture/decisions/ADR-005-transactional-outbox.md).
 
 Every order change stages an `ORDER` row. An applied fill stages, in the same transaction and in
-this order, `ORDER` and `EXECUTION` rows, then the [projections](../oms-concepts/projections.md)
+this order, `ORDER` and `EXECUTION` rows, then the [projections](../architecture/concepts/projections.md)
 stage theirs: the order-execution projection a `PROJECTION` row with the `OrderExecution` record
 as a generic payload (SPEC-0020; SPEC-0019 introduced the message as an `ORDER_EXECUTION` row).
 All carry the same event version, for `oms_orders`, `oms_executions` and `oms_order_executions`.
@@ -165,19 +166,24 @@ Before deploying, check `oms.outbox.stuck` (or
 `select id, topic, aggregate_id, last_error from outbox where attempts >= 10`). Replay or delete
 each stuck row; the old relay has usually already published the later messages past it.
 
+## Use cases
+
+- [UC-009 Receive order and execution events downstream](use-cases/UC-009-consume-events.md)
+
 ## Requirements
 
-- [FR-023 Publish staged messages in commit order](../functional-requirements/FR-023-relay-outbox-in-order.md)
-- [FR-024 Retry failed publication](../functional-requirements/FR-024-retry-failed-publication.md)
-- [NFR-004 Reliable publication](../non-functional-requirements/NFR-004-reliable-publication.md)
+- [FR-023 Publish staged messages in commit order](functional-requirements/FR-023-relay-outbox-in-order.md)
+- [FR-024 Retry failed publication](functional-requirements/FR-024-retry-failed-publication.md)
+- [NFR-004 Reliable publication](non-functional-requirements/NFR-004-reliable-publication.md)
+- [NFR-011 Run several oms-core instances safely](non-functional-requirements/NFR-011-several-instances.md)
 
 ## Interfaces and domain
 
-[Kafka Topics](../interfaces/kafka-topics.md), [Avro Messages](../interfaces/avro-messages.md).
+[Kafka Topics](../domain/interfaces/message-api.md), [Avro Messages](../domain/interfaces/message-api.md).
 
 ## Detailed specifications
 
-- [Trade Blotter Backend Component Specification](../oms-concepts/streaming-architecture.md) (consumer side)
+- [Trade Blotter Backend Component Specification](../architecture/concepts/event-streaming.md) (consumer side)
 
 ## Known gaps
 
@@ -185,4 +191,4 @@ None known.
 
 ## Verification
 
-`OutboxRelayTest`, `EventSourcingIntegrationTest`, `MessagePublisherTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OutboxRelayTest`, `EventSourcingIntegrationTest`, `MessagePublisherTest`. Conventions: [Testing Patterns](../delivery/testing.md).

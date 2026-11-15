@@ -56,7 +56,7 @@ public class KbMcpFeaturesConfig {
                 "implement-from-spec",
                 "Implement a feature against an OMS specification, citing spec sections.",
                 List.of(new McpSchema.PromptArgument("spec", "Knowledge base path of the specification "
-                        + "(e.g. oms-knowledge-base/oms-framework/domain-model_spec.md)", true),
+                        + "(e.g. oms-knowledge-base/domain/model/domain-model.md)", true),
                         new McpSchema.PromptArgument("feature", "Short description of what to implement", true)),
                 args -> """
                         Implement the following against the OMS specification, following \

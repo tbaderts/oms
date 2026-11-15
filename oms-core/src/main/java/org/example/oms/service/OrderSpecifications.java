@@ -24,8 +24,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Enum fields: eq</li>
  * </ul>
  *
- * @see <a href="file:///oms-knowledge-base/oms-framework/state-query-store_spec.md">State Query Store - JPA Specification Implementation</a>
- * @see <a href="file:///oms-knowledge-base/oms-framework/domain-model_spec.md">Domain Model - Queryable Fields</a>
+ * @see <a href="file:///oms-knowledge-base/framework/query-engine.md">Query Engine - Order search</a>
+ * @see <a href="file:///oms-knowledge-base/domain/model/domain-model.md">Domain Model - Queryable Fields</a>
  */
 @Slf4j
 public final class OrderSpecifications {

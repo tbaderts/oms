@@ -42,8 +42,16 @@ cd tools/okf-check && npm test               # fixtures + the real bundle
 | `OKF-INDEX` | OKF §8 | other `index.md` files have no front matter; every folder with concepts has an `index.md` linking each concept and child folder index |
 | `OKF-LOG` | OKF §9 | `log.md` has no front matter and `## YYYY-MM-DD` headings, newest first |
 | `OKF-LINK` | OKF §6 | relative and `/`-prefixed markdown links outside code stay inside the bundle and resolve to a file, or to a folder that has an `index.md` |
-| `OMS-CAP` | project (SPEC-0010) | a `Capability` has `maturity` (implemented, partial, planned), a `commands` list (may be `[]`) and links at least one `Requirement` |
-| `OMS-REQ` | project (SPEC-0010) | a `Requirement` has a unique `id` (`FR-nnn` in `functional-requirements/`, `NFR-nnn` in `non-functional-requirements/`), a MoSCoW `priority`, an `implementation` (implemented, partial, not-implemented) and a `capability` pointing to a `Capability` |
+| `OMS-CAP` | project (SPEC-0010, SPEC-0061) | a `Capability` has `maturity` (implemented, partial, planned), a `commands` list (may be `[]`) and links at least one `Requirement` and one `Use Case` |
+| `OMS-REQ` | project (SPEC-0010) | a `Requirement` has a unique `id` (`FR-nnn` in `capabilities/functional-requirements/`, `NFR-nnn` in `capabilities/non-functional-requirements/`), a MoSCoW `priority`, an `implementation` (implemented, partial, not-implemented) and a `capability` pointing to a `Capability` |
+| `OMS-UC` | project (SPEC-0061) | a `Use Case` has a unique `UC-nnn` that starts its file name, lives in `capabilities/use-cases/`, has `actors` that resolve to `Actor` concepts, a `capability`, and links at least one `Requirement` |
+| `OMS-ACTOR` | project (SPEC-0061) | an `Actor` has `kind` (human, system, external) and lives in `capabilities/actors/` |
+| `OMS-TRACE` | project (SPEC-0061) | every `Requirement` is linked from at least one `Use Case` |
+| `OMS-ADR` | project (SPEC-0061) | a `Decision` has a unique `ADR-nnn` that starts its file name |
+| `OMS-REVIEWED` | project (SPEC-0061) | outside `archive/`, `updated` is on or after the conventions' `reviewed_since` (off when it is not set) |
+| `OMS-RETIRED` | project (SPEC-0061) | outside `archive/` and `point_in_time: true` documents, prose (not code) contains none of the conventions' `retired_terms`, case-insensitive |
+| `OMS-ARCHIVE` | project (SPEC-0061) | documents in `archive/` are `deprecated`; every `deprecated` document has `superseded_by` (a concept path or `none`) |
+| `OMS-ALIAS` | project (SPEC-0061) | `aliases` are strings, unique across the bundle, and never the id of an existing concept |
 | `OMS-SRC` | project (SPEC-0010) | every `repo:<path>` source exists under the repository root; an implemented or partial requirement cites a main source (a file under a `src/` tree) and a test (`src/test/…`, `*.test.*` or `*Test.java`) |
 | `OMS-PROV` | project (SPEC-0010) | concepts of the structured types (Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision) carry `generated` by a tool actor and non-empty `sources` |
 
@@ -51,6 +59,20 @@ cd tools/okf-check && npm test               # fixtures + the real bundle
 override with `--repo <dir>` (the tests pass the fixture directory).
 
 YAML is parsed with the JSON schema, so timestamps and versions stay strings and must be quoted.
+
+## Reference check
+
+```bash
+node tools/okf-check/check-kb-refs.mjs        # from the repository root; exit 0 clean, 1 findings
+```
+
+`check-kb-refs.mjs` (SPEC-0061) scans every tracked and untracked, not ignored text file for
+`oms-knowledge-base/<path>` and fails when the path does not exist, and on any mention of the retired
+folders `oms-concepts/`, `oms-framework/`, `oms-methodolgy/`. Excluded: archived and in-flight spec
+tickets, OpenWiki, the knowledge base archive, dated assessments, the review register, the log, the
+conventions, applied Liquibase changelogs and this tool's own README and tests. Test sources are checked for the
+retired folders only, since their fixtures name paths in temporary workspaces; `aliases:` lines are
+skipped.
 
 ## Tests
 
@@ -60,8 +82,10 @@ YAML is parsed with the JSON schema, so timestamps and versions stay strings and
   command schema in exactly one capability (and not `implemented` unless dispatched), every OpenAPI
   path, controller base path, Avro schema and Kafka topic in exactly one `Interface`, every entity
   and state symbol documented, every document reachable from the root index, every specification
-  linked from a capability, and every requirement found by the developer cockpit's scan.
-- `test/mcp-metadata.test.mjs` — the metadata oms-mcp-server extracts
-  (`test/mcp-metadata.mjs`, a port of `MarkdownParser#extractMetadata`) still matches
-  `test/baseline-metadata.json`, captured from the bundle before the conversion; and front matter
-  `status` follows the old header. `test/capture-baseline.mjs` produced the baseline.
+  in a product folder (domain, framework, ui) linked from a capability, every requirement
+  found by the developer cockpit's scan, the agreed root layout, and the November 2026 review
+  register covering every document that existed before SPEC-0061.
+- `test/check-kb-refs.test.mjs` — the reference check against throw-away repositories.
+
+The SPEC-0009 metadata baseline test was removed in SPEC-0061: it compared the legacy bold headers,
+which that ticket removed, keyed by paths that no longer exist.

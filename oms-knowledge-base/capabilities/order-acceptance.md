@@ -4,6 +4,7 @@ title: "Order Acceptance"
 description: "Moving an order to LIVE when the market acknowledges it."
 tags: [order-acceptance, ack, orders]
 status: draft
+updated: "2026-11-14T12:00:00Z"
 maturity: "implemented"
 commands: ["OrderAcceptCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -31,26 +32,30 @@ lifecycle pipeline in one transaction:
 4. move the order to LIVE and stamp the market-ack SLA with the time the command arrived;
 5. save the order, record `ACK` and stage publication.
 
-Every acknowledgement, applied or refused, is recorded in the [command log](../domain/command-log.md).
+Every acknowledgement, applied or refused, is recorded in the [command log](../domain/model/command-log.md).
 The separate `OrderAcceptCommandProcessor` was removed.
+
+## Use cases
+
+- [UC-002 Acknowledge an order at the venue](use-cases/UC-002-acknowledge-order.md)
 
 ## Requirements
 
-- [FR-005 Move acknowledged orders to LIVE](../functional-requirements/FR-005-acknowledge-orders.md)
-- [FR-006 Refuse invalid acknowledgements](../functional-requirements/FR-006-refuse-invalid-acceptance.md)
+- [FR-005 Move acknowledged orders to LIVE](functional-requirements/FR-005-acknowledge-orders.md)
+- [FR-006 Refuse invalid acknowledgements](functional-requirements/FR-006-refuse-invalid-acceptance.md)
 
 ## Interfaces and domain
 
-[Command API](../interfaces/command-api.md), [Kafka Topics](../interfaces/kafka-topics.md); [Order State](../domain/order-state.md).
+[Command API](../domain/interfaces/command-api.md), [Kafka Topics](../domain/interfaces/message-api.md); [Order State](../domain/model/order-state.md).
 
 ## Detailed specifications
 
-- [Order Lifecycle Management Specification](../oms-concepts/order-lifecycle.md)
-- [State Machine Framework](../oms-framework/state-machine-framework_spec.md)
+- [Order Lifecycle Management Specification](../domain/concepts/order-lifecycle.md)
+- [State Machine Framework](../framework/state-machine.md)
 
 ## Known gaps
 
-- [Order Lifecycle](../oms-concepts/order-lifecycle.md) §9.3 "Duplicate Acknowledgments" says a
+- [Order Lifecycle](../domain/concepts/order-lifecycle.md) §9.3 "Duplicate Acknowledgments" says a
   duplicate ack is ignored. The code writes nothing either way, but the response differs:
   - a redelivery with the same commandId is refused as a duplicate (409 on the API, acknowledged
     on Kafka);
@@ -59,4 +64,4 @@ The separate `OrderAcceptCommandProcessor` was removed.
 
 ## Verification
 
-`OrderLifecycleCommandProcessorTest` (accept cases), `DuplicateCommandIntegrationTest#acceptAppliesOnceAndRefusesRepeatAndNonUnack`, `CommandListenerKafkaIntegrationTest`, `OrderLifecycleIntegrationTest`. Conventions: [Testing Patterns](../oms-framework/testing-patterns.md).
+`OrderLifecycleCommandProcessorTest` (accept cases), `DuplicateCommandIntegrationTest#acceptAppliesOnceAndRefusesRepeatAndNonUnack`, `CommandListenerKafkaIntegrationTest`, `OrderLifecycleIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).

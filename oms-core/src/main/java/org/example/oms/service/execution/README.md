@@ -289,6 +289,6 @@ INFO  - Pipeline execution completed - Success: true, Duration: 45ms
 
 ## References
 
-- [Task Orchestration Framework Specification](../../../oms-knowledge-base/oms-framework/task-orchestration-framework_spec.md)
-- [Order Quantity Calculations Specification](../../../oms-knowledge-base/oms-concepts/order-quantity-calculations.md)
-- [State Machine Framework Specification](../../../oms-knowledge-base/oms-framework/state-machine-framework_spec.md)
+- [Task Orchestration Framework Specification](../../../oms-knowledge-base/framework/task-orchestrator.md)
+- [Order Quantity Calculations Specification](../../../oms-knowledge-base/domain/concepts/order-quantity-calculations.md)
+- [State Machine Framework Specification](../../../oms-knowledge-base/framework/state-machine.md)

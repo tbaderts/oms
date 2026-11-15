@@ -44,7 +44,7 @@ Every knowledge interaction uses three tools, usually in this order:
 | Find | `searchKnowledgeBase(query)` | `searchKnowledgeBase("order cancel workflow")` |
 | Read | `readKnowledgeBase(path, anchor)` | follow a citation from the search result |
 
-Search results carry **citations** like `oms-knowledge-base/oms-concepts/order-replace.md#5-order-cancel-workflow` — pass the path and anchor straight into `readKnowledgeBase` to get the full section.
+Search results carry **citations** like `oms-knowledge-base/domain/concepts/order-replace.md#5-order-cancel-workflow` — pass the path and anchor straight into `readKnowledgeBase` to get the full section.
 
 ---
 
@@ -59,7 +59,7 @@ summarize the states an order can be in, citing the spec sections.
 ### Task 2: Generate Spec-Compliant Code (5 min)
 ```
 1. Search the knowledge base for "Execution entity"
-2. Read the relevant domain-model_spec.md sections
+2. Read the relevant domain model sections (oms-knowledge-base/domain/model/)
 3. Generate Execution.java following the spec, citing path#anchor in the Javadoc
 ```
 

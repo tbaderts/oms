@@ -20,6 +20,7 @@ export function NonFunctionalReqTab() {
             <TableHead className="w-28">Category</TableHead>
             <TableHead>Metric</TableHead>
             <TableHead>Target</TableHead>
+            <TableHead className="w-36">Implementation</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -35,6 +36,11 @@ export function NonFunctionalReqTab() {
               </TableCell>
               <TableCell className="text-sm">{nfr.metric || '-'}</TableCell>
               <TableCell className="text-sm">{nfr.target || '-'}</TableCell>
+              <TableCell>
+                <Badge variant={nfr.implementation === 'implemented' ? 'default' : nfr.implementation === 'partial' ? 'secondary' : 'outline'}>
+                  {nfr.implementation}
+                </Badge>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

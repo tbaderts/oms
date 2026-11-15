@@ -22,7 +22,7 @@
   ./run-mcp.sh     # unix shell
 - Gradle run for development:
   .\gradlew.bat bootRun --args='--spring.main.web-application-type=servlet --server.port=8091'
-- Semantic search (optional) setup uses Docker Compose in `oms-mcp-server/docker-compose.yml` and helper scripts: `setup-semantic-search.ps1` / `.sh`. Check with `docker-compose ps` and `docker-compose logs qdrant`.
+- Semantic search (optional): the MCP server keeps its own Lucene index and embeds with Ollama on the host (`mxbai-embed-large` by default); without Ollama it falls back to keyword search. No vector database is needed.
 
 ## Project-specific conventions & patterns
 
@@ -36,7 +36,7 @@
 
 - OMS backend APIs: controllers under `oms-core/src/main/java/org/example/oms/api` expose endpoints consumed by `oms-ui` and `oms-mcp-server` tool clients (`OrderQueryClient` in `oms-mcp-server`).
 - OpenAPI generator tasks: `build.gradle` wires `openApiGenerate` to generate models and controllers; avoid manual edits to generated packages unless migrating generator configs.
-- Semantic search (optional): Qdrant/Ollama via Docker Compose used by `oms-mcp-server` (`README_SEMANTIC_SEARCH.md`, `setup-semantic-search.sh`).
+- Semantic search (optional): Ollama embeddings into the MCP server's embedded Lucene index; see `oms-knowledge-base/tools/knowledge-server.md`.
 
 ## What reviewers expect from generated code
 
@@ -59,40 +59,50 @@
 
 ## Knowledge Base Quick Reference
 
-When working on these areas, consult these spec files in `oms-knowledge-base/`:
+When working on these areas, consult these files in `oms-knowledge-base/` (start at `index.md`; how it is
+organised: `semantic-layer/knowledge-base-strategy.md`). Each document's front matter says whether it is
+current (`status`, `updated`), and capabilities and requirements say what is built (`maturity`,
+`implementation`). A specification that describes more than is built starts with an *Implementation
+status* note. Do not build on anything in `archive/`.
 
 ### Domain & Business Logic
 
-| Task | Spec Files |
-|------|-----------|
-| **Order entity fields & mappings** | `oms-framework/domain-model_spec.md` (📄 713 lines - complete field specs) |
-| **Order create/accept/grouping** | `oms-concepts/order-grouping.md`, `oms-framework/domain-model_spec.md` |
-| **Cancel/replace operations** | `oms-concepts/order-replace.md` (1,237 lines - comprehensive FIX workflows) |
-| **Execution reporting & quantities** | `oms-concepts/order-quantity-calculations.md` (FIX tags, PlacedQty, CumQty, AllocQty) |
+| Task | Files |
+|------|-------|
+| **What the OMS does, what is built** | `capabilities/index.md`, the capability's use cases and requirements |
+| **Order entity fields & mappings** | `domain/model/order.md`, `domain/model/domain-model.md` (field reference) |
+| **Order states and transitions** | `domain/model/order-state.md` (in force), `domain/concepts/order-lifecycle.md` |
+| **Quantities (cumQty, leavesQty, avgPx)** | `domain/model/order-quantities.md`, `domain/concepts/order-quantity-calculations.md` |
+| **Cancel, reject, replace** | `capabilities/order-cancellation.md`, `domain/concepts/order-replace.md` (replace not built) |
+| **Executions and fills** | `capabilities/execution-processing.md`, `domain/concepts/execution-reporting.md` |
+| **APIs, topics, Avro messages** | `domain/interfaces/` (command, query, REST read and message APIs) |
 
 ### Framework & Architecture
 
-| Task | Spec Files |
-|------|-----------|
-| **State transitions (NEW→FILLED)** | `oms-framework/state-machine-framework_spec.md` (state machine patterns) |
-| **Task pipelines & orchestration** | `oms-framework/task-orchestration-framework_spec.md` (ConditionalTask, TaskResult) |
-| **Event sourcing & persistence** | `oms-framework/oms-state-store.md` (event log, Kafka integration) |
-| **Query APIs (CQRS read model)** | `oms-framework/state-query-store_spec.md` (ReadySet, logical replication) |
+| Task | Files |
+|------|-------|
+| **State machine, task pipelines** | `framework/state-machine.md`, `framework/task-orchestrator.md` |
+| **Validation and errors** | `framework/validation-engine.md`, `framework/exception-handling.md` |
+| **Queries** | `framework/query-engine.md` |
+| **Event log, outbox, projections** | `architecture/concepts/state-store.md`, `architecture/decisions/` |
+| **Kafka, transactions, logging, new services** | `architecture/patterns/` |
+| **Known debt** | `architecture/technical-debt/technical-debt-register.md` |
 
 ### Integration & UI
 
-| Task | Spec Files |
-|------|-----------|
-| **WebSocket streaming** | `oms-concepts/streaming-architecture.md` (RSocket, real-time updates) |
-| **Admin UI (React/AG Grid)** | `ui/oms-admin-ui_spec.md` (blotter, filters, state indicators) |
-| **Order state visual indicators** | `illustrations/order-state-indicator-spec.md` (4-bar indicator spec) |
+| Task | Files |
+|------|-------|
+| **Real-time streaming (RSocket)** | `architecture/concepts/event-streaming.md`, `capabilities/real-time-streaming.md` |
+| **Admin UI (React/AG Grid)** | `ui/admin-ui.md`, `ui/design-system.md` |
+| **Order state visual indicators** | `ui/order-state-indicator.md` |
+| **Local stack and observability** | `infrastructure/local-docker-stack.md`, `infrastructure/observability.md` |
 
 ### Development Process
 
-| Task | Spec Files |
-|------|-----------|
-| **AI-augmented development** | `oms-methodolgy/ai-augmented-development.md` (MCP, Copilot agents, @oms) |
-| **Team manifesto & values** | `oms-methodolgy/manifesto.md` (spec-driven dev, TDD, event sourcing) |
-| **Architecture methodology** | `oms-methodolgy/software-architecture-methodology.md` (4-pillar framework) |
+| Task | Files |
+|------|-------|
+| **Spec tickets** | `delivery/spec-driven-development.md` |
+| **AI-augmented development** | `delivery/ai-augmented-development.md`, `tools/knowledge-server.md` |
+| **Testing** | `delivery/testing.md` |
+| **Team manifesto & values** | `delivery/manifesto.md` |
 
-**Note:** All specs now have "Related Documents" sections for cross-referencing. Use these to navigate between related concepts.

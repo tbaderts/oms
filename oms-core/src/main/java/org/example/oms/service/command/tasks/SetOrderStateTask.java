@@ -33,8 +33,8 @@ import lombok.extern.slf4j.Slf4j;
  * — {@code ValidateOrderTask} runs earlier in the pipeline — which is what makes this the moment the
  * OMS has genuinely assumed responsibility for the order.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - Initial State Transition</a>
- * @see <a href="file:///oms-knowledge-base/oms-concepts/sla-measurement.md">SLA Measurement</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle - Initial State Transition</a>
+ * @see <a href="file:///oms-knowledge-base/capabilities/order-sla-monitoring.md">Order SLA Monitoring</a>
  */
 @Component
 @Slf4j

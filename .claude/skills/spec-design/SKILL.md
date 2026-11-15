@@ -15,11 +15,12 @@ checked line by line against `specs/policies/architecture-policies.md`.
 
 - `proposal.md`: every AC must be addressed.
 - `specs/policies/architecture-policies.md`: read all policies; you will rule on each one.
-- The framework specs that apply (read the relevant ones fully rather than skimming):
-  `domain-model_spec.md`, `state-machine-framework_spec.md`,
-  `task-orchestration-framework_spec.md`, `state-query-store_spec.md`, `validation-rules.md`,
-  `error-handling.md`, `openapi-contracts.md`, `testing-patterns.md` in
-  `oms-knowledge-base/oms-framework/`.
+- The framework specs that apply (read the relevant ones fully rather than skimming; each says at
+  the top what is built): `state-machine.md`, `task-orchestrator.md`, `validation-engine.md`,
+  `exception-handling.md`, `query-engine.md` in `oms-knowledge-base/framework/`; the domain model in
+  `oms-knowledge-base/domain/model/`; the patterns in `oms-knowledge-base/architecture/patterns/`
+  (contract-first code generation, Kafka messaging, transaction handling, logging and tracing);
+  `oms-knowledge-base/delivery/testing.md`.
 - **The closest existing example in the code.** Find the most similar existing flow (e.g.
   `OrderAcceptCommandProcessor` + its tasks + `OrderAcceptCommandProcessorTest`) and design the
   change as a sibling of it. Following existing patterns beats inventing new ones (P-11, P-17).

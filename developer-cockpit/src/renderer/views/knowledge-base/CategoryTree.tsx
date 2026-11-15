@@ -17,7 +17,7 @@ export function CategoryTree({ categories, onSelect }: CategoryTreeProps) {
   return (
     <div className="space-y-1">
       {categories.map((cat) => (
-        <CategoryNode key={cat.name} category={cat} onSelect={onSelect} />
+        <CategoryNode key={cat.id ?? cat.name} category={cat} onSelect={onSelect} />
       ))}
     </div>
   );
@@ -29,9 +29,9 @@ function CategoryNode({ category, onSelect }: { category: KbCategory; onSelect: 
 
   useEffect(() => {
     if (expanded && documents.length === 0) {
-      window.cockpit.kb.getDocuments(category.name).then(setDocuments).catch(() => {});
+      window.cockpit.kb.getDocuments(category.id ?? category.name).then(setDocuments).catch(() => {});
     }
-  }, [expanded, category.name, documents.length]);
+  }, [expanded, category.id, category.name, documents.length]);
 
   return (
     <div>
@@ -48,7 +48,7 @@ function CategoryNode({ category, onSelect }: { category: KbCategory; onSelect: 
       {expanded && (
         <div className="ml-4 space-y-0.5">
           {category.subcategories.map((sub) => (
-            <CategoryNode key={sub.name} category={sub} onSelect={onSelect} />
+            <CategoryNode key={sub.id ?? sub.name} category={sub} onSelect={onSelect} />
           ))}
           {documents.map((doc) => (
             <button
@@ -57,7 +57,10 @@ function CategoryNode({ category, onSelect }: { category: KbCategory; onSelect: 
               className="flex w-full items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
             >
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="flex-1 text-left truncate">{doc.title}</span>
+              <span className={`flex-1 text-left truncate ${doc.frontmatter?.status === 'deprecated' ? 'text-muted-foreground line-through' : ''}`}>{doc.title}</span>
+              {doc.frontmatter?.status === 'deprecated' && (
+                <span className="text-[10px] text-muted-foreground" title="Superseded; see the archive banner">deprecated</span>
+              )}
             </button>
           ))}
         </div>

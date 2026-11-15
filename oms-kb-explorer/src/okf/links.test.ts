@@ -53,8 +53,8 @@ test('links leaving the bundle are not in-app links', () => {
 });
 
 test('percent-encoded paths are decoded', () => {
-  assert.deepEqual(resolveDocLink(FROM, '../oms-concepts/order%20lifecycle.md'),
-    { kind: 'doc', path: 'oms-knowledge-base/oms-concepts/order lifecycle.md' });
+  assert.deepEqual(resolveDocLink(FROM, '../domain/concepts/order%20lifecycle.md'),
+    { kind: 'doc', path: 'oms-knowledge-base/domain/concepts/order lifecycle.md' });
 });
 
 test('only markdown documents and folders are in-app links', () => {

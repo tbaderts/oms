@@ -1,9 +1,11 @@
 # User Interface
 
-Specifications of the OMS user interfaces.
+Specifications of the OMS user interfaces and the design system.
 
 Back to the [knowledge base index](../index.md).
 
-## Specifications
+## Documents
 
-- [User Interface Specification: OMS Admin Tool](oms-admin-ui_spec.md) — React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests. *(draft)*
+- [User Interface Specification: OMS Admin Tool](admin-ui.md) — React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests.
+- [Design System](design-system.md) — The visual language of the OMS UI: design tokens in theme/_tokens.scss (surfaces, text, brand accent, status tones, borders, spacing, shape, type), their TypeScript mirror for AG Grid, and the tests that enforce token use and contrast.
+- [Order State Indicator Specification](order-state-indicator.md) — Four-bar visual indicator showing leg types, placement and execution progress of an order in the web UI.

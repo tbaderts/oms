@@ -11,6 +11,12 @@ const PRIORITY_COLORS: Record<string, 'default' | 'secondary' | 'destructive' | 
   wont: 'outline',
 };
 
+const IMPLEMENTATION_VARIANT: Record<string, 'default' | 'secondary' | 'outline'> = {
+  implemented: 'default',
+  partial: 'secondary',
+  'not-implemented': 'outline',
+};
+
 export function FunctionalReqTab() {
   const functionalReqs = useRequirementsStore((s) => s.functionalReqs);
 
@@ -26,7 +32,7 @@ export function FunctionalReqTab() {
             <TableHead className="w-24">ID</TableHead>
             <TableHead>Title</TableHead>
             <TableHead className="w-24">Priority</TableHead>
-            <TableHead className="w-28">Status</TableHead>
+            <TableHead className="w-36">Implementation</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -44,7 +50,7 @@ export function FunctionalReqTab() {
                 </Badge>
               </TableCell>
               <TableCell>
-                <Badge variant="outline">{fr.status}</Badge>
+                <Badge variant={IMPLEMENTATION_VARIANT[fr.implementation] ?? 'outline'}>{fr.implementation}</Badge>
               </TableCell>
             </TableRow>
           ))}

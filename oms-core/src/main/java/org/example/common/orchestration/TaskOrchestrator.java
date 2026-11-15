@@ -16,7 +16,7 @@ import lombok.Getter;
  * Orchestrates the execution of a pipeline of tasks. Tasks are executed in the order they are added
  * to the pipeline. Supports conditional task execution, error handling, and result aggregation.
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - Task Pipeline Pattern</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/execution-reporting.md">Execution Reporting - Task Pipeline Pattern</a>
  */
 @Component
 public class TaskOrchestrator {

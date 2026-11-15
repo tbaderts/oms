@@ -12,6 +12,10 @@ function getReqService(configService: ConfigService): RequirementsService {
 }
 
 export function registerRequirementsIpc(ipcMain: IpcMain, configService: ConfigService): void {
+  ipcMain.handle('requirements:getCapabilities', async () => {
+    return getReqService(configService).getCapabilities();
+  });
+
   ipcMain.handle('requirements:getUseCases', async () => {
     return getReqService(configService).getUseCases();
   });

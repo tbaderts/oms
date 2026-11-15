@@ -16,8 +16,8 @@ back to its acceptance criteria, so precision here is what makes autonomy possib
 
 - `spec status <id>`, then read `ticket.md` → Goal. It is the requester's intent; do not reinterpret it.
 - Read what already exists. Do not guess:
-  - the relevant concept pages in `oms-knowledge-base/oms-concepts/` and framework specs in
-    `oms-knowledge-base/oms-framework/` (grep for the domain terms in the goal);
+  - the relevant concept pages in `oms-knowledge-base/domain/concepts/` and framework specs in
+    `oms-knowledge-base/framework/` (grep for the domain terms in the goal);
   - `openwiki/quickstart.md` if it exists;
   - the contracts in `oms-contracts/src/main/openapi/` and `oms-contracts/src/main/avro/`;
   - the code paths involved (controllers in `oms-core/.../api`, processors in

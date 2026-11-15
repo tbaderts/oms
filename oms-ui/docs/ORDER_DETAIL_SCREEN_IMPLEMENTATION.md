@@ -1,7 +1,7 @@
 # Order Detail Screen Implementation
 
 ## Overview
-Implemented the order detail screen in the blotter according to the OMS Admin UI specification found in `oms-knowledge-base/ui/oms-admin-ui_spec.md`.
+Implemented the order detail screen in the blotter according to the OMS Admin UI specification found in `oms-knowledge-base/ui/admin-ui.md`.
 
 ## Implementation Details
 
@@ -88,7 +88,7 @@ Implemented the order detail screen in the blotter according to the OMS Admin UI
 
 ## Specification Compliance
 
-This implementation follows the specification in `oms-knowledge-base/ui/oms-admin-ui_spec.md`:
+This implementation follows the specification in `oms-knowledge-base/ui/admin-ui.md`:
 
 ✅ **Master-Detail Pattern**: Click to expand row and show nested data  
 ✅ **JSON Display**: Formatted JSON view of complex objects  

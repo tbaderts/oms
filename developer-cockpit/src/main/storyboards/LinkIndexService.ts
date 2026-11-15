@@ -3,6 +3,7 @@ import * as path from 'path';
 import { parse as parseYaml } from 'yaml';
 import type { LinkIndex } from '../../shared/types/storyboards';
 import { parseFrontMatter } from './parse';
+import { ORDER_STATE_DOC, REQUIREMENT_DIRS } from '../services/kbLayout';
 
 export interface LinkIndexOptions {
   workspaceRoot: string;
@@ -13,8 +14,7 @@ export interface LinkIndexOptions {
   avroPaths: string[];
 }
 
-const REQUIREMENT_DIRS = ['functional-requirements', 'non-functional-requirements'];
-const STATE_DOC = path.join('domain', 'order-state.md');
+const STATE_DOC = path.join(...ORDER_STATE_DOC.split('/'));
 const REQUIREMENT_ID = /^(N?FR-\d{3,})/;
 const TRANSITION = /^\s*([A-Za-z_][\w]*)\s*-->\s*([A-Za-z_][\w]*)\b/;
 

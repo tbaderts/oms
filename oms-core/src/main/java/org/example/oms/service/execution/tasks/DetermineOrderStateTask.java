@@ -25,8 +25,8 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>LIVE -> FILLED (fully filled, leavesQty = 0)
  * </ul>
  *
- * @see <a href="file:///oms-knowledge-base/oms-concepts/order-lifecycle.md">Order Lifecycle - State Machine Transitions</a>
- * @see <a href="file:///oms-knowledge-base/oms-concepts/execution-reporting.md">Execution Reporting - State Determination</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/order-lifecycle.md">Order Lifecycle - State Machine Transitions</a>
+ * @see <a href="file:///oms-knowledge-base/domain/concepts/execution-reporting.md">Execution Reporting - State Determination</a>
  */
 @Component
 @RequiredArgsConstructor

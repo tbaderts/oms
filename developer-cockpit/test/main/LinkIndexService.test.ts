@@ -41,11 +41,11 @@ function writeSources(ws: StoryboardWorkspace) {
     'oms-contracts/src/main/avro/OrderMessage.avsc': JSON.stringify({ type: 'record', name: 'OrderMessage', fields: [] }),
     'oms-contracts/src/main/avro/Side.avsc': JSON.stringify({ type: 'enum', name: 'Side', symbols: ['BUY'] }),
     'oms-contracts/src/main/avro/Pair.avsc': JSON.stringify([{ type: 'record', name: 'Left', fields: [] }, { type: 'record', name: 'Right', fields: [] }]),
-    'oms-knowledge-base/domain/order-state.md': ORDER_STATE,
-    'oms-knowledge-base/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }),
-    'oms-knowledge-base/functional-requirements/FR-002-no-front-matter-id.md': md({ title: 'No id' }),
-    'oms-knowledge-base/non-functional-requirements/NFR-001-idempotent.md': md({ id: 'NFR-001', title: 'Idempotent' }),
-    'oms-knowledge-base/functional-requirements/index.md': '# Index\n',
+    'oms-knowledge-base/domain/model/order-state.md': ORDER_STATE,
+    'oms-knowledge-base/capabilities/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }),
+    'oms-knowledge-base/capabilities/functional-requirements/FR-002-no-front-matter-id.md': md({ title: 'No id' }),
+    'oms-knowledge-base/capabilities/non-functional-requirements/NFR-001-idempotent.md': md({ id: 'NFR-001', title: 'Idempotent' }),
+    'oms-knowledge-base/capabilities/functional-requirements/index.md': '# Index\n',
   });
 }
 
@@ -78,12 +78,12 @@ describe('LinkIndexService', () => {
     writeSources(ws);
     const svc = service(ws);
     const first = svc.get();
-    ws.write({ 'oms-knowledge-base/functional-requirements/FR-003-new.md': md({ id: 'FR-003', title: 'New' }) });
+    ws.write({ 'oms-knowledge-base/capabilities/functional-requirements/FR-003-new.md': md({ id: 'FR-003', title: 'New' }) });
     expect(svc.get()).toBe(first);
-    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/functional-requirements/FR-003-new.md'))).toBe(true);
+    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/capabilities/functional-requirements/FR-003-new.md'))).toBe(true);
     expect(svc.isSource(path.join(ws.root, 'oms-contracts/src/main/avro/X.avsc'))).toBe(true);
-    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/domain/order-state.md'))).toBe(true);
-    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/domain/order.md'))).toBe(false);
+    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/domain/model/order-state.md'))).toBe(true);
+    expect(svc.isSource(path.join(ws.root, 'oms-knowledge-base/domain/model/order.md'))).toBe(false);
     svc.invalidate();
     expect(svc.get().requirements).toContain('FR-003');
   });

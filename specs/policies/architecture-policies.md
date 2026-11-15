@@ -100,8 +100,8 @@ automatically; existing tickets fail their next gate until they address it.
   (validate → set state → persist → publish), e.g. `SetOrderStateTask`, not ad-hoc setters in
   controllers or services. New transitions are added to the state machine configuration.
 - **Why:** illegal transitions and skipped validation are the most expensive OMS bugs.
-- **Check:** review against `oms-framework/state-machine-framework_spec.md` and
-  `task-orchestration-framework_spec.md`.
+- **Check:** review against `oms-knowledge-base/framework/state-machine.md` and
+  `task-orchestrator.md`.
 
 ### P-11 — Layering and conventions
 
@@ -121,7 +121,7 @@ automatically; existing tickets fail their next gate until they address it.
 ### P-13 — Errors and validation follow the framework specs
 
 - **Rule:** API errors are RFC 7807 Problem+JSON; validation follows
-  `oms-framework/validation-rules.md` and `error-handling.md`. No swallowed exceptions.
+  `oms-knowledge-base/framework/validation-engine.md` and `exception-handling.md`. No swallowed exceptions.
 - **Why:** clients (UI, MCP, FIX gateways) depend on one error shape.
 - **Check:** review.
 

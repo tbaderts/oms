@@ -6,7 +6,7 @@ This repository is an Order Management System implemented in Java (Java 25) usin
 
 - `oms-core` — core services, controllers, domain model and business logic. Runs on port 8090.
 - `oms-streaming-service` — real-time streaming service using RSocket over WebSocket. Consumes order events from Kafka and streams them to connected clients. Supports filtered streaming with snapshot + live updates. Runs on port 7000 (RSocket) and 8092 (HTTP).
-- `oms-mcp-server` — Model Context Protocol (MCP) server for AI tooling, semantic search (Qdrant/Ollama), and documentation access. Runs on port 8091.
+- `oms-mcp-server` — Model Context Protocol (MCP) server for AI tooling, hybrid search over an embedded Lucene index (Ollama embeddings), and documentation access. Runs on port 8091.
 - `oms-ui` — React frontend application with AG Grid blotters, real-time streaming support, and filter builder. Runs on port 3000.
 
 ## Architecture
