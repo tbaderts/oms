@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { useKbChatStore, type KbChatTurn } from '@/stores/kbChat';
 import { useKnowledgeBaseStore } from '@/stores/knowledgeBase';
+import { RunDetails, SourceEntryDetails, sourceDetailsByPath } from './KbChatDetails';
 
 function Turn({ turn, onOpen }: { turn: KbChatTurn; onOpen: (path: string) => void }) {
   if (turn.role === 'user') {
@@ -14,6 +15,8 @@ function Turn({ turn, onOpen }: { turn: KbChatTurn; onOpen: (path: string) => vo
       </div>
     );
   }
+  // SPEC-0065: each source shows its best match next to its link, and its other matches on demand.
+  const details = sourceDetailsByPath(turn.trace);
   return (
     <div className="mb-4 text-sm" data-testid="kb-chat-answer">
       <MarkdownContent content={turn.text || '…'} />
@@ -22,7 +25,7 @@ function Turn({ turn, onOpen }: { turn: KbChatTurn; onOpen: (path: string) => vo
           <p className="mb-1 text-xs font-medium text-muted-foreground">Sources</p>
           <ul className="space-y-1">
             {turn.sources.map((path) => (
-              <li key={path}>
+              <li key={path} className="flex flex-wrap items-center gap-x-2">
                 <button
                   type="button"
                   className="flex items-center gap-1 text-left text-xs text-primary hover:underline"
@@ -32,11 +35,13 @@ function Turn({ turn, onOpen }: { turn: KbChatTurn; onOpen: (path: string) => vo
                   <FileText className="h-3 w-3 shrink-0" />
                   {path}
                 </button>
+                <SourceEntryDetails path={path} detail={details.get(path)} />
               </li>
             ))}
           </ul>
         </div>
       )}
+      {turn.trace && <RunDetails trace={turn.trace} />}
     </div>
   );
 }
@@ -46,9 +51,11 @@ function Turn({ turn, onOpen }: { turn: KbChatTurn; onOpen: (path: string) => vo
  * the knowledge server's KB tools over MCP (or local search when it is down). Answers list the
  * documents the tools used as links that open in the KB document viewer.
  */
-export function KbChatPanel() {
+export function KbChatPanel({ onOpenDocument }: { onOpenDocument?: (path: string) => void } = {}) {
   const { status, running, error, incomplete, source, turns, loadStatus, send, summarise, stop, clear } = useKbChatStore();
   const { selectedDocument, selectDocument } = useKnowledgeBaseStore();
+  // The Knowledge Base view switches to the document when a source is opened.
+  const openSource = onOpenDocument ?? ((path: string) => void selectDocument(path));
   const [question, setQuestion] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -97,8 +104,9 @@ export function KbChatPanel() {
             disabled={!available || running}
             onClick={() => void summarise(selectedDocument.relativePath, selectedDocument.title)}
           >
-            <Sparkles className="mr-1 h-4 w-4" />
+            <Sparkles className="mr-1 h-4 w-4 shrink-0" />
             Summarise this document
+            <span className="ml-1 truncate font-normal text-muted-foreground">({selectedDocument.title})</span>
           </Button>
         </div>
       )}
@@ -109,7 +117,7 @@ export function KbChatPanel() {
             Ask where something is documented, or for a summary of a topic. Answers cite the documents they used.
           </p>
         ) : (
-          turns.map((t) => <Turn key={t.id} turn={t} onOpen={(p) => void selectDocument(p)} />)
+          turns.map((t) => <Turn key={t.id} turn={t} onOpen={openSource} />)
         )}
         {running && <p className="text-xs text-muted-foreground">Thinking…</p>}
         {incomplete && !running && <p className="text-xs text-amber-600 dark:text-amber-400">The answer stopped at the step limit and may be incomplete.</p>}

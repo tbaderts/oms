@@ -1,24 +1,40 @@
+import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { statusBadge, trustBadge, type TrustBadge } from '../okf/status';
 
-const PILL = 'inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap';
+/** The tone tokens a badge can use: colour carries meaning, as in oms-ui (SPEC-0066). */
+export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'violet' | 'accent';
 
-const STATUS_COLORS: Record<string, string> = {
-  stable: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  draft: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-  deprecated: 'bg-gray-200 text-gray-700 line-through dark:bg-gray-700 dark:text-gray-300',
+const TONE: Record<Tone, string> = {
+  success: 'bg-success-bg text-success',
+  warning: 'bg-warning-bg text-warning',
+  danger: 'bg-danger-bg text-danger',
+  info: 'bg-info-bg text-info',
+  neutral: 'bg-neutral-bg text-neutral',
+  violet: 'bg-violet-bg text-violet',
+  accent: 'bg-accent-bg text-accent',
 };
 
-const TRUST_COLORS: Record<string, string> = {
-  good: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-  neutral: 'bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200',
-  warning: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-};
+/** oms-ui's badge: a small tinted label, sentence case, no letter spacing. */
+export function ToneBadge({ tone, title, className = '', children }: { tone: Tone; title?: string; className?: string; children: ReactNode }) {
+  return (
+    <span title={title} className={`inline-flex items-center gap-0.5 whitespace-nowrap rounded-sm px-1.5 py-px text-2xs font-medium ${TONE[tone]} ${className}`}>
+      {children}
+    </span>
+  );
+}
+
+const STATUS_TONE: Record<string, Tone> = { stable: 'success', draft: 'warning', deprecated: 'neutral' };
+const TRUST_TONE: Record<TrustBadge['tone'], Tone> = { good: 'success', neutral: 'info', warning: 'warning' };
 
 export function StatusPill({ status }: { status?: string | null }) {
   const badge = statusBadge(status);
   if (badge === 'unknown') return null;
-  return <span className={`${PILL} ${STATUS_COLORS[badge]}`} title={`Status: ${status}`}>{badge}</span>;
+  return (
+    <ToneBadge tone={STATUS_TONE[badge]} title={`Status: ${status}`} className={badge === 'deprecated' ? 'line-through' : ''}>
+      {badge}
+    </ToneBadge>
+  );
 }
 
 export function TrustPill({ tier }: { tier?: string | null }) {
@@ -27,18 +43,22 @@ export function TrustPill({ tier }: { tier?: string | null }) {
 
 export function TrustBadgePill({ badge }: { badge: TrustBadge | null }) {
   if (!badge) return null;
-  return <span className={`${PILL} ${TRUST_COLORS[badge.tone]}`} title="Trust tier (OKF verified)">{badge.label}</span>;
+  return (
+    <ToneBadge tone={TRUST_TONE[badge.tone]} title="Trust tier (OKF verified)">
+      {badge.label}
+    </ToneBadge>
+  );
 }
 
 export function TypePill({ type }: { type?: string | null }) {
   if (!type) return null;
-  return <span className={`${PILL} bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200`}>{type}</span>;
+  return <ToneBadge tone="violet">{type}</ToneBadge>;
 }
 
 export function StalePill({ staleAfter }: { staleAfter?: string }) {
   return (
-    <span className={`${PILL} bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200`} title={staleAfter ? `Stale since ${staleAfter}` : 'Stale'}>
-      <AlertTriangle className="w-3 h-3 mr-0.5" /> Stale
-    </span>
+    <ToneBadge tone="danger" title={staleAfter ? `Stale since ${staleAfter}` : 'Stale'}>
+      <AlertTriangle className="h-3 w-3" /> Stale
+    </ToneBadge>
   );
 }

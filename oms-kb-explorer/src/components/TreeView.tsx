@@ -29,7 +29,7 @@ export default function TreeView({ onSelectDoc, selectedDoc }: TreeViewProps) {
       <div className="p-4">
         <div className="animate-pulse space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-8 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div key={i} className="h-6 rounded-sm bg-raised" />
           ))}
         </div>
       </div>
@@ -38,7 +38,7 @@ export default function TreeView({ onSelectDoc, selectedDoc }: TreeViewProps) {
 
   if (!documents || documents.length === 0) {
     return (
-      <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-center text-sm text-muted">
         No documents found
       </div>
     );
@@ -55,13 +55,13 @@ export default function TreeView({ onSelectDoc, selectedDoc }: TreeViewProps) {
       key={doc.path}
       onClick={() => onSelectDoc(doc.path)}
       title={doc.path}
-      className={`w-full flex items-center gap-1.5 px-2 py-1 text-sm rounded-md transition-colors ${
+      className={`flex w-full items-center gap-1.5 rounded-sm border-l-2 px-2 py-1 text-sm transition-colors ${
         selectedDoc === doc.path
-          ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          ? 'border-accent bg-selection text-strong'
+          : 'border-transparent text-text hover:bg-hover'
       }`}
     >
-      <FileText className="w-3.5 h-3.5 flex-shrink-0 text-gray-400" />
+      <FileText className="h-3.5 w-3.5 shrink-0 text-muted" />
       <span className="flex-1 text-left truncate">{label}</span>
       {showTrustInTree(doc) && <TrustPill tier={doc.okf?.trustTier} />}
       <StatusPill status={doc.status} />
@@ -71,13 +71,14 @@ export default function TreeView({ onSelectDoc, selectedDoc }: TreeViewProps) {
   return (
     <div className="p-2 text-sm">
       {/* View toggle */}
-      <div className="flex gap-1 mb-2">
+      <div role="group" aria-label="Tree view" className="mb-2 flex gap-0.5 rounded-md border border-border bg-bg p-0.5">
         {(['types', 'folders'] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
-            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${
-              view === v ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+            aria-pressed={view === v}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-sm px-2 py-1 text-xs font-medium transition-colors ${
+              view === v ? 'bg-accent text-on-accent' : 'text-muted hover:bg-hover hover:text-text'
             }`}
           >
             {v === 'types' ? <Layers className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
@@ -102,7 +103,7 @@ export default function TreeView({ onSelectDoc, selectedDoc }: TreeViewProps) {
             {group.subgroups.map((sub) => (
               <div key={sub.label}>
                 {group.subgroups.length > 1 || sub.label !== group.type ? (
-                  <div className="px-2 pt-1 text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{sub.label}</div>
+                  <div className="px-2 pt-1.5 text-2xs font-medium text-muted">{sub.label}</div>
                 ) : null}
                 {sub.docs.map((doc) => entry(doc))}
               </div>
@@ -120,10 +121,11 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   return (
     <button
       onClick={onClick}
-      className={`px-1.5 py-0.5 rounded-full text-[10px] border ${
+      aria-pressed={active}
+      className={`rounded-sm border px-1.5 py-px text-2xs transition-colors ${
         active
-          ? 'bg-blue-600 border-blue-600 text-white'
-          : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+          ? 'border-accent bg-accent-bg text-accent'
+          : 'border-border-strong text-muted hover:bg-hover hover:text-text'
       }`}
     >
       {label}
@@ -137,11 +139,11 @@ function Section({ label, count, children }: { label: string; count: number; chi
     <div className="mt-1">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center px-1 py-1 font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
+        className="flex w-full items-center rounded-sm px-1 py-1 font-medium text-strong hover:bg-hover"
       >
         {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         <span className="flex-1 text-left ml-1">{label}</span>
-        <span className="text-xs text-gray-500">{count}</span>
+        <span className="text-xs text-muted">{count}</span>
       </button>
       {open && <div className="ml-2 space-y-0.5">{children}</div>}
     </div>
@@ -175,13 +177,13 @@ function FolderView({ node, entry, onSelectDoc, root }: FolderViewProps) {
   }
   return (
     <div className="mt-0.5">
-      <div className="flex items-center px-1 py-1 text-gray-800 dark:text-gray-200">
+      <div className="flex items-center px-1 py-1 text-strong">
         <button onClick={() => setOpen(!open)} aria-label={open ? 'Collapse' : 'Expand'}>
           {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
-        <Folder className="w-4 h-4 mx-1 text-blue-500" />
+        <Folder className="mx-1 h-4 w-4 text-muted" />
         {node.index ? (
-          <button onClick={() => onSelectDoc(node.index!.path)} className="flex-1 text-left font-medium hover:underline" title="Open the folder index">
+          <button onClick={() => onSelectDoc(node.index!.path)} className="flex-1 text-left font-medium hover:text-accent" title="Open the folder index">
             {node.name}
           </button>
         ) : (

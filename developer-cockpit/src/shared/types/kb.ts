@@ -28,3 +28,46 @@ export interface KbSearchResult {
   score: number;
   matches: string[];
 }
+
+/** A finding of the knowledge base checker (`tools/okf-check`), file relative to the bundle (SPEC-0064). */
+export interface KbFinding {
+  file: string;
+  rule: string;
+  message: string;
+}
+
+/** The checker's statistics over the documents (index.md and log.md not counted). */
+export interface KbStats {
+  documents: number;
+  byType: Record<string, number>;
+  byStatus: Record<string, number>;
+  /** Top-level folder, `root` for the bundle root. */
+  byFolder: Record<string, number>;
+  requirements: { total: number; byImplementation: Record<string, number>; byPriority: Record<string, number> };
+  /** Archived documents left out; `due` means older than reviewAfterDays (null: no review period set). */
+  reviewAge: { reviewAfterDays: number | null; current: number; due: number; unknown: number };
+  /** Whether git could date the `repo:` sources for the OMS-DRIFT warning. */
+  drift: 'checked' | 'unavailable';
+}
+
+/** `okf-check <bundle> --json`: errors fail the check, warnings ask for a review. */
+export interface KbHealthReport {
+  concepts: number;
+  errors: KbFinding[];
+  warnings: KbFinding[];
+  stats: KbStats;
+}
+
+/** Entries the index fix adds to one folder index (bundle-relative path). */
+export interface KbIndexChange {
+  index: string;
+  created: boolean;
+  documents: string[];
+  sections: string[];
+}
+
+/** `okf-check <bundle> --fix-indexes --json`; `applied` is false for a dry run. */
+export interface KbIndexFixResult {
+  applied: boolean;
+  changes: KbIndexChange[];
+}

@@ -102,3 +102,78 @@ describe('kbChat store (SPEC-0062)', () => {
     expect(lastMessages()).toEqual([{ role: 'user', content: 'q2' }]);
   });
 });
+
+describe('kbChat store run trace (SPEC-0065)', () => {
+  const trace = () => useKbChatStore.getState().turns.at(-1)!.trace!;
+
+  it('keeps text and tool steps in order, with model, usage and timing (AC-5)', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(10_000);
+    await useKbChatStore.getState().send('lifecycle?');
+    const runId = useKbChatStore.getState().activeRunId!;
+    const handle = useKbChatStore.getState().handleEvent;
+    expect(trace()).toEqual({ steps: [], startedAt: 10_000, outcome: 'running' });
+
+    handle({ type: 'ai:message', runId, text: 'Let me ' });
+    handle({ type: 'ai:message', runId, text: 'search.' });
+    handle({ type: 'ai:tool-call', runId, toolCallId: 'c1', name: 'searchKnowledgeBase', input: { query: 'lifecycle' } });
+    handle({ type: 'ai:tool-result', runId, toolCallId: 'c1', name: 'searchKnowledgeBase', output: 'hits' });
+    handle({ type: 'ai:tool-result', runId, toolCallId: 'orphan', name: 'readKnowledgeBase', output: 'doc' });
+    handle({ type: 'ai:message', runId, text: 'The answer.' });
+    now.mockReturnValue(12_500);
+    handle({ type: 'ai:done', runId, aborted: false, incomplete: false, model: { provider: 'anthropic', model: 'm1' }, usage: { inputTokens: 900, outputTokens: 100 } });
+    now.mockRestore();
+
+    expect(trace()).toEqual({
+      steps: [
+        { kind: 'text', text: 'Let me search.' },
+        { kind: 'tool', toolCallId: 'c1', name: 'searchKnowledgeBase', input: { query: 'lifecycle' }, output: 'hits' },
+        { kind: 'tool', toolCallId: 'orphan', name: 'readKnowledgeBase', input: {}, output: 'doc' },
+        { kind: 'text', text: 'The answer.' },
+      ],
+      startedAt: 10_000,
+      endedAt: 12_500,
+      model: { provider: 'anthropic', model: 'm1' },
+      usage: { inputTokens: 900, outputTokens: 100 },
+      outcome: 'complete',
+    });
+    // The answer and its sources are as before.
+    expect(useKbChatStore.getState().turns.at(-1)).toMatchObject({ text: 'Let me search.The answer.', sources: [] });
+  });
+
+  it('records stopped, step-limit and failed outcomes (AC-6)', async () => {
+    const run = async (done: Record<string, unknown>, error?: string) => {
+      await useKbChatStore.getState().send('q');
+      const runId = useKbChatStore.getState().activeRunId!;
+      if (error) useKbChatStore.getState().handleEvent({ type: 'ai:error', runId, message: error });
+      useKbChatStore.getState().handleEvent({ type: 'ai:done', runId, aborted: false, incomplete: false, ...done });
+      return trace();
+    };
+    expect((await run({ aborted: true })).outcome).toBe('stopped');
+    expect((await run({ incomplete: true })).outcome).toBe('step-limit');
+    expect(await run({}, 'AI run failed: boom')).toMatchObject({ outcome: 'failed', error: 'AI run failed: boom' });
+  });
+
+  it('a run that cannot start is failed with its reason (AC-6)', async () => {
+    kbChat.mockResolvedValueOnce({ ok: false, message: 'AI not configured' });
+    await useKbChatStore.getState().send('q');
+    expect(trace()).toMatchObject({ outcome: 'failed', error: 'AI not configured' });
+    expect(trace().endedAt).toBeTypeOf('number');
+  });
+
+  it('each answer keeps its own trace, and clear removes them (AC-7)', async () => {
+    const answer = async (tool: string) => {
+      await useKbChatStore.getState().send(`use ${tool}`);
+      const runId = useKbChatStore.getState().activeRunId!;
+      useKbChatStore.getState().handleEvent({ type: 'ai:tool-call', runId, toolCallId: 'c', name: tool, input: {} });
+      useKbChatStore.getState().handleEvent({ type: 'ai:done', runId, aborted: false, incomplete: false });
+    };
+    await answer('first_tool');
+    await answer('second_tool');
+    const names = useKbChatStore.getState().turns
+      .filter((t) => t.role === 'assistant')
+      .map((t) => t.trace!.steps.map((s) => (s.kind === 'tool' ? s.name : s.kind)));
+    expect(names).toEqual([['first_tool'], ['second_tool']]);
+    useKbChatStore.getState().clear();
+    expect(useKbChatStore.getState().turns).toEqual([]);
+  });
+});

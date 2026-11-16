@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ConfigService } from './services/ConfigService';
@@ -20,6 +20,9 @@ import { registerDockerIpc } from './ipc/docker.ipc';
 import { registerMonitorIpc } from './ipc/monitor.ipc';
 import { KbService } from './services/KbService';
 import { AiUsageTracker } from './ai/AiUsageTracker';
+import { KeyStore, electronKeyCrypto } from './ai/KeyStore';
+import { migrateAiKeys } from './ai/keyMigration';
+import { registerAiKeysIpc } from './ipc/aiKeys.ipc';
 import { resolveStoryboardsConfig } from './services/ConfigService';
 import { expandRoots } from './storyboards/roots';
 import { parseAssetUrl, resolveAsset } from './storyboards/assets';
@@ -48,6 +51,7 @@ let wsServer: WebSocketServer;
 let storyboards: StoryboardsIpc;
 let aiIpc: AiIpc;
 let aiKb: KbService | null = null;
+let keyStore: KeyStore;
 
 // COCKPIT_WS_PORT lets an end-to-end run start next to a running cockpit; the page CSP allows any port on 127.0.0.1.
 const WS_PORT = Number(process.env.COCKPIT_WS_PORT) || 9321;
@@ -85,7 +89,11 @@ async function createWindow(): Promise<void> {
 
 async function initServices(): Promise<void> {
   configService = new ConfigService();
-  await configService.load();
+  // AI provider keys live encrypted in their own file (SPEC-0063); safeStorage is usable here
+  // because initServices runs after app.whenReady(). A plain-text key in config.json is moved
+  // into the store on load, before any save.
+  keyStore = new KeyStore(configService.getConfigDir(), electronKeyCrypto(safeStorage));
+  await configService.load({ migrateKeys: (config) => migrateAiKeys(config, keyStore) });
 
   wsServer = new WebSocketServer(WS_PORT);
   wsServer.start();
@@ -123,7 +131,9 @@ function registerAllIpc(): void {
     kb: assistantKb,
     usage: new AiUsageTracker(configService.getConfigDir()),
     broadcast: (event) => wsServer.broadcast(event),
+    keys: keyStore,
   });
+  registerAiKeysIpc(ipcMain, { keyStore, configService });
   registerDockerIpc(ipcMain, {
     configService,
     dockerPath: configService.getConfig().infrastructure.dockerPath,
@@ -131,6 +141,7 @@ function registerAllIpc(): void {
   registerMonitorIpc(ipcMain, configService);
   storyboards = registerStoryboardsIpc(ipcMain, {
     configService,
+    keys: keyStore,
     broadcast: (event) => wsServer.broadcast(event),
     chooseSaveFile: async (defaultName, extension) => {
       const filters = { mmd: { name: 'Mermaid', extensions: ['mmd'] }, html: { name: 'HTML', extensions: ['html'] }, pdf: { name: 'PDF', extensions: ['pdf'] } };

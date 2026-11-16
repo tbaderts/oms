@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.example.mcp.docs.ConceptLinks;
@@ -67,7 +68,7 @@ public class KnowledgeBaseTools {
     // searchKnowledgeBase
     // ------------------------------------------------------------------
 
-    @Tool(name = "searchKnowledgeBase", description = """
+    @Tool(name = "searchKnowledgeBase", resultConverter = PlainTextResultConverter.class, description = """
             Search the OMS knowledge base (specifications, domain concepts, architecture docs). \
             Hybrid retrieval: BM25 keyword search + semantic vector search, fused by rank. \
             Returns the most relevant sections with stable citations of the form 'path#anchor'. \
@@ -113,6 +114,7 @@ public class KnowledgeBaseTools {
             md.append(" (lines ").append(hit.startLine()).append("-").append(hit.endLine()).append(")");
             String facets = facets(hit.type(), hit.status(), hit.trustTier());
             if (!facets.isEmpty()) md.append(" — ").append(facets);
+            md.append(" — ").append(scoreAndRanks(hit));
             md.append("\n\n");
             md.append(quote(excerpt(hit.text()))).append("\n\n");
         }
@@ -130,7 +132,7 @@ public class KnowledgeBaseTools {
     // readKnowledgeBase
     // ------------------------------------------------------------------
 
-    @Tool(name = "readKnowledgeBase", description = """
+    @Tool(name = "readKnowledgeBase", resultConverter = PlainTextResultConverter.class, description = """
             Read a knowledge base document or a single section of it. \
             'path' is a document path as returned by searchKnowledgeBase or getKnowledgeBaseOverview \
             (e.g. 'oms-knowledge-base/domain/concepts/order-lifecycle.md'). A former path of a document that \
@@ -245,7 +247,7 @@ public class KnowledgeBaseTools {
     // getKnowledgeBaseOverview
     // ------------------------------------------------------------------
 
-    @Tool(name = "getKnowledgeBaseOverview", description = """
+    @Tool(name = "getKnowledgeBaseOverview", resultConverter = PlainTextResultConverter.class, description = """
             Get an index of the whole OMS knowledge base: every concept with its metadata \
             (type, status, trust tier, staleness, version), a one-line description and its top-level \
             sections with anchors. Navigation files (index.md, log.md) are left out. \
@@ -323,6 +325,14 @@ public class KnowledgeBaseTools {
     }
 
     // ----- helpers -----
+
+    /** "score 0.0325 · keyword #1 · semantic #3" — the fused score and the ranks it came from (SPEC-0065). */
+    private static String scoreAndRanks(SearchHit hit) {
+        StringBuilder s = new StringBuilder("score ").append(String.format(Locale.ROOT, "%.4f", hit.score()));
+        if (hit.keywordRank() != null) s.append(" · keyword #").append(hit.keywordRank());
+        if (hit.vectorRank() != null) s.append(" · semantic #").append(hit.vectorRank());
+        return s.toString();
+    }
 
     /** "Capability · draft · unverified": the facets that are known, joined. */
     private static String facets(String type, String status, String trustTier) {

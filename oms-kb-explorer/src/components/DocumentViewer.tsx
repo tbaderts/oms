@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { FileText, Copy, Check } from 'lucide-react';
+import { AlertTriangle, FileText, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { omsCodeTheme } from '../theme/codeTheme';
 import { kbApi } from '../services/api';
 import { stripFrontMatter } from '../utils/frontMatter';
 import { resolveDocLink, slugify } from '../okf/links';
@@ -32,9 +32,8 @@ function scrollToAnchor(anchor: string) {
 
 export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: DocumentViewerProps) {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
-  const { data: document, isLoading } = useQuery({
+  const { data: document, isLoading, error } = useQuery({
     queryKey: ['document', selectedDoc],
     queryFn: () => (selectedDoc ? kbApi.readDocument(selectedDoc) : null),
     enabled: !!selectedDoc,
@@ -50,25 +49,6 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
     }
   }, [document, anchor]);
 
-  // Detect theme changes from parent element
-  useEffect(() => {
-    const detectTheme = () => {
-      const isDark = window.document.documentElement.classList.contains('dark');
-      setTheme(isDark ? 'dark' : 'light');
-    };
-
-    detectTheme();
-
-    // Watch for theme changes
-    const observer = new MutationObserver(detectTheme);
-    observer.observe(window.document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
@@ -77,13 +57,11 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
 
   if (!selectedDoc) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <FileText className="w-24 h-24 text-gray-300 dark:text-gray-600 mb-4" />
-        <h2 className="text-2xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Welcome to KB Explorer
-        </h2>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md">
-          Select a document from the sidebar to start exploring the OMS knowledge base
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        <FileText className="mb-3 h-10 w-10 text-muted" />
+        <h2 className="mb-1 text-lg font-semibold text-strong">OMS knowledge base</h2>
+        <p className="max-w-md text-sm text-muted">
+          Pick a document in the tree, or press <kbd className="rounded-sm border border-border-strong bg-raised px-1 font-mono text-xs text-text">/</kbd> to search.
         </p>
       </div>
     );
@@ -91,13 +69,13 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
 
   if (isLoading) {
     return (
-      <div className="p-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2" />
-          <div className="space-y-2 mt-8">
+      <div className="mx-auto max-w-4xl p-8" aria-busy="true">
+        <div className="animate-pulse space-y-3">
+          <div className="h-7 w-3/4 rounded-sm bg-raised" />
+          <div className="h-4 w-1/2 rounded-sm bg-raised" />
+          <div className="mt-6 space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div key={i} className="h-3.5 rounded-sm bg-raised" />
             ))}
           </div>
         </div>
@@ -105,18 +83,23 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
     );
   }
 
-  if (!document) {
+  // A failed load names the document and the reason, not an empty pane (SPEC-0066 AC-8)
+  if (error || !document) {
     return (
-      <div className="flex items-center justify-center h-full text-center p-8">
-        <div>
-          <p className="text-gray-500 dark:text-gray-400">Failed to load document</p>
+      <div className="mx-auto max-w-4xl p-8">
+        <div role="alert" className="flex items-start gap-3 rounded-md border border-danger bg-danger-bg px-4 py-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <div>
+            <p className="font-medium text-strong">Could not load {selectedDoc}</p>
+            <p className="text-muted">{error instanceof Error ? error.message : 'The document is empty or missing.'}</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
+    <div className="mx-auto max-w-4xl px-8 py-6">
       <DocumentHeader doc={meta} onSelectDoc={(path) => onSelectDoc(path)} />
       <div className="markdown-content">
         <ReactMarkdown
@@ -162,25 +145,22 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
 
               // Render Mermaid diagrams
               if (language === 'mermaid') {
-                return <MermaidDiagram chart={codeString} theme={theme} />;
+                return <MermaidDiagram chart={codeString} />;
               }
 
               // Render syntax-highlighted code
               return match ? (
-                <div className="relative group">
+                <div className="group relative">
                   <button
                     onClick={() => handleCopyCode(codeString)}
-                    className="absolute right-2 top-2 p-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors opacity-0 group-hover:opacity-100"
+                    className="absolute top-2 right-2 rounded-sm border border-border-strong bg-raised p-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-overlay"
                     title="Copy code"
+                    aria-label="Copy code"
                   >
-                    {copiedCode === codeString ? (
-                      <Check className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-gray-300" />
-                    )}
+                    {copiedCode === codeString ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5 text-muted" />}
                   </button>
                   <SyntaxHighlighter
-                    style={vscDarkPlus}
+                    style={omsCodeTheme}
                     language={language}
                     PreTag="div"
                     {...props}

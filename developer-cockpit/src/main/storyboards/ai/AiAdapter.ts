@@ -1,4 +1,5 @@
 import type { AiConfig } from '../../../shared/types/config';
+import { NO_SAVED_KEYS, resolveApiKey, type SavedKeys } from '../../ai/keys';
 
 export interface AiRequest {
   system: string;
@@ -15,11 +16,12 @@ export interface AiAdapter {
  * Resolves whether the configured provider can be used, based on the same rules as the
  * assistant's `forConfig` adapter factory (AC-3): a key for anthropic/openai, a base URL for local.
  */
-export function isConfigured(config: AiConfig, env: NodeJS.ProcessEnv = process.env): boolean {
+export function isConfigured(config: AiConfig, env: NodeJS.ProcessEnv = process.env, keys: SavedKeys = NO_SAVED_KEYS): boolean {
   switch (config.provider) {
     case 'anthropic':
     case 'openai':
-      return !!env[config.apiKeyEnvVar];
+      // The same resolution as the assistant: a saved key, else the environment variable (SPEC-0063).
+      return resolveApiKey(config, keys, env).source !== 'none';
     case 'local':
       return !!config.baseUrl;
     default:
@@ -38,12 +40,13 @@ export class SdkAdapter implements AiAdapter {
   constructor(
     private readonly config: AiConfig,
     private readonly env: NodeJS.ProcessEnv = process.env,
+    private readonly keys: SavedKeys = NO_SAVED_KEYS,
   ) {}
 
   async complete({ system, user, maxTokens }: AiRequest): Promise<string> {
     if (!this.resolved) {
       const { forConfig } = await import('../../ai/adapters');
-      this.model = forConfig(this.config, this.env);
+      this.model = forConfig(this.config, this.env, this.keys);
       this.resolved = true;
     }
     if (!this.model) {

@@ -1,5 +1,6 @@
 import type { AiConfig } from '../../shared/types/config';
 import type { LanguageModel } from 'ai';
+import { NO_SAVED_KEYS, resolveApiKey, type SavedKeys } from './keys';
 // The provider packages are ESM; import them lazily so a not-configured provider never pulls the
 // network-facing factory into the hot path and so `forConfig` can return `null` cleanly (AC-3).
 
@@ -11,10 +12,9 @@ import type { LanguageModel } from 'ai';
  * its model through here, so there is one provider stack. A `null` return means "not configured"
  * and the caller surfaces an `ai:error` configuration message without touching the network (AC-3).
  */
-export function forConfig(config: AiConfig, env: NodeJS.ProcessEnv = process.env): LanguageModel | null {
-  // An explicit `apiKey` in the config takes precedence over the env-var lookup, so a local
-  // vLLM server with a non-standard key can be configured without exporting an env var.
-  const apiKey = config.apiKey || env[config.apiKeyEnvVar];
+export function forConfig(config: AiConfig, env: NodeJS.ProcessEnv = process.env, keys: SavedKeys = NO_SAVED_KEYS): LanguageModel | null {
+  // The provider's own saved (encrypted) key, else the environment variable (SPEC-0063).
+  const { key: apiKey } = resolveApiKey(config, keys, env);
 
   switch (config.provider) {
     case 'anthropic': {

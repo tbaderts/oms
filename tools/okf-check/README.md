@@ -15,8 +15,24 @@ npm --prefix tools/okf-check install                    # first time only
 node tools/okf-check/okf-check.mjs oms-knowledge-base
 ```
 
-Output is one `ERROR <file> [<rule>]: <message>` line per finding and a summary. Exit code `0`
-when the bundle conforms, `1` when there are errors, `2` on a usage error (directory missing).
+Output is one `ERROR <file> [<rule>]: <message>` line per finding, one `WARN …` line per
+freshness warning, and a summary. Exit code `0` when the bundle conforms, `1` when there are
+errors (warnings never fail), `2` on a usage error (directory missing, unknown option).
+
+```bash
+node tools/okf-check/okf-check.mjs oms-knowledge-base --json                  # { concepts, errors, warnings, stats }
+node tools/okf-check/okf-check.mjs oms-knowledge-base --fix-indexes --dry-run  # list missing index entries
+node tools/okf-check/okf-check.mjs oms-knowledge-base --fix-indexes            # add them
+```
+
+`--json` adds `stats`: documents by type, status and top-level folder; requirements by
+`implementation` and `priority`; review age (`current`, `due`, `unknown` against
+`review_after_days`; archive excluded); and whether git could date the sources (`drift`).
+`--fix-indexes` only adds lines: each missing concept or sub-folder index gets
+`- [Title](link) — description`, after the last entry of its kind, else at the end of its section
+(`## Documents`/`## Concepts`, `## Sections`/`## Folders`), else in a new section; a folder
+without `index.md` gets one. It is idempotent and keeps the file's line endings (SPEC-0064). The
+Developer Cockpit's Knowledge Base Health panel runs both.
 
 The `storyboards/` folder at the bundle root is not part of the bundle and is skipped. Storyboards
 have their own file format and their own check, `npm run check:storyboards` in `developer-cockpit`
@@ -54,6 +70,10 @@ cd tools/okf-check && npm test               # fixtures + the real bundle
 | `OMS-ALIAS` | project (SPEC-0061) | `aliases` are strings, unique across the bundle, and never the id of an existing concept |
 | `OMS-SRC` | project (SPEC-0010) | every `repo:<path>` source exists under the repository root; an implemented or partial requirement cites a main source (a file under a `src/` tree) and a test (`src/test/…`, `*.test.*` or `*Test.java`) |
 | `OMS-PROV` | project (SPEC-0010) | concepts of the structured types (Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision) carry `generated` by a tool actor and non-empty `sources` |
+| `OMS-AGE` (warning) | project (SPEC-0064) | outside `archive/`, `updated` is older than the conventions' `review_after_days` (off when not set) |
+| `OMS-STALE` (warning) | OKF §5 | `stale_after` has passed |
+| `OMS-DEPRECATED` (warning) | project (SPEC-0064) | a `deprecated` document lies outside `archive/` |
+| `OMS-DRIFT` (warning) | project (SPEC-0064) | outside `archive/`, a `repo:` source has a git commit later than both the document's `updated` and its own last commit (skipped without git) |
 
 `repo:` paths resolve against the repository root, by default the bundle's parent directory;
 override with `--repo <dir>` (the tests pass the fixture directory).

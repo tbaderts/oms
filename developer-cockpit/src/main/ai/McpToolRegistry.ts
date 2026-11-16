@@ -1,12 +1,21 @@
 import { jsonSchema } from 'ai';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { kbSearchInput, KB_SEARCH_MAX_RESULTS, type KbSearchToolResult } from '../../shared/types/ai';
+import { KB_SEARCH_MAX_RESULTS, type KbSearchToolResult } from '../../shared/types/ai';
 import type { AiMcpServer } from '../../shared/types/config';
 import type { KbSearchResult } from '../../shared/types/kb';
+import { decodeToolText } from '../../shared/mcpText';
 
 /** The KB-backed search tool's input (the AI SDK validates it via `inputSchema` during the loop). */
 type KbSearchInput = { query: string };
+
+/** `kbSearchInput` (zod) as the JSON Schema object the provider receives. */
+const KB_SEARCH_INPUT_SCHEMA = {
+  type: 'object',
+  properties: { query: { type: 'string', minLength: 1 } },
+  required: ['query'],
+  additionalProperties: false,
+} as const;
 
 const MCP_CONNECT_TIMEOUT_MS = 5_000;
 
@@ -37,8 +46,11 @@ export function kbSearchTool(kb: { search: (query: string) => KbSearchResult[] }
   return {
     description:
       'Search the OMS knowledge base (Markdown documents) for documents relevant to a query. ' +
-      `Returns up to ${KB_SEARCH_MAX_RESULTS} matching documents (title, path, category).`,
-    inputSchema: jsonSchema(kbSearchInput.shape),
+      `Returns up to ${KB_SEARCH_MAX_RESULTS} matching documents (title, path, category, score), best first. ` +
+      'score is a fuzzy-match distance: 0 is an exact match, 1 no match; lower is better.',
+    // A real JSON Schema object: providers send it as the tool's input_schema, and Anthropic
+    // rejects one without `type: "object"` (`kbSearchInput.shape` is zod's field map, not JSON Schema).
+    inputSchema: jsonSchema(KB_SEARCH_INPUT_SCHEMA),
     execute: async (input) => {
       const q = (input as KbSearchInput).query;
       const results = kb.search(q).slice(0, KB_SEARCH_MAX_RESULTS);
@@ -49,6 +61,7 @@ export function kbSearchTool(kb: { search: (query: string) => KbSearchResult[] }
           title: r.document.title,
           path: r.document.relativePath,
           category: r.document.category,
+          score: r.score,
         })),
       };
       return out;
@@ -122,7 +135,8 @@ export class McpToolRegistry {
       execute: async (input) => {
         const result = await client.callTool({ name: t.name, arguments: ((input as object) ?? {}) as Record<string, unknown> });
         const content = result.content as Array<{ type?: string; text?: string }> | undefined;
-        const text = (content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join('\n');
+        // A text that arrives JSON-encoded (quoted, escaped breaks) is decoded first (SPEC-0065).
+        const text = (content ?? []).filter((c) => c.type === 'text').map((c) => decodeToolText(c.text ?? '')).join('\n');
         return text || '(no text content)';
       },
     };

@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Save, RotateCcw } from 'lucide-react';
+import { AiKeysSection } from './AiKeysSection';
+import { isAcceptableEnvVarField } from '@shared/envVarName';
 
 export function SettingsView() {
   const { config, saveConfig, loadConfig } = useConfigStore();
@@ -48,7 +50,12 @@ export function SettingsView() {
   const [rootsText, setRootsText] = useState<string | null>(null);
   const positive = (v: string, fallback: number) => (/^\d+$/.test(v.trim()) && Number(v) > 0 ? Number(v) : fallback);
 
+  // A pasted key in the env-var-name field must never be saved (SPEC-0063 AC-9); checked on the
+  // draft itself, so it holds whichever tab is open.
+  const envVarValid = isAcceptableEnvVarField(draft.ai.apiKeyEnvVar);
+
   const handleSave = async () => {
+    if (!envVarValid) return;
     await saveConfig(draft);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -70,12 +77,17 @@ export function SettingsView() {
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset
           </Button>
-          <Button size="sm" onClick={handleSave}>
+          <Button size="sm" onClick={handleSave} disabled={!envVarValid}>
             <Save className="mr-2 h-4 w-4" />
             {saved ? 'Saved!' : 'Save'}
           </Button>
         </div>
       </div>
+      {!envVarValid && (
+        <p className="mb-4 text-sm text-red-600 dark:text-red-400" data-testid="settings-invalid">
+          AI → the environment variable name is not a variable name (did you paste a key?). Fix it to save.
+        </p>
+      )}
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
@@ -206,33 +218,7 @@ export function SettingsView() {
                   </p>
                 </div>
               )}
-              {draft.ai.provider === 'local' && (
-                <div className="space-y-2">
-                  <Label htmlFor="aiApiKey">API Key (optional — e.g. for vLLM with auth enabled)</Label>
-                  <Input
-                    id="aiApiKey"
-                    type="password"
-                    placeholder="sk-…"
-                    value={draft.ai.apiKey ?? ''}
-                    onChange={(e) => updateAi({ apiKey: e.target.value.trim() || undefined })}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    If your local server requires a key, paste it here. It takes precedence over the
-                    environment variable below and is never sent to the renderer.
-                  </p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="apiKeyEnv">API Key Environment Variable (fallback)</Label>
-                <Input
-                  id="apiKeyEnv"
-                  value={draft.ai.apiKeyEnvVar}
-                  onChange={(e) => updateAi({ apiKeyEnvVar: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Used when no explicit key is set above. The main process reads <code>{draft.ai.apiKeyEnvVar}</code> from the environment.
-                </p>
-              </div>
+              <AiKeysSection envVar={draft.ai.apiKeyEnvVar} onEnvVarChange={(v) => updateAi({ apiKeyEnvVar: v })} />
               <div className="space-y-2">
                 <Label htmlFor="knowledgeServerUrl">Knowledge server MCP URL</Label>
                 <Input

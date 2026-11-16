@@ -4,8 +4,9 @@ title: "Knowledge Base Conventions (OKF)"
 description: "How the OMS knowledge base follows the Open Knowledge Format: document types, required metadata, lifecycle and how to add a document."
 tags: [knowledge-base, okf, conventions]
 status: stable
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T19:00:00Z"
 reviewed_since: "2026-11-14T00:00:00Z"
+review_after_days: 180
 retired_terms: [ReadySet, logical replication, Spring Boot 3, oms-methodolgy, oms-concepts/, oms-framework/]
 type_vocabulary: [Concept Paper, Specification, Diagram, Methodology, Assessment, Strategy, Reference, Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision, Use Case, Actor, Pattern]
 ---
@@ -155,7 +156,7 @@ code.
 ## Layout, review and archive
 
 The sections of the bundle and what belongs in each are described in the
-[Knowledge Base Strategy](semantic-layer/knowledge-base-strategy.md). Three settings in this page's
+[Knowledge Base Strategy](semantic-layer/knowledge-base-strategy.md). These settings in this page's
 front matter keep the content honest:
 
 - `reviewed_since`: every document outside `archive/` must have `updated` on or after it. A full
@@ -165,6 +166,11 @@ front matter keep the content honest:
   appear in prose (code spans are fine) outside `archive/` and point-in-time records.
 - `archive/`: superseded documents, each `status: deprecated` with `superseded_by`. Search leaves
   them out by default. Do not link to them from current documents except to explain history.
+- `review_after_days` (180): a document outside `archive/` whose `updated` is older than this gets
+  an `OMS-AGE` warning. The checker also warns when `stale_after` has passed (`OMS-STALE`), when a
+  deprecated document sits outside `archive/` (`OMS-DEPRECATED`), and when a `repo:` source was
+  committed after the document was last updated or committed (`OMS-DRIFT`). Warnings do not fail
+  the check; they list the pages to review (SPEC-0064).
 
 Every rule the checker applies is listed in
 [Schema and Constraints](semantic-layer/schema-and-constraints.md).
@@ -174,6 +180,9 @@ Every rule the checker applies is listed in
 - [`index.md`](index.md) at the root declares `okf_version: "0.2"` and links every root document
   and every folder index. Each folder that contains documents has its own `index.md`, without
   front matter, with a bulleted link and a one-line description per document and sub-folder.
+  `node tools/okf-check/okf-check.mjs oms-knowledge-base --fix-indexes` adds missing entries (from
+  each document's title and description) without touching the rest of the page; `--dry-run` shows
+  them first.
 - [`log.md`](log.md) records notable changes to the knowledge base under `## YYYY-MM-DD`
   headings, newest first.
 

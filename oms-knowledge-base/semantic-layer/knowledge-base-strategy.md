@@ -5,7 +5,7 @@ title: "Knowledge Base Strategy"
 description: "How the OMS knowledge base is organised, kept truthful and served to people and AI agents: the section layout, the two access channels, authoring rules for retrieval, and how freshness is checked."
 tags: [knowledge-base, strategy, okf, mcp, agents]
 status: stable
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T19:00:00Z"
 ---
 # Knowledge Base Strategy
 
@@ -73,7 +73,10 @@ People use the [KB Explorer](../tools/kb-explorer.md) for reading and the
 
 - `okf-check` (see [Schema and Constraints](schema-and-constraints.md)) validates the bundle on
   every change: metadata, links, the capability model, `repo:` sources, the review date and the
-  retired terms.
+  retired terms. Its freshness warnings point at pages to review: not updated within
+  `review_after_days`, past `stale_after`, deprecated outside the archive, or with source code
+  committed after the page. It can also add missing index entries (`--fix-indexes`). The Developer
+  Cockpit's Knowledge Base **Health** panel shows the same report with statistics (SPEC-0064).
 - Its coverage tests compare the bundle with the code: every command, endpoint, topic, Avro schema,
   entity and state is documented exactly once.
 - `check-kb-refs` finds references to knowledge base paths that no longer exist anywhere in the

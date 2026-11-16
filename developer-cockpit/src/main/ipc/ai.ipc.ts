@@ -6,6 +6,7 @@ import { AiService, notConfiguredReason } from '../ai/AiService';
 import { McpToolRegistry, type McpTools } from '../ai/McpToolRegistry';
 import { KbChatTools, type KbChatToolSet } from '../ai/KbChatTools';
 import type { LanguageModel } from 'ai';
+import type { SavedKeys } from '../ai/keys';
 import { KB_CHAT_MAX_MESSAGES, type AiEvent, type AiStatus, type KbChatMessage, type KbChatStartResult } from '../../shared/types/ai';
 import type { CockpitEvent } from '../../shared/types/events';
 import { DEFAULT_KNOWLEDGE_SERVER_URL, type AiConfig } from '../../shared/types/config';
@@ -21,6 +22,8 @@ export interface AiIpcDeps {
   env?: NodeJS.ProcessEnv;
   /** Test seam: a scripted model used once the provider is confirmed configured. Production leaves it unset. */
   model?: LanguageModel;
+  /** The saved (encrypted) provider keys (SPEC-0063); absent = environment variable only. */
+  keys?: SavedKeys;
 }
 
 /** A local (fallback) KB chat tool set is retried against the knowledge server after this long (D6). */
@@ -85,6 +88,7 @@ export function registerAiIpc(ipcMain: IpcMain, deps: AiIpcDeps): AiIpc {
       tools: tools?.tools,
       log: console.warn,
       ...(deps.model ? { model: deps.model } : {}),
+      keys: deps.keys,
     });
 
   /**

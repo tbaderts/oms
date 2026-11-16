@@ -1,23 +1,96 @@
+/* index.css - The explorer's stylesheet (SPEC-0066). Colours and font sizes come only from the OMS
+ * design tokens in theme/tokens.css (a copy of oms-ui's). Tailwind's own palette and type scale are
+ * replaced by the tokens: the default colour and size classes do not exist here, and the classes
+ * are `bg-surface`, `text-muted`, `border-border`, `text-sm` (the token size) and so on.
+ * theme/styleRules.test.ts and theme/contrast.test.ts enforce the rules. */
 @import "tailwindcss";
+@import "./theme/tokens.css";
 
-@variant dark (&:where(.dark, .dark *));
+@theme {
+  --color-*: initial;
+
+  /* Surfaces */
+  --color-bg: var(--oms-bg);
+  --color-surface: var(--oms-surface);
+  --color-raised: var(--oms-surface-raised);
+  --color-overlay: var(--oms-surface-overlay);
+  --color-odd-row: var(--oms-odd-row);
+  --color-scrim: var(--oms-scrim);
+
+  /* Text */
+  --color-text: var(--oms-text);
+  --color-muted: var(--oms-text-muted);
+  --color-strong: var(--oms-text-strong);
+  --color-on-accent: var(--oms-text-on-accent);
+
+  /* Brand accent */
+  --color-accent: var(--oms-accent);
+  --color-accent-hover: var(--oms-accent-hover);
+  --color-accent-active: var(--oms-accent-active);
+  --color-accent-bg: var(--oms-accent-bg);
+  --color-accent-bg-strong: var(--oms-accent-bg-strong);
+
+  /* Tones */
+  --color-success: var(--oms-success);
+  --color-success-bg: var(--oms-success-bg);
+  --color-warning: var(--oms-warning);
+  --color-warning-bg: var(--oms-warning-bg);
+  --color-danger: var(--oms-danger);
+  --color-danger-bg: var(--oms-danger-bg);
+  --color-info: var(--oms-info);
+  --color-info-bg: var(--oms-info-bg);
+  --color-neutral: var(--oms-neutral);
+  --color-neutral-bg: var(--oms-neutral-bg);
+  --color-violet: var(--oms-violet);
+  --color-violet-bg: var(--oms-violet-bg);
+
+  /* Borders and interaction */
+  --color-border: var(--oms-border);
+  --color-border-light: var(--oms-border-light);
+  --color-border-strong: var(--oms-border-strong);
+  --color-border-hover: var(--oms-border-hover);
+  --color-input: var(--oms-input-bg);
+  --color-input-border: var(--oms-input-border);
+  --color-hover: var(--oms-hover);
+  --color-selection: var(--oms-selection);
+  --color-focus: var(--oms-focus-ring);
+
+  /* Type: the six token sizes only */
+  --text-*: initial;
+  --text-2xs: var(--oms-font-size-2xs);
+  --text-xs: var(--oms-font-size-xs);
+  --text-sm: var(--oms-font-size-sm);
+  --text-md: var(--oms-font-size-md);
+  --text-lg: var(--oms-font-size-lg);
+  --text-xl: var(--oms-font-size-xl);
+
+  /* Shape and fonts */
+  --radius-sm: var(--oms-radius-sm);
+  --radius-md: var(--oms-radius-md);
+  --radius-lg: var(--oms-radius-lg);
+  --font-sans: var(--oms-font-family);
+  --font-mono: var(--oms-font-mono);
+  --shadow-md: var(--oms-shadow-md);
+  --shadow-lg: var(--oms-shadow-lg);
+}
+
+/* Dark only, like oms-ui. */
+:root {
+  color-scheme: dark;
+  font-family: var(--oms-font-family);
+  line-height: 1.5;
+}
 
 html {
   scroll-behavior: smooth;
 }
 
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-}
-
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 1024px;
   min-height: 100vh;
+  background: var(--oms-bg);
+  color: var(--oms-text);
 }
 
 #root {
@@ -25,81 +98,126 @@ body {
   height: 100vh;
 }
 
-/* Custom scrollbar styles */
+:focus-visible {
+  outline: 2px solid var(--oms-focus-ring);
+  outline-offset: 1px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  @apply bg-gray-200 dark:bg-gray-800;
+  background: var(--oms-surface);
 }
-
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 dark:bg-gray-600 rounded;
+  background: var(--oms-border-strong);
+  border-radius: var(--oms-radius-sm);
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500 dark:bg-gray-500;
+  background: var(--oms-border-hover);
 }
 
-/* Markdown content styles */
+/* Markdown body: readable prose on the dark slate, accent links, token code colours. */
 .markdown-content {
-  @apply text-gray-800 dark:text-gray-200;
+  color: var(--oms-text);
+  font-size: var(--oms-font-size-md);
+  line-height: 1.7;
 }
-
 .markdown-content h1 {
-  @apply text-3xl font-bold mt-8 mb-4 text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2;
+  margin: 0 0 var(--oms-space-4);
+  padding-bottom: var(--oms-space-2);
+  font-size: var(--oms-font-size-xl);
+  font-weight: 600;
+  color: var(--oms-text-strong);
+  border-bottom: 1px solid var(--oms-border);
 }
-
 .markdown-content h2 {
-  @apply text-2xl font-semibold mt-6 mb-3 text-gray-900 dark:text-white;
+  margin: var(--oms-space-6) 0 var(--oms-space-3);
+  font-size: var(--oms-font-size-lg);
+  font-weight: 600;
+  color: var(--oms-text-strong);
 }
-
-.markdown-content h3 {
-  @apply text-xl font-semibold mt-5 mb-2 text-gray-900 dark:text-white;
+.markdown-content h3,
+.markdown-content h4 {
+  margin: var(--oms-space-5) 0 var(--oms-space-2);
+  font-size: var(--oms-font-size-md);
+  font-weight: 600;
+  color: var(--oms-text-strong);
 }
-
 .markdown-content p {
-  @apply my-4 leading-7;
+  margin: var(--oms-space-3) 0;
 }
-
-.markdown-content code {
-  @apply bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono text-pink-600 dark:text-pink-400;
+.markdown-content ul,
+.markdown-content ol {
+  margin: var(--oms-space-3) 0 var(--oms-space-3) var(--oms-space-5);
 }
-
-.markdown-content pre {
-  @apply bg-gray-900 dark:bg-black p-4 rounded-lg overflow-x-auto my-4;
+.markdown-content ul {
+  list-style: disc;
 }
-
-.markdown-content pre code {
-  @apply bg-transparent px-0 py-0 text-gray-100;
+.markdown-content ol {
+  list-style: decimal;
 }
-
-.markdown-content ul, .markdown-content ol {
-  @apply my-4 ml-6 space-y-2;
-}
-
 .markdown-content li {
-  @apply my-1;
+  margin: var(--oms-space-1) 0;
 }
-
 .markdown-content a {
-  @apply text-blue-600 dark:text-blue-400 hover:underline;
+  color: var(--oms-accent);
+  text-decoration: none;
 }
-
+.markdown-content a:hover {
+  color: var(--oms-accent-hover);
+  text-decoration: underline;
+}
+.markdown-content code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--oms-radius-sm);
+  background: var(--oms-surface-raised);
+  color: var(--oms-syntax-string);
+  font-family: var(--oms-font-mono);
+  font-size: var(--oms-font-size-sm);
+}
+.markdown-content pre {
+  margin: var(--oms-space-4) 0;
+  border: 1px solid var(--oms-border);
+  border-radius: var(--oms-radius-md);
+  background: var(--oms-surface);
+  overflow-x: auto;
+}
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
+  color: var(--oms-text);
+}
 .markdown-content blockquote {
-  @apply border-l-4 border-blue-500 dark:border-blue-400 pl-4 italic my-4 text-gray-700 dark:text-gray-300;
+  margin: var(--oms-space-4) 0;
+  padding: var(--oms-space-1) var(--oms-space-4);
+  border-left: 3px solid var(--oms-accent);
+  background: var(--oms-surface);
+  color: var(--oms-text-muted);
 }
-
 .markdown-content table {
-  @apply w-full border-collapse my-4;
+  width: 100%;
+  margin: var(--oms-space-4) 0;
+  border-collapse: collapse;
+  font-size: var(--oms-font-size-sm);
 }
-
-.markdown-content th, .markdown-content td {
-  @apply border border-gray-300 dark:border-gray-600 px-4 py-2 text-left;
+.markdown-content th,
+.markdown-content td {
+  padding: var(--oms-space-2) var(--oms-space-3);
+  border: 1px solid var(--oms-border);
+  text-align: left;
 }
-
 .markdown-content th {
-  @apply bg-gray-100 dark:bg-gray-800 font-semibold;
+  background: var(--oms-surface-raised);
+  color: var(--oms-text-strong);
+  font-weight: 600;
+}
+.markdown-content tbody tr:nth-child(odd) {
+  background: var(--oms-odd-row);
+}
+.markdown-content hr {
+  margin: var(--oms-space-5) 0;
+  border: 0;
+  border-top: 1px solid var(--oms-border);
 }

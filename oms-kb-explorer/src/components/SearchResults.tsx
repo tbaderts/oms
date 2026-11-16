@@ -1,44 +1,72 @@
-import { FileText, TrendingUp, Zap } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import type { HybridSearchHit } from '../types';
+import type { HybridSearchHit, SearchMode } from '../types';
+import type { SearchSession } from '../okf/searchSession';
 import { kbApi } from '../services/api';
 import { decorateHits } from '../okf/search';
-import { StatusPill, TrustPill, TypePill } from './Badges';
+import { StatusPill, ToneBadge, TrustPill, TypePill, type Tone } from './Badges';
 
 interface SearchResultsProps {
+  status: SearchSession['status'];
+  error: string | null;
   results: HybridSearchHit[];
   searchQuery: string;
-  searchMode: 'keyword' | 'semantic' | 'hybrid';
+  searchMode: SearchMode;
   onSelectDoc: (path: string) => void;
+  onRetry: () => void;
 }
 
-export default function SearchResults({ results, searchQuery, searchMode, onSelectDoc }: SearchResultsProps) {
+const MATCH: Record<string, { tone: Tone; label: string }> = {
+  hybrid: { tone: 'accent', label: 'Hybrid' },
+  keyword: { tone: 'info', label: 'Keyword' },
+  semantic: { tone: 'violet', label: 'Semantic' },
+  'keyword-only': { tone: 'neutral', label: 'Keyword only' },
+};
+
+/**
+ * The knowledge server's scores are reciprocal-rank-fusion values (about 1/61 for the best hit), not
+ * relevance percentages, so a hit is shown by its rank. In hybrid mode, which signals found it.
+ */
+function matchedBy(hit: HybridSearchHit): string {
+  const keyword = hit.keywordScore > 0;
+  const meaning = hit.semanticScore > 0;
+  if (keyword && meaning) return 'Matched by keyword and meaning';
+  return keyword ? 'Matched by keyword only' : 'Matched by meaning only';
+}
+
+/**
+ * The results of the current search (SPEC-0066): progress, an inline error with Retry, or the hits.
+ * Each hit opens its document; the session keeps the results for "Back to results" (AC-6, AC-8).
+ */
+export default function SearchResults({ status, error, results, searchQuery, searchMode, onSelectDoc, onRetry }: SearchResultsProps) {
   const { data: documents } = useQuery({ queryKey: ['documents'], queryFn: () => kbApi.listDocuments() });
   const decorated = decorateHits(results, documents ?? []);
 
-  if (!searchQuery) {
+  if (status === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <Zap className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Search the Knowledge Base
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md">
-          Enter a search query above and choose a search mode to find relevant documents.
-        </p>
-        <div className="mt-6 space-y-2 text-sm text-left">
-          <div className="flex items-start space-x-2">
-            <span className="font-semibold text-blue-600 dark:text-blue-400">Keyword:</span>
-            <span className="text-gray-600 dark:text-gray-400">Fast exact text matching</span>
+      <div role="status" className="flex items-center gap-2 px-6 py-4 text-sm text-muted">
+        <Loader2 className="h-4 w-4 animate-spin text-accent" />
+        Searching for “{searchQuery}”…
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="p-6">
+        <div role="alert" className="flex items-start gap-3 rounded-md border border-danger bg-danger-bg px-4 py-3 text-sm text-text">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+          <div className="flex-1">
+            <p className="font-medium text-strong">Search failed</p>
+            <p className="text-muted">{error}</p>
           </div>
-          <div className="flex items-start space-x-2">
-            <span className="font-semibold text-purple-600 dark:text-purple-400">Semantic:</span>
-            <span className="text-gray-600 dark:text-gray-400">AI-powered meaning-based search</span>
-          </div>
-          <div className="flex items-start space-x-2">
-            <span className="font-semibold text-green-600 dark:text-green-400">Hybrid:</span>
-            <span className="text-gray-600 dark:text-gray-400">Best of both worlds</span>
-          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-1 rounded-sm border border-border-strong px-2 py-1 text-xs text-text hover:bg-hover"
+          >
+            <RotateCcw className="h-3 w-3" /> Retry
+          </button>
         </div>
       </div>
     );
@@ -46,128 +74,55 @@ export default function SearchResults({ results, searchQuery, searchMode, onSele
 
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          No results found
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400 max-w-md">
-          No documents match your search for "<span className="font-semibold">{searchQuery}</span>".
-          Try different keywords or switch to a different search mode.
-        </p>
+      <div className="px-6 py-10 text-center">
+        <FileText className="mx-auto mb-3 h-8 w-8 text-muted" />
+        <p className="text-md font-medium text-strong">No results for “{searchQuery}”</p>
+        <p className="mt-1 text-sm text-muted">Try other words, remove a filter, or switch to Semantic or Hybrid search.</p>
       </div>
     );
   }
 
-  const getMatchTypeBadge = (matchType: string) => {
-    const badges = {
-      'hybrid': { color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', label: 'Hybrid' },
-      'keyword': { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', label: 'Keyword' },
-      'semantic': { color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', label: 'Semantic' },
-      'keyword-only': { color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200', label: 'Keyword Only' },
-    };
-    const badge = badges[matchType as keyof typeof badges] || badges['keyword'];
-    return (
-      <span className={`text-xs px-2 py-1 rounded-full ${badge.color}`}>
-        {badge.label}
-      </span>
-    );
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600 dark:text-green-400';
-    if (score >= 0.6) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-gray-600 dark:text-gray-400';
-  };
-
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Search Results
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Found {results.length} {results.length === 1 ? 'document' : 'documents'} matching "{searchQuery}"
-            </p>
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-            {searchMode} mode
-          </div>
-        </div>
+    <div>
+      <div className="flex items-baseline justify-between border-b border-border bg-surface px-6 py-3">
+        <p className="text-sm text-text">
+          {results.length} {results.length === 1 ? 'document' : 'documents'} for <span className="font-medium text-strong">“{searchQuery}”</span>
+        </p>
+        <span className="text-xs text-muted">{MATCH[searchMode]?.label ?? searchMode} search</span>
       </div>
 
-      <div className="p-4 space-y-4">
-        {decorated.map((result, index) => (
-          <div
-            key={`${result.path}-${index}`}
-            onClick={() => onSelectDoc(result.path)}
-            className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 bg-white dark:bg-gray-800 cursor-pointer transition-all hover:shadow-md"
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {result.title}
-                </h3>
-              </div>
-              {getMatchTypeBadge(result.matchType)}
-            </div>
-
-            <div className="flex flex-wrap gap-1 mb-2">
-              <TypePill type={result.type} />
-              <StatusPill status={result.status} />
-              <TrustPill tier={result.trustTier} />
-            </div>
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-mono truncate">
-              {result.path}
-            </p>
-
-            {result.snippet && (
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3 line-clamp-2">
-                ...{result.snippet}...
-              </p>
-            )}
-
-            <div className="flex items-center space-x-4 text-xs">
-              {searchMode === 'hybrid' ? (
-                <>
-                  <div className="flex items-center space-x-1">
-                    <TrendingUp className="w-3 h-3 text-blue-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Keyword:</span>
-                    <span className={`font-semibold ${getScoreColor(result.keywordScore)}`}>
-                      {(result.keywordScore * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Zap className="w-3 h-3 text-purple-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Semantic:</span>
-                    <span className={`font-semibold ${getScoreColor(result.semanticScore)}`}>
-                      {(result.semanticScore * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-gray-600 dark:text-gray-400">Combined:</span>
-                    <span className={`font-semibold ${getScoreColor(result.hybridScore)}`}>
-                      {(result.hybridScore * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center space-x-1">
-                  <TrendingUp className="w-3 h-3 text-blue-500" />
-                  <span className="text-gray-600 dark:text-gray-400">Relevance:</span>
-                  <span className={`font-semibold ${getScoreColor(result.keywordScore || result.hybridScore)}`}>
-                    {((result.keywordScore || result.hybridScore) * 100).toFixed(0)}%
-                  </span>
+      <ul className="space-y-2 p-4">
+        {decorated.map((result, index) => {
+          const match = MATCH[result.matchType] ?? MATCH.keyword;
+          return (
+            <li key={`${result.path}-${index}`}>
+              <button
+                type="button"
+                data-testid="search-result"
+                onClick={() => onSelectDoc(result.path)}
+                className="block w-full rounded-md border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent hover:bg-raised focus-visible:border-accent"
+              >
+                <div className="mb-1 flex items-center gap-2">
+                  <FileText className="h-4 w-4 shrink-0 text-muted" />
+                  <span className="min-w-0 flex-1 truncate text-md font-medium text-strong">{result.title}</span>
+                  <ToneBadge tone={match.tone}>{match.label}</ToneBadge>
                 </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+                <div className="mb-1.5 flex flex-wrap items-center gap-1">
+                  <TypePill type={result.type} />
+                  <StatusPill status={result.status} />
+                  <TrustPill tier={result.trustTier} />
+                  <span className="truncate font-mono text-2xs text-muted">{result.path.replace(/^oms-knowledge-base\//, '')}</span>
+                </div>
+                {result.snippet && <p className="line-clamp-2 text-sm text-text">…{result.snippet}…</p>}
+                <div className="mt-1.5 flex gap-3 text-2xs text-muted">
+                  <span data-testid="result-rank" className="font-medium text-text">#{index + 1}</span>
+                  {searchMode === 'hybrid' && <span>{matchedBy(result)}</span>}
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

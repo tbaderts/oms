@@ -2,14 +2,18 @@
 /**
  * OKF v0.2 conformance checker for the OMS knowledge base.
  *
- *   node tools/okf-check/okf-check.mjs <bundleDir> [--repo <repositoryRoot>]
+ *   node tools/okf-check/okf-check.mjs <bundleDir> [--repo <repositoryRoot>] [--json]
+ *   node tools/okf-check/okf-check.mjs <bundleDir> --fix-indexes [--dry-run] [--json]
  *
  * Checks OKF §11 conformance plus the project rules from SPEC-0009 and SPEC-0010 (see README.md
- * for the rule table). `repo:` sources resolve against --repo (default: the bundle's parent). Prints `ERROR <file> [<rule>]: <message>` per finding; exit 0 clean, 1 errors, 2 usage.
+ * for the rule table). `repo:` sources resolve against --repo (default: the bundle's parent). Prints `ERROR <file> [<rule>]: <message>` per finding and `WARN …` per freshness warning; exit 0 clean, 1 errors (warnings never fail), 2 usage.
+ * --json prints { concepts, errors, warnings, stats } instead. --fix-indexes adds the links folder
+ * indexes miss (SPEC-0064); --dry-run only lists them.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import yaml from 'js-yaml';
 
 const RESERVED = new Set(['index.md', 'log.md']);
@@ -69,7 +73,7 @@ export function linkTargets(body) {
     }
     if (fence) continue;
     const text = line.replace(/`[^`]*`/g, '');
-    for (const m of text.matchAll(/\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)) targets.push(m[1]);
+    for (const m of text.matchAll(/\[(?:\\.|[^\]\\])*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)) targets.push(m[1]);
   }
   return targets;
 }
@@ -106,14 +110,17 @@ function walk(dir, out = { files: [], dirs: [dir] }, depth = 0) {
 /**
  * @param bundleDir the bundle root
  * @param options.repo repository root that `repo:` sources resolve against (default: the bundle's parent)
+ * @param options.now the current time in ms, for the freshness warnings (default: Date.now())
+ * @returns { concepts, errors, warnings, stats } (SPEC-0064: warnings and stats)
  */
-export function checkBundle(bundleDir, { repo } = {}) {
+export function checkBundle(bundleDir, { repo, now = Date.now() } = {}) {
   const bundle = resolve(bundleDir);
   const repoRoot = resolve(repo ?? dirname(bundle));
   const rel = (p) => relative(bundle, p).split(sep).join('/');
   const errors = [];
   const warnings = [];
   const err = (p, rule, message) => errors.push({ file: rel(p), rule, message });
+  const warn = (p, rule, message) => warnings.push({ file: rel(p), rule, message });
 
   const { files, dirs } = walk(bundle);
   const parsed = new Map(files.map((p) => [p, parseFrontMatter(readFileSync(p, 'utf8'))]));
@@ -147,7 +154,9 @@ export function checkBundle(bundleDir, { repo } = {}) {
     }
   }
 
-  return { concepts: concepts.length, errors, warnings };
+  const drift = checkFreshness(bundle, repoRoot, concepts, parsed, warn, settings, now);
+  const stats = statistics(bundle, concepts, parsed, settings, now, drift);
+  return { concepts: concepts.length, errors, warnings, stats };
 }
 
 function checkConcept(fm, err, vocabulary) {
@@ -406,17 +415,343 @@ function checkLog(p, { fm, error, body }, err) {
   }
 }
 
+// ----- freshness warnings and statistics (SPEC-0064) -----
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** `review_after_days` from the conventions: a positive integer, or null (the age rule is off). */
+function reviewAfterDays(settings) {
+  const days = settings.review_after_days;
+  return Number.isInteger(days) && days > 0 ? days : null;
+}
+
+const instantOf = (v) => (typeof v === 'string' ? Date.parse(v) : NaN);
+
+/**
+ * Warnings that ask for a review; they never fail the check.
+ * - OMS-AGE: not updated within review_after_days (archive exempt).
+ * - OMS-STALE: stale_after has passed.
+ * - OMS-DEPRECATED: deprecated outside archive/.
+ * - OMS-DRIFT: a repo: source committed after the document's updated and its own last commit
+ *   (archive exempt).
+ * @returns 'checked', or 'unavailable' when git could not date the sources
+ */
+function checkFreshness(bundle, repoRoot, concepts, parsed, warn, settings, now) {
+  const archiveRoot = join(bundle, ARCHIVE_DIR) + sep;
+  const inArchive = (p) => p.startsWith(archiveRoot);
+  const days = reviewAfterDays(settings);
+  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const minute = (ms) => `${new Date(ms).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+  const sourcesOf = (fm) => (Array.isArray(fm.sources) ? fm.sources : [])
+    .map((s) => s?.resource).filter((r) => typeof r === 'string' && r.startsWith(REPO_SCHEME))
+    .map((r) => r.slice(REPO_SCHEME.length).replace(/^\/+/, '').replace(/\/+$/, ''))
+    .filter(Boolean);
+
+  for (const p of concepts) {
+    const { fm } = parsed.get(p);
+    if (!fm) continue;
+    const updated = instantOf(fm.updated);
+    if (days && !inArchive(p) && !Number.isNaN(updated) && now - updated > days * DAY_MS) {
+      warn(p, 'OMS-AGE', `not updated for more than ${days} days (updated ${day(updated)}); review it and set updated`);
+    }
+    const staleAfter = instantOf(fm.stale_after);
+    if (!Number.isNaN(staleAfter) && staleAfter < now) {
+      warn(p, 'OMS-STALE', `stale since ${day(staleAfter)} (stale_after); review it, then move stale_after or archive it`);
+    }
+    if (fm.status === 'deprecated' && !inArchive(p)) {
+      warn(p, 'OMS-DEPRECATED', `deprecated but outside ${ARCHIVE_DIR}/; move it there`);
+    }
+  }
+
+  // OMS-DRIFT: date every repo: source with one git call.
+  const candidates = concepts
+    .filter((p) => !inArchive(p) && parsed.get(p).fm && !Number.isNaN(instantOf(parsed.get(p).fm.updated)))
+    .map((p) => ({ p, fm: parsed.get(p).fm, sources: sourcesOf(parsed.get(p).fm) }))
+    .filter((c) => c.sources.length);
+  // The documents are dated too: a document committed together with (or after) its code was
+  // looked at then, even if its `updated` is a few hours older than the commit.
+  const repoPath = (p) => relative(repoRoot, p).split(sep).join('/');
+  // Paths outside the repository would make git fail for the whole batch; leave them undated.
+  const inRepo = (q) => q !== '..' && !q.startsWith('../') && !isAbsolute(q);
+  const paths = [...new Set([...candidates.flatMap((c) => c.sources), ...candidates.map((c) => repoPath(c.p))])].filter(inRepo);
+  const committed = commitDates(repoRoot, paths);
+  if (!committed) return 'unavailable';
+  for (const { p, fm, sources } of candidates) {
+    const updated = Math.max(instantOf(fm.updated), committed.get(repoPath(p)) ?? -Infinity);
+    for (const source of sources) {
+      const last = newestCommit(committed, source);
+      if (last !== null && last > updated) {
+        warn(p, 'OMS-DRIFT', `source ${source} committed ${minute(last)}, after the document was last updated or committed (${minute(updated)}); check it still matches`);
+      }
+    }
+  }
+  return 'checked';
+}
+
+/** The newest commit time (ms) of every file touched under `paths`, or null without git. */
+function commitDates(repoRoot, paths) {
+  const probe = spawnSync('git', ['-C', repoRoot, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', windowsHide: true });
+  if (probe.status !== 0) return null;
+  const dates = new Map();
+  if (!paths.length) return dates;
+  // Paths relative to the repository root, as git prints them, whatever repoRoot is inside it.
+  const prefix = relative(resolve(probe.stdout.trim()), repoRoot).split(sep).join('/');
+  // Batches keep each command line well under the Windows limit (32,767 characters).
+  for (const batch of batches(paths, 8000)) {
+    // core.quotePath=false: non-ASCII paths come out as they are, not quoted and octal-escaped.
+    const r = spawnSync('git', ['-C', repoRoot, '-c', 'core.quotePath=false', 'log', '--format=%x00%cI', '--name-only', '--', ...batch],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 60_000, windowsHide: true });
+    if (r.status !== 0) return null;
+    let current = NaN;
+    for (const line of r.stdout.split(/\r?\n/)) {
+      if (line.startsWith('\0')) { current = Date.parse(line.slice(1)); continue; }
+      if (!line || Number.isNaN(current)) continue;
+      const file = prefix && line.startsWith(`${prefix}/`) ? line.slice(prefix.length + 1) : line;
+      if (!(dates.get(file) >= current)) dates.set(file, current); // newest across batches
+    }
+  }
+  return dates;
+}
+
+/** `items` in batches whose joined length stays under `maxChars`. */
+export function batches(items, maxChars) {
+  const out = [];
+  let batch = [];
+  let length = 0;
+  for (const item of items) {
+    if (batch.length && length + item.length + 1 > maxChars) { out.push(batch); batch = []; length = 0; }
+    batch.push(item);
+    length += item.length + 1;
+  }
+  if (batch.length) out.push(batch);
+  return out;
+}
+
+/** The newest commit of a source file, or of any file under a source folder; null if never committed. */
+function newestCommit(dates, source) {
+  if (dates.has(source)) return dates.get(source);
+  let newest = null;
+  for (const [file, time] of dates) if (file.startsWith(`${source}/`) && (newest === null || time > newest)) newest = time;
+  return newest;
+}
+
+/** Counts over the concepts (navigation files excluded), keys sorted for a stable report. */
+function statistics(bundle, concepts, parsed, settings, now, drift) {
+  const archiveRoot = join(bundle, ARCHIVE_DIR) + sep;
+  const days = reviewAfterDays(settings);
+  const count = (map, key) => { map[key] = (map[key] ?? 0) + 1; };
+  const sorted = (map) => Object.fromEntries(Object.entries(map).sort(([a], [b]) => a.localeCompare(b)));
+  const byType = {}; const byStatus = {}; const byFolder = {};
+  const byImplementation = {}; const byPriority = {};
+  const reviewAge = { reviewAfterDays: days, current: 0, due: 0, unknown: 0 };
+  let requirements = 0;
+
+  for (const p of concepts) {
+    const fm = parsed.get(p).fm ?? {};
+    const parts = relative(bundle, p).split(sep);
+    count(byType, typeof fm.type === 'string' && fm.type ? fm.type : '(none)');
+    count(byStatus, typeof fm.status === 'string' && fm.status ? fm.status : '(none)');
+    count(byFolder, parts.length > 1 ? parts[0] : 'root');
+    if (fm.type === 'Requirement') {
+      requirements++;
+      count(byImplementation, typeof fm.implementation === 'string' ? fm.implementation : '(none)');
+      count(byPriority, typeof fm.priority === 'string' ? fm.priority : '(none)');
+    }
+    if (p.startsWith(archiveRoot)) continue;
+    const updated = instantOf(fm.updated);
+    if (Number.isNaN(updated)) reviewAge.unknown++;
+    else if (days && now - updated > days * DAY_MS) reviewAge.due++;
+    else reviewAge.current++;
+  }
+
+  return {
+    documents: concepts.length,
+    byType: sorted(byType),
+    byStatus: sorted(byStatus),
+    byFolder: sorted(byFolder),
+    requirements: { total: requirements, byImplementation: sorted(byImplementation), byPriority: sorted(byPriority) },
+    reviewAge,
+    drift,
+  };
+}
+
+// ----- index fix (SPEC-0064) -----
+
+const ENTRY = /^\s*[-*]\s+\[(?:\\.|[^\]\\])*\]\(\s*<?([^)\s>]+)/;
+const SECTION_HEADINGS = { documents: /^##\s+(Documents|Concepts)\s*$/i, sections: /^##\s+(Sections|Folders)\s*$/i };
+const NEW_SECTION = { documents: '## Documents', sections: '## Sections' };
+
+const oneLine = (s) => String(s).replace(/\s+/g, ' ').trim();
+/** Link text with `\`, `[` and `]` escaped; a target with spaces and parentheses percent-encoded. */
+const entryLine = (title, target, description) => {
+  const text = oneLine(title).replace(/[\\[\]]/g, (c) => `\\${c}`);
+  const href = encodeURI(target).replace(/\(/g, '%28').replace(/\)/g, '%29');
+  return `- [${text}](${href})${description ? ` — ${oneLine(description)}` : ''}`;
+};
+/** The description line of an index the fix creates; the parent's entry uses the same text. */
+const createdSummary = (bundle, dir) => `Documents in ${relative(bundle, dir).split(sep).join('/')}/.`;
+/** "use-cases" → "Use cases". */
+const folderTitle = (dir) => {
+  const name = dir.split(sep).pop().replace(/[-_]+/g, ' ');
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
+/** The first `# ` heading of a markdown file, or null. */
+function headingOf(file) {
+  const { body } = parseFrontMatter(readFileSync(file, 'utf8'));
+  return body.match(/^#\s+(.+?)\s*$/m)?.[1] ?? null;
+}
+/** The first prose line of an index: not a heading, list item, back link or blank. */
+function summaryOf(file) {
+  const { body } = parseFrontMatter(readFileSync(file, 'utf8'));
+  return body.split(/\r?\n/).map((l) => l.trim())
+    .find((l) => l && !l.startsWith('#') && !/^[-*]\s/.test(l) && !/^back to /i.test(l)) ?? '';
+}
+
+/**
+ * The entries each folder index misses: concepts in the folder and sub-folder indexes it does not
+ * link (the OKF-INDEX rule). A folder with concepts but no index.md gets `created: true`; the root
+ * index is never created. Sorted by index path, entries by title.
+ * @returns [{ index, created, documents: [line], sections: [line] }]
+ */
+export function planIndexFixes(bundleDir) {
+  const bundle = resolve(bundleDir);
+  const rel = (p) => relative(bundle, p).split(sep).join('/');
+  const { files, dirs } = walk(bundle);
+  const concepts = files.filter((p) => !RESERVED.has(p.split(sep).pop()));
+  const indexDirs = dirs.filter((d) => d === bundle || concepts.some((c) => c.startsWith(d + sep)));
+  const byTitle = (a, b) => a.title.localeCompare(b.title);
+  const changes = [];
+
+  for (const d of indexDirs) {
+    const indexPath = join(d, 'index.md');
+    const exists = existsSync(indexPath);
+    if (!exists && d === bundle) continue;
+    const body = exists ? parseFrontMatter(readFileSync(indexPath, 'utf8')).body : '';
+    const linked = new Set(linkTargets(body).map((t) => resolveLink(bundle, indexPath, t)).filter(Boolean).map((p) => resolve(p)));
+
+    const documents = concepts
+      .filter((c) => dirname(c) === d && !linked.has(c))
+      .map((c) => {
+        const fm = parseFrontMatter(readFileSync(c, 'utf8')).fm ?? {};
+        const name = c.split(sep).pop();
+        const title = typeof fm.title === 'string' && fm.title.trim() ? fm.title : name.replace(/\.md$/, '');
+        return { title, line: entryLine(title, name, typeof fm.description === 'string' ? fm.description : '') };
+      })
+      .sort(byTitle).map((e) => e.line);
+    const sections = indexDirs
+      .filter((s) => s !== d && dirname(s) === d && !linked.has(join(s, 'index.md')))
+      .map((s) => {
+        const subIndex = join(s, 'index.md');
+        const has = existsSync(subIndex);
+        const title = (has && headingOf(subIndex)) || folderTitle(s);
+        return { title, line: entryLine(title, `${s.split(sep).pop()}/index.md`, has ? summaryOf(subIndex) : createdSummary(bundle, s)) };
+      })
+      .sort(byTitle).map((e) => e.line);
+
+    if (!exists || documents.length || sections.length) changes.push({ index: rel(indexPath), created: !exists, documents, sections });
+  }
+  return changes.sort((a, b) => a.index.localeCompare(b.index));
+}
+
+/**
+ * Writes a plan from planIndexFixes. Only adds lines: an entry goes after the last entry of its kind,
+ * else at the end of its section (Documents/Concepts, Sections/Folders), else into a new section at
+ * the end. A created index gets a title and a back link. The file's line ending is kept.
+ */
+export function applyIndexFixes(bundleDir, plan) {
+  const bundle = resolve(bundleDir);
+  for (const change of plan) {
+    const indexPath = resolve(bundle, ...change.index.split('/'));
+    if (!indexPath.startsWith(bundle + sep) || indexPath.split(sep).pop() !== 'index.md') {
+      throw new Error(`not an index inside the bundle: ${change.index}`);
+    }
+    let text;
+    if (existsSync(indexPath)) text = readFileSync(indexPath, 'utf8');
+    else {
+      const parentIndex = join(dirname(dirname(indexPath)), 'index.md');
+      const parent = (existsSync(parentIndex) && headingOf(parentIndex)) || 'parent index';
+      text = `# ${folderTitle(dirname(indexPath))}\n\n${createdSummary(bundle, dirname(indexPath))}\n\nBack to the [${parent}](../index.md).\n`;
+    }
+    const fixed = insertEntries(insertEntries(text, change.documents, 'documents'), change.sections, 'sections');
+    if (fixed !== text || !existsSync(indexPath)) writeFileSync(indexPath, fixed);
+  }
+}
+
+function insertEntries(text, entries, kind) {
+  if (!entries.length) return text;
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(eol);
+  const isKind = (line) => {
+    const m = line.match(ENTRY);
+    if (!m || /^[a-z][a-z0-9+.-]*:/i.test(m[1]) || m[1].startsWith('#') || m[1].startsWith('../')) return false;
+    const isIndex = /(^|\/)index\.md$/.test(m[1].replace(/[#?].*$/, ''));
+    return kind === 'sections' ? isIndex : !isIndex;
+  };
+
+  let at = lines.findLastIndex(isKind) + 1;
+  if (at === 0) {
+    const heading = lines.findIndex((l) => SECTION_HEADINGS[kind].test(l));
+    if (heading >= 0) {
+      const next = lines.findIndex((l, i) => i > heading && l.startsWith('#'));
+      at = next < 0 ? lines.length : next;
+      while (at - 1 > heading && lines[at - 1].trim() === '') at--;
+      if (at === heading + 1) { lines.splice(at, 0, ''); at++; }
+    } else {
+      while (lines.length && lines[lines.length - 1] === '') lines.pop();
+      lines.push('', NEW_SECTION[kind], '');
+      at = lines.length;
+      lines.push('');
+    }
+  }
+  lines.splice(at, 0, ...entries);
+  return lines.join(eol);
+}
+
 // ----- CLI -----
+
+const USAGE = 'usage: okf-check <bundleDir> [--repo <repositoryRoot>] [--json] [--fix-indexes [--dry-run]]';
 
 function main(argv) {
   const repoAt = argv.indexOf('--repo');
   const repo = repoAt >= 0 ? argv[repoAt + 1] : undefined;
-  const dir = argv.filter((_, i) => repoAt < 0 || (i !== repoAt && i !== repoAt + 1))[0];
-  if (!dir || !existsSync(dir) || !statSync(dir).isDirectory() || (repoAt >= 0 && (!repo || !existsSync(repo)))) {
-    console.error('usage: okf-check <bundleDir> [--repo <repositoryRoot>]');
+  const rest = argv.filter((_, i) => repoAt < 0 || (i !== repoAt && i !== repoAt + 1));
+  const flags = new Set(rest.filter((a) => a.startsWith('--')));
+  const dir = rest.filter((a) => !a.startsWith('--'))[0];
+  const unknown = [...flags].filter((f) => !['--json', '--fix-indexes', '--dry-run'].includes(f));
+  if (!dir || unknown.length || !existsSync(dir) || !statSync(dir).isDirectory() || (repoAt >= 0 && (!repo || !existsSync(repo)))) {
+    console.error(USAGE);
     return 2;
   }
-  const { concepts, errors, warnings } = checkBundle(dir, { repo });
+  if (flags.has('--fix-indexes')) {
+    const dryRun = flags.has('--dry-run');
+    const changes = planIndexFixes(dir);
+    if (!dryRun) applyIndexFixes(dir, changes);
+    if (flags.has('--json')) {
+      console.log(JSON.stringify({ applied: !dryRun, changes }));
+      return 0;
+    }
+    if (!changes.length) {
+      console.log('okf-check: no index changes needed');
+      return 0;
+    }
+    for (const c of changes) {
+      for (const line of [...c.documents, ...c.sections]) console.log(`FIX ${c.index}${c.created ? ' (new)' : ''} + ${line}`);
+    }
+    const entries = changes.reduce((n, c) => n + c.documents.length + c.sections.length, 0);
+    console.log(`okf-check: ${entries} entr${entries === 1 ? 'y' : 'ies'} in ${changes.length} index(es) ${dryRun ? 'to add (dry run)' : 'added'}`);
+    return 0;
+  }
+  if (flags.has('--dry-run')) {
+    console.error(USAGE);
+    return 2;
+  }
+  const result = checkBundle(dir, { repo });
+  if (flags.has('--json')) {
+    const { concepts, errors, warnings, stats } = result;
+    console.log(JSON.stringify({ concepts, errors, warnings, stats }));
+    return errors.length ? 1 : 0;
+  }
+  const { concepts, errors, warnings } = result;
   for (const e of errors) console.log(`ERROR ${e.file} [${e.rule}]: ${e.message}`);
   for (const w of warnings) console.log(`WARN  ${w.file} [${w.rule}]: ${w.message}`);
   console.log(`okf-check: ${concepts} concepts, ${errors.length} error(s), ${warnings.length} warning(s)`);

@@ -1,0 +1,91 @@
+/* tokens.css - The OMS design tokens (SPEC-0066): a verbatim copy of oms-ui's
+ * oms-ui/frontend/src/theme/_tokens.scss (:root block). The only place colours and font sizes are written
+ * as values; everything else uses these custom properties. src/theme/tokens.test.ts fails on any
+ * difference, so when oms-ui changes a token, copy its :root block here.
+ */
+
+:root {
+  /* Surfaces, from the page up */
+  --oms-bg: #0e1318;
+  --oms-surface: #141a21;
+  --oms-surface-raised: #1a222b;
+  --oms-surface-overlay: #212b36;
+  --oms-odd-row: #11171d;
+  --oms-scrim: rgba(5, 8, 11, 0.7);
+
+  /* Text */
+  --oms-text: #d5dce4;
+  --oms-text-muted: #8c99a8;
+  --oms-text-strong: #f2f5f8;
+  --oms-text-on-accent: #06140c;
+
+  /* Brand accent */
+  --oms-accent: #22c55e;
+  --oms-accent-hover: #3fd477;
+  --oms-accent-active: #16a34a;
+  --oms-accent-bg: rgba(34, 197, 94, 0.14);
+  --oms-accent-bg-strong: rgba(34, 197, 94, 0.28);
+
+  /* Tones: status and badge colours, each with a tint for its background */
+  --oms-success: #4ade80;
+  --oms-success-bg: rgba(74, 222, 128, 0.14);
+  --oms-warning: #f5b544;
+  --oms-warning-bg: rgba(245, 181, 68, 0.14);
+  --oms-danger: #f87171;
+  --oms-danger-bg: rgba(248, 113, 113, 0.14);
+  --oms-info: #60a5fa;
+  --oms-info-bg: rgba(96, 165, 250, 0.14);
+  --oms-neutral: #94a3b8;
+  --oms-neutral-bg: rgba(148, 163, 184, 0.14);
+  --oms-violet: #c4a5fd;
+  --oms-violet-bg: rgba(196, 165, 253, 0.14);
+  --oms-orange: #fdba74;
+  --oms-orange-bg: rgba(253, 186, 116, 0.14);
+  --oms-teal: #5eead4;
+  --oms-teal-bg: rgba(94, 234, 212, 0.14);
+
+  /* Borders, inputs, interaction */
+  --oms-border: #273240;
+  --oms-border-light: #2f3b4a;
+  --oms-border-strong: #364354;
+  --oms-border-hover: #46556a;
+  --oms-input-bg: #1a222b;
+  --oms-input-border: #364354;
+  --oms-hover: #1c2530;
+  --oms-selection: #16362a;
+  --oms-focus-ring: rgba(34, 197, 94, 0.45);
+
+  /* JSON viewer */
+  --oms-syntax-keyword: #60a5fa;
+  --oms-syntax-string: #4ade80;
+  --oms-syntax-number: #f5b544;
+  --oms-syntax-property: #c4a5fd;
+  --oms-syntax-punctuation: #8c99a8;
+
+  /* Elevation */
+  --oms-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --oms-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* Spacing */
+  --oms-space-1: 0.25rem;
+  --oms-space-2: 0.5rem;
+  --oms-space-3: 0.75rem;
+  --oms-space-4: 1rem;
+  --oms-space-5: 1.5rem;
+  --oms-space-6: 2rem;
+
+  /* Shape */
+  --oms-radius-sm: 3px;
+  --oms-radius-md: 6px;
+  --oms-radius-lg: 10px;
+
+  /* Typography: six sizes */
+  --oms-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', 'Helvetica Neue', sans-serif;
+  --oms-font-mono: 'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --oms-font-size-2xs: 0.6875rem;
+  --oms-font-size-xs: 0.75rem;
+  --oms-font-size-sm: 0.8125rem;
+  --oms-font-size-md: 0.875rem;
+  --oms-font-size-lg: 1rem;
+  --oms-font-size-xl: 1.25rem;
+}

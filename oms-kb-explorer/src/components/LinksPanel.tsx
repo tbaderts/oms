@@ -27,31 +27,39 @@ export default function LinksPanel({ documentPath, onSelectDoc }: LinksPanelProp
   const item = (path: string, exists = true) => (
     <li key={path}>
       {exists ? (
-        <button onClick={() => onSelectDoc(path)} title={path} className="text-left text-blue-600 dark:text-blue-400 hover:underline">
+        <button
+          onClick={() => onSelectDoc(path)}
+          title={path}
+          className="w-full truncate rounded-sm px-1 py-0.5 text-left text-accent hover:bg-hover hover:text-accent-hover"
+        >
           {label(path)}
         </button>
       ) : (
-        <span title={`${path} does not exist`} className="text-gray-400 line-through">{label(path)}</span>
+        <span title={`${path} does not exist`} className="block truncate px-1 py-0.5 text-muted line-through">
+          {label(path)}
+        </span>
       )}
     </li>
   );
 
+  const heading = (icon: React.ReactNode, text: string) => (
+    <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-muted">
+      {icon} {text}
+    </h3>
+  );
+
   return (
-    <div className="p-4 border-t border-gray-200 dark:border-gray-700 text-sm space-y-4">
+    <div className="space-y-4 border-t border-border p-4 text-sm">
       {links.outgoing.length > 0 && (
         <div>
-          <h3 className="flex items-center gap-1 mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            <ArrowRight className="w-3.5 h-3.5" /> Links ({links.outgoing.length})
-          </h3>
-          <ul className="space-y-0.5">{links.outgoing.map((l) => item(l.target, l.exists))}</ul>
+          {heading(<ArrowRight className="h-3.5 w-3.5" />, `Links (${links.outgoing.length})`)}
+          <ul>{links.outgoing.map((l) => item(l.target, l.exists))}</ul>
         </div>
       )}
       {links.backlinks.length > 0 && (
         <div>
-          <h3 className="flex items-center gap-1 mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            <ArrowLeft className="w-3.5 h-3.5" /> Cited by ({links.backlinks.length})
-          </h3>
-          <ul className="space-y-0.5">{links.backlinks.map((p) => item(p))}</ul>
+          {heading(<ArrowLeft className="h-3.5 w-3.5" />, `Cited by (${links.backlinks.length})`)}
+          <ul>{links.backlinks.map((p) => item(p))}</ul>
         </div>
       )}
     </div>

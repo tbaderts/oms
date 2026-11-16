@@ -49,8 +49,10 @@ The knowledge base is an [OKF](https://github.com/GoogleCloudPlatform/open-knowl
 - **Semantic Search** - AI-powered meaning-based search (when enabled)
 - **Hybrid Search** - Best of both worlds
 - **Type and tag filters**, sent to the server (`filterType`, `filterTag`)
-- **Search results** with title, type, status and trust badges, snippets and scores
-- **Click-to-open** documents from search results
+- **Search results** with title, type, status and trust badges, snippets and rank (the server's scores are
+  rank-fusion values, not percentages; Hybrid shows whether keyword, meaning or both matched)
+- **Click-to-open** documents from search results; **Back to results** returns to them without searching again
+- **Switching the mode** re-runs the current search
 
 ### 📄 Rich Document Viewer
 - **Markdown rendering** with full CommonMark support
@@ -59,12 +61,13 @@ The knowledge base is an [OKF](https://github.com/GoogleCloudPlatform/open-knowl
 - **Responsive layout** with optimal reading width
 - **Auto-generated Table of Contents** for easy navigation
 
-### 🎨 Modern UI/UX
-- **Dark/Light theme** toggle with system preferences
-- **Responsive design** works on all screen sizes
-- **Loading states** and smooth transitions
-- **Empty states** with helpful guidance
-- **Keyboard navigation** support
+### 🎨 Look and feel (SPEC-0066)
+- **The OMS design system**: the same `--oms-*` tokens as oms-ui (slate surfaces, the Acme Capital green
+  accent), the Acme Capital header and footer, dark only like oms-ui
+- **Inline loading and error states**: progress in the results pane; a failed search or document load
+  shows the reason in place
+- **Keyboard**: `/` focuses the search (outside text fields), `Esc` in the search clears it
+- Designed for desktop widths (1024 px and up)
 
 ---
 
@@ -183,18 +186,17 @@ curl "http://localhost:8091/api/kb/documents/read?path=oms-knowledge-base/domain
 2. **Browse the tree** on the left sidebar
 3. **Click any document** to view it
 4. **Use the Table of Contents** on the right to navigate sections
-5. **Toggle dark/light mode** with the button in the header
 
 ### Searching
 
-1. **Enter a search query** in the search bar
-2. **Choose a search mode:**
+1. **Enter a search query** in the search bar in the header (or press `/` to jump there)
+2. **Choose a search mode** (switching re-runs the search):
    - **Keyword** - Fast, exact text matching (default)
    - **Semantic** - AI-powered (requires vector store)
    - **Hybrid** - Combines both approaches
-3. **Press Enter** or click Search
-4. **Click any result** to open the document
-5. **Clear search** by clicking a document in the tree
+3. **Press Enter** to search
+4. **Click any result** to open the document; **← Back to results** above it returns to the list
+5. **Clear the search** with `Esc` in the search box
 
 ---
 
@@ -244,9 +246,15 @@ Output: `dist/` directory with optimized static files.
 npm test
 ```
 
-Runs `src/**/*.test.ts` with Node's built-in test runner (Node 22.18 or later, which strips
-TypeScript types natively; no test framework dependency). Test files are excluded from the app
-build in `tsconfig.app.json`.
+Runs the plain-TypeScript tests `src/**/*.test.ts` (models under `src/okf/`, and the design rules
+under `src/theme/`: token sameness with oms-ui, no hard-coded colours or sizes, WCAG contrast) with
+Node's built-in test runner (Node 22.18 or later), then the component tests `src/**/*.test.tsx` with
+Vitest and Testing Library in jsdom (Node 22.12 or later). `npm run build` runs `npm test` first.
+Test files are excluded from the app build in `tsconfig.app.json`.
+
+Vitest is started through `scripts/run-vitest.mjs`: npm launched from Git Bash on Windows runs
+scripts with a lower-case drive letter, which makes Vitest load itself twice ("failed to find the
+runner"); the launcher upper-cases it. Use `npm test` rather than `npx vitest run` from that shell.
 
 Knowledge base documents start with OKF front matter (see
 `oms-knowledge-base/okf-conventions.md`); the document viewer strips it before rendering

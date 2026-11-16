@@ -4,7 +4,7 @@ title: "Schema and Constraints"
 description: "Every rule that keeps the knowledge base consistent and truthful, what it protects and which tool enforces it: okf-check rules, its coverage tests against the code, check-kb-refs, the retrieval evaluation and the storyboard check."
 tags: [semantic-layer, okf, checker, constraints, quality]
 status: stable
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-15T19:00:00Z"
 sources:
   - resource: "repo:tools/okf-check/okf-check.mjs"
   - resource: "repo:tools/okf-check/test/kb-coverage.test.mjs"
@@ -42,6 +42,22 @@ node tools/okf-check/check-kb-refs.mjs                  # references to the know
 | `OMS-RETIRED` | Outside the archive and point-in-time records, prose contains no `retired_terms` | Known-false claims cannot come back |
 | `OMS-ARCHIVE` | Archived documents are `deprecated`; every deprecated document names `superseded_by` | Readers are sent to the current page |
 | `OMS-ALIAS` | `aliases` are unique and do not shadow a current document | Old ids resolve to exactly one page |
+
+### Freshness warnings (SPEC-0064)
+
+Warnings ask for a review. They are printed as `WARN` lines and never change the exit code.
+
+| Rule | Warns when | What to do |
+|---|---|---|
+| `OMS-AGE` | Outside the archive, `updated` is older than `review_after_days` (in the conventions) | Review the page and set `updated` |
+| `OMS-STALE` | `stale_after` has passed | Review the page; move `stale_after` or archive it |
+| `OMS-DEPRECATED` | A `deprecated` document is outside `archive/` | Move it to `archive/` |
+| `OMS-DRIFT` | Outside the archive, a `repo:` source was committed after the page's `updated` and after the page's own last commit | Check the page still matches the code, then set `updated` |
+
+`okf-check --json` prints the errors, the warnings and statistics: documents by type, status and
+folder, requirements by implementation and priority, and review age. `okf-check --fix-indexes`
+adds the entries that `OKF-INDEX` reports as missing; `--dry-run` only lists them. The Developer
+Cockpit shows all of it in its Knowledge Base **Health** panel.
 
 ## Coverage against the code (`kb-coverage.test.mjs`)
 

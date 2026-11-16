@@ -10,8 +10,8 @@ import type {
   SaveTemplateResult,
   TemplateSource,
 } from '../apiExplorer';
-import type { KbDocument, KbCategory, KbSearchResult } from './kb';
-import type { AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary, KbChatMessage, KbChatStartResult } from './ai';
+import type { KbDocument, KbCategory, KbSearchResult, KbHealthReport, KbIndexFixResult } from './kb';
+import type { AiKeySetResult, AiKeyStatus, AiProviderId, AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary, KbChatMessage, KbChatStartResult } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
 import type { MonitorHealthResult, MonitorMetricsResult } from './monitor';
@@ -43,7 +43,8 @@ export interface CockpitAPI {
   // Config
   config: {
     load(): Promise<CockpitConfig>;
-    save(config: CockpitConfig): Promise<void>;
+    /** `ok: false, code: 'invalid'` when a field was refused (e.g. an env-var name that is not a name, SPEC-0063). */
+    save(config: CockpitConfig): Promise<{ ok: boolean; code?: 'invalid'; message?: string } | void>;
     getWorkspaceRoot(): Promise<string>;
   };
 
@@ -53,6 +54,10 @@ export interface CockpitAPI {
     getDocuments(category: string): Promise<KbDocument[]>;
     getDocument(path: string): Promise<KbDocument>;
     search(query: string): Promise<KbSearchResult[]>;
+    /** The knowledge base checker's errors, warnings and statistics (SPEC-0064). */
+    health(): Promise<KbHealthReport>;
+    /** The links folder indexes miss: listed (`apply` false) or added. */
+    fixIndexes(apply: boolean): Promise<KbIndexFixResult>;
   };
 
   // File System
@@ -162,6 +167,12 @@ export interface CockpitAPI {
     run(runId: string, prompt: string, options?: AiRunOptions): Promise<AiRunStartResult>;
     /** Starts a KB chat run over the conversation so far (SPEC-0062); results stream as `ai:*` events. */
     kbChat(runId: string, messages: KbChatMessage[], options?: AiRunOptions): Promise<KbChatStartResult>;
+    /** Provider keys (SPEC-0063): write-only. The renderer can set, clear and ask for status, never read a key. */
+    keys: {
+      status(): Promise<AiKeyStatus>;
+      set(provider: AiProviderId, key: string): Promise<AiKeySetResult>;
+      clear(provider: AiProviderId): Promise<AiKeySetResult>;
+    };
     /** Aborts a run; a no-op (never a throw) when the runId is unknown. */
     stop(runId: string): Promise<void>;
     /** The accumulated usage totals for the Settings summary (AC-7). */

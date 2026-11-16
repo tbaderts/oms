@@ -4,6 +4,7 @@ import type { AiConfig } from '../../shared/types/config';
 import type { AiEvent, AiModelInfo, AiRunOptions, AiStatus, KbChatMessage } from '../../shared/types/ai';
 import { aiStatus, KB_CHAT_MAX_MESSAGES } from '../../shared/types/ai';
 import { forConfig } from './adapters';
+import { belongsToAnotherProvider, isValidEnvVarName, type SavedKeys } from './keys';
 
 /** Bounded: the renderer may pass anything, the server clamps (P-13). */
 export const MAX_STEPS_MIN = 1;
@@ -25,6 +26,8 @@ export interface AiServiceDeps {
   usage?: { record: (entry: { timestamp: string; provider: string; model: string; feature: string; inputTokens: number; outputTokens: number }) => void };
   /** Test seam: a scripted model that skips provider resolution (AC-1/AC-2/AC-3). */
   model?: LanguageModel | null;
+  /** The saved (encrypted) provider keys (SPEC-0063); absent = environment variable only. */
+  keys?: SavedKeys;
   log?: (msg: string) => void;
 }
 
@@ -140,7 +143,7 @@ export class AiService {
    * even when a fake model is injected.
    */
   private resolveModel(): LanguageModel | null {
-    const resolved = forConfig(this.config, this.env);
+    const resolved = forConfig(this.config, this.env, this.deps.keys);
     if (resolved === null) return null;
     return this.deps.model ?? resolved;
   }
@@ -249,8 +252,18 @@ export class AiService {
 export function notConfiguredReason(config: AiConfig, env: NodeJS.ProcessEnv = process.env): string {
   switch (config.provider) {
     case 'anthropic':
-    case 'openai':
-      return `AI not configured: the ${config.apiKeyEnvVar} environment variable is not set.`;
+    case 'openai': {
+      const name = config.provider === 'anthropic' ? 'Anthropic' : 'OpenAI';
+      // Never echo a "name" that is not a name: it is a pasted key (review finding 4).
+      const variable = !config.apiKeyEnvVar
+        ? 'no environment variable is named'
+        : !isValidEnvVarName(config.apiKeyEnvVar)
+          ? 'the environment variable setting is not a variable name'
+          : belongsToAnotherProvider(config.apiKeyEnvVar, config.provider)
+            ? `${config.apiKeyEnvVar} belongs to another provider, so it is not used for ${name}`
+            : `the ${config.apiKeyEnvVar} environment variable is not set`;
+      return `AI not configured: no ${name} API key is saved in Settings → AI and ${variable}.`;
+    }
     case 'local':
       return 'AI not configured: no base URL is set for the local (OpenAI-compatible) provider.';
     default:

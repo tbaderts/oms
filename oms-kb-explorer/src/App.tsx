@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Moon, Sun, FileText } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import AcmeLogo from './components/AcmeLogo';
 import SearchBar from './components/SearchBar';
 import TreeView from './components/TreeView';
 import DocumentViewer from './components/DocumentViewer';
@@ -10,32 +11,73 @@ import LinksPanel from './components/LinksPanel';
 import { kbApi } from './services/api';
 import type { SearchFilters } from './okf/search';
 import { docFromLocation, locationForDoc } from './okf/links';
-import type { SearchMode, ThemeMode, HybridSearchHit } from './types';
+import { INITIAL_SESSION, searchSession } from './okf/searchSession';
+import { isSearchShortcut } from './okf/keyboard';
+import type { HybridSearchHit, SearchMode } from './types';
 
-const queryClient = new QueryClient();
+const APP_NAME = 'Knowledge Base';
 
-function App() {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+/** Runs one search in the given mode; keyword hits are normalised to the hybrid shape. */
+async function runSearch(query: string, filters: SearchFilters, mode: SearchMode): Promise<HybridSearchHit[]> {
+  if (mode === 'hybrid') return kbApi.searchHybrid(query, 20, filters);
+  if (mode === 'semantic') return kbApi.searchSemantic(query, 20, filters);
+  const hits = await kbApi.searchKeyword(query, 20, filters);
+  return hits.map((hit) => ({
+    path: hit.path,
+    keywordScore: hit.score / 100,
+    semanticScore: 0,
+    hybridScore: hit.score / 100,
+    snippet: hit.snippet,
+    matchType: 'keyword' as const,
+  }));
+}
+
+/**
+ * The KB explorer (SPEC-0066): the oms-ui shell (Acme Capital header and footer, dark only, the OMS
+ * design tokens), a compact search in the header, the tree, the document or the search results, and
+ * the TOC with the links panel.
+ */
+function App({ queryClient }: { queryClient?: QueryClient }) {
+  const [client] = useState(() => queryClient ?? new QueryClient());
   // A deep link ?doc=<path>#anchor opens that document on load
   const [initial] = useState(() => docFromLocation(window.location.search, window.location.hash));
   const [selectedDoc, setSelectedDoc] = useState<string | null>(initial.path);
   const [selectedAnchor, setSelectedAnchor] = useState<string | undefined>(initial.anchor);
-  const [searchMode, setSearchMode] = useState<SearchMode>('keyword');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<HybridSearchHit[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [session, dispatch] = useReducer(searchSession, INITIAL_SESSION);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  // Apply theme to document root element
+  // Dark only, like oms-ui
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
-  }, [theme]);
+    document.documentElement.classList.add('dark');
+  }, []);
+
+  // Run the search the session asks for; an answer to an older request is ignored by the reducer
+  const { request, query, filters, mode, status } = session;
+  useEffect(() => {
+    if (status !== 'loading') return;
+    let active = true;
+    runSearch(query, filters, mode).then(
+      (results) => active && dispatch({ type: 'succeeded', request, results }),
+      (err: unknown) => active && dispatch({ type: 'failed', request, message: err instanceof Error ? err.message : String(err) }),
+    );
+    return () => {
+      active = false;
+    };
+    // `request` identifies the search; the other values belong to it
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request]);
+
+  // "/" focuses the search unless the user is typing in a field (AC-7)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isSearchShortcut(e)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Browser Back/Forward: show the document the URL now names
   useEffect(() => {
@@ -43,154 +85,103 @@ function App() {
       const { path, anchor } = docFromLocation(window.location.search, window.location.hash);
       setSelectedDoc(path);
       setSelectedAnchor(anchor);
-      setSearchQuery('');
-      setSearchResults([]);
+      dispatch({ type: 'openResult' });
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
-
-  const handleSearch = async (query: string, filters: SearchFilters = {}) => {
-    setSearchQuery(query);
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      let results: HybridSearchHit[];
-
-      if (searchMode === 'hybrid') {
-        results = await kbApi.searchHybrid(query, 20, filters);
-      } else if (searchMode === 'keyword') {
-        const keywordResults = await kbApi.searchKeyword(query, 20, filters);
-        // Convert SearchHit to HybridSearchHit format
-        results = keywordResults.map(hit => ({
-          path: hit.path,
-          keywordScore: hit.score / 100, // Normalize score to 0-1
-          semanticScore: 0,
-          hybridScore: hit.score / 100,
-          snippet: hit.snippet,
-          matchType: 'keyword' as const,
-        }));
-      } else {
-        // Semantic search - uses dedicated semantic endpoint
-        results = await kbApi.searchSemantic(query, 20, filters);
-      }
-
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
+  /** Opening a document (tree, link, result) keeps the search results for "Back to results" (AC-6). */
   const handleSelectDoc = (path: string, anchor?: string) => {
     setSelectedDoc(path);
     setSelectedAnchor(anchor);
     window.history.pushState(null, '', locationForDoc(path, anchor));
-    setSearchQuery(''); // Clear search when selecting a document
-    setSearchResults([]);
+    dispatch({ type: 'openResult' });
   };
 
+  const showingResults = session.query !== '' && session.showing === 'results';
+  const canGoBack = session.query !== '' && session.showing === 'document' && session.status !== 'idle';
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
-          {/* Header */}
-          <header className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  OMS Knowledge Base Explorer
-                </h1>
-              </div>
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Toggle theme"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-5 h-5 text-gray-400" />
-                ) : (
-                  <Moon className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-            </div>
-          </header>
-
-          {/* Search Bar */}
-          <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
-            <SearchBar
-              searchMode={searchMode}
-              onSearchModeChange={setSearchMode}
-              onSearch={handleSearch}
-            />
+    <QueryClientProvider client={client}>
+      <div className="flex h-screen flex-col bg-bg font-sans text-text">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-6 border-b border-border bg-surface px-5">
+          <div className="flex shrink-0 items-center gap-4 text-strong">
+            <AcmeLogo width={140} height={35} className="block" />
+            <span className="h-6 w-px bg-border-strong" aria-hidden="true" />
+            <h1 className="m-0 text-lg font-medium text-muted">{APP_NAME}</h1>
           </div>
+          <SearchBar
+            ref={searchRef}
+            mode={session.mode}
+            onModeChange={(m) => dispatch({ type: 'modeChanged', mode: m })}
+            onSearch={(q, f) => dispatch({ type: 'submit', query: q, filters: f })}
+            onClear={() => dispatch({ type: 'clear' })}
+          />
+        </header>
 
-          {/* Main Content */}
-          <div className="flex flex-1 overflow-hidden">
-            {/* Left Sidebar - Document Tree */}
-            <aside className="w-64 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
-              <TreeView
-                onSelectDoc={handleSelectDoc}
-                selectedDoc={selectedDoc}
-              />
-            </aside>
+        <div className="flex min-h-0 flex-1">
+          <aside className="w-72 shrink-0 overflow-y-auto border-r border-border bg-surface" aria-label="Documents">
+            <TreeView onSelectDoc={handleSelectDoc} selectedDoc={selectedDoc} />
+          </aside>
 
-            {/* Center - Document Viewer or Search Results */}
-            <main className="flex-1 overflow-y-auto bg-white dark:bg-gray-900">
-              {searchQuery ? (
+          <main className="flex min-w-0 flex-1 flex-col bg-bg">
+            {showingResults ? (
+              <section className="min-h-0 flex-1 overflow-y-auto" aria-label="Search results">
                 <SearchResults
-                  results={searchResults}
-                  searchQuery={searchQuery}
-                  searchMode={searchMode}
+                  status={session.status}
+                  error={session.error}
+                  results={session.results}
+                  searchQuery={session.query}
+                  searchMode={session.mode}
                   onSelectDoc={handleSelectDoc}
+                  onRetry={() => dispatch({ type: 'retry' })}
                 />
-              ) : (
-                <DocumentViewer
-                  selectedDoc={selectedDoc}
-                  anchor={selectedAnchor}
-                  onSelectDoc={handleSelectDoc}
-                />
-              )}
-              {isSearching && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-900 bg-opacity-50 flex items-center justify-center">
-                  <div className="text-gray-600 dark:text-gray-400">Searching...</div>
+              </section>
+            ) : (
+              <>
+                {canGoBack && (
+                  <div className="flex shrink-0 items-center border-b border-border bg-surface px-6 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => dispatch({ type: 'backToResults' })}
+                      className="inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-sm text-accent hover:bg-hover hover:text-accent-hover"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      Back to results ({session.results.length}) for “{session.query}”
+                    </button>
+                  </div>
+                )}
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <DocumentViewer selectedDoc={selectedDoc} anchor={selectedAnchor} onSelectDoc={handleSelectDoc} />
                 </div>
-              )}
-            </main>
-
-            {/* Right Sidebar - Table of Contents */}
-            {selectedDoc && !searchQuery && (
-              <aside className="w-64 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
-                <TableOfContents documentPath={selectedDoc} />
-                <LinksPanel documentPath={selectedDoc} onSelectDoc={handleSelectDoc} />
-              </aside>
+              </>
             )}
-          </div>
+          </main>
 
-          {/* Footer */}
-          <footer className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2">
-            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-              <span>OMS Knowledge Base Explorer v1.0</span>
-              <span>
-                {searchQuery
-                  ? `Search: "${searchQuery}" (${searchResults.length} results)`
-                  : selectedDoc
-                    ? `Viewing: ${selectedDoc.split('/').pop()}`
-                    : 'No document selected'}
-              </span>
-            </div>
-          </footer>
+          {selectedDoc && !showingResults && (
+            <aside className="w-64 shrink-0 overflow-y-auto border-l border-border bg-surface" aria-label="On this page">
+              <TableOfContents documentPath={selectedDoc} />
+              <LinksPanel documentPath={selectedDoc} onSelectDoc={handleSelectDoc} />
+            </aside>
+          )}
         </div>
+
+        <footer className="flex h-8 shrink-0 items-center justify-between border-t border-border bg-surface px-5 text-xs text-muted">
+          <span>
+            © {new Date().getFullYear()} Acme Capital · {APP_NAME}
+          </span>
+          <span className="truncate pl-4">
+            {showingResults
+              ? session.status === 'done'
+                ? `${session.results.length} results for “${session.query}”`
+                : ''
+              : selectedDoc
+                ? selectedDoc.replace(/^oms-knowledge-base\//, '')
+                : 'No document selected'}
+          </span>
+        </footer>
+      </div>
     </QueryClientProvider>
   );
 }

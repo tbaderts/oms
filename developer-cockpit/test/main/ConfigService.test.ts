@@ -5,6 +5,9 @@ import * as path from 'path';
 import { ConfigService, migrateConfig, resolveStoryboardsConfig } from '../../src/main/services/ConfigService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
 import { REPO_ROOT } from '../fixtures/workspace';
+import { KeyStore } from '../../src/main/ai/KeyStore';
+import { migrateAiKeys } from '../../src/main/ai/keyMigration';
+import { fakeCrypto } from './keyTestUtils';
 
 const getWorkspaceRoot = (service: ConfigService) => service.getConfig().general.workspaceRoot;
 
@@ -143,5 +146,40 @@ describe('ConfigService storyboards', () => {
   it('ignores malformed numeric overrides', () => {
     const resolved = resolveStoryboardsConfig(DEFAULT_CONFIG.storyboards, { COCKPIT_STORYBOARDS_MAX_SOURCE_BYTES: 'lots' });
     expect(resolved.maxSourceBytes).toBe(1_048_576);
+  });
+});
+
+describe('ConfigService key migration (SPEC-0063 AC-7)', () => {
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    dir = undefined;
+  });
+
+  it('load runs the key migration before saving', async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-config-keys-'));
+    const LEGACY_LOCAL = 'vllm-legacy-key-in-config';
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({ ...DEFAULT_CONFIG, specs: { ...DEFAULT_CONFIG.specs, ...LEGACY }, ai: { ...DEFAULT_CONFIG.ai, provider: 'anthropic', apiKey: LEGACY_LOCAL } }, null, 2),
+    );
+    const store = new KeyStore(dir, fakeCrypto(), () => {});
+
+    const config = await new ConfigService(dir).load({ migrateKeys: (c) => migrateAiKeys(c, store, () => {}) });
+
+    const onDisk = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
+    expect(onDisk).not.toContain(LEGACY_LOCAL);
+    expect(JSON.parse(onDisk).ai).not.toHaveProperty('apiKey');
+    expect(JSON.parse(onDisk).specs.openApiPaths).toEqual(DEFAULT_CONFIG.specs.openApiPaths); // the contract migration still ran
+    expect(config.ai).not.toHaveProperty('apiKey');
+    expect(store.get('local')).toBe(LEGACY_LOCAL);
+  });
+
+  it('a key migration alone also saves', async () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-config-keys-'));
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({ ...DEFAULT_CONFIG, ai: { ...DEFAULT_CONFIG.ai, apiKey: 'k-only' } }, null, 2));
+    const store = new KeyStore(dir, fakeCrypto(), () => {});
+    await new ConfigService(dir).load({ migrateKeys: (c) => migrateAiKeys(c, store, () => {}) });
+    expect(fs.readFileSync(path.join(dir, 'config.json'), 'utf8')).not.toContain('k-only');
   });
 });

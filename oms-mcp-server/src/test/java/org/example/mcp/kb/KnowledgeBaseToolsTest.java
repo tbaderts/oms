@@ -206,6 +206,28 @@ class KnowledgeBaseToolsTest {
     }
 
     @Test
+    void toolCallbacksReturnMarkdownNotAJsonString() {
+        // SPEC-0065 (AC-10): what an MCP client receives is the tool callback's result.
+        var callbacks = org.springframework.ai.support.ToolCallbacks.from(tools);
+        var search = java.util.Arrays.stream(callbacks)
+                .filter(c -> c.getToolDefinition().name().equals("searchKnowledgeBase"))
+                .findFirst().orElseThrow();
+        String result = search.call("{\"query\":\"cancel an order PendingCancel\",\"topK\":2}");
+        assertTrue(result.startsWith("## Knowledge base search: \"cancel an order PendingCancel\"\n"), result);
+        assertFalse(result.contains("\\n"), "line breaks are real, not escaped:\n" + result);
+    }
+
+    @Test
+    void searchHitsShowScoreAndRanks() {
+        // SPEC-0065: embeddings are off here, so the fused score of the top hit is 1/(60+1) and
+        // only the keyword rank exists.
+        String result = tools.searchKnowledgeBase("cancel an order PendingCancel", 5, null, null, null, null);
+        assertTrue(result.contains(" — score 0.0164 · keyword #1\n"), result);
+        assertTrue(result.contains(" · keyword #2\n"), result);
+        assertFalse(result.contains("semantic #"), "no semantic ranks without embeddings:\n" + result);
+    }
+
+    @Test
     void searchReturnsMarkdownWithCitationsAndHint() {
         String result = tools.searchKnowledgeBase("cancel an order PendingCancel", 5, null, null, null, null);
         assertTrue(result.contains("## Knowledge base search:"));

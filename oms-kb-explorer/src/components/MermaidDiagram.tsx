@@ -1,13 +1,47 @@
 import { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
-import { Copy, Check } from 'lucide-react';
+import { AlertTriangle, Copy, Check } from 'lucide-react';
 
 interface MermaidDiagramProps {
   chart: string;
-  theme?: 'dark' | 'light';
 }
 
-export default function MermaidDiagram({ chart, theme = 'dark' }: MermaidDiagramProps) {
+/** A token's current value: mermaid derives shades from concrete colours, so it cannot take var(). */
+function tokenValue(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(`--oms-${name}`).trim();
+}
+
+/** Mermaid's base theme on the OMS tokens (SPEC-0066): slate nodes, light text, the accent for lines. */
+function omsMermaidTheme() {
+  return {
+    darkMode: true,
+    background: tokenValue('surface'),
+    fontFamily: tokenValue('font-family'),
+    primaryColor: tokenValue('surface-overlay'),
+    primaryTextColor: tokenValue('text-strong'),
+    primaryBorderColor: tokenValue('border-hover'),
+    secondaryColor: tokenValue('surface-raised'),
+    tertiaryColor: tokenValue('surface'),
+    lineColor: tokenValue('text-muted'),
+    textColor: tokenValue('text'),
+    mainBkg: tokenValue('surface-overlay'),
+    nodeBorder: tokenValue('border-hover'),
+    clusterBkg: tokenValue('surface-raised'),
+    clusterBorder: tokenValue('border-strong'),
+    edgeLabelBackground: tokenValue('surface-raised'),
+    actorBkg: tokenValue('surface-overlay'),
+    actorBorder: tokenValue('accent'),
+    actorTextColor: tokenValue('text-strong'),
+    signalColor: tokenValue('text'),
+    signalTextColor: tokenValue('text'),
+    labelBoxBkgColor: tokenValue('surface-raised'),
+    noteBkgColor: tokenValue('surface-raised'),
+    noteTextColor: tokenValue('text'),
+    noteBorderColor: tokenValue('warning'),
+  };
+}
+
+export default function MermaidDiagram({ chart }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,21 +51,9 @@ export default function MermaidDiagram({ chart, theme = 'dark' }: MermaidDiagram
 
     const renderDiagram = async () => {
       try {
-        // Initialize mermaid with theme
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: theme === 'dark' ? 'dark' : 'default',
-          themeVariables: {
-            fontFamily: 'Inter, system-ui, Avenir, Helvetica, Arial, sans-serif',
-          },
-        });
-
-        // Generate unique ID for this diagram
-        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-
-        // Render the diagram
+        mermaid.initialize({ startOnLoad: false, theme: 'base', themeVariables: omsMermaidTheme() });
+        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
         const { svg } = await mermaid.render(id, chart);
-
         if (containerRef.current) {
           containerRef.current.innerHTML = svg;
           setError(null);
@@ -43,7 +65,7 @@ export default function MermaidDiagram({ chart, theme = 'dark' }: MermaidDiagram
     };
 
     renderDiagram();
-  }, [chart, theme]);
+  }, [chart]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(chart);
@@ -51,49 +73,35 @@ export default function MermaidDiagram({ chart, theme = 'dark' }: MermaidDiagram
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyButton = (extra: string) => (
+    <button
+      onClick={handleCopy}
+      className={`rounded-sm border border-border-strong bg-raised p-1.5 hover:bg-overlay ${extra}`}
+      title="Copy diagram source"
+      aria-label="Copy diagram source"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5 text-muted" />}
+    </button>
+  );
+
   if (error) {
     return (
-      <div className="relative group my-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <div className="flex items-start justify-between mb-2">
-          <span className="text-sm font-semibold text-red-800 dark:text-red-400">
-            Mermaid Diagram Error
+      <div className="my-4 rounded-md border border-danger bg-danger-bg p-4">
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-strong">
+            <AlertTriangle className="h-4 w-4 text-danger" /> Mermaid diagram error
           </span>
-          <button
-            onClick={handleCopy}
-            className="p-1.5 rounded-md bg-red-100 dark:bg-red-800 hover:bg-red-200 dark:hover:bg-red-700 transition-colors"
-            title="Copy diagram source"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-red-700 dark:text-red-300" />
-            ) : (
-              <Copy className="w-4 h-4 text-red-700 dark:text-red-300" />
-            )}
-          </button>
+          {copyButton('')}
         </div>
-        <pre className="text-sm text-red-700 dark:text-red-400 whitespace-pre-wrap font-mono">
-          {error}
-        </pre>
+        <pre className="font-mono text-sm whitespace-pre-wrap text-text">{error}</pre>
       </div>
     );
   }
 
   return (
-    <div className="relative group my-6">
-      <button
-        onClick={handleCopy}
-        className="absolute right-2 top-2 p-2 rounded-md bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100 z-10"
-        title="Copy diagram source"
-      >
-        {copied ? (
-          <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-        ) : (
-          <Copy className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-        )}
-      </button>
-      <div
-        ref={containerRef}
-        className="flex justify-center items-center p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-x-auto"
-      />
+    <div className="group relative my-6">
+      {copyButton('absolute top-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100')}
+      <div ref={containerRef} className="flex items-center justify-center overflow-x-auto rounded-md border border-border bg-surface p-6" />
     </div>
   );
 }

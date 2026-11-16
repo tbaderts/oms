@@ -5,13 +5,16 @@ title: "Developer Cockpit"
 description: "Electron desktop tool for the spec workflow, the knowledge base, requirements and storyboards."
 tags: [component, electron, tooling, storyboards]
 status: draft
-updated: "2026-11-15T12:00:00Z"
+updated: "2026-11-16T12:00:00Z"
 component: "developer-cockpit"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-29T12:00:00Z" }
 sources:
   - resource: "repo:developer-cockpit/src/main/index.ts"
   - resource: "repo:developer-cockpit/src/main/services/RequirementsService.ts"
   - resource: "repo:developer-cockpit/src/main/services/kbLayout.ts"
+  - resource: "repo:developer-cockpit/src/main/services/OkfCli.ts"
+  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbHealthPanel.tsx"
+  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/FrontMatterPanel.tsx"
   - resource: "repo:developer-cockpit/test/main/RequirementsService.test.ts"
   - resource: "repo:developer-cockpit/src/main/storyboards/StoryboardService.ts"
   - resource: "repo:developer-cockpit/src/main/ipc/storyboards.ipc.ts"
@@ -22,7 +25,12 @@ sources:
   - resource: "repo:developer-cockpit/src/renderer/views/monitor/MonitorView.tsx"
   - resource: "repo:developer-cockpit/src/main/ai/KbChatTools.ts"
   - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatPanel.tsx"
+  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatDetails.tsx"
+  - resource: "repo:developer-cockpit/src/renderer/lib/kbChatTrace.ts"
   - resource: "repo:developer-cockpit/test/main/kbChat.ipc.test.ts"
+  - resource: "repo:developer-cockpit/src/main/ai/KeyStore.ts"
+  - resource: "repo:developer-cockpit/src/main/ai/keyMigration.ts"
+  - resource: "repo:developer-cockpit/src/main/ipc/aiKeys.ipc.ts"
 ---
 # Developer Cockpit
 
@@ -49,6 +57,48 @@ the Non-Functional tab shows implementation. The storyboard link index (`LinkInd
 AI extracts (`kbExtracts`) use the same layout module for requirement ids and the order-state
 document.
 
+## AI provider keys
+
+The AI assistant, the KB chat and the storyboard assists share one provider stack and one way of
+finding the provider's API key (SPEC-0063).
+
+- **One key per provider.** Settings → AI → *API keys* has a row each for Anthropic, OpenAI and
+  Local. A run uses the key of the provider it runs with, never another provider's key.
+- **Encrypted, write-only.**
+  - **Storage.** Keys are encrypted with the OS account (Electron `safeStorage`: DPAPI on Windows,
+    Keychain on macOS, the secret service on Linux) and stored as ciphertext in
+    `~/.developer-cockpit/ai-keys.json`. They never appear in `config.json`.
+  - **The window.** It can save, replace or clear a key and see whether one is saved, but it never
+    receives a key value: `config:load` carries none, and the `ai:keys:*` channels return only
+    status.
+  - **Settings saves.** A settings save cannot change a key.
+  - **Linux.** The plain-text `basic_text` backend counts as "encryption unavailable", and then no
+    key can be saved.
+- **Precedence.** A saved key wins, and the environment variable named in Settings is the fallback.
+  - The name must be a variable name: a pasted key is refused. A pasted key that is still in the
+    config is never shown in the window.
+  - A provider never reads **another provider's** usual variable. Local never reads
+    `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, so switching to a local or remote model server cannot
+    send it your Anthropic or OpenAI key.
+  - With neither a saved key nor a fallback, the provider is "not configured". Settings shows which
+    source the active provider uses.
+- **One-time migration.** On the first start of a build with this feature:
+  - A plain-text `ai.apiKey` in `config.json` (the old field, shown only for Local) becomes the
+    **Local** key.
+  - A key pasted into the variable-name field becomes the **configured provider's** key. The field
+    is reset to `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, or to empty (no fallback) for Local.
+  - Neither overwrites a working saved key; a losing value is discarded with a `[keys]` warning
+    that names the provider, never the value.
+  - A value that cannot be stored stays in `config.json`, with a warning. So does every value when
+    OS encryption is unavailable.
+- **Failure behaviour.** If `ai-keys.json` exists but can't be read or parsed, the cockpit never
+  overwrites it. Saving or clearing a key then fails with "The key file could not be read or
+  written", and a `[keys]` warning is logged.
+- **What it protects against.** It stops agents and tools from picking up a key by reading files
+  or the environment. It does **not** stop a process that runs as the same OS user and deliberately
+  calls the OS to decrypt `ai-keys.json`. A profile copied to another machine can't decrypt its
+  keys: they read as not set, with a `[keys]` warning, and must be entered again.
+
 ## Knowledge Base
 
 The **Knowledge Base** view shows the bundle as a folder tree to any depth (`KbService.getCategories`:
@@ -56,10 +106,36 @@ one node per folder, id = its path such as `domain/model`), and each folder list
 documents. Navigation files (`index.md`, `log.md`) are not listed but stay searchable; deprecated
 (archived) documents are struck through and marked. Nothing in the tree is hard-coded.
 
+An opened document shows its front matter under the title (SPEC-0064):
+- type, status (draft and deprecated marked) and the `updated` date;
+- the description, tags and sources, with `repo:` sources as code paths;
+- former ids (`aliases`) and `superseded_by`;
+- every other key, such as a requirement's priority and implementation.
+
+### Health
+
+The **Health** switch shows the knowledge base's health in the centre of the view (SPEC-0064). The
+cockpit runs the repository's checker, `tools/okf-check` (`okf-check --json`, through `OkfCli`), so
+it reports exactly what the command line reports. The panel shows:
+- **Statistics:** documents, errors and warnings; documents by type, status and folder;
+  requirements by implementation and priority; and review age against `review_after_days`.
+- **Findings:** errors, then warnings, grouped by rule with counts. Clicking one opens its
+  document. The warnings are listed in
+  [Schema and Constraints](../semantic-layer/schema-and-constraints.md#freshness-warnings-spec-0064).
+- **Fix indexes:** lists the entries folder indexes miss (`--fix-indexes --dry-run`). **Apply**
+  adds them, then re-checks and reloads the tree; **Cancel** writes nothing.
+
+If `tools/okf-check` has no `node_modules`, the panel shows the checker's error; run
+`npm --prefix tools/okf-check install`.
+
 ### KB Chat
 
-The **Chat** button opens a panel in the Knowledge Base view (SPEC-0062). It answers questions
+The **Chat** switch shows the chat in the centre of the Knowledge Base view (SPEC-0062). It answers questions
 about the knowledge base and summarises documents, using the AI provider set under Settings → AI.
+
+The centre shows one of **Document**, **Chat** or **Health** at a time, so the chat has the full
+width. Switching keeps the conversation. Opening a source from an answer switches to the document;
+"Summarise this document" names the document it means.
 
 - **Tools.** The chat connects over MCP to the
   [knowledge server](knowledge-server.md) at `ai.knowledgeServerUrl` (Settings → AI, default
@@ -73,6 +149,25 @@ about the knowledge base and summarises documents, using the AI provider set und
     cockpit tries the server again after 60 s.
 - **Sources.** Each answer lists the documents its tools found or read. Clicking one opens it in
   the document viewer.
+- **Source details and Run details (SPEC-0065).**
+  - **In the Sources list,** each source shows its best match next to its link:
+    - for a knowledge server search, e.g. `#1 · score 0.0325 · Summary (lines 18-28) · Capability ·
+      draft · unverified`;
+    - for the local fallback search, `#1 · distance 0.123 (lower is better)`, a fuzzy-match
+      distance where 0 is an exact match;
+    - for a document only read, `read #anchor`.
+
+    Its toggle (closed by default) lists every match: the query, rank, score and keyword and
+    semantic ranks, the section, the type, status and trust tier, and the excerpt.
+  - **Run details** (closed by default) start with a summary line: provider and model, input,
+    output and total tokens, the number of tool calls, the duration, and the outcome (complete,
+    stopped, step limit, or failed with its error). Then the steps follow in order: the text the
+    model wrote between tool calls, and each call with its input and a collapsed result. A result
+    shows as text, up to 4,000 characters.
+  - Tool text that arrives JSON-encoded (quoted, with escaped line breaks, as the knowledge server
+    sent it before SPEC-0065) is decoded first (`shared/mcpText.ts`).
+  - Each answer keeps its own details for the session. Clear removes them.
+  - Code: `kbChatTrace.ts`, the trace in the `kbChat` store, and `KbChatDetails.tsx`.
 - **Summarise this document.** This button asks the chat to read and summarise the open document.
 - **Conversation.** The chat is multi-turn for the session. Each question is sent with the last 10
   question/answer pairs, and Clear starts over. Nothing is persisted.

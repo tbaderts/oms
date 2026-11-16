@@ -142,6 +142,29 @@ export const aiToolResult = z.object({
   output: z.string(),
 });
 
+/** The AI providers a key can be saved for (SPEC-0063). */
+export type AiProviderId = 'anthropic' | 'openai' | 'local';
+export const AI_PROVIDERS: readonly AiProviderId[] = ['anthropic', 'openai', 'local'];
+
+/** Where the active provider's key comes from; never the key itself. */
+export type AiKeySource = 'saved' | 'env' | 'legacy' | 'none';
+
+/** `ai:keys:status`: whether a key is saved per provider, and the active provider's key source (AC-3). */
+export interface AiKeyStatus {
+  /** Whether OS encryption is available; without it, no key can be saved (AC-8). */
+  available: boolean;
+  saved: Record<AiProviderId, boolean>;
+  active: { provider: string; source: AiKeySource; envVar: string };
+}
+
+/** `ai:keys:set` / `ai:keys:clear` result; never contains a key. */
+export interface AiKeySetResult {
+  ok: boolean;
+  /** `storage-failed`: the key file could not be read or written; nothing was changed. */
+  code?: 'encryption-unavailable' | 'invalid' | 'storage-failed';
+  message?: string;
+}
+
 /** One turn of a KB chat conversation (SPEC-0062); the last message of a run is the user's. */
 export interface KbChatMessage {
   role: 'user' | 'assistant';
@@ -170,5 +193,6 @@ export const kbSearchInput = z.object({
 export interface KbSearchToolResult {
   query: string;
   count: number;
-  results: { title: string; path: string; category: string }[];
+  /** `score`: the fuzzy-match distance of the local search, 0 = exact, lower is better (SPEC-0065). */
+  results: { title: string; path: string; category: string; score: number }[];
 }

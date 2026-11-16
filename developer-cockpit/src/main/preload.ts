@@ -12,6 +12,8 @@ const api: CockpitAPI = {
     getDocuments: (category) => ipcRenderer.invoke('kb:getDocuments', category),
     getDocument: (path) => ipcRenderer.invoke('kb:getDocument', path),
     search: (query) => ipcRenderer.invoke('kb:search', query),
+    health: () => ipcRenderer.invoke('kb:health'),
+    fixIndexes: (apply) => ipcRenderer.invoke('kb:fixIndexes', apply),
   },
   fs: {
     readDir: (path) => ipcRenderer.invoke('fs:readDir', path),
@@ -95,6 +97,11 @@ const api: CockpitAPI = {
     available: () => ipcRenderer.invoke('ai:available'),
     run: (runId, prompt, options) => ipcRenderer.invoke('ai:run', runId, prompt, options),
     kbChat: (runId, messages, options) => ipcRenderer.invoke('ai:kbChat', runId, messages, options),
+    keys: {
+      status: () => ipcRenderer.invoke('ai:keys:status'),
+      set: (provider, key) => ipcRenderer.invoke('ai:keys:set', provider, key),
+      clear: (provider) => ipcRenderer.invoke('ai:keys:clear', provider),
+    },
     stop: (runId) => ipcRenderer.invoke('ai:stop', runId),
     usage: () => ipcRenderer.invoke('ai:usage'),
   },

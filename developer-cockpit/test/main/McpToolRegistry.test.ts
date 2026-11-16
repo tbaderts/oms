@@ -51,7 +51,9 @@ async function startStubMcpServer(): Promise<{ url: string; close: () => void }>
         });
       } else if (msg.method === 'tools/call') {
         const args = (msg.params as { arguments?: { name?: string } }).arguments ?? {};
-        reply({ content: [{ type: 'text', text: `Hello ${args.name}` }] });
+        // A name of "json-encoded" answers the way Spring AI did before SPEC-0065: a quoted JSON string.
+        const text = args.name === 'json-encoded' ? JSON.stringify('## Heading\nline two') : `Hello ${args.name}`;
+        reply({ content: [{ type: 'text', text }] });
       } else if (msg.id !== undefined) {
         reply({});
       } else {
@@ -76,7 +78,7 @@ describe('McpToolRegistry (AC-4, AC-8)', () => {
     expect(result).toEqual({
       query: 'orders',
       count: 1,
-      results: [{ title: 'Order lifecycle', path: 'domain/concepts/order-lifecycle.md', category: 'domain' }],
+      results: [{ title: 'Order lifecycle', path: 'domain/concepts/order-lifecycle.md', category: 'domain', score: 0.1 }],
     });
     await close();
   });
@@ -91,6 +93,15 @@ describe('McpToolRegistry (AC-4, AC-8)', () => {
     const t = tools['stub:greet'] as { execute: (input: { name: string }) => Promise<unknown> };
     expect(await t.execute({ name: 'world' })).toBe('Hello world');
 
+    await close();
+    stub.close();
+  });
+
+  it('an MCP tool returning JSON-encoded text is decoded (SPEC-0065, AC-10)', async () => {
+    const stub = await startStubMcpServer();
+    const { tools, close } = await McpToolRegistry.build({ search: () => [] }, [{ name: 'stub', url: stub.url }]);
+    const t = tools['stub:greet'] as { execute: (input: { name: string }) => Promise<unknown> };
+    expect(await t.execute({ name: 'json-encoded' })).toBe('## Heading\nline two');
     await close();
     stub.close();
   });
@@ -113,5 +124,37 @@ describe('McpToolRegistry (AC-4, AC-8)', () => {
     expect(typeof out).toBe('string');
     await close();
     stub.close();
+  });
+});
+
+describe('tool input schemas are valid JSON Schema objects (Anthropic requires input_schema.type)', () => {
+  it('search_knowledge_base sends a JSON Schema object, not a zod shape', async () => {
+    const { tools, close } = await McpToolRegistry.build({ search: () => [] }, []);
+    const schema = (tools.search_knowledge_base as { inputSchema: { jsonSchema: Record<string, unknown> } }).inputSchema.jsonSchema;
+    expect(schema).toEqual({
+      type: 'object',
+      properties: { query: { type: 'string', minLength: 1 } },
+      required: ['query'],
+      additionalProperties: false,
+    });
+    await close();
+  });
+});
+
+describe('local search score (SPEC-0065, AC-2 and AC-4)', () => {
+  it('local search results carry their score', async () => {
+    const order = doc('Order lifecycle', 'domain/concepts/order-lifecycle.md', 'domain');
+    const fill = doc('Fill', 'domain/model/execution.md', 'domain');
+    const { tools, close } = await McpToolRegistry.build(
+      { search: () => [{ document: order, score: 0.05, matches: [] }, { document: fill, score: 0.4, matches: [] }] },
+      [],
+    );
+    const t = tools.search_knowledge_base as { execute: (input: { query: string }) => Promise<{ results: { path: string; score: number }[] }> };
+    const result = await t.execute({ query: 'order' });
+    expect(result.results.map((r) => [r.path, r.score])).toEqual([
+      ['domain/concepts/order-lifecycle.md', 0.05],
+      ['domain/model/execution.md', 0.4],
+    ]);
+    await close();
   });
 });

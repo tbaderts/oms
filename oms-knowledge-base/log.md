@@ -1,6 +1,30 @@
 # Knowledge Base Log
 
+## 2026-11-16
+
+The Developer Cockpit's Knowledge Base view shows one of **Document**, **Chat** or **Health** at a
+time in its centre, instead of the chat in a narrow side panel. See
+[Developer Cockpit](tools/developer-cockpit.md#kb-chat).
+
+KB chat source and run details (SPEC-0065). Each chat answer now shows more about its sources and
+its run:
+- **Sources:** each source shows its best match (rank, score, section) next to its link. A toggle
+  lists every match, with the query, the ranks and the excerpt.
+- **Run details:** a collapsible section with what the run did (model, tokens, tool calls,
+  duration, outcome, steps).
+
+The [knowledge server](tools/knowledge-server.md)'s search hits now state their fused score and
+their keyword and semantic ranks. Its knowledge base tools return their Markdown as written; before,
+it was a JSON-encoded string with escaped line breaks.
+
 ## 2026-11-15
+
+Knowledge base health (SPEC-0064). `okf-check` now warns about pages to review (`OMS-AGE` with
+`review_after_days: 180`, `OMS-STALE`, `OMS-DEPRECATED`, `OMS-DRIFT` when a `repo:` source changed
+after the page), prints a JSON report with statistics (`--json`), and adds missing index entries
+(`--fix-indexes`). The Developer Cockpit shows each document's front matter and has a
+**Health** panel. See [Schema and Constraints](semantic-layer/schema-and-constraints.md#freshness-warnings-spec-0064)
+and [Developer Cockpit](tools/developer-cockpit.md#health).
 
 [Design System](ui/design-system.md#modules) (SPEC-0060): the grid font sizes and the logo now
 take their values from tokens, and the token rule covers the TS/TSX sources too. The grids register

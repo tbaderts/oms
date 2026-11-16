@@ -203,6 +203,22 @@ way to reach the service; the WebSocket server does not accept commands.
 | `listByCategory(category)` | List documents in a category |
 | `getSection(path, heading)` | Return content under a specific heading |
 
+#### OkfCli (knowledge base health, SPEC-0064)
+
+The cockpit never checks the knowledge base itself. **OkfCli** runs the repository's checker,
+`process.execPath tools/okf-check/okf-check.mjs …`, with `ELECTRON_RUN_AS_NODE=1` (no shell, an
+argument array), as SpecCli does for the spec workflow. A non-zero exit code (errors found) is a
+result. A missing script, or output without JSON, rejects with a readable message, for example to
+run `npm install` in `tools/okf-check`.
+
+| Method | CLI | IPC channel |
+|--------|-----|-------------|
+| `report(kbPath, repoRoot = workspace)` | `okf-check <kb> --repo <root> --json` → `KbHealthReport` (errors, warnings, stats) | `kb:health` |
+| `fixIndexes(kbPath, apply)` | `okf-check <kb> --fix-indexes --json [--dry-run]` → `KbIndexFixResult` | `kb:fixIndexes(apply)`; only `true` applies, and an applied fix rescans KbService |
+
+The Knowledge Base view shows each document's front matter (`FrontMatterPanel`) and a Health panel
+(`KbHealthPanel`) built on these two channels.
+
 ---
 
 ### 2.5 RequirementsService

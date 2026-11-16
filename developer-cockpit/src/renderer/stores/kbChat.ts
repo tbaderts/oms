@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { AiStatus, KbChatMessage, KbChatToolSource } from '@shared/types/ai';
 import { KB_BUNDLE_PREFIX } from '@shared/kbPath';
 import { extractSources, type KbChatToolEvent } from '@/lib/kbChatSources';
+import type { KbChatStep, KbChatTrace } from '@/lib/kbChatTrace';
 import { eventBus } from '@/lib/event-bus';
 
 /** Earlier question/answer pairs sent with a new question (AC-6). */
@@ -13,6 +14,8 @@ export interface KbChatTurn {
   role: 'user' | 'assistant';
   text: string;
   sources: string[];
+  /** An assistant turn's run: steps, model, usage, outcome and timing (SPEC-0065). */
+  trace?: KbChatTrace;
 }
 
 type AiEventLike = { type: string; runId: string } & Record<string, unknown>;
@@ -60,6 +63,31 @@ function history(turns: KbChatTurn[], question: string): KbChatMessage[] {
   return [...pairs.slice(-KB_CHAT_HISTORY_TURNS).flat(), { role: 'user', content: question }];
 }
 
+/** Updates the trace of the last (assistant) turn (SPEC-0065). */
+function withTrace(turns: KbChatTurn[], update: (t: KbChatTrace) => KbChatTrace): KbChatTurn[] {
+  return withLast(turns, (t) => (t.trace ? { ...t, trace: update(t.trace) } : t));
+}
+
+/** Appends streamed text to the last text step, or starts one after a tool call. */
+function addText(steps: KbChatStep[], text: string): KbChatStep[] {
+  const last = steps[steps.length - 1];
+  return last?.kind === 'text'
+    ? steps.slice(0, -1).concat({ kind: 'text', text: last.text + text })
+    : steps.concat({ kind: 'text', text });
+}
+
+/** Sets a tool result on its call; a result without a call gets a step of its own. */
+function addResult(steps: KbChatStep[], toolCallId: string, name: string, output: string): KbChatStep[] {
+  const i = steps.findIndex((s) => s.kind === 'tool' && s.toolCallId === toolCallId);
+  if (i < 0) return steps.concat({ kind: 'tool', toolCallId, name, input: {}, output });
+  return steps.map((s, j) => (j === i && s.kind === 'tool' ? { ...s, output } : s));
+}
+
+const failed = (message: string) => (t: KbChatTrace): KbChatTrace => ({ ...t, outcome: 'failed', error: message, endedAt: Date.now() });
+
+const asRecord = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+
 /** Replaces the last (assistant) turn. */
 function withLast(turns: KbChatTurn[], update: (t: KbChatTurn) => KbChatTurn): KbChatTurn[] {
   const last = turns[turns.length - 1];
@@ -105,17 +133,22 @@ export const useKbChatStore = create<KbChatState>((set, get) => ({
       error: null,
       incomplete: false,
       toolEvents: [],
-      turns: s.turns.concat({ id: nextId(), role: 'user', text, sources: [] }, { id: nextId(), role: 'assistant', text: '', sources: [] }),
+      turns: s.turns.concat(
+        { id: nextId(), role: 'user', text, sources: [] },
+        { id: nextId(), role: 'assistant', text: '', sources: [], trace: { steps: [], startedAt: Date.now(), outcome: 'running' } },
+      ),
     }));
     try {
       const res = await ai.kbChat(runId, messages);
       if (!res.ok) {
-        set({ running: false, activeRunId: null, error: res.message ?? 'Could not start the run.' });
+        const message = res.message ?? 'Could not start the run.';
+        set((s) => ({ running: false, activeRunId: null, error: message, turns: withTrace(s.turns, failed(message)) }));
         return;
       }
       set({ source: res.source ?? null });
     } catch (e) {
-      set({ running: false, activeRunId: null, error: e instanceof Error ? e.message : 'Could not start the run.' });
+      const message = e instanceof Error ? e.message : 'Could not start the run.';
+      set((s) => ({ running: false, activeRunId: null, error: message, turns: withTrace(s.turns, failed(message)) }));
     }
   },
 
@@ -134,20 +167,48 @@ export const useKbChatStore = create<KbChatState>((set, get) => ({
     if (!activeRunId || event.runId !== activeRunId) return;
     switch (event.type) {
       case 'ai:message':
-        set((s) => ({ turns: withLast(s.turns, (t) => ({ ...t, text: t.text + String(event.text ?? '') })) }));
+        set((s) => {
+          const text = String(event.text ?? '');
+          const turns = withLast(s.turns, (t) => ({ ...t, text: t.text + text }));
+          return { turns: withTrace(turns, (tr) => ({ ...tr, steps: addText(tr.steps, text) })) };
+        });
         break;
       case 'ai:tool-call':
       case 'ai:tool-result':
         set((s) => {
           const toolEvents = s.toolEvents.concat(event as KbChatToolEvent);
-          return { toolEvents, turns: withLast(s.turns, (t) => ({ ...t, sources: extractSources(toolEvents) })) };
+          const turns = withLast(s.turns, (t) => ({ ...t, sources: extractSources(toolEvents) }));
+          const toolCallId = String(event.toolCallId ?? '');
+          const name = String(event.name ?? '');
+          return {
+            toolEvents,
+            turns: withTrace(turns, (tr) => ({
+              ...tr,
+              steps: event.type === 'ai:tool-call'
+                ? tr.steps.concat({ kind: 'tool', toolCallId, name, input: asRecord(event.input) })
+                : addResult(tr.steps, toolCallId, name, String(event.output ?? '')),
+            })),
+          };
         });
         break;
-      case 'ai:error':
-        set({ error: String(event.message ?? 'The AI run failed.') });
+      case 'ai:error': {
+        const message = String(event.message ?? 'The AI run failed.');
+        set((s) => ({ error: message, turns: withTrace(s.turns, (tr) => ({ ...tr, error: message })) }));
         break;
+      }
       case 'ai:done':
-        set({ running: false, activeRunId: null, incomplete: Boolean(event.incomplete) });
+        set((s) => ({
+          running: false,
+          activeRunId: null,
+          incomplete: Boolean(event.incomplete),
+          turns: withTrace(s.turns, (tr) => ({
+            ...tr,
+            endedAt: Date.now(),
+            ...(event.model ? { model: event.model as KbChatTrace['model'] } : {}),
+            ...(event.usage ? { usage: event.usage as KbChatTrace['usage'] } : {}),
+            outcome: event.aborted ? 'stopped' : event.incomplete ? 'step-limit' : tr.error ? 'failed' : 'complete',
+          })),
+        }));
         break;
       default:
         break;

@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-11-16T11:27:33.375Z",
+  "result": "pass",
+  "modules": [
+    "oms-kb-explorer",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "c39c9b2c50423a75",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base 199c36e3)"
+  },
+  "commands": [
+    {
+      "module": "oms-kb-explorer",
+      "command": "npm run build",
+      "exitCode": 0,
+      "seconds": 28,
+      "log": "evidence/oms-kb-explorer-1.log"
+    }
+  ]
+}

@@ -83,7 +83,11 @@ export class ConfigService {
     this.configFile = path.join(configDir, 'config.json');
   }
 
-  async load(): Promise<CockpitConfig> {
+  /**
+   * Loads config.json. `migrateKeys` (SPEC-0063) moves plain-text keys into the encrypted store; it
+   * runs before any save, so a save never writes a plain-text key back or drops one unmigrated.
+   */
+  async load(options: { migrateKeys?: (config: CockpitConfig) => { config: CockpitConfig; changed: boolean } } = {}): Promise<CockpitConfig> {
     try {
       if (!fs.existsSync(this.configDir)) {
         fs.mkdirSync(this.configDir, { recursive: true });
@@ -91,11 +95,14 @@ export class ConfigService {
       if (fs.existsSync(this.configFile)) {
         const raw = fs.readFileSync(this.configFile, 'utf-8');
         const loaded = JSON.parse(raw) as Partial<CockpitConfig>;
-        const { config, migrated } = migrateConfig(this.merge(DEFAULT_CONFIG, loaded));
+        const { config: pathsMigrated, migrated } = migrateConfig(this.merge(DEFAULT_CONFIG, loaded));
+        const keys = options.migrateKeys?.(pathsMigrated) ?? { config: pathsMigrated, changed: false };
+        const config = keys.config;
         this.config = config;
-        if (migrated) {
+        if (migrated || keys.changed) {
           await this.save(config);
-          console.info('[config] migrated legacy contract paths to oms-contracts');
+          if (migrated) console.info('[config] migrated legacy contract paths to oms-contracts');
+          if (keys.changed) console.info('[config] moved plain-text AI keys into the encrypted key store');
         }
       } else {
         await this.save(this.config);

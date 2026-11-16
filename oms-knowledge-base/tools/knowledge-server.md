@@ -5,12 +5,13 @@ title: "Knowledge Server (MCP)"
 description: "oms-mcp-server: a Spring AI MCP server that indexes this knowledge base and gives AI assistants search, read and overview tools for it, plus order search against oms-core."
 tags: [component, mcp, spring-ai, knowledge-base, search]
 status: draft
-updated: "2026-11-15T12:00:00Z"
+updated: "2026-11-16T12:00:00Z"
 component: "mcp-server"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
   - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/SpringAiApplication.java"
   - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kb/KnowledgeBaseTools.java"
+  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kb/PlainTextResultConverter.java"
   - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/index/KnowledgeIndexService.java"
   - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/DocumentRepository.java"
   - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/oms/OrderSearchMcpTools.java"
@@ -33,10 +34,14 @@ server is down, the chat falls back to the cockpit's local search.
 | Tool | What it does |
 |---|---|
 | `getKnowledgeBaseOverview` | Every concept with type, status, trust tier, staleness, description and top-level sections. Call it once per session. |
-| `searchKnowledgeBase` | Hybrid search over sections: BM25 plus semantic embeddings, fused by rank. Filters: `type`, `tag`, `status`, `category` (the top-level section, e.g. `architecture`, `capabilities`). **Deprecated documents (the archive) are left out unless `status=deprecated` is asked for.** |
+| `searchKnowledgeBase` | Hybrid search over sections: BM25 plus semantic embeddings, fused by rank. Filters: `type`, `tag`, `status`, `category` (the top-level section, e.g. `architecture`, `capabilities`). **Deprecated documents (the archive) are left out unless `status=deprecated` is asked for.** Each hit gives its citation, breadcrumb, lines, facets (type · status · trust tier), and its fused score with the ranks it came from, e.g. `— score 0.0325 · keyword #1 · semantic #2` (SPEC-0065; no semantic rank without embeddings), then an excerpt. |
 | `readKnowledgeBase` | A whole document (metadata, body, outline, links and "cited by") or one section by anchor. **A former path of a moved document still works**: the answer starts with `> Moved: <old> is now <new>` (SPEC-0061, from the documents' `aliases`). |
 | `searchOrders` | Order search against the oms-core Query API. |
 | `ping` | Health check. |
+
+The three knowledge base tools return their Markdown as written (`PlainTextResultConverter`,
+SPEC-0065). Spring AI's default converter serialises a String result to JSON, so clients used to
+receive one quoted string with escaped line breaks. `searchOrders` keeps the default.
 
 The same index serves `/api/kb` (REST) for the [KB Explorer](kb-explorer.md), in the `local` profile.
 

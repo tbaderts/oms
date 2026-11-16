@@ -11,6 +11,7 @@ import { LinkIndexService } from '../storyboards/LinkIndexService';
 import { EvidenceService } from '../storyboards/EvidenceService';
 import { StoryboardExportService } from '../storyboards/StoryboardExportService';
 import { StoryboardAiService, aiAvailable } from '../storyboards/StoryboardAiService';
+import type { SavedKeys } from '../ai/keys';
 import { SdkAdapter } from '../storyboards/ai/AiAdapter';
 import { resolveAsset } from '../storyboards/assets';
 import { kbExtractReader } from '../storyboards/kbExtracts';
@@ -25,6 +26,8 @@ export interface StoryboardsIpcDeps {
   /** Renders standalone HTML to PDF (a hidden, script-less window). */
   printToPdf: (html: string) => Promise<Buffer>;
   env?: NodeJS.ProcessEnv;
+  /** The saved (encrypted) provider keys (SPEC-0063); absent = environment variable only. */
+  keys?: SavedKeys;
 }
 
 export interface StoryboardsIpc {
@@ -72,9 +75,9 @@ export function registerStoryboardsIpc(ipcMain: IpcMain, deps: StoryboardsIpcDep
 
   const ai = () => {
     const config = deps.configService.getConfig();
-    if (!aiAvailable(config.ai, env)) return null;
+    if (!aiAvailable(config.ai, env, deps.keys)) return null;
     return new StoryboardAiService({
-      adapter: new SdkAdapter(config.ai, env),
+      adapter: new SdkAdapter(config.ai, env, deps.keys),
       storyboards: rt().service,
       linkIndex: rt().linkIndex,
       extract: kbExtractReader(deps.configService.getKnowledgeBasePath()),
