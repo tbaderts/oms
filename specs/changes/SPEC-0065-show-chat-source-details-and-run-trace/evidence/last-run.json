@@ -1,23 +1,23 @@
 {
-  "ranAt": "2026-11-16T11:48:34.272Z",
+  "ranAt": "2026-11-16T16:32:57.382Z",
   "result": "pass",
   "modules": [
     "developer-cockpit",
     "oms-mcp-server",
     "oms-knowledge-base"
   ],
-  "fingerprint": "2cbc31e7b50e6a4e",
+  "fingerprint": "b742e34d3220a527",
   "policy": {
     "errors": [],
     "warnings": [],
-    "scope": "changes since main (merge-base 199c36e3)"
+    "scope": "changes since main (merge-base 3bf1e3bc)"
   },
   "commands": [
     {
       "module": "developer-cockpit",
       "command": "npm run typecheck",
       "exitCode": 0,
-      "seconds": 11,
+      "seconds": 12,
       "log": "evidence/developer-cockpit-1.log"
     },
     {

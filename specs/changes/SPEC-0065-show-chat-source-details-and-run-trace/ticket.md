@@ -2,9 +2,9 @@
 id: SPEC-0065
 title: Show chat source details and run trace
 type: feature
-status: verify
+status: done
 awaiting:
-autopilot: true
+autopilot: false
 modules: [developer-cockpit, oms-mcp-server, oms-knowledge-base]
 approvals: [proposal]
 owner: Toni Badertscher
@@ -47,3 +47,6 @@ now I also would like to see more detail on the sources used (returned by the ch
 - 2026-11-16 11:42 — plan → implement
 - 2026-11-16 11:48 — verify run: pass
 - 2026-11-16 11:48 — implement → verify
+- 2026-11-16 16:32 — verify run: pass
+- 2026-11-16 16:34 — verify → done
+- 2026-11-16 16:34 — autopilot off

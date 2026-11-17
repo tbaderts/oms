@@ -6,7 +6,7 @@ description: "Analytics platform fed by OMS events for post-trade reporting, TCA
 tags: [analytics, post-trade, events]
 status: draft
 version: "0.1"
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T12:00:00Z"
 ---
 # Post-Trade Analytics Platform — Concept Paper
 
@@ -372,7 +372,13 @@ Consequences:
 - **A new projection** starts from `order-state` (open orders) and then follows the raw event
   topics.
 - **A full rebuild** ("reprocess everything since January") uses re-publish from the event log
-  (C6), not Kafka retention. The OMS stays the system of record; Kafka is only the transport.
+  (C6), not Kafka retention; Kafka is only the transport.
+  - **Retention.** Since SPEC-0052 the OMS database keeps a retention window (90 days after CLOSE by
+    default). The full history beyond it lives on the archive replica, a logical replica that does
+    not replicate deletes, so a rebuild reaching further back reads the replica.
+  - **Analytics first.** The rule that analytics holds an order's history before it is archived
+    exists as a switched-off precondition, until this capability is built
+    ([Retention and Archive](../../architecture/concepts/retention-and-archive.md)).
 - **Tiered storage** (supported in recent Kafka versions) makes longer retention cheaper. It is an
   operational option, not a design requirement.
 - **Terminal events** must be reliable for every order type, including GTD expiry. Otherwise

@@ -1,0 +1,200 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0052: order_events becomes a table partitioned by month on time_stamp,
+  # so whole months of archived history can be dropped (target architecture §4.4,
+  # review finding F-17), and the order-history tables are published to the
+  # archive replica without deletes.
+  #
+  # PostgreSQL enforces uniqueness on a partitioned table only with the partition
+  # key in it, which would let (order_id, version) repeat across months. The keys
+  # therefore live in order_event_keys, written by a trigger in the same statement
+  # as the event, under the constraint names OrderEventAppender already maps: a
+  # concurrent writer and a duplicate command fail exactly as before (P-08).
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 017-tag-before-partition-order-events
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-017-partition-order-events
+
+  - changeSet:
+      id: 017-order-event-keys
+      author: oms
+      changes:
+        - sql:
+            sql: >
+              CREATE TABLE order_event_keys (
+                order_id   VARCHAR(255) NOT NULL,
+                version    BIGINT       NOT NULL,
+                command_id VARCHAR(255))
+        - sql:
+            sql: >
+              INSERT INTO order_event_keys (order_id, version, command_id)
+              SELECT order_id, version, command_id FROM order_events
+      rollback:
+        - sql:
+            sql: DROP TABLE order_event_keys
+
+  - changeSet:
+      id: 017-partition-order-events
+      author: oms
+      changes:
+        # The old table's constraints and indexes go first: their names are reused below.
+        - sql:
+            sql: >
+              ALTER TABLE order_events DROP CONSTRAINT uq_order_events_order_id_version;
+              ALTER TABLE order_events DROP CONSTRAINT uq_order_events_order_id_command_id;
+              ALTER TABLE order_events DROP CONSTRAINT pk_order_events;
+              DROP INDEX IF EXISTS idx_order_events_order_id;
+              DROP INDEX IF EXISTS idx_order_events_order_id_exec_id;
+              DROP INDEX IF EXISTS idx_order_events_correlation_id;
+              DROP INDEX IF EXISTS idx_order_events_time_stamp;
+              ALTER TABLE order_events RENAME TO order_events_unpartitioned
+        # A primary key on a partitioned table includes the partition key, and its columns are
+        # NOT NULL. Legacy events without a time stamp get the epoch as a marker for "unknown"; it
+        # is the only value this migration writes, and it routes them to the default partition.
+        - sql:
+            sql: >
+              UPDATE order_events_unpartitioned SET time_stamp = TIMESTAMPTZ '1970-01-01 00:00:00+00'
+              WHERE time_stamp IS NULL
+        - sql:
+            sql: >
+              CREATE TABLE order_events (LIKE order_events_unpartitioned INCLUDING DEFAULTS)
+              PARTITION BY RANGE (time_stamp);
+              ALTER TABLE order_events ADD CONSTRAINT pk_order_events_v2 PRIMARY KEY (id, time_stamp);
+              CREATE TABLE order_events_default PARTITION OF order_events DEFAULT
+        # One partition per month (UTC), from the oldest dated event's month to two months ahead.
+        - sql:
+            splitStatements: false
+            sql: |
+              DO $$
+              DECLARE
+                m date;
+                last date;
+              BEGIN
+                SELECT date_trunc('month', coalesce(min(time_stamp), now()) AT TIME ZONE 'UTC')::date INTO m
+                  FROM order_events_unpartitioned WHERE time_stamp > TIMESTAMPTZ '1970-01-02 00:00:00+00';
+                last := (date_trunc('month', now() AT TIME ZONE 'UTC') + interval '2 months')::date;
+                WHILE m <= last LOOP
+                  EXECUTE format(
+                    'CREATE TABLE %I PARTITION OF order_events FOR VALUES FROM (%L) TO (%L)',
+                    'order_events_p' || to_char(m, 'YYYYMM'),
+                    (m::timestamp AT TIME ZONE 'UTC'),
+                    ((m + interval '1 month')::timestamp AT TIME ZONE 'UTC'));
+                  m := (m + interval '1 month')::date;
+                END LOOP;
+              END $$
+        - sql:
+            sql: >
+              INSERT INTO order_events SELECT * FROM order_events_unpartitioned;
+              DROP TABLE order_events_unpartitioned
+        # Indexes on the parent are created on every partition, present and future.
+        - sql:
+            sql: >
+              CREATE INDEX idx_order_events_order_id ON order_events (order_id);
+              CREATE INDEX idx_order_events_order_id_exec_id ON order_events (order_id, exec_id);
+              CREATE INDEX idx_order_events_correlation_id ON order_events (correlation_id);
+              CREATE INDEX idx_order_events_time_stamp ON order_events (time_stamp);
+              CREATE INDEX idx_order_events_order_id_command_id ON order_events (order_id, command_id)
+      rollback:
+        - sql:
+            sql: >
+              CREATE TABLE order_events_unpartitioned AS SELECT * FROM order_events;
+              DROP TABLE order_events;
+              ALTER TABLE order_events_unpartitioned RENAME TO order_events;
+              ALTER TABLE order_events ADD CONSTRAINT pk_order_events PRIMARY KEY (id);
+              ALTER TABLE order_events ADD CONSTRAINT uq_order_events_order_id_version UNIQUE (order_id, version);
+              ALTER TABLE order_events ADD CONSTRAINT uq_order_events_order_id_command_id UNIQUE (order_id, command_id);
+              CREATE INDEX idx_order_events_order_id ON order_events (order_id);
+              CREATE INDEX idx_order_events_order_id_exec_id ON order_events (order_id, exec_id);
+              CREATE INDEX idx_order_events_correlation_id ON order_events (correlation_id);
+              CREATE INDEX idx_order_events_time_stamp ON order_events (time_stamp)
+
+  - changeSet:
+      id: 017-order-event-keys-trigger
+      author: oms
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION order_events_record_key() RETURNS trigger LANGUAGE plpgsql AS $$
+              BEGIN
+                INSERT INTO order_event_keys (order_id, version, command_id)
+                VALUES (NEW.order_id, NEW.version, NEW.command_id);
+                RETURN NULL;
+              END $$
+        # The keys follow every way an event leaves: a deleted event frees its key, a truncate
+        # empties them all. Without this, a deleted and re-appended event would be refused as a
+        # version conflict against its own stale key.
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION order_events_forget_key() RETURNS trigger LANGUAGE plpgsql AS $$
+              BEGIN
+                DELETE FROM order_event_keys WHERE order_id = OLD.order_id AND version = OLD.version;
+                RETURN NULL;
+              END $$
+        - sql:
+            splitStatements: false
+            sql: |
+              CREATE FUNCTION order_events_forget_all_keys() RETURNS trigger LANGUAGE plpgsql AS $$
+              BEGIN
+                -- DELETE, not TRUNCATE: a statement that truncates order_events and order_event_keys
+                -- together would refuse a nested TRUNCATE of a table it is already using.
+                DELETE FROM order_event_keys;
+                RETURN NULL;
+              END $$
+        # None of these fire during logical-replication apply on the replica
+        # (session_replication_role = replica): the keys arrive there as replicated rows.
+        - sql:
+            sql: >
+              CREATE TRIGGER trg_order_events_record_key AFTER INSERT ON order_events
+              FOR EACH ROW EXECUTE FUNCTION order_events_record_key();
+              CREATE TRIGGER trg_order_events_forget_key AFTER DELETE ON order_events
+              FOR EACH ROW EXECUTE FUNCTION order_events_forget_key();
+              CREATE TRIGGER trg_order_events_forget_all_keys AFTER TRUNCATE ON order_events
+              FOR EACH STATEMENT EXECUTE FUNCTION order_events_forget_all_keys()
+      rollback:
+        - sql:
+            sql: >
+              DROP TRIGGER trg_order_events_forget_all_keys ON order_events;
+              DROP TRIGGER trg_order_events_forget_key ON order_events;
+              DROP TRIGGER trg_order_events_record_key ON order_events;
+              DROP FUNCTION order_events_forget_all_keys();
+              DROP FUNCTION order_events_forget_key();
+              DROP FUNCTION order_events_record_key()
+
+  # The names OrderEventAppender maps to a version conflict and a duplicate command. The
+  # primary key itself carries the version name, so a duplicate version can only be reported
+  # under that name.
+  - changeSet:
+      id: 017-order-event-keys-unique
+      author: oms
+      changes:
+        - sql:
+            sql: >
+              ALTER TABLE order_event_keys ADD CONSTRAINT uq_order_events_order_id_version PRIMARY KEY (order_id, version);
+              ALTER TABLE order_event_keys ADD CONSTRAINT uq_order_events_order_id_command_id UNIQUE (order_id, command_id)
+      rollback:
+        - sql:
+            sql: >
+              ALTER TABLE order_event_keys DROP CONSTRAINT uq_order_events_order_id_command_id;
+              ALTER TABLE order_event_keys DROP CONSTRAINT uq_order_events_order_id_version
+
+  # The archive replica subscribes to this publication (SPEC-0052). Inserts and updates only: rows
+  # deleted here by archiving, and partitions dropped, stay on the replica. Partitioned tables
+  # publish as their parent, so the replica's partitions need not match. Not run on the replica.
+  - changeSet:
+      id: 017-history-publication
+      author: oms
+      context: primary
+      changes:
+        - sql:
+            sql: >
+              CREATE PUBLICATION oms_history
+              FOR TABLE orders, order_events, order_event_keys, executions, command_log, order_execution_projection
+              WITH (publish = 'insert, update', publish_via_partition_root = true)
+      rollback:
+        - sql:
+            sql: DROP PUBLICATION oms_history

@@ -25,3 +25,4 @@ Roadmap ticket D of the architecture review (oms-core/docs/architecture-review-2
 ## Log
 
 - 2026-10-30 created
+- 2026-11-16 16:41 — Direction from SPEC-0052 (Toni, 2026-11-16): the replica should be a PostgreSQL LOGICAL replica whose publication does not replicate deletes, so it also holds orders archived (deleted) from the primary by SPEC-0052. It serves both CQRS read segregation and the archive. Sequencing between SPEC-0021 and SPEC-0052 to be settled in their proposals.

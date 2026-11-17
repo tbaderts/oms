@@ -1,0 +1,61 @@
+{
+  "ranAt": "2026-11-17T10:42:04.427Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "0ea0d27adf4624be",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R09 P-16] docker-compose.yml:31: possible hard-coded secret; use an environment variable → REPLICA_DB_PASSWORD: ${REPLICA_DB_PASSWORD:-changeme}",
+      "[R09 P-16] docker-compose.yml:32: possible hard-coded secret; use an environment variable → REPLICA_PRIMARY_CONNINFO: host=postgres port=5432 dbname=postgres user=${POSTGRES_USER:-postgres} password=${POSTGRES_PA",
+      "[R09 P-16] docker-compose.yml:241: possible hard-coded secret; use an environment variable → POSTGRES_PASSWORD: ${REPLICA_DB_PASSWORD:-changeme}",
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-core/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 3bf1e3bc)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    }
+  ]
+}

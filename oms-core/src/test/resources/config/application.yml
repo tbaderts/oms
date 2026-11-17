@@ -5,3 +5,10 @@ oms:
     # The scheduler would expire and close orders at 17:00 New York time on the wall clock; tests
     # call EndOfDayService and OrderExpiryService directly, with explicit instants (SPEC-0029).
     enabled: false
+  # SPEC-0052: partition maintenance and archiving run on a timer in a real instance. Tests call
+  # PartitionMaintenance and RetentionJob directly, with a fixed clock where it matters, so a
+  # background run cannot race a test's own partitions or orders.
+  partitions:
+    enabled: false
+  retention:
+    enabled: false

@@ -159,6 +159,9 @@ sourceSets.main.java.srcDirs += "$buildDir/generated/src/main/java"
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// The integration suite caches many Spring contexts (each with Kafka producers and connection
+	// pools); at Gradle's default 512 MB test heap the full run ran out of memory (SPEC-0067).
+	maxHeapSize = '2g'
 
 	if (runningOnWindows) {
 		String sanitizedPath = sanitizeWindowsPath(System.getenv('Path'))

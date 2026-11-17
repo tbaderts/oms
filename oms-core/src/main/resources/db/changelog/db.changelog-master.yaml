@@ -31,3 +31,5 @@ databaseChangeLog:
       file: db/changelog/015-pointer-outbox-and-pooled-sequences.yaml
   - include:
       file: db/changelog/016-event-metadata-and-writer-schema.yaml
+  - include:
+      file: db/changelog/017-partition-order-events.yaml

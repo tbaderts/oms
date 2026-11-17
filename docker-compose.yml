@@ -15,6 +15,7 @@ services:
       context: ./oms-core
     depends_on:
       - postgres
+      - postgres-replica
       - alloy
     env_file:
       - oms-core/.env
@@ -22,6 +23,13 @@ services:
       <<: *otlp-env
       # Overrides for in-network container hostnames (oms-core/.env targets host-native `bootRun` execution)
       DB_URL: jdbc:postgresql://postgres:5432/postgres
+      # The archive replica (SPEC-0052). REPLICA_PRIMARY_CONNINFO is how the replica's subscription
+      # reaches the primary inside the compose network.
+      REPLICA_ENABLED: "true"
+      REPLICA_DB_URL: jdbc:postgresql://postgres-replica:5432/oms_replica
+      REPLICA_DB_USER: ${REPLICA_DB_USER:-postgres}
+      REPLICA_DB_PASSWORD: ${REPLICA_DB_PASSWORD:-changeme}
+      REPLICA_PRIMARY_CONNINFO: host=postgres port=5432 dbname=postgres user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-changeme}
       KAFKA_BROKERS: broker:29092
       REGISTRY_URL: http://schema-registry:8081
       # Local runs register schemas as they go; elsewhere oms-contracts' registerSchemas does (SPEC-0025).
@@ -207,7 +215,9 @@ services:
   postgres:
     image: postgres:18.6
     container_name: postgres
-    command: ["postgres", "-c", "wal_level=logical"]
+    # Logical WAL feeds the archive replica (SPEC-0052). A replica that stays down keeps WAL here
+    # through its slot; max_slot_wal_keep_size caps that, then invalidates the slot.
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_slot_wal_keep_size=2GB"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
@@ -216,6 +226,25 @@ services:
       - postgres:/data/postgres
     ports:
       - "5432:5432"
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  # The archive replica (SPEC-0052): a logical replica of the OMS database that does not replicate
+  # deletes, so it keeps the full history of orders archived from the primary. It also serves CQRS
+  # read separation (SPEC-0021). oms-core migrates it and creates its subscription at start-up.
+  postgres-replica:
+    image: postgres:18.6
+    container_name: postgres-replica
+    environment:
+      POSTGRES_USER: ${REPLICA_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${REPLICA_DB_PASSWORD:-changeme}
+      POSTGRES_DB: oms_replica
+      PGDATA: /data/postgres
+    volumes:
+      - postgres-replica:/data/postgres
+    ports:
+      - "5433:5432"
     networks:
       - app-net
     restart: unless-stopped
@@ -343,6 +372,7 @@ networks:
 
 volumes:
   postgres:
+  postgres-replica:
   pgadmin:
   grafana-storage: {}
   mcp-kb-index:

@@ -31,7 +31,9 @@ import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 import reactor.kafka.receiver.KafkaReceiver;
+import reactor.util.retry.Retry;
 
 /**
  * Kafka-based event stream provider using Avro serialization.
@@ -67,6 +69,16 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     @Value("${streaming.subscriber.max-pending:10000}")
     private int maxPendingPerSubscriber = 10_000;
 
+    /**
+     * How many stored fills to load into the execution cache at startup (SPEC-0067), at most the
+     * cache size. 5,000 is the most the query API returns in one request; 0 turns the load off.
+     */
+    @Value("${streaming.executions.warm-up-size:5000}")
+    private int warmUpSize;
+
+    /** The first wait before retrying a failed load; it doubles up to a minute (SPEC-0067). */
+    private Duration warmUpBackoff = Duration.ofSeconds(2);
+
     // Hot stream sinks for broadcasting events to multiple subscribers
     private final Sinks.Many<OrderEvent> orderEventSink = Sinks.many()
             .replay()
@@ -83,6 +95,7 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     // Disposables for graceful shutdown
     private volatile Disposable orderConsumerDisposable;
     private volatile Disposable executionConsumerDisposable;
+    private volatile Disposable executionWarmUpDisposable;
 
     public KafkaEventStreamProvider(
             KafkaReceiver<String, OrderMessage> orderMessageReceiver,
@@ -119,6 +132,43 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         log.info("Starting Kafka Avro event consumers");
         startOrderMessageConsumer();
         startExecutionConsumer();
+        warmUpExecutions();
+    }
+
+    /**
+     * Loads the newest stored fills into the execution cache (SPEC-0067). The Kafka consumer resumes
+     * from its committed offset after a restart, so without this the cache, and every executions
+     * snapshot, would start empty. Stored fills are not emitted as live events. Runs off the startup
+     * thread and retries with backoff until oms-core answers.
+     */
+    private void warmUpExecutions() {
+        int limit = Math.min(warmUpSize, maxCacheSize);
+        if (limit <= 0) {
+            return;
+        }
+        executionWarmUpDisposable = Flux.defer(() -> omsQueryClient.fetchRecentExecutions(limit))
+                .collectList()
+                .retryWhen(Retry.backoff(Long.MAX_VALUE, warmUpBackoff)
+                        .maxBackoff(Duration.ofMinutes(1))
+                        .doBeforeRetry(signal -> log.warn(
+                                "Could not load stored fills from OMS Core (attempt {}), retrying: {}",
+                                signal.totalRetries() + 1, signal.failure().getMessage())))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(fills -> {
+                    fills.forEach(this::putIfNewer);
+                    evictOldExecutions();
+                    log.info("Warmed execution cache: {} stored fills, cache size {}", fills.size(), executionCache.size());
+                }, error -> log.error("Loading stored fills from OMS Core stopped", error));
+    }
+
+    /** Caches a stored fill unless the cache already holds that fill at the same or a later version. */
+    private void putIfNewer(ExecutionDto fill) {
+        if (fill == null || fill.getOrderId() == null || fill.getExecId() == null) {
+            return;
+        }
+        executionCache.merge(executionKey(fill), fill, (cached, stored) ->
+                cached.getOrderVersion() != null && stored.getOrderVersion() != null
+                        && stored.getOrderVersion() > cached.getOrderVersion() ? stored : cached);
     }
 
     @PreDestroy
@@ -129,6 +179,9 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
         }
         if (executionConsumerDisposable != null && !executionConsumerDisposable.isDisposed()) {
             executionConsumerDisposable.dispose();
+        }
+        if (executionWarmUpDisposable != null && !executionWarmUpDisposable.isDisposed()) {
+            executionWarmUpDisposable.dispose();
         }
         orderEventSink.tryEmitComplete();
         executionEventSink.tryEmitComplete();
@@ -170,18 +223,17 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
                     log.debug("Received OrderExecution from Kafka: execId={}, orderId={}, orderVersion={}",
                             fill.getExecId(), fill.getOrderId(), fill.getOrderVersion());
 
-                    if (isRedelivery(fill)) {
-                        // The relay publishes at least once; the same fill carries the same
-                        // (orderId, execId, orderVersion) every time and has already been shown.
+                    ExecutionDto execDto = orderExecutionMapper.toExecutionDto(fill);
+                    if (!cacheUnlessSeen(fill, execDto)) {
+                        // The relay publishes at least once, and the startup load (SPEC-0067) may
+                        // already hold the fill; the same (orderId, execId, orderVersion) has been
+                        // shown or stored, so it is not a new live event.
                         log.debug("Skipping redelivered fill: orderId={}, execId={}, orderVersion={}",
                                 fill.getOrderId(), fill.getExecId(), fill.getOrderVersion());
                         record.receiverOffset().acknowledge();
                         return;
                     }
-
-                    ExecutionDto execDto = orderExecutionMapper.toExecutionDto(fill);
                     if (fill.getExecId() != null) {
-                        executionCache.put(executionKey(fill), execDto);
                         evictOldExecutions();
                     }
 
@@ -220,19 +272,28 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     }
 
     /**
-     * True when this fill was already emitted: the cache holds its (orderId, execId) at the same or a
-     * higher orderVersion. A later version of the same execId (a future bust or correction) still passes. A
-     * redelivery that arrives after its entry was evicted is emitted again; the cache holds far more
-     * fills than a redelivery window.
+     * Caches a live fill and says whether it is new; false means a redelivery: the cache already holds
+     * its (orderId, execId) at the same or a higher orderVersion, from Kafka or from the startup load.
+     * The check and the write are one atomic step (SPEC-0067), so the startup load running on another
+     * thread cannot let the same fill through twice. A later version of the same execId (a future bust
+     * or correction) still passes. A redelivery that arrives after its entry was evicted is emitted
+     * again; the cache holds far more fills than a redelivery window. A fill without execId is not
+     * cached and always passes.
      */
-    private boolean isRedelivery(OrderExecution fill) {
-        if (fill.getExecId() == null || fill.getOrderVersion() == null) {
-            return false;
+    private boolean cacheUnlessSeen(OrderExecution fill, ExecutionDto execDto) {
+        if (fill.getExecId() == null) {
+            return true;
         }
-        ExecutionDto seen = executionCache.get(executionKey(fill));
-        return seen != null
-                && seen.getOrderVersion() != null
-                && seen.getOrderVersion() >= fill.getOrderVersion();
+        boolean[] admitted = {false};
+        executionCache.compute(executionKey(fill), (key, seen) -> {
+            boolean redelivery = seen != null
+                    && seen.getOrderVersion() != null
+                    && fill.getOrderVersion() != null
+                    && seen.getOrderVersion() >= fill.getOrderVersion();
+            admitted[0] = !redelivery;
+            return redelivery ? seen : execDto;
+        });
+        return admitted[0];
     }
 
     /** execId is unique per order only, so the cache is keyed by both. */

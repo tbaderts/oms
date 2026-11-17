@@ -6,6 +6,7 @@ import java.util.List;
 import org.example.common.api.ExecutionsApi;
 import org.example.common.model.query.ExecutionViewDto;
 import org.example.oms.mapper.ExecutionViewDtoMapper;
+import org.example.oms.service.ExecutionOrder;
 import org.example.oms.service.OrderExecutionProjectionQueryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,13 +32,15 @@ public class ExecutionViewController implements ExecutionsApi {
             String account,
             OffsetDateTime transactTimeFrom,
             OffsetDateTime transactTimeTo,
-            Integer limit) {
+            Integer limit,
+            String order) {
         return ResponseEntity.ok(mapper.toExecutionViewDtos(queryService.find(
                 orderId,
                 rootOrderId,
                 account,
                 transactTimeFrom != null ? transactTimeFrom.toInstant() : null,
                 transactTimeTo != null ? transactTimeTo.toInstant() : null,
-                limit != null ? limit : DEFAULT_LIMIT)));
+                limit != null ? limit : DEFAULT_LIMIT,
+                ExecutionOrder.of(order))));
     }
 }

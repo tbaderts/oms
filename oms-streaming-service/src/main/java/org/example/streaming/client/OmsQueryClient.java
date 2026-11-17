@@ -15,6 +15,7 @@ import org.example.common.model.query.PageMetadata;
 import org.example.common.model.query.PagedOrderDto;
 import org.example.common.model.query.Side;
 import org.example.common.model.query.State;
+import org.example.streaming.model.ExecutionDto;
 import org.example.streaming.model.StreamFilter;
 import org.example.common.model.query.TimeInForce;
 import org.springframework.beans.factory.ObjectProvider;
@@ -205,6 +206,76 @@ public class OmsQueryClient {
                     return Mono.empty();
                 })
                 .flatMapIterable(PagedOrderDto::getContent);
+    }
+
+    /**
+     * The newest stored fills, each with its order as of that fill (SPEC-0067): the order-execution
+     * projection, {@code GET /api/query/executions?order=newest&limit=N}. Used to fill the execution
+     * cache at startup, so an executions snapshot after a restart holds the earlier fills.
+     */
+    public Flux<ExecutionDto> fetchRecentExecutions(int limit) {
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/api/query/executions")
+                        .queryParam("order", "newest")
+                        .queryParam("limit", limit)
+                        .build())
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .timeout(Duration.ofMillis(readTimeoutMs))
+                .flatMapMany(root -> {
+                    List<ExecutionDto> fills = new ArrayList<>();
+                    if (root.isArray()) {
+                        root.forEach(node -> fills.add(toExecutionDto(node)));
+                    }
+                    return Flux.fromIterable(fills);
+                });
+    }
+
+    /** One projection row as the streaming ExecutionDto, with its order, like a Kafka OrderExecution record. */
+    private ExecutionDto toExecutionDto(JsonNode node) {
+        Long orderVersion = getLong(node, "orderVersion");
+        OffsetDateTime transactTime = getOffsetDateTime(node, "transactTime");
+        org.example.streaming.model.OrderDto order = org.example.streaming.model.OrderDto.builder()
+                .orderId(getText(node, "orderId"))
+                .parentOrderId(getText(node, "parentOrderId"))
+                .rootOrderId(getText(node, "rootOrderId"))
+                .clOrdId(getText(node, "clOrdId"))
+                .account(getText(node, "account"))
+                .symbol(getText(node, "symbol"))
+                .side(getText(node, "side"))
+                .ordType(getText(node, "ordType"))
+                .state(getText(node, "state"))
+                .orderQty(getBigDecimal(node, "orderQty"))
+                .cumQty(getBigDecimal(node, "cumQty"))
+                .leavesQty(getBigDecimal(node, "leavesQty"))
+                .price(getBigDecimal(node, "price"))
+                .avgPx(getBigDecimal(node, "avgPx"))
+                .securityId(getText(node, "securityId"))
+                .exDestination(getText(node, "exDestination"))
+                .eventId(orderVersion)
+                .sequenceNumber(orderVersion)
+                .build();
+        return ExecutionDto.builder()
+                .execId(getText(node, "execId"))
+                .orderId(getText(node, "orderId"))
+                .lastQty(getBigDecimal(node, "lastQty"))
+                .lastPx(getBigDecimal(node, "lastPx"))
+                .cumQty(getBigDecimal(node, "cumQty"))
+                .leavesQty(getBigDecimal(node, "leavesQty"))
+                .avgPx(getBigDecimal(node, "avgPx"))
+                .execType(getText(node, "execType"))
+                .lastMkt(getText(node, "lastMkt"))
+                .lastCapacity(getText(node, "lastCapacity"))
+                .transactTime(transactTime != null ? transactTime.toInstant() : null)
+                .orderVersion(orderVersion)
+                .sequenceNumber(orderVersion)
+                // Live fills carry when they were received; a stored fill was received at its
+                // transactTime. The cache evicts by eventTime, so it must be set (SPEC-0067).
+                .eventTime(transactTime != null ? transactTime.toInstant() : java.time.Instant.now())
+                .order(order)
+                .build();
     }
 
     /**

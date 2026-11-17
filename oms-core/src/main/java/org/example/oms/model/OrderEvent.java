@@ -20,7 +20,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -34,21 +33,16 @@ import lombok.experimental.SuperBuilder;
  * with the highest version at or below the target, without needing to fold a chain of deltas.
  *
  * <p>{@code version} is a monotonic per-order sequence starting at 1, protected by a unique
- * constraint on {@code (order_id, version)}. That constraint is what gives the log its ordering
- * guarantee and its concurrency check: two writers racing to append the same version cannot both
- * win, and a gap in the sequence is detectable.
+ * constraint on {@code (order_id, version)}, held on {@code order_event_keys} since the table is
+ * partitioned (SPEC-0052). That constraint is what gives the log its ordering guarantee and its
+ * concurrency check: two writers racing to append the same version cannot both win, and a gap in
+ * the sequence is detectable.
  */
 @Entity
-@Table(
-        name = "order_events",
-        uniqueConstraints = {
-            @UniqueConstraint(
-                    name = "uq_order_events_order_id_version",
-                    columnNames = {"order_id", "version"}),
-            @UniqueConstraint(
-                    name = "uq_order_events_order_id_command_id",
-                    columnNames = {"order_id", "command_id"})
-        })
+// SPEC-0052: order_events is partitioned by month on time_stamp. Its uniqueness on (order_id,
+// version) and (order_id, command_id) is enforced on order_event_keys, written by a trigger in the
+// same statement, under the constraint names OrderEventAppender maps (changelog 017).
+@Table(name = "order_events")
 @SuperBuilder
 @NoArgsConstructor
 @Getter

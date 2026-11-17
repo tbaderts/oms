@@ -307,8 +307,10 @@ describe('KB chat source and run details (SPEC-0065)', () => {
 
   it('details from the server text as it was JSON-encoded (AC-10)', async () => {
     await ready();
-    // What the knowledge server sent before SPEC-0065, had it reached the renderer undecoded.
-    await answer({ output: JSON.stringify(SEARCH) });
+    // What the knowledge server sent before SPEC-0065, had it reached the renderer undecoded, with
+    // the server's real breadcrumb separator (" > ").
+    const real = SEARCH.replace('Order Lifecycle › Cancellation', 'order-lifecycle.md > Order Lifecycle > Cancellation');
+    await answer({ output: JSON.stringify(real) });
     expect(entry(ORDER_LIFECYCLE).textContent).toContain('#1 · score 0.0325 · Cancellation (lines 40-58)');
     fireEvent.click(toggle(/^Run details/));
     fireEvent.click(within(screen.getByTestId('kb-chat-run-details')).getByRole('button', { name: /Result/ }));

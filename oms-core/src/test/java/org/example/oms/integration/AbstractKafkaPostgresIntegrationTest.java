@@ -26,15 +26,28 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest(classes = OmsApplication.class)
 public abstract class AbstractKafkaPostgresIntegrationTest {
 
+    /**
+     * The network the shared Postgres and the archive replica (SPEC-0052) share: the replica's
+     * subscription reaches the primary as {@code oms-primary:5432}.
+     */
+    static final org.testcontainers.containers.Network NETWORK = org.testcontainers.containers.Network.newNetwork();
+
+    static final String PRIMARY_ALIAS = "oms-primary";
+
     static final PostgreSQLContainer<?> postgres =
             new PostgreSQLContainer<>("postgres:16-alpine")
                     .withDatabaseName("oms")
                     .withUsername("oms")
                     .withPassword("oms")
+                    .withNetwork(NETWORK)
+                    .withNetworkAliases(PRIMARY_ALIAS)
                     // Every cached test context keeps its own connection pool open, and contexts in
                     // worlds of their own (isolate) add more; the default 100 is not enough for the
-                    // whole suite.
-                    .withCommand("postgres", "-c", "max_connections=300");
+                    // whole suite. Logical WAL lets the archive replica subscribe (SPEC-0052).
+                    .withCommand("postgres", "-c", "max_connections=300", "-c", "wal_level=logical",
+                            // one slot and WAL sender per archive test world, plus temporary ones for
+                            // each subscription's initial table sync
+                            "-c", "max_replication_slots=32", "-c", "max_wal_senders=32");
 
     static final KafkaContainer kafka =
             new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.9.3"));

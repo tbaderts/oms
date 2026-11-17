@@ -155,8 +155,9 @@ paths:
       operationId: getExecutions
       summary: Fills with the order as of each fill
       description: |
-        One entry per applied fill, from the order-execution projection, oldest first
-        (`transactTime`, or when the fill was recorded if it has none; then storage order). Filters
+        One entry per applied fill, from the order-execution projection, oldest first by default,
+        newest first with `order=newest` (`transactTime`, or when the fill was recorded if it has
+        none; then storage order). Filters
         combine with AND; the time filters apply to `transactTime` only, so fills without one never
         match them. Returns an empty array when nothing matches.
       tags:
@@ -203,9 +204,20 @@ paths:
             maximum: 5000
             default: 1000
           description: Maximum number of fills returned
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [oldest, newest]
+            default: oldest
+          description: >-
+            Sort direction: `oldest` (default) or `newest` first, by transactTime (the projection
+            time for fills without one), then storage order. With `newest`, `limit` keeps the most
+            recent fills (SPEC-0067).
       responses:
         '200':
-          description: Matching fills, oldest first
+          description: Matching fills, oldest first by default, newest first with `order=newest`
           content:
             application/json:
               schema:

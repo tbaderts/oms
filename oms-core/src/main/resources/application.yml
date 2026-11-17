@@ -115,6 +115,31 @@ oms:
     time: ${OMS_END_OF_DAY_TIME:17:00}
     zone: ${OMS_END_OF_DAY_ZONE:America/New_York}
     gtd-poll-interval-ms: ${OMS_GTD_POLL_INTERVAL_MS:60000}
+  # The archive replica (SPEC-0052): a logical replica that keeps the full order history, also for
+  # CQRS reads (SPEC-0021). Off by default; docker-compose turns it on. Credentials and the primary's
+  # conninfo come from the environment only.
+  replica:
+    enabled: ${REPLICA_ENABLED:false}
+    url: ${REPLICA_DB_URL:jdbc:postgresql://localhost:5433/oms_replica}
+    username: ${REPLICA_DB_USER:postgres}
+    password: ${REPLICA_DB_PASSWORD:}
+    primary-conninfo: ${REPLICA_PRIMARY_CONNINFO:}
+    subscription: ${REPLICA_SUBSCRIPTION:oms_history}
+  # Monthly order_events partitions (SPEC-0052): kept ahead of time, and dropped once archiving
+  # has emptied them.
+  partitions:
+    enabled: ${OMS_PARTITIONS_ENABLED:true}
+    months-ahead: ${OMS_PARTITIONS_MONTHS_AHEAD:2}
+    interval-ms: ${OMS_PARTITIONS_INTERVAL_MS:3600000}
+  # Archiving closed orders (SPEC-0052): CLOSED longer than closed-order-days, verified on the
+  # replica, then deleted here. Needs the replica. The analytics precondition waits for post-trade
+  # analytics, which is only planned: off.
+  retention:
+    enabled: ${OMS_RETENTION_ENABLED:true}
+    closed-order-days: ${OMS_RETENTION_CLOSED_ORDER_DAYS:90}
+    batch-size: ${OMS_RETENTION_BATCH_SIZE:200}
+    interval-ms: ${OMS_RETENTION_INTERVAL_MS:600000}
+    require-analytics: ${OMS_RETENTION_REQUIRE_ANALYTICS:false}
 
 management:
   endpoint:

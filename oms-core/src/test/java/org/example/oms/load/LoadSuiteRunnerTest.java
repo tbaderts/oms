@@ -77,6 +77,7 @@ class LoadSuiteRunnerTest {
         String run = UUID.randomUUID().toString().substring(0, 8);
         PrometheusSnapshot before = scrape();
         String walBefore = walPosition();
+        Long historyBytesBefore = historyBytes();
 
         Instant startedAt = Instant.now();
         long start = System.nanoTime();
@@ -105,6 +106,7 @@ class LoadSuiteRunnerTest {
         Path file = LoadReportWriter.write(report, reportDir);
         System.out.println("Load report written to " + file.toAbsolutePath());
         System.out.println(LoadReportWriter.render(report));
+        measureRetention(orderIds, historyBytesBefore, walBytes);
 
         assertEquals(orders, orderIds.size(), "every create was applied");
         assertTrue(Files.exists(file));
@@ -192,6 +194,107 @@ class LoadSuiteRunnerTest {
         }
         JsonNode state = JSON.readTree(response.body()).get("state");
         return state == null || state.isNull() ? null : state.asString();
+    }
+
+    /**
+     * SPEC-0052 AC-10: storage per order and, with {@code OMS_LOAD_RETENTION_PASS=true}, the vacuum cost
+     * of archiving, projected over a year against the proposed budgets. Written next to the load report
+     * as {@code retention-<timestamp>.txt}.
+     *
+     * <p>The retention pass closes the run's orders and waits for oms-core to archive them, so run
+     * oms-core with the replica on, {@code OMS_RETENTION_CLOSED_ORDER_DAYS=0} and a short
+     * {@code OMS_RETENTION_INTERVAL_MS}, on an otherwise idle stack.
+     */
+    private void measureRetention(List<String> orderIds, Long historyBytesBefore, Long walBytes) throws Exception {
+        Long historyBytesAfter = historyBytes();
+        if (historyBytesBefore == null || historyBytesAfter == null || orderIds.isEmpty()) {
+            System.out.println("No retention figures: history table sizes could not be read");
+            return;
+        }
+        long bytesPerOrder = (historyBytesAfter - historyBytesBefore) / orderIds.size();
+        long walPerOrder = walBytes == null ? 0 : walBytes / orderIds.size();
+        double vacuumMillisPerOrder = Double.NaN;
+        if ("true".equalsIgnoreCase(env("OMS_LOAD_RETENTION_PASS", "false"))) {
+            for (String orderId : orderIds) {
+                close(orderId);
+            }
+            awaitArchived(orderIds);
+            long start = System.nanoTime();
+            try (Connection db = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+                    Statement statement = db.createStatement()) {
+                for (String table : HISTORY_TABLES) {
+                    statement.execute("VACUUM " + table);
+                }
+            }
+            vacuumMillisPerOrder = (System.nanoTime() - start) / 1e6 / orderIds.size();
+        }
+        RetentionProjection projection = RetentionProjection.proposed(bytesPerOrder, walPerOrder,
+                Double.isNaN(vacuumMillisPerOrder) ? 0 : vacuumMillisPerOrder);
+        String text = projection.report()
+                + (Double.isNaN(vacuumMillisPerOrder) ? "\n  (vacuum not measured: set OMS_LOAD_RETENTION_PASS=true)" : "")
+                + String.format(java.util.Locale.ROOT, "%n  measured on %d orders: history tables grew %,d bytes",
+                        orderIds.size(), historyBytesAfter - historyBytesBefore);
+        Files.createDirectories(reportDir);
+        Path file = reportDir.resolve("retention-" + Instant.now().toString().replace(':', '-') + ".txt");
+        Files.writeString(file, text);
+        System.out.println(text);
+        System.out.println("Retention projection written to " + file.toAbsolutePath());
+    }
+
+    /** The order-history tables: those archiving deletes from. */
+    private static final List<String> HISTORY_TABLES =
+            List.of("orders", "order_events", "order_event_keys", "executions", "command_log", "order_execution_projection");
+
+    /** Table and index bytes of the order-history tables, order_events' partitions included; null if unreadable. */
+    private Long historyBytes() {
+        try (Connection db = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+                Statement statement = db.createStatement();
+                ResultSet row = statement.executeQuery(
+                        "select coalesce(sum(pg_total_relation_size(c.oid)), 0) from pg_class c"
+                                + " where c.relname in ('orders', 'order_event_keys', 'executions', 'command_log', 'order_execution_projection')"
+                                + " or c.oid in (select relid from pg_partition_tree('order_events'))")) {
+            row.next();
+            return row.getLong(1);
+        } catch (SQLException e) {
+            System.out.println("No storage figure: cannot read table sizes from " + dbUrl + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    private void close(String orderId) throws IOException, InterruptedException {
+        String body = """
+                {"type":"OrderCloseCmd","version":"1.0.0","orderId":"%s","text":"load suite retention pass"}""".formatted(orderId);
+        HttpResponse<String> response = http.send(
+                HttpRequest.newBuilder(URI.create(baseUrl + "/api/command/execute"))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(body))
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() / 100 != 2) {
+            throw new IllegalStateException("Close " + orderId + " answered " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    /** Waits until oms-core has archived every one of the orders (no row left in orders). */
+    private void awaitArchived(List<String> orderIds) throws Exception {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        try (Connection db = DriverManager.getConnection(dbUrl, dbUser, dbPassword);
+                java.sql.PreparedStatement query = db.prepareStatement("select count(*) from orders where order_id = any(?)")) {
+            query.setArray(1, db.createArrayOf("varchar", orderIds.toArray()));
+            while (true) {
+                try (ResultSet row = query.executeQuery()) {
+                    row.next();
+                    if (row.getLong(1) == 0) {
+                        return;
+                    }
+                    if (System.nanoTime() > deadline) {
+                        throw new AssertionError(row.getLong(1) + " order(s) not archived after " + timeout
+                                + ": is oms-core running with OMS_RETENTION_CLOSED_ORDER_DAYS=0 and the replica on?");
+                    }
+                }
+                Thread.sleep(500);
+            }
+        }
     }
 
     /** The database's current WAL position, or null when it cannot be read: the report then says n/a. */

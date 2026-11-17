@@ -5,12 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.example.common.model.msg.OrderExecution;
@@ -19,6 +22,7 @@ import org.example.common.model.query.OrderDto;
 import org.example.streaming.client.OmsQueryClient;
 import org.example.streaming.mapper.OrderExecutionMapper;
 import org.example.streaming.mapper.OrderMessageMapper;
+import org.example.streaming.model.ExecutionDto;
 import org.example.streaming.model.ExecutionEvent;
 import org.example.streaming.model.FilterCondition;
 import org.example.streaming.model.OrderEvent;
@@ -275,7 +279,174 @@ class KafkaEventStreamProviderTest {
         assertEquals(2, provider.getExecutionCacheSize(), "both fills cached, neither overwrites the other");
     }
 
+    // ----- SPEC-0067: the execution cache is warmed from the query API at startup -----
+
+    /** SPEC-0067 AC-1: after a restart, the snapshot holds the stored fills, newest first. */
+    @Test
+    void snapshotAfterStartIncludesStoredFills() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchRecentExecutions(anyInt()))
+                .thenReturn(Flux.just(storedFill("A", "F2", 4, 30), storedFill("B", "F1", 3, 20), storedFill("A", "F1", 3, 10)));
+        provider = startProvider(queryClient);
+        awaitCachedExecutions(3);
+
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot())
+                        .map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT A/F2", "SNAPSHOT B/F1", "SNAPSHOT A/F1", "SNAPSHOT_END 3")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        assertEquals("INTC", provider.getExecutionEventStream(StreamFilter.withSnapshot()).blockFirst()
+                .getExecution().getOrder().getSymbol(), "a stored fill carries its order");
+    }
+
+    /** SPEC-0067 AC-2: a stored fill that Kafka delivers again is not a new live event. */
+    @Test
+    void storedFillDeliveredAgainByKafkaIsNotEmitted() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchRecentExecutions(anyInt())).thenReturn(Flux.just(storedFill("A", "F1", 3, 10)));
+        provider = startProvider(queryClient);
+        awaitCachedExecutions(1);
+
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly())
+                        .map(e -> e.getOrderId() + " " + e.getExecId() + " " + e.getExecution().getOrderVersion()))
+                .then(() -> {
+                    emitFill("A", "F1", 3);
+                    emitFill("A", "F1", 4);
+                    emitFill("B", "F1", 3);
+                })
+                .expectNext("A F1 4", "B F1 3")
+                .expectNoEvent(Duration.ofMillis(300))
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** SPEC-0067 AC-3: when oms-core does not answer, live fills still stream, and the load is retried. */
+    @Test
+    void warmUpRetriesUntilQueryApiAnswers() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchRecentExecutions(anyInt()))
+                .thenReturn(Flux.error(new IllegalStateException("oms-core unreachable")))
+                .thenReturn(Flux.error(new IllegalStateException("oms-core unreachable")))
+                .thenReturn(Flux.just(storedFill("A", "F1", 3, 10)));
+        provider = startProvider(queryClient, p -> ReflectionTestUtils.setField(p, "warmUpBackoff", Duration.ofMillis(200)));
+
+        // Before the load succeeds, a live fill is streamed and cached.
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly()).map(KafkaEventStreamProviderTest::describe))
+                .then(() -> emitFill("C", "F1", 1))
+                .expectNext("NEW C/F1")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+
+        awaitCachedExecutions(2);
+        verify(queryClient, timeout(5000).times(3)).fetchRecentExecutions(100);
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot()).map(KafkaEventStreamProviderTest::describe))
+                .expectNextMatches(e -> e.startsWith("SNAPSHOT "))
+                .expectNextMatches(e -> e.startsWith("SNAPSHOT "))
+                .expectNext("SNAPSHOT_END 2")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** SPEC-0067 AC-5: the load asks for the smaller of the warm-up size and the cache size. */
+    @Test
+    void warmUpRequestsTheSmallerOfWarmUpSizeAndCacheSize() {
+        OmsQueryClient big = mock(OmsQueryClient.class);
+        when(big.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
+        provider = startProvider(big, p -> ReflectionTestUtils.setField(p, "warmUpSize", 5000));
+        verify(big, timeout(5000)).fetchRecentExecutions(100);
+        provider.shutdown();
+
+        OmsQueryClient small = mock(OmsQueryClient.class);
+        when(small.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
+        provider = startProvider(small, p -> ReflectionTestUtils.setField(p, "warmUpSize", 50));
+        verify(small, timeout(5000)).fetchRecentExecutions(50);
+    }
+
+    /** SPEC-0067 AC-6: stored fills are filtered in the snapshot exactly like live ones. */
+    @Test
+    void snapshotFiltersStoredFillsLikeLiveOnes() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchRecentExecutions(anyInt()))
+                .thenReturn(Flux.just(storedFill("A", "F1", 3, 30), storedFill("B", "F1", 3, 20), storedFill("A", "F0", 2, 10)));
+        provider = startProvider(queryClient);
+        awaitCachedExecutions(3);
+
+        StreamFilter onA = StreamFilter.builder()
+                .filters(List.of(FilterCondition.eq("orderId", "A")))
+                .includeSnapshot(true)
+                .build();
+        StepVerifier.create(provider.getExecutionEventStream(onA).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT A/F1", "SNAPSHOT A/F0", "SNAPSHOT_END 2")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+
+        StreamFilter onMarket = StreamFilter.builder()
+                .filters(List.of(FilterCondition.eq("lastMkt", "XOTHER")))
+                .includeSnapshot(true)
+                .build();
+        StepVerifier.create(provider.getExecutionEventStream(onMarket).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT_END 0")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** SPEC-0067 review: stored fills are older than live ones, so a full cache evicts them first. */
+    @Test
+    void fullCacheEvictsStoredFillsBeforeNewerLiveOnes() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchRecentExecutions(anyInt()))
+                .thenReturn(Flux.just(storedFill("A", "F2", 4, 30), storedFill("A", "F1", 3, 10)));
+        provider = startProvider(queryClient);
+        awaitCachedExecutions(2);
+
+        // 99 live fills make 101 > 100: the cache shrinks to 80, dropping the oldest 21. Each live
+        // event is emitted after its fill is cached and evicted, so 99 events mean all are done.
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly()))
+                .then(() -> {
+                    for (int i = 1; i <= 99; i++) {
+                        emitFill("L-" + i, "F1", 1);
+                    }
+                })
+                .expectNextCount(99)
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        assertEquals(80, provider.getExecutionCacheSize());
+        StreamFilter onA = StreamFilter.builder()
+                .filters(List.of(FilterCondition.eq("orderId", "A")))
+                .includeSnapshot(true)
+                .build();
+        StepVerifier.create(provider.getExecutionEventStream(onA).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT_END 0")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** A fill as the query API returns it: with its order, at {@code transactSecond}. */
+    private static ExecutionDto storedFill(String orderId, String execId, long orderVersion, int transactSecond) {
+        return ExecutionDto.builder()
+                .orderId(orderId)
+                .execId(execId)
+                .orderVersion(orderVersion)
+                .sequenceNumber(orderVersion)
+                .lastMkt("XSIM")
+                .transactTime(Instant.ofEpochSecond(transactSecond))
+                .eventTime(Instant.ofEpochSecond(transactSecond))
+                .order(org.example.streaming.model.OrderDto.builder().orderId(orderId).symbol("INTC").eventId(orderVersion).build())
+                .build();
+    }
+
     private KafkaEventStreamProvider startProvider(OmsQueryClient queryClient) {
+        return startProvider(queryClient, p -> { });
+    }
+
+    private KafkaEventStreamProvider startProvider(OmsQueryClient queryClient, Consumer<KafkaEventStreamProvider> configure) {
+        // A plain mock answers null; tests that do not stub the warm-up load nothing. Checked
+        // without calling the mock, so a test's consecutive stubs and call counts stay intact.
+        boolean warmUpStubbed = org.mockito.Mockito.mockingDetails(queryClient).getStubbings().stream()
+                .anyMatch(s -> s.getInvocation().getMethod().getName().equals("fetchRecentExecutions"));
+        if (!warmUpStubbed) {
+            when(queryClient.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
+        }
         @SuppressWarnings("unchecked")
         KafkaReceiver<String, OrderMessage> orderReceiver = mock(KafkaReceiver.class);
         @SuppressWarnings("unchecked")
@@ -294,6 +465,8 @@ class KafkaEventStreamProviderTest {
                         meters);
         // @Value is not applied outside Spring; at 0 every cache put would be evicted at once.
         ReflectionTestUtils.setField(started, "maxCacheSize", 100);
+        ReflectionTestUtils.setField(started, "warmUpSize", 5000);
+        configure.accept(started);
         started.startConsuming();
         return started;
     }

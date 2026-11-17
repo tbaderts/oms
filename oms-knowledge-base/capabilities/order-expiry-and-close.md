@@ -4,7 +4,7 @@ title: "Order Expiry and Close"
 description: "Orders expiring when their time in force runs out, and orders being closed administratively or at end of day."
 tags: [expiry, close, end-of-day, order-lifecycle, orders]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T12:00:00Z"
 maturity: "implemented"
 commands: ["OrderExpireCmd", "OrderCloseCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-02T12:00:00Z" }
@@ -23,6 +23,11 @@ sources:
 An order whose time in force runs out becomes EXP. An order that is finished, or that operations
 take out of the market, becomes CLOSED: nothing more happens to it. CLOSED is the only terminal
 state of the order state machine (SPEC-0029).
+
+The CLOSE event also starts the order's **retention clock** (SPEC-0052). Once it is older than
+`oms.retention.closed-order-days` (90 by default), the order is archived: verified on the archive
+replica, then deleted from the OMS database
+([Retention and Archive](../architecture/concepts/retention-and-archive.md)).
 
 ## Actors
 

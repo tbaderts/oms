@@ -5,7 +5,7 @@ title: "Order Event"
 description: "Append-only log entry recording each order state change with a per-order version, the command, the resulting state and a snapshot of the order."
 tags: [event-sourcing, audit, entity]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T12:00:00Z"
 entity: "OrderEvent"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -26,7 +26,7 @@ itself. The log is the audit trail and the source for replay.
 
 | Field | Meaning |
 |---|---|
-| `orderId`, `version` | The order and a contiguous per-order sequence starting at 1; unique `(order_id, version)` (`uq_order_events_order_id_version`) |
+| `orderId`, `version` | The order and a contiguous per-order sequence starting at 1; unique `(order_id, version)` (`uq_order_events_order_id_version`, held on `order_event_keys` since the table is partitioned: SPEC-0052) |
 | `event` | What happened: `NEW_ORDER`, `ACK`, `PARTIAL_FILL`, `FILL`, `CXL`, `REJ`, `CXL_REQUEST`, `CXL_REJ`, `EXP`, `CLOSE` (SPEC-0029), and the execution lifecycle events `EXEC_BUST`, `EXEC_CORRECT`, `EXEC_WHACK` (SPEC-0044) |
 | `execId` (`exec_id`) | The execution the event is about, when it is about one: a fill, bust, correction or whack (SPEC-0044). Indexed with `order_id` (`idx_order_events_order_id_exec_id`). Older fills were backfilled from the stored command, or by position for fills recorded without one. The query API filters on it: `GET /api/query/orders/{orderId}/events?execId=…` |
 | `transaction` | The command that caused it, as received over REST or Kafka (fills included). Null only for events recorded by internal callers that have no command |
@@ -48,6 +48,16 @@ makes the insert fail on `uq_order_events_order_id_version`, and the appender re
 concurrent modification. Because every event carries a snapshot, `OrderReplayService`
 reconstructs the order at any version with a single lookup, with the event's version as `txNr`,
 and can check that the log has no gaps.
+
+**Partitions and retention (SPEC-0052).**
+- **Partitioning.** `order_events` is partitioned by month on `time_stamp`. Its two uniqueness rules
+  sit on `order_event_keys`, which triggers keep equal to the events' keys, so the failures above
+  are unchanged.
+- **Legacy rows.** Events from before time stamps were always set carry `1970-01-01T00:00Z`, the
+  migration's marker for an unknown time, in the default partition.
+- **Retention.** An order closed longer than the retention period is archived: its events are
+  deleted here after a logical replica is verified to hold them, and remain there.
+- See [Retention and Archive](../../architecture/concepts/retention-and-archive.md).
 
 An execution is an entity inside the order, not a stream of its own (SPEC-0044):
 - **Creation and reversal.** It is created by a fill event and busted, corrected or whacked by a

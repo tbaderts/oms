@@ -7,7 +7,7 @@ status: stable
 updated: "2026-11-15T19:00:00Z"
 reviewed_since: "2026-11-14T00:00:00Z"
 review_after_days: 180
-retired_terms: [ReadySet, logical replication, Spring Boot 3, oms-methodolgy, oms-concepts/, oms-framework/]
+retired_terms: [ReadySet, Spring Boot 3, oms-methodolgy, oms-concepts/, oms-framework/]
 type_vocabulary: [Concept Paper, Specification, Diagram, Methodology, Assessment, Strategy, Reference, Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision, Use Case, Actor, Pattern]
 ---
 # Knowledge Base Conventions (OKF)

@@ -4,7 +4,7 @@ title: "Local Docker Stack"
 description: "The root docker-compose.yml: every OMS module and the infrastructure it needs (PostgreSQL, Kafka with Schema Registry, the Grafana LGTM stack), with ports, how to start, rebuild and reset it, and its known oddities."
 tags: [infrastructure, docker, docker-compose, local-development]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T12:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
   - resource: "repo:docker-compose.yml"
@@ -35,7 +35,8 @@ docker compose up -d --remove-orphans         # after a service was removed (dro
 | Messaging | `broker` (Kafka) | 9092 | Confluent Platform 7.9 |
 | | `schema-registry` | 8081 | Subjects registered by oms-contracts `registerSchemas` |
 | | `control-center` | 9021 | Confluent Control Center |
-| Data | `postgres` | 5432 | PostgreSQL 18; schema by Liquibase from oms-core |
+| Data | `postgres` | 5432 | PostgreSQL 18; schema by Liquibase from oms-core; `wal_level=logical`, `max_slot_wal_keep_size=2GB` |
+| | `postgres-replica` | 5433 | The archive replica (SPEC-0052): a logical replica of the order history that keeps rows archived from `postgres`. oms-core migrates it and subscribes it at start-up ([Retention and Archive](../architecture/concepts/retention-and-archive.md)) |
 | | `pgadmin` | 5050 (`PGADMIN_PORT`) | Database UI |
 | Observability | `grafana` | 3000 | admin / `$GF_SECURITY_ADMIN_PASSWORD` (default `secret`) |
 | | `grafana-mcp` | 8096 (localhost only) | Grafana MCP server, registered in `.mcp.json` as `grafana` |

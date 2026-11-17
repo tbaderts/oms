@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { AlertTriangle, FileText, Copy, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -103,6 +104,8 @@ export default function DocumentViewer({ selectedDoc, anchor, onSelectDoc }: Doc
       <DocumentHeader doc={meta} onSelectDoc={(path) => onSelectDoc(path)} />
       <div className="markdown-content">
         <ReactMarkdown
+          // GitHub-flavoured Markdown: tables, strikethrough, task lists and bare-URL links.
+          remarkPlugins={[remarkGfm]}
           components={{
             // Add IDs to headings for TOC navigation and in-document anchors
             h1: ({ children, ...props }) => <h1 id={slugify(textOf(children))} {...props}>{children}</h1>,

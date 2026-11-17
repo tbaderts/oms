@@ -5,7 +5,7 @@ title: "State Store"
 description: "How oms-core stores order state: the orders and executions tables, the append-only order_events log with snapshots, the command log, the transactional outbox and the projections, all written in one transaction."
 tags: [state-store, event-sourcing, persistence, outbox, cqrs]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T12:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OrderEventAppender.java"
@@ -88,10 +88,20 @@ row is read. Every row therefore records the schema version its JSON was written
   `StoredEventDecoder` and make the production readers use it. (3) Commit a fixture of the old shape
   under `oms-core/src/test/resources/fixtures/order-events/`. (4) Document the step in this section.
 
+## Retention and the archive replica (SPEC-0052)
+
+- **Partitioned log.** `order_events` is partitioned by month on `time_stamp`. Its uniqueness on
+  `(order_id, version)` and `(order_id, command_id)` is enforced on `order_event_keys`, which
+  triggers keep in step, under the same constraint names. The write path above is unchanged.
+- **Retention window.** The database holds open orders and orders closed within the retention
+  period. Older closed orders are archived: verified on a logical replica that does not replicate
+  deletes, then deleted here. The replica holds the full history.
+- See [Retention and Archive](retention-and-archive.md).
+
 ## Not built
 
-- Partitioning `order_events` and archiving closed orders (SPEC-0052, blocked).
-- A separate read replica or read store (SPEC-0021, proposal).
+- A query service on the replica (SPEC-0021, proposal). The replica and its read-only connection
+  exist (SPEC-0052).
 - Stores for quotes and quote requests: they exist as Avro schemas only
   ([Quotes](../../capabilities/quotes.md)).
 

@@ -16,8 +16,8 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * Reads the order-execution projection for the query API (SPEC-0020). Filters combine with AND;
- * results are oldest first by transactTime (projection time for fills without one), then by storage
- * order. The time filters apply to transactTime only.
+ * results are oldest first, or newest first (SPEC-0067), by transactTime (projection time for fills
+ * without one), then by storage order. The time filters apply to transactTime only.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,7 +27,8 @@ public class OrderExecutionProjectionQueryService {
     private final OrderExecutionProjectionRepository repository;
 
     public List<OrderExecutionProjectionRow> find(
-            String orderId, String rootOrderId, String account, Instant from, Instant to, int limit) {
+            String orderId, String rootOrderId, String account, Instant from, Instant to, int limit,
+            ExecutionOrder order) {
         Specification<OrderExecutionProjectionRow> filters = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (orderId != null) {
@@ -45,12 +46,14 @@ public class OrderExecutionProjectionQueryService {
             if (to != null) {
                 predicates.add(cb.lessThan(root.get("transactTime"), to));
             }
-            // Oldest first; a fill without transactTime sorts by when it was projected. Not on the
-            // count query that paging also runs, where an ORDER BY does not belong.
+            // Oldest first, or newest first (SPEC-0067); a fill without transactTime sorts by when
+            // it was projected, then storage order. Not on the count query that paging also runs,
+            // where an ORDER BY does not belong.
             if (!Long.class.equals(query.getResultType())) {
-                query.orderBy(
-                        cb.asc(cb.coalesce(root.<Instant>get("transactTime"), root.<Instant>get("projectedAt"))),
-                        cb.asc(root.get("id")));
+                var time = cb.coalesce(root.<Instant>get("transactTime"), root.<Instant>get("projectedAt"));
+                query.orderBy(order == ExecutionOrder.NEWEST
+                        ? List.of(cb.desc(time), cb.desc(root.get("id")))
+                        : List.of(cb.asc(time), cb.asc(root.get("id"))));
             }
             return cb.and(predicates.toArray(Predicate[]::new));
         };

@@ -76,6 +76,81 @@ class OmsQueryClientTest {
         assertEquals(8300L, snapshot.matching().block());
     }
 
+    /** One fill as GET /api/query/executions returns it: the fill with its order as of that fill. */
+    private static final String FILL_JSON = """
+            {"orderId":"ORD-1","execId":"ORD-1-F1","rootOrderId":"ORD-1","clOrdId":"CL-1","sessionId":"S",
+             "account":"ACC-1","side":"BUY","symbol":"INTC","securityId":"INTC.OQ","ordType":"LIMIT",
+             "price":86.96000000,"orderQty":500.00000000,"exDestination":"XNAS","lastQty":200.00000000,
+             "lastPx":86.95000000,"execType":"F","lastMkt":"XSIM","transactTime":"2026-11-16T17:12:07.556Z",
+             "cumQty":200.00000000,"leavesQty":300.00000000,"avgPx":86.95000000,"state":"LIVE",
+             "orderVersion":3,"tradeDate":"2026-11-16"}""";
+
+    /** The (path, query) of each executions request. */
+    private final List<String> executionCalls = new ArrayList<>();
+
+    /** SPEC-0067 AC-1: a stored fill maps to the streaming ExecutionDto with its order. */
+    @Test
+    void fetchRecentExecutions_mapsFillsWithTheirOrder() {
+        OmsQueryClient client = clientAnswering("[" + FILL_JSON + "]");
+
+        List<org.example.streaming.model.ExecutionDto> fills = client.fetchRecentExecutions(100).collectList().block();
+
+        assertEquals(1, fills.size());
+        var fill = fills.get(0);
+        assertEquals("ORD-1-F1", fill.getExecId());
+        assertEquals("ORD-1", fill.getOrderId());
+        assertEquals(0, new java.math.BigDecimal("200").compareTo(fill.getLastQty()));
+        assertEquals(0, new java.math.BigDecimal("86.95").compareTo(fill.getLastPx()));
+        assertEquals(0, new java.math.BigDecimal("200").compareTo(fill.getCumQty()));
+        assertEquals(0, new java.math.BigDecimal("300").compareTo(fill.getLeavesQty()));
+        assertEquals(0, new java.math.BigDecimal("86.95").compareTo(fill.getAvgPx()));
+        assertEquals("F", fill.getExecType());
+        assertEquals("XSIM", fill.getLastMkt());
+        assertEquals(java.time.Instant.parse("2026-11-16T17:12:07.556Z"), fill.getTransactTime());
+        assertEquals(3L, fill.getOrderVersion());
+        assertEquals(3L, fill.getSequenceNumber());
+        assertEquals(fill.getTransactTime(), fill.getEventTime(), "eviction orders by eventTime");
+
+        var order = fill.getOrder();
+        assertEquals("ORD-1", order.getOrderId());
+        assertEquals("ACC-1", order.getAccount());
+        assertEquals("INTC", order.getSymbol());
+        assertEquals("BUY", order.getSide());
+        assertEquals("LIMIT", order.getOrdType());
+        assertEquals("LIVE", order.getState());
+        assertEquals(0, new java.math.BigDecimal("500").compareTo(order.getOrderQty()));
+        assertEquals(0, new java.math.BigDecimal("86.96").compareTo(order.getPrice()));
+        assertEquals("INTC.OQ", order.getSecurityId());
+        assertEquals("XNAS", order.getExDestination());
+        assertEquals(3L, order.getEventId());
+    }
+
+    /** SPEC-0067 AC-5: the request asks for the newest fills, with the given limit. */
+    @Test
+    void fetchRecentExecutions_asksForNewestWithTheLimit() {
+        OmsQueryClient client = clientAnswering("[]");
+
+        assertEquals(0, client.fetchRecentExecutions(250).collectList().block().size());
+        assertEquals(List.of("/api/query/executions?order=newest&limit=250"), executionCalls);
+    }
+
+    /** A client over a Query API stub answering every executions request with {@code json}. */
+    @SuppressWarnings("unchecked")
+    private OmsQueryClient clientAnswering(String json) {
+        WebClient.Builder builder = WebClient.builder().exchangeFunction(request -> {
+            executionCalls.add(request.url().getPath() + "?" + request.url().getQuery());
+            return Mono.just(ClientResponse.create(HttpStatus.OK)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .body(json)
+                    .build());
+        });
+        ObjectProvider<WebClient.Builder> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable(any())).thenReturn(builder);
+        OmsQueryClient client = new OmsQueryClient(provider, "http://oms-core", 16);
+        ReflectionTestUtils.setField(client, "readTimeoutMs", 5000);
+        return client;
+    }
+
     /** A client over a Query API stub holding {@code total} orders with ids 1..total. */
     @SuppressWarnings("unchecked")
     private OmsQueryClient clientOver(int total) {

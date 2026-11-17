@@ -5,7 +5,7 @@ title: "Query API"
 description: "The contract-first search endpoint for orders with dynamic filters, sorting and pagination."
 tags: [api, query, search]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-17T08:00:00Z"
 covers: ["openapi:/search", "openapi:/orders/{orderId}/commands", "openapi:/orders/{orderId}/events", "openapi:/executions", "http:/api/query"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -77,8 +77,10 @@ with the rename. Each `ExecutionViewDto` has the fill (`execId`,
 `lastQty`, `lastPx`, `execType`, `lastCapacity`, `lastMkt`, `transactTime`), the order as of that
 fill (identity, account, side, instrument, price, quantities, state), `orderVersion` and
 `tradeDate`. Filters `orderId`, `rootOrderId` (an order without a root is its own root), `account`,
-`transactTimeFrom` (inclusive) and `transactTimeTo` (exclusive) combine with AND; results are
-oldest first, at most `limit` (default 1000, max 5000). No match gives `200 []`. The hidden
+`transactTimeFrom` (inclusive) and `transactTimeTo` (exclusive) combine with AND. Results are
+oldest first, or newest first with `order=newest` (SPEC-0067; `order=oldest` is the default and an
+unknown value gives 400), at most `limit` (default 1000, max 5000), so with `newest` the limit
+keeps the most recent fills. No match gives `200 []`. The hidden
 `/api/executions` (bare execution rows, used by oms-ui) is unchanged.
 
 Used by the trade blotter's initial snapshot ([Real-time Streaming](../../capabilities/real-time-streaming.md)),

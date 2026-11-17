@@ -215,6 +215,16 @@ class KnowledgeBaseToolsTest {
         String result = search.call("{\"query\":\"cancel an order PendingCancel\",\"topK\":2}");
         assertTrue(result.startsWith("## Knowledge base search: \"cancel an order PendingCancel\"\n"), result);
         assertFalse(result.contains("\\n"), "line breaks are real, not escaped:\n" + result);
+
+        for (String name : java.util.List.of("readKnowledgeBase", "getKnowledgeBaseOverview")) {
+            var callback = java.util.Arrays.stream(callbacks)
+                    .filter(c -> c.getToolDefinition().name().equals(name))
+                    .findFirst().orElseThrow();
+            String args = name.equals("readKnowledgeBase") ? "{\"path\":\"" + docPath + "\"}" : "{}";
+            String text = callback.call(args);
+            assertFalse(text.startsWith("\""), name + " returns Markdown, not a JSON string:\n" + text);
+            assertTrue(text.contains("\n"), name + " has real line breaks:\n" + text);
+        }
     }
 
     @Test

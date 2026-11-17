@@ -49,6 +49,12 @@ streaming:
   subscriber:
     max-pending: ${SUBSCRIBER_MAX_PENDING:10000}
 
+  # Stored fills loaded from the OMS Core Query API at startup (SPEC-0067), so the executions
+  # snapshot survives a restart. At most buffer.max-size; 5000 is the API's per-request maximum.
+  # 0 turns the load off. Retried with backoff until OMS Core answers.
+  executions:
+    warm-up-size: ${EXECUTIONS_WARM_UP_SIZE:5000}
+
   # CORS configuration for Trade Blotter UI
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}

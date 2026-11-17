@@ -1,5 +1,13 @@
 # Knowledge Base Log
 
+## 2026-11-17
+
+Streaming executions survive a restart (SPEC-0067). The
+[streaming service](architecture/context/streaming-service.md#snapshots) loads the newest stored
+fills from the query API at startup, so the executions snapshot is no longer empty after a restart.
+`GET /api/query/executions` gained `order=newest`
+([query API](domain/interfaces/query-api.md#fills-with-their-order)).
+
 ## 2026-11-16
 
 The Developer Cockpit's Knowledge Base view shows one of **Document**, **Chat** or **Health** at a
