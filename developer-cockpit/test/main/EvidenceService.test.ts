@@ -18,7 +18,7 @@ const lines = (n: number, tag = 'v1') => Array.from({ length: n }, (_, i) => `li
 
 function setup() {
   const ws = createStoryboardWorkspace({ git: true });
-  ws.write({ [SOURCE]: lines(40), 'oms-knowledge-base/domain/order.md': md({ title: 'Order' }) });
+  ws.write({ [SOURCE]: lines(40), 'knowledge-base/domain/order.md': md({ title: 'Order' }) });
   const dir = ws.writeExample();
   ws.git('add', '.');
   ws.git('commit', '-q', '-m', 'base');
@@ -39,7 +39,7 @@ function card(commit: string, extra: Record<string, unknown> = {}) {
 }
 
 function scanOne(ws: StoryboardWorkspace) {
-  const kbPath = path.join(ws.root, 'oms-knowledge-base');
+  const kbPath = path.join(ws.root, 'knowledge-base');
   const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath });
   const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath, config: DEFAULT_STORYBOARDS_CONFIG, evaluateCard: evidence.evaluator() });
   const result = svc.scan();
@@ -152,7 +152,7 @@ describe('EvidenceService', () => {
     let commit: string;
     ({ ws, dir, commit } = setup());
     ws.write({ [`${dir}/story.card.yaml`]: card(commit) });
-    const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), gitTimeoutMs: 1 });
+    const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), gitTimeoutMs: 1 });
     const result = evidence.evaluate({ id: 'x', evidence: { repos: [{ module: 'oms-core', commit }], sources: [{ module: 'oms-core', path: 'src/main/java/OrderCaptureService.java', line: 1 }] } });
     expect(result.drift).toBe('unknown');
     expect(result.brokenEvidence).toBe(false);
@@ -180,7 +180,7 @@ describe('EvidenceService', () => {
       { module: 'oms-core', path: 'src/main/java/ExecutionService.java', line: 1, end_line: 10 },
       { module: 'oms-core', path: 'src/main/java/Gone.java', line: 1 },
     ];
-    const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base') });
+    const evidence = new EvidenceService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base') });
     const spawn = vi.mocked(spawnSync);
     spawn.mockClear();
     const result = evidence.evaluate({ id: 'x', evidence: { repos: [{ module: 'oms-core', commit }], sources } });

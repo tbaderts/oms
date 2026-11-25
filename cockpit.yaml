@@ -1,0 +1,190 @@
+# Developer Cockpit project file for the OMS (SPEC-0076).
+#
+# The cockpit (https://github.com/tbaderts/developer-cockpit) knows nothing about the OMS: everything
+# OMS-specific it shows comes from this file. Paths are relative to this folder. The cockpit re-reads
+# the file when it changes; Settings → "Project file" shows whether it is valid.
+
+project:
+  name: OMS
+  description: Order management system with event sourcing, CQRS and a transactional outbox to Kafka
+
+knowledgeBase:
+  root: oms-knowledge-base
+  checkScript: tools/okf-check/okf-check.mjs
+  # Storyboard steps may link to the transitions of this state diagram.
+  stateDiagramDoc: domain/model/order-state.md
+  # The KB chat asks oms-mcp-server; without it the chat uses local search and read tools.
+  serverUrl: http://localhost:8091/mcp
+
+specs:
+  cli: specs/tools/spec.mjs
+  openApiPaths: [oms-contracts/src/main/openapi]
+  avroPaths: [oms-contracts/src/main/avro]
+
+# Contracts view → code generation; "Run all" runs them in this order (models first).
+codegen:
+  - id: contracts
+    name: Contract models
+    description: Generate the shared command, query and Avro models in oms-contracts
+    inputs: openapi/*.yml, avro/*.avsc → org.example.common.model.{cmd,query,msg}
+    cwd: oms-contracts
+    command: ["./gradlew", "generateAvroJava", "openApiGenerateCmdModels", "openApiGenerateQueryModels"]
+    windowsCommand: [".\\gradlew.bat", "generateAvroJava", "openApiGenerateCmdModels", "openApiGenerateQueryModels"]
+  - id: api
+    name: API interfaces
+    description: Generate the ExecuteApi and SearchApi interfaces that oms-core implements
+    inputs: oms-cmd-api.yml, oms-query-api.yml → org.example.common.api
+    cwd: oms-core
+    command: ["./gradlew", "openApiGenerateCmd", "openApiGenerateQuery"]
+    windowsCommand: [".\\gradlew.bat", "openApiGenerateCmd", "openApiGenerateQuery"]
+
+# Source folders whose changes refresh the cockpit (specs/ and the knowledge base are always watched).
+watch:
+  - oms-contracts/src/main
+  - oms-core/src
+  - oms-streaming-service/src
+  - oms-exchange-simulator/src
+  - oms-ui/frontend/src
+
+storyboards:
+  library: oms-storyboard.excalidrawlib
+
+apiExplorer:
+  templateSources:
+    - tools/api-templates/orders.http
+    - tools/api-templates/lifecycle.http
+    - oms-core/rest.http
+  apis:
+    - name: Commands
+      spec: oms-contracts/src/main/openapi/oms-cmd-api.yml
+      baseUrl: http://localhost:8090/api/command
+    - name: Queries
+      spec: oms-contracts/src/main/openapi/oms-query-api.yml
+      baseUrl: http://localhost:8090/api/query
+
+# Help menu and the Monitoring header.
+links:
+  - { label: Grafana, url: "http://localhost:3000/d/oms-overview" }
+  - { label: Swagger UI, url: "http://localhost:8090/swagger-ui.html" }
+  - { label: OMS UI, url: "http://localhost:8080" }
+  - { label: Alloy, url: "http://localhost:12345" }
+
+# Every service of the root docker-compose.yml, on the ports it publishes to the host.
+monitoring:
+  intervalSeconds: 10
+  # Mimir's Prometheus-compatible API; the services push their metrics there through Alloy.
+  prometheusUrl: http://localhost:9009/prometheus
+  services:
+    # Application
+    - name: oms-core
+      group: Application
+      check: { kind: spring-actuator, url: "http://localhost:8090/actuator/health" }
+      metricsUrl: http://localhost:8090/actuator/prometheus
+      links:
+        - { label: Swagger, url: "http://localhost:8090/swagger-ui.html" }
+    - name: streaming-service
+      group: Application
+      check: { kind: spring-actuator, url: "http://localhost:8092/actuator/health" }
+    - name: exchange-simulator
+      group: Application
+      check: { kind: spring-actuator, url: "http://localhost:8094/actuator/health" }
+    - name: mcp-server
+      group: Application
+      # No actuator; the MCP endpoint only answers POST, so check the port.
+      check: { kind: tcp, host: localhost, port: 8091 }
+    - name: oms-ui
+      group: Application
+      check: { kind: http, url: "http://localhost:8080/" }
+      links:
+        - { label: Open, url: "http://localhost:8080" }
+    # Messaging
+    - name: broker
+      group: Messaging
+      check: { kind: tcp, host: localhost, port: 9092 }
+    - name: schema-registry
+      group: Messaging
+      check: { kind: http, url: "http://localhost:8081/subjects" }
+    - name: control-center
+      group: Messaging
+      check: { kind: http, url: "http://localhost:9021/" }
+      links:
+        - { label: Open, url: "http://localhost:9021" }
+    # Data
+    - name: postgres
+      group: Data
+      check: { kind: tcp, host: localhost, port: 5432 }
+    - name: postgres-replica
+      group: Data
+      check: { kind: tcp, host: localhost, port: 5433 }
+    - name: pgadmin
+      group: Data
+      check: { kind: http, url: "http://localhost:5050/misc/ping" }
+      links:
+        - { label: Open, url: "http://localhost:5050" }
+    # Observability
+    - name: grafana
+      group: Observability
+      check: { kind: http, url: "http://localhost:3000/api/health" }
+      links:
+        - { label: OMS Overview, url: "http://localhost:3000/d/oms-overview" }
+        - { label: OMS Services, url: "http://localhost:3000/d/oms-services" }
+    - name: grafana-mcp
+      group: Observability
+      check: { kind: tcp, host: 127.0.0.1, port: 8096 }
+    - name: loki
+      group: Observability
+      # /ready reports 503 while the ingester settles; build info answers whenever Loki serves.
+      check: { kind: http, url: "http://localhost:3100/loki/api/v1/status/buildinfo" }
+    - name: alloy
+      group: Observability
+      check: { kind: http, url: "http://localhost:12345/-/ready" }
+      links:
+        - { label: Open, url: "http://localhost:12345" }
+    - name: mimir
+      group: Observability
+      check: { kind: http, url: "http://localhost:9009/prometheus/api/v1/status/buildinfo" }
+    - name: tempo
+      group: Observability
+      check: { kind: http, url: "http://localhost:3200/ready" }
+
+  # The former oms-core tiles. Most read oms-core's /actuator/prometheus directly, so they work on a
+  # host-native bootRun without the observability stack. The p99 latencies exist only as histograms in
+  # Mimir (the services push them over OTLP, in milliseconds), so those two need the stack.
+  panels:
+    - title: Orders by state
+      type: bars
+      source: { kind: scrape, service: oms-core, metric: oms_orders_by_state, by: state }
+    - title: Order events / min
+      type: timeseries
+      unit: perMinute
+      source: { kind: scrape, service: oms-core, metric: oms_order_events_total, rate: true }
+    - title: Time to ack p99
+      type: stat
+      unit: ms
+      source: { kind: promql, query: "histogram_quantile(0.99, sum by (le) (rate(oms_order_time_to_ack_bucket[5m])))" }
+    - title: Time to market p99
+      type: stat
+      unit: ms
+      source: { kind: promql, query: "histogram_quantile(0.99, sum by (le) (rate(oms_order_time_to_market_bucket[5m])))" }
+    - title: Outbox pending
+      type: stat
+      source: { kind: scrape, service: oms-core, metric: oms_outbox_pending }
+    - title: Outbox stuck
+      type: stat
+      source: { kind: scrape, service: oms-core, metric: oms_outbox_stuck }
+    - title: Outbox oldest age
+      type: stat
+      unit: s
+      source: { kind: scrape, service: oms-core, metric: oms_outbox_oldest_age_seconds }
+    - title: oms-core heap used
+      type: timeseries
+      unit: bytes
+      source: { kind: scrape, service: oms-core, metric: jvm_memory_used_bytes, labels: { area: heap } }
+    - title: oms-core DB connections active
+      type: stat
+      source: { kind: scrape, service: oms-core, metric: hikaricp_connections_active }
+    # The same order flow over time, from Mimir (needs the observability stack).
+    - title: Orders by state (Mimir)
+      type: bars
+      by: state
+      source: { kind: promql, query: "sum by (state) (oms_orders_by_state)" }

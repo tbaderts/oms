@@ -1,0 +1,88 @@
+// DeadLetterView.scss - the Dead letters tab (SPEC-0075); shared layout in Operations.scss
+.dlt-view {
+  code {
+    font-family: var(--oms-font-mono);
+  }
+
+  .dlt-topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--oms-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .dlt-topic {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--oms-space-1);
+    padding: var(--oms-space-2) var(--oms-space-3);
+    border: 1px solid var(--oms-border);
+    border-radius: var(--oms-radius-sm);
+    background: var(--oms-surface);
+    color: var(--oms-text);
+    font-family: inherit;
+    font-size: var(--oms-font-size-sm);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--oms-border-hover);
+    }
+
+    &.dlt-topic--selected {
+      border-color: var(--oms-accent);
+      background: var(--oms-surface-raised);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--oms-accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .dlt-topic-name {
+    font-family: var(--oms-font-mono);
+    color: var(--oms-text-strong);
+  }
+
+  .dlt-topic-count {
+    color: var(--oms-text-muted);
+    font-size: var(--oms-font-size-xs);
+  }
+
+  .dlt-value {
+    display: flex;
+    flex-direction: column;
+    gap: var(--oms-space-1);
+
+    pre {
+      margin: 0;
+      padding: var(--oms-space-2);
+      border-radius: var(--oms-radius-sm);
+      background: var(--oms-surface);
+      font-family: var(--oms-font-mono);
+      font-size: var(--oms-font-size-sm);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  }
+
+  .dlt-headers {
+    caption {
+      color: var(--oms-text-muted);
+      font-size: var(--oms-font-size-xs);
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    pre {
+      margin: 0;
+      font-family: var(--oms-font-mono);
+      font-size: var(--oms-font-size-xs);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+}

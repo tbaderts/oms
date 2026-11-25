@@ -4,19 +4,24 @@ import * as path from 'path';
 import type { KbHealthReport, KbIndexFixResult } from '../../shared/types/kb';
 
 /**
- * Runs the repository's knowledge base checker, `node tools/okf-check/okf-check.mjs` (SPEC-0064).
+ * Runs the repository's knowledge base checker (SPEC-0064): `knowledgeBase.checkScript` in
+ * cockpit.yaml, by default `tools/okf-check/okf-check.mjs`.
  * Like SpecCli, the CLI is the single implementation of the rules; the cockpit only calls it and
  * shows the result. A non-zero exit code (errors found) is a result, not a failure.
  */
+export const DEFAULT_CHECK_SCRIPT = 'tools/okf-check/okf-check.mjs';
+
 export class OkfCli {
   constructor(
     private workspaceRoot: string,
     // In Electron, process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE makes it act as Node.
     private nodePath: string = process.execPath,
+    /** Workspace-relative path of the checker script. */
+    private scriptPath: string = DEFAULT_CHECK_SCRIPT,
   ) {}
 
   private get script(): string {
-    return path.join(this.workspaceRoot, 'tools', 'okf-check', 'okf-check.mjs');
+    return path.resolve(this.workspaceRoot, this.scriptPath);
   }
 
   /** Errors, warnings and statistics of the bundle; `repo:` sources resolve against `repoRoot` (the workspace). */
@@ -41,7 +46,7 @@ export class OkfCli {
     } catch {
       throw new Error(
         `The knowledge base checker returned no report (exit ${exitCode}): ${(stderr || stdout).trim().slice(0, 500)}`
-          + ' If its dependencies are missing, run npm install in tools/okf-check.',
+          + ` If its dependencies are missing, run npm install in ${path.dirname(this.scriptPath)}.`,
       );
     }
   }

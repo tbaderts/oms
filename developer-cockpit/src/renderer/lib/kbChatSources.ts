@@ -1,4 +1,4 @@
-import { isKbDocumentPath, normaliseKbPath } from '@shared/kbPath';
+import { isKbDocumentPath, kbBundlePrefix, normaliseKbPath } from '@shared/kbPath';
 
 /** The part of an `ai:*` event the source extraction looks at. */
 export interface KbChatToolEvent {
@@ -9,8 +9,9 @@ export interface KbChatToolEvent {
   [key: string]: unknown;
 }
 
-/** `oms-knowledge-base/<path>.md` citations in the knowledge server's Markdown output. */
-const CITATION = /oms-knowledge-base\/[^\s`'"()<>#]+?\.mdx?(?=[#\s`'")<>]|$)/gi;
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+/** `<kb root>/<path>.md` citations in the knowledge server's Markdown output. */
+export const citationPattern = () => new RegExp(`${escapeRegExp(kbBundlePrefix())}[^\\s\`'"()<>#]+?\\.mdx?(?=[#\\s\`'")<>]|$)`, 'gi');
 /** `"path":"<path>.md"` entries in the local search tool's JSON output. */
 const JSON_PATH = /"path"\s*:\s*"([^"]+?\.mdx?)"/gi;
 
@@ -33,7 +34,7 @@ export function extractSources(events: KbChatToolEvent[]): string[] {
       const input = e.input as { path?: unknown } | undefined;
       if (input && typeof input.path === 'string') add(input.path);
     } else if (e.type === 'ai:tool-result' && typeof e.output === 'string') {
-      for (const m of e.output.matchAll(CITATION)) add(m[0]);
+      for (const m of e.output.matchAll(citationPattern())) add(m[0]);
       for (const m of e.output.matchAll(JSON_PATH)) add(m[1]);
     }
   }

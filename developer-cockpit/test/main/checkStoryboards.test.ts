@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { stringify } from 'yaml';
 import { runCheck } from '../../src/main/storyboards/cli/checkStoryboards';
 import { createStoryboardWorkspace, md, type StoryboardWorkspace } from '../fixtures/storyboards';
-import { REPO_ROOT } from '../fixtures/workspace';
+import { REPO_ROOT, hostHas } from '../fixtures/workspace';
 
 function run(ws: StoryboardWorkspace, strict: boolean) {
   const lines: string[] = [];
@@ -15,7 +15,7 @@ function run(ws: StoryboardWorkspace, strict: boolean) {
 /** A clean storyboard with an evidence card pinned to the current commit. */
 function evidenced() {
   const ws = createStoryboardWorkspace({ git: true });
-  ws.write({ 'oms-core/src/Main.java': 'class Main {}\n', 'oms-knowledge-base/domain/order.md': md({ title: 'Order' }) });
+  ws.write({ 'oms-core/src/Main.java': 'class Main {}\n', 'knowledge-base/domain/order.md': md({ title: 'Order' }) });
   const dir = ws.writeExample();
   ws.git('add', '.');
   ws.git('commit', '-q', '-m', 'base');
@@ -30,14 +30,14 @@ function evidenced() {
   return { ws, dir };
 }
 
-describe('check:storyboards on the repository corpus', () => {
+describe.skipIf(!hostHas('oms-knowledge-base/storyboards'))('check:storyboards on the repository corpus (needs host storyboards next to the cockpit)', () => {
   // Scans the whole repository twice (normal and strict); that takes ~18s even unloaded.
   it('repository corpus passes normal and strict', () => {
     for (const strict of [false, true]) {
       const lines: string[] = [];
       const code = runCheck({ workspace: REPO_ROOT, strict, env: {}, out: (l) => lines.push(l) });
       // Intended to go red when a commit changes code a storyboard cites: review the storyboard, then re-pin its card.
-      const hint = 'If drift is reported, review the storyboard and re-pin story.card.yaml (see oms-knowledge-base/storyboards/README.md).';
+      const hint = 'If drift is reported, review the storyboard and re-pin story.card.yaml (see knowledge-base/storyboards/README.md).';
       expect(code, `${lines.join('\n')}\n${hint}`).toBe(0);
       expect(lines.join('\n')).toMatch(/place-and-fill-order\s+draft\s+trust=evidenced\s+drift=current\s+0 error\(s\), 0 warning\(s\)/);
     }
@@ -79,9 +79,9 @@ describe('check:storyboards', () => {
   it('normal mode fails on scan errors and on broken evidence', () => {
     let dir: string;
     ({ ws, dir } = evidenced());
-    ws.write({ ['oms-knowledge-base/storyboards/bad/x/story.md']: '---\nid: [oops\n---\n' });
+    ws.write({ ['knowledge-base/storyboards/bad/x/story.md']: '---\nid: [oops\n---\n' });
     expect(run(ws, false)).toMatchObject({ code: 1 });
-    ws.write({ ['oms-knowledge-base/storyboards/bad/x/story.md']: md({ id: 'x', title: 'X', status: 'draft', lanes: [], steps: [] }) });
+    ws.write({ ['knowledge-base/storyboards/bad/x/story.md']: md({ id: 'x', title: 'X', status: 'draft', lanes: [], steps: [] }) });
     expect(run(ws, false).code).toBe(0);
     ws.write({ [`${dir}/story.card.yaml`]: ws.read(`${dir}/story.card.yaml`).replace('/domain/order.md', '/domain/missing.md') });
     const r = run(ws, false);

@@ -1,23 +1,32 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { CockpitConfig, DEFAULT_CONFIG, LEGACY_SPECS_PATHS } from '../../shared/types/config';
+import { CockpitConfig, DEFAULT_CONFIG } from '../../shared/types/config';
 import type { StoryboardsConfig } from '../../shared/types/storyboards';
+import { storyboardRoots, type ProjectConfigResult } from '../../shared/projectConfig';
+import { ProjectConfigService } from './ProjectConfigService';
 
 /**
- * Replaces contract paths that are exactly the legacy oms-core defaults (the contracts moved to
- * oms-contracts) with the current defaults. Anything a user customised is kept.
+ * Lays the project's own settings from `cockpit.yaml` over the user's config (SPEC-0076). Only the
+ * settings the file states replace the user's values: the knowledge-base root, the contract paths,
+ * the storyboard roots and the API template sources. Personal settings stay the user's.
  */
-export function migrateConfig(config: CockpitConfig): { config: CockpitConfig; migrated: boolean } {
-  const specs = { ...config.specs };
-  let migrated = false;
-  for (const key of ['openApiPaths', 'avroPaths'] as const) {
-    if (JSON.stringify(specs[key]) === JSON.stringify(LEGACY_SPECS_PATHS[key])) {
-      specs[key] = [...DEFAULT_CONFIG.specs[key]];
-      migrated = true;
-    }
-  }
-  return { config: migrated ? { ...config, specs } : config, migrated };
+export function applyProjectConfig(config: CockpitConfig, project: ProjectConfigResult): CockpitConfig {
+  if (!project.present || project.errors.length) return config;
+  const { declared, config: p } = project;
+  return {
+    ...config,
+    knowledgeBase: declared.knowledgeBaseRoot ? { ...config.knowledgeBase, rootPath: p.knowledgeBase.root } : config.knowledgeBase,
+    specs: {
+      ...config.specs,
+      ...(declared.openApiPaths ? { openApiPaths: [...p.specs.openApiPaths] } : {}),
+      ...(declared.avroPaths ? { avroPaths: [...p.specs.avroPaths] } : {}),
+    },
+    storyboards: declared.storyboardRoots ? { ...config.storyboards, roots: storyboardRoots(p) } : config.storyboards,
+    infrastructure: declared.templateSources
+      ? { ...config.infrastructure, apiTemplateSources: [...p.apiExplorer.templateSources] }
+      : config.infrastructure,
+  };
 }
 
 /**
@@ -78,9 +87,11 @@ function resolveWorkspaceRoot(config: CockpitConfig): CockpitConfig {
 export class ConfigService {
   private config: CockpitConfig = { ...DEFAULT_CONFIG };
   private configFile: string;
+  private project: ProjectConfigService;
 
   constructor(private configDir: string = process.env.COCKPIT_CONFIG_DIR || path.join(os.homedir(), '.developer-cockpit')) {
     this.configFile = path.join(configDir, 'config.json');
+    this.project = new ProjectConfigService(() => this.userConfig().general.workspaceRoot);
   }
 
   /**
@@ -95,13 +106,16 @@ export class ConfigService {
       if (fs.existsSync(this.configFile)) {
         const raw = fs.readFileSync(this.configFile, 'utf-8');
         const loaded = JSON.parse(raw) as Partial<CockpitConfig>;
-        const { config: pathsMigrated, migrated } = migrateConfig(this.merge(DEFAULT_CONFIG, loaded));
-        const keys = options.migrateKeys?.(pathsMigrated) ?? { config: pathsMigrated, changed: false };
+        const merged = this.merge(DEFAULT_CONFIG, loaded);
+        // Settings the cockpit no longer has (API base URLs now come from cockpit.yaml).
+        const infra = merged.infrastructure as unknown as Record<string, unknown>;
+        const removed = Object.keys(infra).filter((k) => !(k in DEFAULT_CONFIG.infrastructure) && k !== 'dockerPath');
+        for (const k of removed) delete infra[k];
+        const keys = options.migrateKeys?.(merged) ?? { config: merged, changed: false };
         const config = keys.config;
         this.config = config;
-        if (migrated || keys.changed) {
+        if (removed.length || keys.changed) {
           await this.save(config);
-          if (migrated) console.info('[config] migrated legacy contract paths to oms-contracts');
           if (keys.changed) console.info('[config] moved plain-text AI keys into the encrypted key store');
         }
       } else {
@@ -122,7 +136,28 @@ export class ConfigService {
   }
 
   getConfig(): CockpitConfig {
-    // Precedence: COCKPIT_WORKSPACE_ROOT (env) > an explicitly saved path > auto-detected repo.
+    // Workspace precedence: COCKPIT_WORKSPACE_ROOT (env) > an explicitly saved path > auto-detected
+    // repo. Then the project's cockpit.yaml replaces the project settings it states.
+    // Memoised: callers cache services on the identity of the returned object, so the same inputs
+    // must give the same object.
+    const user = this.config;
+    const env = process.env.COCKPIT_WORKSPACE_ROOT;
+    const project = this.project.get();
+    const m = this.memo;
+    if (m && m.user === user && m.env === env && m.project === project) return m.result;
+    const result = applyProjectConfig(this.userConfig(), project);
+    this.memo = { user, env, project, result };
+    return result;
+  }
+
+  private memo: { user: CockpitConfig; env: string | undefined; project: ProjectConfigResult; result: CockpitConfig } | null = null;
+
+  /** The project's `cockpit.yaml` as last read: the validated config, its errors, whether it exists. */
+  getProject(): ProjectConfigResult {
+    return this.project.get();
+  }
+
+  private userConfig(): CockpitConfig {
     return resolveWorkspaceRoot(withWorkspaceOverride(this.config));
   }
 

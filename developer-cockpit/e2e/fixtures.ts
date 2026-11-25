@@ -18,7 +18,7 @@ export interface CockpitFixtures {
 export const test = base.extend<CockpitFixtures>({
   workspace: async ({}, use) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-e2e-'));
-    fs.mkdirSync(path.join(root, 'oms-knowledge-base'), { recursive: true });
+    fs.mkdirSync(path.join(root, 'knowledge-base'), { recursive: true });
     await use(root);
     fs.rmSync(root, { recursive: true, force: true });
   },

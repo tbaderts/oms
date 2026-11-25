@@ -17,31 +17,31 @@ afterEach(() => dirs.splice(0).forEach((d) => fs.rmSync(d, { recursive: true, fo
 describe('expandRoots', () => {
   it('resolves an existing root against the workspace', () => {
     const ws = tmp('cockpit-ws-');
-    fs.mkdirSync(path.join(ws, 'oms-knowledge-base', 'storyboards'), { recursive: true });
-    const { roots, missing } = expandRoots(ws, ['oms-knowledge-base/storyboards']);
+    fs.mkdirSync(path.join(ws, 'knowledge-base', 'storyboards'), { recursive: true });
+    const { roots, missing } = expandRoots(ws, ['knowledge-base/storyboards']);
     expect(missing).toEqual([]);
-    expect(roots.map((r) => r.dir)).toEqual([fs.realpathSync(path.join(ws, 'oms-knowledge-base', 'storyboards'))]);
-    expect(roots[0].label).toBe('oms-knowledge-base/storyboards');
+    expect(roots.map((r) => r.dir)).toEqual([fs.realpathSync(path.join(ws, 'knowledge-base', 'storyboards'))]);
+    expect(roots[0].label).toBe('knowledge-base/storyboards');
   });
 
   it('an unresolvable (foreign-platform) root degrades to no roots instead of throwing', () => {
     // Regression: a saved `C:\…` path on POSIX used to throw ENOENT during startup and take the
     // whole main process down before the window opened.
-    const r = expandRoots(FOREIGN_ROOT, ['oms-knowledge-base/storyboards']);
+    const r = expandRoots(FOREIGN_ROOT, ['knowledge-base/storyboards']);
     expect(r.roots).toEqual([]);
-    expect(r.missing).toEqual(['oms-knowledge-base/storyboards']);
+    expect(r.missing).toEqual(['knowledge-base/storyboards']);
   });
 
   it('an empty root resolves to no roots', () => {
-    const r = expandRoots('', ['oms-knowledge-base/storyboards']);
+    const r = expandRoots('', ['knowledge-base/storyboards']);
     expect(r.roots).toEqual([]);
-    expect(r.missing).toEqual(['oms-knowledge-base/storyboards']);
+    expect(r.missing).toEqual(['knowledge-base/storyboards']);
   });
 
   it('reports patterns that match no existing folder as missing', () => {
     const ws = tmp('cockpit-ws-');
-    fs.mkdirSync(path.join(ws, 'oms-knowledge-base', 'storyboards'), { recursive: true });
-    const { roots, missing } = expandRoots(ws, ['nope/here', 'oms-knowledge-base/storyboards']);
+    fs.mkdirSync(path.join(ws, 'knowledge-base', 'storyboards'), { recursive: true });
+    const { roots, missing } = expandRoots(ws, ['nope/here', 'knowledge-base/storyboards']);
     expect(missing).toEqual(['nope/here']);
     expect(roots).toHaveLength(1);
   });

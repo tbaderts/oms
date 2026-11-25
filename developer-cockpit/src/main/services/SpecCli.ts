@@ -1,6 +1,8 @@
 import { execFile } from 'child_process';
 import * as path from 'path';
 
+export const DEFAULT_SPEC_CLI = 'specs/tools/spec.mjs';
+
 export interface SpecCliResult {
   exitCode: number;
   stdout: string;
@@ -8,7 +10,7 @@ export interface SpecCliResult {
 }
 
 /**
- * Runs `node specs/tools/spec.mjs` of a workspace. The CLI is the single implementation of the
+ * Runs the workspace's spec CLI (`specs.cli` in cockpit.yaml, by default `specs/tools/spec.mjs`). The CLI is the single implementation of the
  * spec workflow rules; the cockpit only calls it. Non-zero exit codes are results, not errors.
  */
 export class SpecCli {
@@ -16,11 +18,13 @@ export class SpecCli {
     private workspaceRoot: string,
     // In Electron, process.execPath is the Electron binary; ELECTRON_RUN_AS_NODE makes it act as Node.
     private nodePath: string = process.execPath,
+    /** Workspace-relative path of the CLI script. */
+    private script: string = DEFAULT_SPEC_CLI,
   ) {}
 
   /** `input` is written to the CLI's stdin (e.g. for `gate --draft`); otherwise stdin is closed. */
   run(args: string[], input?: string): Promise<SpecCliResult> {
-    const script = path.join(this.workspaceRoot, 'specs', 'tools', 'spec.mjs');
+    const script = path.resolve(this.workspaceRoot, this.script);
     const start = Date.now();
 
     return new Promise<SpecCliResult>((resolve, reject) => {

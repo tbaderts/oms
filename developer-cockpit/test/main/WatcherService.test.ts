@@ -51,28 +51,38 @@ describe('WatcherService', () => {
     expect(await waitFor(events, 3, 2000)).toBeLessThan(2000);
   });
 
-  it('watches oms-contracts/src/main', async () => {
+  it('watchesConfiguredPaths', async () => {
     ws = createWorkspace();
-    const contract = path.join(ws.root, 'oms-contracts', 'src', 'main', 'openapi', 'oms-cmd-api.yml');
-    fs.mkdirSync(path.dirname(contract), { recursive: true });
-    fs.writeFileSync(contract, 'openapi: 3.0.3\n');
+    const contract = path.join(ws.root, 'api', 'openapi', 'shop.yml');
+    const config = path.join(ws.root, 'cockpit.yaml');
+    const elsewhere = path.join(ws.root, 'unwatched', 'notes.md');
+    for (const f of [contract, config, elsewhere]) {
+      fs.mkdirSync(path.dirname(f), { recursive: true });
+      fs.writeFileSync(f, 'x: 1\n');
+    }
     const events: CockpitEvent[] = [];
     const broadcaster = { broadcast: (e: CockpitEvent) => events.push(e) } as unknown as WebSocketServer;
-    watcher = new WatcherService(ws.root, broadcaster);
+    watcher = new WatcherService(ws.root, broadcaster, ['cockpit.yaml', 'api']);
     watcher.start();
     await sleep(1000);
 
-    fs.appendFileSync(contract, 'info: {}\n');
-    const start = Date.now();
-    const changed = () => events.find((e) => e.type === 'file:changed' && (e.payload as { path: string }).path === contract);
-    while (!changed() && Date.now() - start < 3000) await sleep(25);
-    expect(changed()).toBeDefined();
+    const changed = async (file: string) => {
+      events.length = 0;
+      fs.appendFileSync(file, 'y: 2\n');
+      const start = Date.now();
+      const hit = () => events.some((e) => e.type === 'file:changed' && (e.payload as { path: string }).path === file);
+      while (!hit() && Date.now() - start < 2500) await sleep(25);
+      return hit();
+    };
+    expect(await changed(contract)).toBe(true);
+    expect(await changed(config)).toBe(true);
+    expect(await changed(elsewhere)).toBe(false);
   });
 
-  it('watches api-templates and the extra template paths', async () => {
+  it('watches project paths and the extra template paths', async () => {
     ws = createWorkspace();
-    const shared = path.join(ws.root, 'developer-cockpit', 'api-templates', 'orders.http');
-    const extraA = path.join(ws.root, 'oms-core', 'rest.http');
+    const shared = path.join(ws.root, 'requests', 'shop.http');
+    const extraA = path.join(ws.root, 'service', 'rest.http');
     const extraB = path.join(ws.root, 'other.http');
     for (const f of [shared, extraA, extraB]) {
       fs.mkdirSync(path.dirname(f), { recursive: true });
@@ -80,7 +90,7 @@ describe('WatcherService', () => {
     }
     const events: CockpitEvent[] = [];
     const broadcaster = { broadcast: (e: CockpitEvent) => events.push(e) } as unknown as WebSocketServer;
-    watcher = new WatcherService(ws.root, broadcaster);
+    watcher = new WatcherService(ws.root, broadcaster, ['requests']);
     watcher.setExtraPaths([extraA]); // before start: applied on start
     watcher.start();
     await sleep(1000);

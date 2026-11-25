@@ -1,3 +1,4 @@
+import { identityOf } from '../ai/prompts';
 import type { IpcMain } from 'electron';
 import * as path from 'path';
 import type { ConfigService } from '../services/ConfigService';
@@ -58,12 +59,20 @@ export function registerStoryboardsIpc(ipcMain: IpcMain, deps: StoryboardsIpcDep
   const build = (config: CockpitConfig): Runtime => {
     const workspaceRoot = config.general.workspaceRoot;
     const kbPath = path.isAbsolute(config.knowledgeBase.rootPath) ? config.knowledgeBase.rootPath : path.join(workspaceRoot, config.knowledgeBase.rootPath);
-    const linkIndex = new LinkIndexService({ workspaceRoot, kbPath, openApiPaths: config.specs.openApiPaths, avroPaths: config.specs.avroPaths });
+    const project = deps.configService.getProject().config;
+    const linkIndex = new LinkIndexService({
+      workspaceRoot,
+      kbPath,
+      openApiPaths: config.specs.openApiPaths,
+      avroPaths: config.specs.avroPaths,
+      stateDiagramDoc: project.knowledgeBase.stateDiagramDoc,
+    });
     const evidence = new EvidenceService({ workspaceRoot, kbPath, log: console });
     const service = new StoryboardService({
       workspaceRoot,
       kbPath,
       config: resolveStoryboardsConfig(config.storyboards, env),
+      library: project.storyboards.library,
       linkIndex,
       evaluateCard: evidence.evaluator(),
       broadcast: deps.broadcast,
@@ -81,6 +90,7 @@ export function registerStoryboardsIpc(ipcMain: IpcMain, deps: StoryboardsIpcDep
       storyboards: rt().service,
       linkIndex: rt().linkIndex,
       extract: kbExtractReader(deps.configService.getKnowledgeBasePath()),
+      project: identityOf(deps.configService.getProject().config, config.knowledgeBase.rootPath),
     });
   };
 

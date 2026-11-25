@@ -5,7 +5,7 @@ title: "Query API"
 description: "The contract-first search endpoint for orders with dynamic filters, sorting and pagination."
 tags: [api, query, search]
 status: draft
-updated: "2026-11-24T14:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 covers: ["openapi:/search", "openapi:/orders/{orderId}/commands", "openapi:/orders/{orderId}/events", "openapi:/executions", "openapi:/executions/search", "http:/api/query"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -108,3 +108,46 @@ the `executions` table, the way `/search` searches orders:
 
 It replaced the hidden, uncontracted `GET /api/executions`, which no longer exists. oms-ui's REST
 execution blotter reads it, so its filters apply (they were ignored before).
+
+## Operations: outbox and dead letters
+
+Since query API 2.7.0 (SPEC-0075), tag `Admin`: generated `AdminApi`, implemented by
+`AdminController`. These are read-only operator views, behind oms-ui's Outbox and Dead letters tabs.
+Errors are Problem+JSON.
+
+**The outbox,** read by `OutboxInspector`:
+- `GET /api/query/admin/outbox/summary`: the messages waiting, counted by state, and
+  `maxAttempts`, plus `oldestWaitingCreatedAt` and `oldestWaitingAgeSeconds`. Those two cover pending
+  or held messages, as the `oms.outbox.oldest.age` gauge does.
+  - **PENDING:** retried as usual. Unlike the `oms.outbox.pending` gauge, which counts every row, it
+    excludes stuck and held messages.
+  - **STUCK:** used up `kafka.outbox.max-attempts`, so no longer retried. The count equals
+    `oms.outbox.stuck`.
+  - **HELD:** waits behind a stuck message of the same topic and key, so it isn't published out of
+    order.
+- `GET /api/query/admin/outbox/messages?state&page&size`: the messages oldest first, optionally of
+  one state, with `size` from 1 to 200 (default 50). `PagedOutboxMessageDto` carries, per message:
+  - id, state, type, topic and key (the Kafka key, the outbox's aggregate id);
+  - order, execution and version;
+  - payload type, created time, attempts, max attempts and last error.
+- `GET /api/query/admin/outbox/messages/{id}`: one message with its payload decoded to JSON (projection
+  and legacy messages). A pointer message has no payload; its order, execution and version say what
+  the record will be built from. A message published meanwhile gives 404.
+
+**Dead letters,** read by `DeadLetterReader`:
+- `GET /api/query/admin/dead-letters`: every topic ending in `.DLT`, with its partitions and record
+  count.
+- `GET /api/query/admin/dead-letters/{topic}/records?limit`: the latest `limit` records (1 to 500,
+  default 50), newest first. Each has:
+  - its partition, offset, time and key;
+  - the original topic, partition, offset and time, and the exception class, message and cause, all
+    from Spring Kafka's `kafka_dlt-*` headers;
+  - the value decoded: `AVRO` (through the schema registry) as `payload`, else `TEXT` or `BINARY`
+    (hex) as `payloadText`;
+  - every header.
+
+  A topic not ending in `.DLT` gives 400; an unknown one, 404.
+- **No side effects.** Records are read by a short-lived consumer with no consumer group: nothing is
+  consumed away and no offset is committed.
+- **Bounded.** Every Kafka call is bounded, so an unreachable or disabled Kafka gives 503 within
+  10 s.

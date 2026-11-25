@@ -16,7 +16,7 @@ export function NewStoryWizard() {
   const [rootId, setRootId] = useState(roots[0]?.rootId ?? '');
   const [domain, setDomain] = useState('');
   const [title, setTitle] = useState('');
-  const [lanes, setLanes] = useState<Lane[]>([{ id: 'customer', label: 'Customer', kind: 'actor' }, { id: 'oms', label: 'OMS', kind: 'system' }]);
+  const [lanes, setLanes] = useState<Lane[]>([{ id: 'customer', label: 'Customer', kind: 'actor' }, { id: 'system', label: 'System', kind: 'system' }]);
   const [steps, setSteps] = useState<string[]>(['']);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,7 +63,7 @@ export function NewStoryWizard() {
               {roots.map((r) => <option key={r.rootId} value={r.rootId}>{r.label}</option>)}
             </select>
           </label>
-          <label className="text-xs text-muted-foreground">Domain<input aria-label="Domain" placeholder="order-lifecycle" className={input} value={domain} onChange={(e) => setDomain(e.target.value)} /></label>
+          <label className="text-xs text-muted-foreground">Domain<input aria-label="Domain" placeholder="checkout" className={input} value={domain} onChange={(e) => setDomain(e.target.value)} /></label>
           <label className="text-xs text-muted-foreground">Title<input aria-label="Title" className={input} value={title} onChange={(e) => setTitle(e.target.value)} /></label>
         </div>
         <LanesEditor lanes={lanes} onChange={editLanes} />

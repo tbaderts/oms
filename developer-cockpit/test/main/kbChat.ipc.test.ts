@@ -179,7 +179,7 @@ describe('ai:kbChat (SPEC-0062)', () => {
   it('a tool call made by the model reaches the knowledge server (AC-2)', async () => {
     stub = await startStubMcpServer(KNOWLEDGE_SERVER_TOOLS);
     const prompts: Prompt[] = [];
-    const path = 'oms-knowledge-base/domain/concepts/order-lifecycle.md';
+    const path = 'knowledge-base/domain/concepts/order-lifecycle.md';
     const ctx = await setup(toolThenTextModel('readKnowledgeBase', { path }, 'Summary.', prompts), stub.url);
     await ctx.invoke('ai:kbChat', 'kb-mcp', [q('Summarise the lifecycle')]);
     await waitForDone(ctx.events, 'kb-mcp');
@@ -205,7 +205,7 @@ describe('ai:kbChat (SPEC-0062)', () => {
       lastModified: 0,
     };
     const ctx = await setup(
-      toolThenTextModel('read_knowledge_base_document', { path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md' }, 'Done.'),
+      toolThenTextModel('read_knowledge_base_document', { path: 'knowledge-base/domain/concepts/order-lifecycle.md' }, 'Done.'),
       'http://127.0.0.1:1/mcp',
       [lifecycle],
     );

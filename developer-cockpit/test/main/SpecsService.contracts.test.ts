@@ -4,7 +4,10 @@ import * as os from 'os';
 import * as path from 'path';
 import { SpecsService } from '../../src/main/services/SpecsService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
-import { REPO_ROOT } from '../fixtures/workspace';
+import { REPO_ROOT, hostHas } from '../fixtures/workspace';
+
+/** The contract paths of the fixture workspace (the defaults name none since SPEC-0076). */
+const SPECS = { ...DEFAULT_CONFIG.specs, openApiPaths: ['oms-contracts/src/main/openapi'], avroPaths: ['oms-contracts/src/main/avro'] };
 
 /** A workspace with a few contract files under oms-contracts and a decoy under the old oms-core path. */
 function contractsWorkspace(): string {
@@ -30,9 +33,9 @@ describe('SpecsService on oms-contracts', () => {
     root = undefined;
   });
 
-  it('discovers oms-contracts files with the default paths', () => {
+  it('discovers oms-contracts files with the configured paths', () => {
     root = contractsWorkspace();
-    const files = new SpecsService(root, DEFAULT_CONFIG.specs).discoverFiles();
+    const files = new SpecsService(root, SPECS).discoverFiles();
 
     expect(files.map((f) => [f.relativePath, f.type]).sort()).toEqual([
       ['oms-contracts/src/main/avro/Side.avsc', 'avro'],
@@ -42,8 +45,8 @@ describe('SpecsService on oms-contracts', () => {
     expect(files.some((f) => f.relativePath.startsWith('oms-core/'))).toBe(false);
   });
 
-  it("parses domain entities from the repository's oms-contracts", () => {
-    const entities = new SpecsService(REPO_ROOT, DEFAULT_CONFIG.specs).parseEntities();
+  it.skipIf(!hostHas('oms-contracts'))("parses domain entities from the repository's oms-contracts (needs host contracts next to the cockpit)", () => {
+    const entities = new SpecsService(REPO_ROOT, SPECS).parseEntities();
 
     expect(new Set(entities.map((e) => e.source))).toEqual(new Set(['openapi', 'avro']));
     expect(entities.some((e) => e.name === 'OrderCreateCmd')).toBe(true);
@@ -52,7 +55,7 @@ describe('SpecsService on oms-contracts', () => {
 
   it('refuses to save outside the contract folders', () => {
     root = contractsWorkspace();
-    const svc = new SpecsService(root, DEFAULT_CONFIG.specs);
+    const svc = new SpecsService(root, SPECS);
     const abs = (rel: string) => path.join(root!, rel);
     const before = (rel: string) => fs.readFileSync(abs(rel), 'utf8');
 
@@ -73,7 +76,7 @@ describe('SpecsService on oms-contracts', () => {
     // A contract folder configured outside the workspace is not a way out of it.
     const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-outside-dir-'));
     fs.writeFileSync(path.join(outsideDir, 'x.yml'), 'orig');
-    const escaping = new SpecsService(root!, { ...DEFAULT_CONFIG.specs, openApiPaths: [outsideDir] });
+    const escaping = new SpecsService(root!, { ...SPECS, openApiPaths: [outsideDir] });
     expect(() => escaping.writeFile(path.join(outsideDir, 'x.yml'), 'changed')).toThrow(/outside workspace/);
     expect(fs.readFileSync(path.join(outsideDir, 'x.yml'), 'utf8')).toBe('orig');
     fs.rmSync(outsideDir, { recursive: true, force: true });

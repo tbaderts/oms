@@ -4,7 +4,7 @@ title: "Event Publication"
 description: "Getting order and execution changes onto Kafka reliably through the transactional outbox."
 tags: [kafka, outbox, events]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -99,6 +99,13 @@ Metrics:
 - `oms.outbox.stuck`: rows that exhausted their attempts;
 - `oms.outbox.oldest.age` (`oms_outbox_oldest_age_seconds`): how long the oldest row still to be
   published has waited, 0 when none. A held aggregate makes it grow.
+
+The gauges say *that* something waits. oms-ui's **Outbox** tab (SPEC-0075) says *what*:
+- the pending, stuck and held messages;
+- their order, attempts and last error;
+- one message's payload, or what a pointer message points to.
+
+It is read-only; see [Query API](../domain/interfaces/query-api.md#operations-outbox-and-dead-letters).
 
 ### Several instances (SPEC-0048)
 

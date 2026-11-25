@@ -16,14 +16,16 @@ kb_links:
 # Pinned with SPEC-0014. Re-pin (update every commit) after committed changes to the cited code.
 # Re-pinned to 33f4e20 in SPEC-0061 — the cited files changed in e918878/6bd232a/ad1ddd3; every
 # range below was re-read and moved to the code its label describes.
+# Re-pinned the simulator and streaming sources to 3baed20 in SPEC-0076 — ExchangeEngine changed in
+# 7a89621 (SPEC-0073), and blotter.stream was replaced by orders.stream (SPEC-0071); re-read and moved.
 evidence:
   repos:
     - module: oms-core
       commit: "33f4e20"
     - module: oms-exchange-simulator
-      commit: "33f4e20"
+      commit: "3baed20"
     - module: oms-streaming-service
-      commit: "33f4e20"
+      commit: "3baed20"
   sources:
     - module: oms-core
       path: src/main/java/org/example/oms/service/command/OrderCreateCommandProcessor.java
@@ -38,7 +40,7 @@ evidence:
     - module: oms-exchange-simulator
       path: src/main/java/org/example/simulator/engine/ExchangeEngine.java
       line: 158
-      end_line: 186
+      end_line: 187
       label: "simulator: decide the outcome of a new order"
     - module: oms-core
       path: src/main/java/org/example/oms/service/lifecycle/OrderLifecycleCommandProcessor.java
@@ -47,8 +49,8 @@ evidence:
       label: "order acceptance: the lifecycle action ACCEPT, UNACK to LIVE"
     - module: oms-exchange-simulator
       path: src/main/java/org/example/simulator/engine/ExchangeEngine.java
-      line: 205
-      end_line: 222
+      line: 206
+      end_line: 223
       label: "simulator: send a fill"
     - module: oms-core
       path: src/main/java/org/example/oms/service/execution/ExecutionCommandProcessor.java
@@ -57,6 +59,6 @@ evidence:
       label: "execution processing: apply a fill"
     - module: oms-streaming-service
       path: src/main/java/org/example/streaming/controller/TradeBlotterController.java
-      line: 116
-      end_line: 131
+      line: 58
+      end_line: 78
       label: "blotter stream to the UI"

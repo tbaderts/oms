@@ -14,18 +14,18 @@ const SERVER_SEARCH = [
   '## Knowledge base search: "cancel"',
   'Mode: hybrid (BM25 + semantic, rank-fused) — 3 of 7 matching sections',
   '',
-  '### 1. `oms-knowledge-base/domain/concepts/order-lifecycle.md#cancellation`',
+  '### 1. `knowledge-base/domain/concepts/order-lifecycle.md#cancellation`',
   '**Order Lifecycle › Cancellation** (lines 40-58) — Domain Concept · stable · human-reviewed — score 0.0325 · keyword #1 · semantic #2',
   '',
   '> A cancel request moves the order to PendingCancel.',
   '> The exchange confirms it.',
   '',
-  '### 2. `oms-knowledge-base/domain/model/order-state.md#transitions`',
+  '### 2. `knowledge-base/domain/model/order-state.md#transitions`',
   '**Order State › Transitions** (lines 10-30) — score 0.0161 · keyword #3',
   '',
   '> Transitions in force.',
   '',
-  '### 3. `oms-knowledge-base/domain/concepts/order-lifecycle.md#states`',
+  '### 3. `knowledge-base/domain/concepts/order-lifecycle.md#states`',
   '**Order Lifecycle › States** (lines 5-20) — Domain Concept · stable · human-reviewed — score 0.0159 · semantic #1',
   '',
   '> The states of an order.',
@@ -77,7 +77,7 @@ describe('parseServerSearch (SPEC-0065, AC-1)', () => {
       '## Knowledge base search: "cancel order"',
       'Mode: hybrid (BM25 + semantic, rank-fused) — 2 of 72 matching sections',
       '',
-      '### 1. `oms-knowledge-base/capabilities/order-cancellation.md#summary`',
+      '### 1. `knowledge-base/capabilities/order-cancellation.md#summary`',
       '**order-cancellation.md > Order Cancellation > Summary** (lines 18-28) — Capability · draft · unverified',
       '',
       '> ## Summary',
@@ -132,7 +132,7 @@ describe('sourceDetails (SPEC-0065)', () => {
 
   it('a knowledge server read is a read match with its anchor (AC-3)', () => {
     const details = sourceDetails([
-      tool('readKnowledgeBase', { path: 'oms-knowledge-base/domain/model/order-state.md', anchor: 'transitions' }, '## `x`'),
+      tool('readKnowledgeBase', { path: 'knowledge-base/domain/model/order-state.md', anchor: 'transitions' }, '## `x`'),
       tool('readKnowledgeBase', { path: 'domain/model/order.md' }),
     ]);
     expect(details).toEqual([
@@ -145,7 +145,7 @@ describe('sourceDetails (SPEC-0065)', () => {
     const details = sourceDetails([
       tool('search_knowledge_base', { query: 'order' }, JSON.stringify({ query: 'order', count: 1, results: [{ title: 'Order', path: 'domain/model/order.md', category: 'domain', score: 2 }] })),
       tool('read_knowledge_base_document', { path: 'tools/developer-cockpit.md' }, '# Developer Cockpit'),
-      tool('stub:greet', { name: 'x' }, 'oms-knowledge-base/ignored.md'),
+      tool('stub:greet', { name: 'x' }, 'knowledge-base/ignored.md'),
     ]);
     expect(details).toEqual([
       { path: 'domain/model/order.md', matches: [{ kind: 'search', tool: 'search_knowledge_base', query: 'order', rank: 1, score: 2, category: 'domain' }] },

@@ -24,6 +24,8 @@ export function registerConfigIpc(ipcMain: IpcMain, configService: ConfigService
     return withoutSecrets(configService.getConfig());
   });
 
+  ipcMain.handle('config:project', async () => configService.getProject());
+
   /**
    * Saves the renderer's settings. Keys never travel this way (AC-4): whatever `ai.apiKey` the
    * renderer sends is ignored, and the main process's own value (normally none; a plain-text

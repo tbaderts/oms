@@ -14,7 +14,7 @@ function linkOut(ws: StoryboardWorkspace, dir: string, sub: 'steps' | 'assets') 
 }
 
 function service(ws: StoryboardWorkspace) {
-  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
   svc.scan();
   return svc;
 }
@@ -33,7 +33,7 @@ describe('storyboard folder containment', () => {
     ws = createStoryboardWorkspace();
     const dir = ws.writeExample();
     linkOut(ws, dir, 'assets');
-    const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+    const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
     const scan = svc.scan();
     expect(scan.catalogue.map((s) => s.id)).toEqual([ID]);
     expect(scan.errors).toEqual([expect.objectContaining({ code: 'symlink', path: `${dir}/assets` })]);
@@ -77,7 +77,7 @@ describe('storyboard folder containment', () => {
     ws = createStoryboardWorkspace();
     ws.writeExample();
     ws.write({ 'outside-domain/.keep': '' });
-    ws.symlink('outside-domain', 'oms-knowledge-base/storyboards/linked', 'dir');
+    ws.symlink('outside-domain', 'knowledge-base/storyboards/linked', 'dir');
     const svc = service(ws);
     const rootId = svc.scan().roots[0].rootId;
     const lanes = [{ id: 'oms', label: 'OMS', kind: 'system' as const }];
@@ -93,10 +93,10 @@ describe('storyboard folder containment', () => {
     ws = createStoryboardWorkspace();
     ws.writeExample();
     ws.write({ 'outside-templates/step.md': md({ id: '{{id}}', title: '{{title}}', kind: 'manual', leaked: true }) });
-    ws.symlink('outside-templates', 'oms-knowledge-base/storyboards/_templates', 'dir');
+    ws.symlink('outside-templates', 'knowledge-base/storyboards/_templates', 'dir');
     const svc = service(ws);
     const r = svc.createStep(ID, 'Fresh', null, detail(svc).revision);
     expect(r).toMatchObject({ ok: true, stepId: 'fresh' });
-    expect(ws.read('oms-knowledge-base/storyboards/precious-metals/buy-gold-mobile/steps/fresh.md')).not.toContain('leaked');
+    expect(ws.read('knowledge-base/storyboards/precious-metals/buy-gold-mobile/steps/fresh.md')).not.toContain('leaked');
   });
 });

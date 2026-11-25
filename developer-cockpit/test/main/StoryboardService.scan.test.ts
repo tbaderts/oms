@@ -6,10 +6,10 @@ import { FOREIGN_ROOT } from '../fixtures/workspace';
 import { DEFAULT_STORYBOARDS_CONFIG, type StoryboardsConfig } from '../../src/shared/types/storyboards';
 import { EXAMPLE_LANES, FILE_SYMLINKS, STEP_BODY, createStoryboardWorkspace, md, type StoryboardWorkspace } from '../fixtures/storyboards';
 
-const SB = 'oms-knowledge-base/storyboards';
+const SB = 'knowledge-base/storyboards';
 
 function service(ws: StoryboardWorkspace, config: Partial<StoryboardsConfig> = {}) {
-  return new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: { ...DEFAULT_STORYBOARDS_CONFIG, ...config } });
+  return new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: { ...DEFAULT_STORYBOARDS_CONFIG, ...config } });
 }
 
 function minimalStory(id: string, title: string, extra: Record<string, unknown> = {}) {
@@ -21,7 +21,7 @@ describe('StoryboardService', () => {
   it('does not throw when the workspace root does not exist; the scan degrades to an empty catalogue', () => {
     // Regression: a bad/foreign workspace root used to throw in the constructor (realpathSync) and
     // could take the app down during storyboard setup.
-    const svc = new StoryboardService({ workspaceRoot: FOREIGN_ROOT, kbPath: path.join(FOREIGN_ROOT, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+    const svc = new StoryboardService({ workspaceRoot: FOREIGN_ROOT, kbPath: path.join(FOREIGN_ROOT, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
     const scan = svc.scan();
     expect(scan.catalogue).toEqual([]);
   });

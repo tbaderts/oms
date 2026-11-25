@@ -7,6 +7,8 @@ import ExecutionBlotter from './components/ExecutionBlotter';
 import StreamingOrderBlotter from './components/StreamingOrderBlotter';
 import StreamingExecutionBlotter from './components/StreamingExecutionBlotter';
 import OrderEntry from './components/OrderEntry';
+import OutboxView from './components/OutboxView';
+import DeadLetterView from './components/DeadLetterView';
 import AuthorizeModal from './components/AuthorizeModal';
 import AcmeLogo from './components/AcmeLogo';
 import Icon from './components/icons/Icon';
@@ -16,7 +18,7 @@ import './App.scss';
 // users download none of it.
 const LoadHarness = React.lazy(() => import('./loadHarness/LoadHarness'));
 
-type TabType = 'orders' | 'executions' | 'orderEntry' | 'quotes' | 'quoteRequests';
+type TabType = 'orders' | 'executions' | 'orderEntry' | 'outbox' | 'deadLetters' | 'quotes' | 'quoteRequests';
 type DataMode = 'rest' | 'streaming';
 
 const OmsApp: React.FC = () => {
@@ -84,6 +86,18 @@ const OmsApp: React.FC = () => {
     if (activeTab === 'orderEntry') setOrderEntryOpened(true);
   }, [activeTab]);
 
+  // The operator views (SPEC-0075): each loads when its tab is first opened and then stays mounted,
+  // so switching tabs keeps its filter, page and open detail.
+  const [operationsOpened, setOperationsOpened] = useState<{ outbox: boolean; deadLetters: boolean }>({
+    outbox: false,
+    deadLetters: false,
+  });
+  useEffect(() => {
+    if (activeTab === 'outbox' || activeTab === 'deadLetters') {
+      setOperationsOpened((opened) => (opened[activeTab] ? opened : { ...opened, [activeTab]: true }));
+    }
+  }, [activeTab]);
+
   return (
     <div className="oms-app">
       {/* Header */}
@@ -145,6 +159,18 @@ const OmsApp: React.FC = () => {
         >
           Order Entry
         </button>
+        <button
+          className={`tab ${activeTab === 'outbox' ? 'active' : ''}`}
+          onClick={() => setActiveTab('outbox')}
+        >
+          Outbox
+        </button>
+        <button
+          className={`tab ${activeTab === 'deadLetters' ? 'active' : ''}`}
+          onClick={() => setActiveTab('deadLetters')}
+        >
+          Dead letters
+        </button>
         {featureFlags.quotesEnabled && (
           <button
             className={`tab ${activeTab === 'quotes' ? 'active' : ''}`}
@@ -185,6 +211,24 @@ const OmsApp: React.FC = () => {
             style={activeTab !== 'orderEntry' ? { display: 'none' } : undefined}
           >
             <OrderEntry onShowOrders={() => setActiveTab('orders')} />
+          </div>
+        )}
+        {(operationsOpened.outbox || activeTab === 'outbox') && (
+          <div
+            className="blotter-view"
+            hidden={activeTab !== 'outbox'}
+            style={activeTab !== 'outbox' ? { display: 'none' } : undefined}
+          >
+            <OutboxView />
+          </div>
+        )}
+        {(operationsOpened.deadLetters || activeTab === 'deadLetters') && (
+          <div
+            className="blotter-view"
+            hidden={activeTab !== 'deadLetters'}
+            style={activeTab !== 'deadLetters' ? { display: 'none' } : undefined}
+          >
+            <DeadLetterView />
           </div>
         )}
         {activeTab === 'quotes' && <div>Quotes blotter (coming soon)</div>}

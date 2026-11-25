@@ -1,11 +1,12 @@
 // check:storyboards — the CI content gate for storyboards (source-spec §13).
 //   node dist/main/storyboards/cli/checkStoryboards.js [--strict] [--workspace <dir>]
 // Normal mode fails on scan errors, error-severity problems and broken evidence. --strict also fails
-// on warnings, drift and unevidenced storyboards. Uses the default configuration plus the
-// COCKPIT_STORYBOARDS_* environment overrides, never the developer's own config file.
+// on warnings, drift and unevidenced storyboards. Uses the workspace's cockpit.yaml (or the defaults)
+// plus the COCKPIT_STORYBOARDS_* environment overrides, never the developer's own config file.
 import * as path from 'path';
 import { DEFAULT_CONFIG } from '../../../shared/types/config';
-import { resolveStoryboardsConfig } from '../../services/ConfigService';
+import { applyProjectConfig, resolveStoryboardsConfig } from '../../services/ConfigService';
+import { ProjectConfigService } from '../../services/ProjectConfigService';
 import { EvidenceService } from '../EvidenceService';
 import { LinkIndexService } from '../LinkIndexService';
 import { StoryboardService } from '../StoryboardService';
@@ -18,11 +19,20 @@ export interface CheckOptions {
 }
 
 export function runCheck({ workspace, strict, env = process.env, out = console.log }: CheckOptions): number {
-  const kbPath = path.join(workspace, DEFAULT_CONFIG.knowledgeBase.rootPath);
-  const config = resolveStoryboardsConfig(DEFAULT_CONFIG.storyboards, env);
-  const linkIndex = new LinkIndexService({ workspaceRoot: workspace, kbPath, openApiPaths: DEFAULT_CONFIG.specs.openApiPaths, avroPaths: DEFAULT_CONFIG.specs.avroPaths });
+  const project = new ProjectConfigService(() => workspace, () => {}).get();
+  for (const e of project.errors) out(`${project.file}: ${e.path ? `${e.path}: ` : ''}${e.message}`);
+  const settings = applyProjectConfig(DEFAULT_CONFIG, project);
+  const kbPath = path.join(workspace, settings.knowledgeBase.rootPath);
+  const config = resolveStoryboardsConfig(settings.storyboards, env);
+  const linkIndex = new LinkIndexService({
+    workspaceRoot: workspace,
+    kbPath,
+    openApiPaths: settings.specs.openApiPaths,
+    avroPaths: settings.specs.avroPaths,
+    stateDiagramDoc: project.config.knowledgeBase.stateDiagramDoc,
+  });
   const evidence = new EvidenceService({ workspaceRoot: workspace, kbPath });
-  const service = new StoryboardService({ workspaceRoot: workspace, kbPath, config, linkIndex, evaluateCard: evidence.evaluator() });
+  const service = new StoryboardService({ workspaceRoot: workspace, kbPath, config, library: project.config.storyboards.library, linkIndex, evaluateCard: evidence.evaluator() });
 
   const scan = service.scan();
   let failed = scan.errors.length > 0;

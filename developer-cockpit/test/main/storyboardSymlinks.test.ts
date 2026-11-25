@@ -27,7 +27,7 @@ function reportAsSymlink(fileName: string) {
 }
 
 function service(ws: StoryboardWorkspace) {
-  return new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+  return new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
 }
 
 describe('symlinked files (simulated through lstat)', () => {

@@ -46,6 +46,9 @@ machine-checkable part is `specs/policies/rules.json`. Only humans approve (`spe
 
 The [Developer Cockpit](../tools/developer-cockpit.md) lists tickets by stage, shows and edits
 their documents, runs gates and approvals, and shows the capability catalogue the tickets change.
+It is a generic tool with its own repository (SPEC-0076); it finds this workflow through
+`specs.cli: specs/tools/spec.mjs` in the repository's `cockpit.yaml` and only calls that CLI, so
+the workflow rules stay here.
 
 ## Git
 

@@ -8,9 +8,9 @@
 export interface DockerContainer {
   /** The Docker container ID (12+ char hex). */
   id: string;
-  /** The container name from `docker ps` (e.g. "oms-core"). */
+  /** The container name from `docker ps` (e.g. "api"). */
   name: string;
-  /** The image name:tag (e.g. "oms-core:latest"). */
+  /** The image name:tag (e.g. "api:latest"). */
   image: string;
   /** running | restarting | exited | dead | paused | created */
   status: string;

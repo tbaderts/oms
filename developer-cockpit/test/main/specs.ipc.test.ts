@@ -32,7 +32,7 @@ describe('specs IPC', () => {
     }
     const configService = new ConfigService(tmp('cockpit-cfg-'));
     const config = await configService.load();
-    await configService.save({ ...config, general: { ...config.general, workspaceRoot: root } });
+    await configService.save({ ...config, general: { ...config.general, workspaceRoot: root }, specs: { ...config.specs, openApiPaths: ['oms-contracts/src/main/openapi'] } });
     const { ipcMain, invoke } = fakeIpcMain();
     registerSpecsIpc(ipcMain, configService);
 

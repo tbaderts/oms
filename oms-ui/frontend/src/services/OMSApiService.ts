@@ -1,7 +1,10 @@
 // OMSApiService.ts - Query domain objects from OMS backend
 import { ApiClient } from './ApiClient';
 import { ConfigService } from './ConfigService';
-import { FilterCondition, PageResponse, Order, Execution, OrderEventEntry, CommandLogEntry } from '../types/types';
+import {
+  FilterCondition, PageResponse, Order, Execution, OrderEventEntry, CommandLogEntry,
+  OutboxState, OutboxSummary, OutboxMessagePage, OutboxMessageDetail, DeadLetterTopic, DeadLetterRecord,
+} from '../types/types';
 
 /** What became of an order sent from order entry (SPEC-0072). */
 export type CreateOrderOutcome =
@@ -112,6 +115,45 @@ export class OMSApiService {
     const commands = await this.apiClient.get<CommandLogEntry[] | null>(
       `/api/query/orders/${encodeURIComponent(orderId)}/commands`);
     return Array.isArray(commands) ? commands : [];
+  }
+
+  // --- Operations (SPEC-0075): the outbox and the dead-letter topics, read-only ---
+
+  private client(): ApiClient {
+    if (!this.apiClient) {
+      throw new Error('API client not initialized');
+    }
+    return this.apiClient;
+  }
+
+  /** The outbox counted by state. */
+  public async getOutboxSummary(): Promise<OutboxSummary> {
+    return this.client().get<OutboxSummary>('/api/query/admin/outbox/summary');
+  }
+
+  /** A page of outbox messages, oldest first, of one state or of all. */
+  public async getOutboxMessages(state: OutboxState | undefined, page: number, size: number): Promise<OutboxMessagePage> {
+    const params = state ? { state, page, size } : { page, size };
+    const raw = await this.client().get<OutboxMessagePage | null>('/api/query/admin/outbox/messages', { params });
+    return raw ?? { content: [], page: { size, totalElements: 0, totalPages: 0, number: page } };
+  }
+
+  /** One outbox message with its payload; rejects with 404 when it was published meanwhile. */
+  public async getOutboxMessage(id: number): Promise<OutboxMessageDetail> {
+    return this.client().get<OutboxMessageDetail>(`/api/query/admin/outbox/messages/${id}`);
+  }
+
+  /** The dead-letter topics and their record counts. */
+  public async getDeadLetterTopics(): Promise<DeadLetterTopic[]> {
+    const topics = await this.client().get<DeadLetterTopic[] | null>('/api/query/admin/dead-letters');
+    return Array.isArray(topics) ? topics : [];
+  }
+
+  /** The latest records of one dead-letter topic, newest first. */
+  public async getDeadLetterRecords(topic: string, limit: number): Promise<DeadLetterRecord[]> {
+    const records = await this.client().get<DeadLetterRecord[] | null>(
+      `/api/query/admin/dead-letters/${encodeURIComponent(topic)}/records`, { params: { limit } });
+    return Array.isArray(records) ? records : [];
   }
 
   /**

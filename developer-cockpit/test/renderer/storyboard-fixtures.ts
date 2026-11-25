@@ -47,7 +47,7 @@ export function scanOf(details: StoryboardDetail[], overrides: Partial<ScanResul
     writable: true,
     catalogue: details.map(summaryOf),
     errors: [],
-    roots: [{ rootId: 'abcdef123456', label: 'oms-knowledge-base/storyboards' }],
+    roots: [{ rootId: 'abcdef123456', label: 'knowledge-base/storyboards' }],
     ...overrides,
   };
 }

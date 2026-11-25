@@ -5,7 +5,7 @@ title: "Outbox Message"
 description: "A message staged in the outbox table in the same transaction as a state change, later published to Kafka by the outbox relay."
 tags: [outbox, kafka, entity]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 entity: "OutboxMessage"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -41,6 +41,19 @@ A pointer whose event or execution cannot be read fails definitively: `lastError
 and the version, its attempts count, and after `max-attempts` its aggregate is held like any
 stuck row. The target is committed in the same transaction as the row, so a missing one is a
 defect, not a race. How the relay claims, sends and retries: [Event Publication](../../capabilities/event-publication.md#the-relay-spec-0026).
+
+**Seeing the outbox (SPEC-0075).** oms-ui's **Outbox** tab shows the messages waiting, by state:
+- *pending:* retried as usual;
+- *stuck:* out of attempts;
+- *held:* behind a stuck message of the same topic and key.
+
+It shows each one's attempts and `lastError`, and its payload or pointer target. The state is
+derived on every read with the relay's own predicates, never stored. It is served by
+`GET /api/query/admin/outbox/*` ([Query API](../interfaces/query-api.md#operations-outbox-and-dead-letters)).
+The view is read-only: replaying or removing a stuck message is still a manual step (a follow-up
+ticket). Its *pending* count excludes stuck and held messages. The `oms.outbox.pending` gauge counts
+every row in the outbox, all three states, so Grafana and the tab differ whenever a message is
+stuck.
 
 ## Related
 

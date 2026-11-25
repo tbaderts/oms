@@ -17,11 +17,11 @@ function setup(maxAssetBytes = DEFAULT_STORYBOARDS_CONFIG.maxAssetBytes) {
     [`${dir}/assets/page.html`]: '<script>x</script>',
     [`${dir}/assets/big.png`]: Buffer.alloc(2048),
     [`${dir}/assets/nested/inner.png`]: Buffer.from([1]),
-    ['oms-knowledge-base/secret.png']: Buffer.from([1]),
+    ['knowledge-base/secret.png']: Buffer.from([1]),
   });
   const svc = new StoryboardService({
     workspaceRoot: ws.root,
-    kbPath: path.join(ws.root, 'oms-knowledge-base'),
+    kbPath: path.join(ws.root, 'knowledge-base'),
     config: { ...DEFAULT_STORYBOARDS_CONFIG, maxAssetBytes },
   });
   svc.scan();
@@ -89,7 +89,7 @@ describe('resolveAsset', () => {
     let svc: StoryboardService;
     let dir: string;
     ({ ws, svc, dir } = setup());
-    ws.symlink('oms-knowledge-base/secret.png', `${dir}/assets/link.png`);
+    ws.symlink('knowledge-base/secret.png', `${dir}/assets/link.png`);
     expect(resolveAsset(svc, 'buy-gold-mobile', 'link.png').status).toBe(404);
   });
 });

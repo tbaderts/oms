@@ -4,7 +4,7 @@ import { decodeToolText } from '../../src/shared/mcpText';
 
 describe('decodeToolText (SPEC-0065, AC-10)', () => {
   it('decodes a JSON-encoded tool text, leaves other text alone', () => {
-    const markdown = '## Knowledge base search: "cancel order"\nMode: hybrid — 2 of 72\n\n### 1. `oms-knowledge-base/a.md#b`\n';
+    const markdown = '## Knowledge base search: "cancel order"\nMode: hybrid — 2 of 72\n\n### 1. `knowledge-base/a.md#b`\n';
     // What the knowledge server sent before SPEC-0065: Spring AI serialised the String with Jackson.
     expect(decodeToolText(JSON.stringify(markdown))).toBe(markdown);
     expect(decodeToolText(`  ${JSON.stringify(markdown)}\n`)).toBe(markdown);

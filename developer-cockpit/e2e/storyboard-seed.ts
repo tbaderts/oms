@@ -3,7 +3,7 @@ import * as path from 'path';
 
 const COCKPIT_ROOT = path.resolve(__dirname, '..');
 export const EXCALIDRAW_SVG = fs.readFileSync(path.join(COCKPIT_ROOT, 'test', 'fixtures', 'storyboards', 'excalidraw-export.excalidraw.svg'), 'utf8');
-export const STORYBOARDS = path.join('oms-knowledge-base', 'storyboards');
+export const STORYBOARDS = path.join('knowledge-base', 'storyboards');
 
 /** Writes a small storyboard (two steps, one Excalidraw sketch) into a temporary workspace. */
 export function seedStoryboard(workspace: string): string {

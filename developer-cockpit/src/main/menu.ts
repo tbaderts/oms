@@ -1,6 +1,13 @@
 import { Menu, shell, app, BrowserWindow } from 'electron';
+import type { ProjectLink } from '../shared/projectConfig';
 
-export function createApplicationMenu(): void {
+/** The project's links from cockpit.yaml as Help menu items, after a separator; none when empty. */
+export function helpLinkItems(links: ProjectLink[], open: (url: string) => unknown = (url) => shell.openExternal(url)): Electron.MenuItemConstructorOptions[] {
+  if (!links.length) return [];
+  return [{ type: 'separator' }, ...links.map((l) => ({ label: l.label, click: () => void open(l.url) }))];
+}
+
+export function createApplicationMenu(links: ProjectLink[] = []): void {
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: 'File',
@@ -74,11 +81,7 @@ export function createApplicationMenu(): void {
             }
           },
         },
-        { type: 'separator' },
-        {
-          label: 'OMS Documentation',
-          click: () => shell.openExternal('http://localhost:8080/swagger-ui.html'),
-        },
+        ...helpLinkItems(links),
       ],
     },
   ];

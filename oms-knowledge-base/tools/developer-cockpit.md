@@ -2,10 +2,10 @@
 aliases: [architecture/developer-cockpit]
 type: Component
 title: "Developer Cockpit"
-description: "Electron desktop tool for the spec workflow, the knowledge base, requirements and storyboards."
+description: "Generic Electron workbench for the spec workflow, knowledge base, storyboards and service monitoring; the OMS configures it with cockpit.yaml."
 tags: [component, electron, tooling, storyboards]
 status: draft
-updated: "2026-11-16T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 component: "developer-cockpit"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-29T12:00:00Z" }
 sources:
@@ -23,6 +23,10 @@ sources:
   - resource: "repo:developer-cockpit/src/main/services/MonitorService.ts"
   - resource: "repo:developer-cockpit/src/shared/prometheusParser.ts"
   - resource: "repo:developer-cockpit/src/renderer/views/monitor/MonitorView.tsx"
+  - resource: "repo:developer-cockpit/src/shared/projectConfig.ts"
+  - resource: "repo:developer-cockpit/src/main/services/ApiCatalogService.ts"
+  - resource: "repo:cockpit.yaml"
+  - resource: "repo:tools/api-templates/orders.http"
   - resource: "repo:developer-cockpit/src/main/ai/KbChatTools.ts"
   - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatPanel.tsx"
   - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatDetails.tsx"
@@ -37,6 +41,26 @@ sources:
 An Electron desktop tool for the people building the OMS: the spec-ticket workflow, the knowledge
 base, storyboards, an API explorer, an AI assistant, Docker and monitoring. Not part of the runtime
 system.
+
+## A generic tool, configured by `cockpit.yaml`
+
+Since SPEC-0076 the cockpit is project-neutral; its home is
+[github.com/tbaderts/developer-cockpit](https://github.com/tbaderts/developer-cockpit), with the
+history it had here. Its source contains nothing about the OMS. Everything OMS-specific comes from
+`cockpit.yaml` at the root of this repository:
+
+| Section | OMS value |
+|---|---|
+| `knowledgeBase` | `oms-knowledge-base`, the `okf-check` script, `domain/model/order-state.md` as the state diagram storyboard steps link to, and the [knowledge server](knowledge-server.md) (`http://localhost:8091/mcp`) for the KB chat |
+| `specs` | `specs/tools/spec.mjs`; contracts in `oms-contracts/src/main/{openapi,avro}` |
+| `codegen` | The oms-contracts model generation, then oms-core's API interfaces (`./gradlew`, `gradlew.bat` on Windows) |
+| `apiExplorer` | The command API (`/api/command`) and query API (`/api/query`) of oms-core, and the `.http` templates in `tools/api-templates/` and `oms-core/rest.http` |
+| `monitoring` | Every service of the root `docker-compose.yml`, and the panels below |
+| `links` | Grafana, Swagger UI, the OMS UI, Alloy |
+
+Personal settings (theme, AI provider and keys, the workspace root) stay in
+`~/.developer-cockpit/config.json`. The cockpit's README in its repository documents every key.
+The `developer-cockpit/` folder still exists in this repository until a follow-up removes it.
 
 ## Requirements
 
@@ -54,8 +78,8 @@ The **Requirements** view is how people browse the [capability catalogue](../cap
 
 The Use Cases tab also shows each use case's capability, alternative flows and linked requirements;
 the Non-Functional tab shows implementation. The storyboard link index (`LinkIndexService`) and the
-AI extracts (`kbExtracts`) use the same layout module for requirement ids and the order-state
-document.
+AI extracts (`kbExtracts`) use the same layout module for requirement ids; the order-state document
+is `knowledgeBase.stateDiagramDoc` in `cockpit.yaml`.
 
 ## AI provider keys
 
@@ -201,32 +225,39 @@ The **Storyboards** view (Knowledge group, SPEC-0014) reads and edits the proces
 - **Optional AI assists** (draft prose, review alternate paths, suggest links) only propose
   changes; the user applies them to the editor draft.
 - **CI gate.** `npm run check:storyboards [-- --strict]` in `developer-cockpit` checks the
-  repository's storyboards.
+  repository's storyboards, with the roots and library named in `cockpit.yaml`.
 
 ## Monitoring
 
-The **Monitoring** view (Infrastructure group, SPEC-0053) shows the health and headline metrics of
-a running oms-core so a developer can see the system's pulse without leaving the cockpit. It is
-read-only: it only *reads* actuator endpoints, never sends commands.
+The **Monitoring** view (Infrastructure group) watches the services and metrics listed under
+`monitoring` in `cockpit.yaml` (SPEC-0076; it replaced the oms-core-only view of SPEC-0053). It
+is read-only and polls every `intervalSeconds` (10 s for the OMS) while it is open.
 
-- **Data source.** `MonitorService` (main process) calls the two Spring Boot Actuator endpoints
-  that oms-core already exposes (`/actuator/health` for the service state, `/actuator/prometheus`
-  for the Micrometer meters, per SPEC-0038/SPEC-0033). The base URL is the configured
-  `infrastructure.omsCoreUrl` from Settings (default `http://localhost:8090`), read per poll so a
-  settings change applies to the next refresh.
-- **Polling.** While the view is open it polls every 10 s (a renderer-side timer, started on mount
-  and cleared on unmount); the interval is reset after each response so a slow request cannot stack
-  polls. A manual **Refresh** fires immediately and restarts the timer.
-- **Tiles.** The `/actuator/prometheus` text is parsed in-process (`parsePrometheus`) into the
-  OMS-domain series the tiles display: orders by state, order events (+ a per-minute rate
-  derived from the accumulated counter), time-to-ACK and time-to-market (p99, interpolated from
-  the Prometheus histogram buckets and therefore approximate), and the outbox pending/stuck/oldest
-  age. The `/actuator/health` status (UP / DOWN / OUT_OF_SERVICE) is shown in a dedicated tile.
-- **Resilience.** A poll that fails while a previous sample exists keeps the last sample on screen
-  and marks it *Connection lost*; a first-ever failure shows an error banner naming the configured
-  URL. The raw prometheus text is always available in a read-only pane (truncated at 5 MB) as the
-  source of truth for any metric the tiles do not surface.
-- **Scope.** JVM/system metrics (`jvm_*` series), historical time series and charting are out of
-  scope for this ticket; the raw pane still exposes `jvm_*` if needed.
+- **Service board.** One tile per service, grouped as Application, Messaging, Data and
+  Observability, with a count of services up. A tile is UP, DOWN (with the reason) or UNKNOWN by
+  its check: Spring Boot actuator health for oms-core, oms-streaming-service and
+  oms-exchange-simulator; an HTTP status for oms-ui, the Schema Registry, Control Center, pgAdmin,
+  Grafana, Loki, Alloy, Mimir and Tempo; a TCP connect for the broker, both Postgres instances,
+  oms-mcp-server and grafana-mcp. Each tile also shows a response-time sparkline and the last 30
+  checks; a timeline lists every status change while the view is open.
+- **Panels.** Orders by state, order events per minute, outbox pending, stuck and oldest age, heap
+  used and active DB connections are read from oms-core's `/actuator/prometheus`, so they work on
+  a host-native run without the observability stack. Time to ACK and time to market p99
+  (milliseconds) exist only as histograms in Mimir (`http://localhost:9009/prometheus`), so those
+  two need the stack. The raw Prometheus text pane of SPEC-0053 is gone; Grafana Explore covers it.
+- **Resilience.** Every check and panel fails on its own: a service that is down, or a query that
+  fails, shows its reason while the rest update. An invalid `cockpit.yaml` is reported with the
+  path of the bad entry.
+- **Scope.** Check history is kept in memory for the session; Grafana (linked from the header)
+  holds the long-term series.
+
+## API Explorer
+
+The API Explorer lists the operations of the OpenAPI specs under `apiExplorer.apis`. For the OMS
+that is oms-core's command API, whose `Command` discriminator becomes one body variant per command
+type (OrderCreateCmd, OrderAcceptCmd, …), and its query API with the search parameters. Requests and
+their bodies are checked against the contract before sending. The order and lifecycle requests are
+`.http` templates in `tools/api-templates/`. The OMS-specific Orders tab and order follow-up of
+SPEC-0007 are gone; the order's events are one query operation away.
 
 Context: [System Context](../architecture/context/system-context.md).

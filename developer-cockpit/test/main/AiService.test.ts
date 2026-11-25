@@ -393,3 +393,31 @@ describe('AiService provider stream errors (SPEC-0062 AC-8)', () => {
     expect(types(events).indexOf('ai:error')).toBeLessThan(types(events).indexOf('ai:done'));
   });
 });
+
+describe('AiService project identity (SPEC-0076 AC-6)', () => {
+  it('systemPromptNamesConfiguredProject', async () => {
+    const prompts: unknown[] = [];
+    const model = {
+      ...(fakeModel({ script: [{ type: 'stream-start', warnings: [] }, ...textStep('t1', 'ok'), finish('stop')] }) as object),
+      doStream: async (options: { prompt: unknown }) => {
+        prompts.push(options.prompt);
+        return { stream: streamFrom([{ type: 'stream-start', warnings: [] }, ...textStep('t1', 'ok'), finish('stop')]) };
+      },
+    } as unknown as import('ai').LanguageModel;
+    const service = new AiService({ ...DEFAULT_CONFIG.ai, provider: 'anthropic' }, { ANTHROPIC_API_KEY: 'k' }, {
+      broadcast: () => {},
+      model,
+      log: () => {},
+      project: () => ({ name: 'Acme Shop', description: 'An online shop for garden tools', kbRoot: 'handbook' }),
+    });
+
+    await service.complete({ prompt: 'hi', runId: 'r1' });
+    await service.runChat({ messages: [{ role: 'user', content: 'what is a basket?' }], runId: 'r2' });
+
+    const system = (p: unknown) => JSON.stringify((p as { role: string; content: unknown }[]).find((m) => m.role === 'system'));
+    expect(system(prompts[0])).toContain('developer cockpit assistant for Acme Shop. An online shop for garden tools.');
+    expect(system(prompts[1])).toContain('knowledge base of Acme Shop');
+    expect(system(prompts[1])).toContain('written as handbook/<path>');
+    expect(prompts.map(system).join(' ')).not.toMatch(/\bOMS\b|order management/i);
+  });
+});

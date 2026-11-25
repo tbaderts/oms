@@ -1,50 +1,44 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { COMMAND_PATH, SHARED_TEMPLATE_DIR, type SaveTemplateRequest, type SaveTemplateResult, type TemplateSource } from '../../shared/apiExplorer';
+import type { SaveTemplateRequest, SaveTemplateResult, TemplateSource } from '../../shared/apiExplorer';
+import { HTTP_METHODS } from '../../shared/apiExplorer';
 import { effectiveNames, formatTemplateBlock, parseHttpFile } from '../../shared/httpFile';
 
 const FILE_NAME = /^[\w.-]+\.http$/;
 const MAX_NAME = 80;
 
 /**
- * The API Explorer's `.http` template files (SPEC-0008): every file in the shared folder plus the
- * configured extra sources. Read on every call; saving only appends, and only to a listed source
- * or a new file in the shared folder.
+ * The API Explorer's `.http` template files (SPEC-0008, SPEC-0076): the sources a project lists
+ * in `apiExplorer.templateSources` (or in Settings). Read on every call; saving only appends, to a
+ * listed source or to a new file next to the first listed source.
  */
 export class ApiTemplateService {
   constructor(
     private workspaceRoot: string,
-    private extraSources: string[],
-    private baseUrl: () => string,
+    private sources: string[],
   ) {}
 
   list(): TemplateSource[] {
-    const sharedDir = path.join(this.workspaceRoot, SHARED_TEMPLATE_DIR);
-    let shared: string[] = [];
-    try {
-      shared = fs.readdirSync(sharedDir).filter((f) => FILE_NAME.test(f)).sort();
-    } catch {
-      // no shared folder: only the configured sources
-    }
-    return [
-      ...shared.map((f) => this.read(path.join(sharedDir, f), true)),
-      ...this.extraSources.filter((s) => s.trim()).map((s) => this.read(path.resolve(this.workspaceRoot, s.trim()), false)),
-    ];
+    return this.sources.filter((s) => s.trim()).map((s) => this.read(path.resolve(this.workspaceRoot, s.trim())));
   }
 
   save(req: SaveTemplateRequest): SaveTemplateResult {
     const name = req.name.trim();
     if (!name || name.length > MAX_NAME || /[\r\n]/.test(name)) return { ok: false, error: `Template name must be 1–${MAX_NAME} characters on one line` };
+    const method = req.method.toUpperCase();
+    if (!(HTTP_METHODS as readonly string[]).includes(method)) return { ok: false, error: `Unsupported method ${req.method}` };
+    if (!req.url.trim() || /\s/.test(req.url.trim())) return { ok: false, error: 'The URL must be one word without spaces' };
 
     try {
       if ('newFile' in req) {
         if (!FILE_NAME.test(req.newFile)) return { ok: false, error: 'File name must look like name.http' };
-        const rel = `${SHARED_TEMPLATE_DIR}/${req.newFile}`;
-        const file = path.join(this.workspaceRoot, rel);
+        const first = this.list()[0];
+        if (!first) return { ok: false, error: 'List a template file under apiExplorer.templateSources in cockpit.yaml first' };
+        const file = path.join(path.dirname(this.absolute(first.path)), req.newFile);
+        const rel = this.display(file);
         if (fs.existsSync(file)) return { ok: false, error: `${rel} already exists` };
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        const header = `@baseUrl = ${this.baseUrl()}\n`;
-        fs.writeFileSync(file, header + formatTemplateBlock(name, `{{baseUrl}}${COMMAND_PATH}`, req.body), { flag: 'wx' });
+        fs.writeFileSync(file, formatTemplateBlock(name, method, req.url.trim(), req.body).replace(/^\n/, ''), { flag: 'wx' });
         return this.saved(name, rel);
       }
 
@@ -55,11 +49,10 @@ export class ApiTemplateService {
       }
       const file = this.absolute(source.path);
       const text = fs.readFileSync(file, 'utf8');
-      const url = 'baseUrl' in source.file.variables ? `{{baseUrl}}${COMMAND_PATH}` : `${this.baseUrl().replace(/\/+$/, '')}${COMMAND_PATH}`;
       // Appending keeps every byte already in the file; only a missing final newline is added.
       // The block takes the file's line endings.
       const eol = text.includes('\r\n') ? '\r\n' : '\n';
-      const block = (text === '' || text.endsWith('\n') ? '' : '\n') + formatTemplateBlock(name, url, req.body);
+      const block = (text === '' || text.endsWith('\n') ? '' : '\n') + formatTemplateBlock(name, method, req.url.trim(), req.body);
       fs.appendFileSync(file, eol === '\n' ? block : block.replace(/\r?\n/g, eol));
       return this.saved(name, source.path);
     } catch (err) {
@@ -72,13 +65,13 @@ export class ApiTemplateService {
     return { ok: true, path: rel };
   }
 
-  private read(file: string, shared: boolean): TemplateSource {
+  private read(file: string): TemplateSource {
     const p = this.display(file);
-    if (!fs.existsSync(file)) return { path: p, shared, missing: true };
+    if (!fs.existsSync(file)) return { path: p, missing: true };
     try {
-      return { path: p, shared, file: parseHttpFile(fs.readFileSync(file, 'utf8')) };
+      return { path: p, file: parseHttpFile(fs.readFileSync(file, 'utf8')) };
     } catch (err) {
-      return { path: p, shared, error: (err as Error).message };
+      return { path: p, error: (err as Error).message };
     }
   }
 

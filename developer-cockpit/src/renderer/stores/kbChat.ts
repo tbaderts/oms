@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AiStatus, KbChatMessage, KbChatToolSource } from '@shared/types/ai';
-import { KB_BUNDLE_PREFIX } from '@shared/kbPath';
+import { kbBundlePrefix } from '@shared/kbPath';
 import { extractSources, type KbChatToolEvent } from '@/lib/kbChatSources';
 import type { KbChatStep, KbChatTrace } from '@/lib/kbChatTrace';
 import { eventBus } from '@/lib/event-bus';
@@ -153,7 +153,7 @@ export const useKbChatStore = create<KbChatState>((set, get) => ({
   },
 
   summarise: async (path, title) => {
-    await get().send(`Summarise the knowledge base document \`${KB_BUNDLE_PREFIX}${path}\` ("${title}"). Read it first.`);
+    await get().send(`Summarise the knowledge base document \`${kbBundlePrefix()}${path}\` ("${title}"). Read it first.`);
   },
 
   stop: () => {

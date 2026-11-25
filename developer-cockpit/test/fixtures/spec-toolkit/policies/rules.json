@@ -1,0 +1,106 @@
+{
+  "rules": [
+    {
+      "id": "R01",
+      "policy": "P-01",
+      "type": "forbid-path",
+      "severity": "error",
+      "paths": ["*/src/main/openapi/**", "*/src/main/avro/**"],
+      "allow": ["oms-contracts/**"],
+      "message": "contracts must live in oms-contracts/src/main/{openapi,avro}"
+    },
+    {
+      "id": "R02",
+      "policy": "P-02",
+      "type": "forbid-path",
+      "severity": "error",
+      "paths": ["*/src/main/java/org/example/common/model/{cmd,query,msg}/**"],
+      "message": "models in these packages are generated from oms-contracts; do not hand-write them"
+    },
+    {
+      "id": "R03",
+      "policy": "P-12",
+      "type": "forbid-pattern",
+      "severity": "error",
+      "paths": ["oms-core/src/**/*.java", "oms-streaming-service/src/**/*.java"],
+      "pattern": "import\\s+(static\\s+)?com\\.fasterxml\\.jackson\\.(databind|core|datatype)\\.",
+      "message": "use Jackson 3 (tools.jackson.*); only com.fasterxml.jackson.annotation is allowed"
+    },
+    {
+      "id": "R04",
+      "policy": "P-06",
+      "type": "forbid-pattern",
+      "severity": "error",
+      "paths": ["oms-core/src/main/**/*.java"],
+      "allow": [
+        "oms-core/src/main/java/org/example/oms/config/Kafka*Config.java",
+        "oms-core/src/main/java/org/example/oms/service/MessagePublisher.java",
+        "oms-core/src/main/java/org/example/oms/service/OutboxRelay.java"
+      ],
+      "pattern": "\\b(KafkaTemplate|MessagePublisher)\\b",
+      "message": "publish through the transactional outbox; only OutboxRelay may use MessagePublisher/KafkaTemplate"
+    },
+    {
+      "id": "R05",
+      "policy": "P-07",
+      "type": "immutable",
+      "severity": "error",
+      "paths": ["oms-core/src/main/resources/db/changelog/[0-9]*"],
+      "message": "applied Liquibase changesets are immutable; add a new numbered changelog instead"
+    },
+    {
+      "id": "R06",
+      "policy": "P-07",
+      "type": "forbid-pattern",
+      "severity": "error",
+      "paths": ["*/src/main/resources/**/application*.{yml,yaml,properties}"],
+      "pattern": "ddl-auto\\s*[:=]\\s*(update|create|create-drop)\\b",
+      "message": "schema is owned by Liquibase; Hibernate must not generate DDL"
+    },
+    {
+      "id": "R07",
+      "policy": "P-14",
+      "type": "require-change",
+      "severity": "warn",
+      "paths": ["oms-*/src/main/java/**"],
+      "then": ["{module}/src/test/**"],
+      "message": "production code changed without any test change in the same module"
+    },
+    {
+      "id": "R08",
+      "policy": "P-15",
+      "type": "forbid-pattern",
+      "severity": "error",
+      "paths": ["*/src/main/**/*.java"],
+      "pattern": "System\\.(out|err)\\.print|\\.printStackTrace\\(",
+      "message": "use SLF4J logging"
+    },
+    {
+      "id": "R09",
+      "policy": "P-16",
+      "type": "forbid-pattern",
+      "severity": "warn",
+      "paths": ["**/*.{java,yml,yaml,properties,ts,tsx,js,env}"],
+      "allow": ["**/src/test/**", "**/*.test.*"],
+      "pattern": "(password|secret|api[_-]?key|access[_-]?token)\\s*[:=]\\s*[\"']?[A-Za-z0-9+/_-]{8,}",
+      "flags": "i",
+      "message": "possible hard-coded secret; use an environment variable"
+    },
+    {
+      "id": "R10",
+      "policy": "P-17",
+      "type": "warn-on-change",
+      "severity": "warn",
+      "paths": ["**/build.gradle", "**/settings.gradle", "oms-ui/frontend/package.json", "docker-compose.yml"],
+      "message": "build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    },
+    {
+      "id": "R11",
+      "policy": "P-19",
+      "type": "forbid-path",
+      "severity": "warn",
+      "paths": ["openwiki/**"],
+      "message": "OpenWiki pages are generated; update the source docs instead"
+    }
+  ]
+}

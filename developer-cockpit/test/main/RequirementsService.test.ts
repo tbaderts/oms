@@ -4,6 +4,7 @@ import * as path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RequirementsService } from '../../src/main/services/RequirementsService';
 import { COCKPIT_ROOT } from '../fixtures/workspace';
+import { REPO_ROOT, hostHas } from '../fixtures/workspace';
 
 /** Top-level folders of the knowledge base before SPEC-0061, spelled in parts so reference checks do not flag this file. */
 const LEGACY = ['concepts', 'framework', 'methodolgy'].map((s) => `oms-${s}`);
@@ -199,8 +200,8 @@ describe('RequirementsService (SPEC-0061 layout)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('reads the real knowledge base: every FR and NFR file, and at least one capability, use case and actor', () => {
-    const kbPath = path.join(COCKPIT_ROOT, '..', 'oms-knowledge-base');
+  it.skipIf(!hostHas('oms-knowledge-base'))('reads the real knowledge base: every FR and NFR file, and at least one capability, use case and actor (needs host knowledge base next to the cockpit)', () => {
+    const kbPath = path.join(REPO_ROOT, 'oms-knowledge-base');
     const files = (dir: string, prefix: string) =>
       fs.readdirSync(path.join(kbPath, dir)).filter((f) => f.startsWith(prefix) && f.endsWith('.md'));
     const svc = new RequirementsService(kbPath);

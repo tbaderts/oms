@@ -249,7 +249,7 @@ export interface StoryboardsConfig {
 
 export const DEFAULT_STORYBOARDS_CONFIG: StoryboardsConfig = {
   enabled: true,
-  roots: ['oms-knowledge-base/storyboards'],
+  roots: ['knowledge-base/storyboards'],
   maxSourceBytes: 1_048_576,
   maxAssetBytes: 524_288,
   writable: true,

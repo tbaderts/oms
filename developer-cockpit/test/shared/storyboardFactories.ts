@@ -44,7 +44,7 @@ export function story(steps: Step[], overrides: Partial<StoryboardDetail> = {}):
     domain: 'precious-metals',
     status: 'draft',
     tags: [],
-    sourcePath: 'oms-knowledge-base/storyboards/precious-metals/buy-gold-mobile',
+    sourcePath: 'knowledge-base/storyboards/precious-metals/buy-gold-mobile',
     modified: 0,
     stepCount: steps.length,
     stepTitles: steps.map((s) => s.title),

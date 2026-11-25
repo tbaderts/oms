@@ -1,5 +1,15 @@
 # Knowledge Base Log
 
+## 2026-11-25
+
+The developer cockpit is a generic tool with its own repository,
+[github.com/tbaderts/developer-cockpit](https://github.com/tbaderts/developer-cockpit) (SPEC-0076).
+Everything OMS-specific it used to carry — knowledge-base and contract paths, code generation, the
+API Explorer's oms-core convention, the Monitoring tiles — now comes from `cockpit.yaml` at the
+repository root. Its Monitoring view checks all compose services and shows the order-flow metrics
+as panels; the API Explorer works from the OpenAPI operations, with the order templates in
+`tools/api-templates/`. See [Developer Cockpit](tools/developer-cockpit.md).
+
 ## 2026-11-24
 
 oms-ui has an **Order Entry** tab (SPEC-0072): a new order's instrument, economics and account,

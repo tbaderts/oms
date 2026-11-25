@@ -32,7 +32,7 @@ describe('storyboards IPC', () => {
   async function setup(opts: { saveTo?: string | null; writable?: boolean } = {}) {
     ws = createStoryboardWorkspace();
     ws.writeExample();
-    ws.write({ 'oms-knowledge-base/capabilities/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }, '\nOrders are accepted.\n') });
+    ws.write({ 'knowledge-base/capabilities/functional-requirements/FR-001-accept.md': md({ id: 'FR-001', title: 'Accept' }, '\nOrders are accepted.\n') });
     const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-cfg-'));
     dirs.push(cfgDir);
     const configService = new ConfigService(cfgDir);
@@ -67,7 +67,7 @@ describe('storyboards IPC', () => {
     const scan = await invoke('storyboards:scan');
     expect(scan.catalogue.map((s: { id: string }) => s.id)).toEqual(['buy-gold-mobile']);
     expect(await invoke('storyboards:detail', 'buy-gold-mobile')).toMatchObject({ ok: true });
-    for (const bad of [path.join(ws.root, 'oms-knowledge-base/storyboards/precious-metals/buy-gold-mobile'), '../buy-gold-mobile', 42, null, { id: 'x' }]) {
+    for (const bad of [path.join(ws.root, 'knowledge-base/storyboards/precious-metals/buy-gold-mobile'), '../buy-gold-mobile', 42, null, { id: 'x' }]) {
       expect(await invoke('storyboards:detail', bad)).toMatchObject({ ok: false, code: 'not-found' });
     }
   });
@@ -76,7 +76,7 @@ describe('storyboards IPC', () => {
     const { invoke } = await setup();
     const { roots } = await invoke('storyboards:scan');
     const lanes = [{ id: 'oms', label: 'OMS', kind: 'system' }];
-    expect(await invoke('storyboards:create', { rootId: path.join(ws.root, 'oms-knowledge-base/storyboards'), domain: 'x', title: 'T', lanes, stepTitles: ['A'] })).toMatchObject({ ok: false, code: 'invalid' });
+    expect(await invoke('storyboards:create', { rootId: path.join(ws.root, 'knowledge-base/storyboards'), domain: 'x', title: 'T', lanes, stepTitles: ['A'] })).toMatchObject({ ok: false, code: 'invalid' });
     expect(await invoke('storyboards:create', { rootId: roots[0].rootId, domain: 'x', title: 'T', lanes, stepTitles: ['A'] })).toMatchObject({ ok: true, id: 't' });
   });
 
@@ -153,8 +153,8 @@ describe('storyboards IPC', () => {
     expect(events.map((e) => e.type)).toContain('storyboards:changed');
     expect((await invoke('storyboards:scan')).catalogue).toEqual([]);
     // a requirement edit invalidates the link index
-    ws.write({ 'oms-knowledge-base/capabilities/functional-requirements/FR-002-x.md': md({ id: 'FR-002', title: 'X' }) });
-    runtime!.onWatcherPath(path.join(ws.root, 'oms-knowledge-base/capabilities/functional-requirements/FR-002-x.md'), 'add');
+    ws.write({ 'knowledge-base/capabilities/functional-requirements/FR-002-x.md': md({ id: 'FR-002', title: 'X' }) });
+    runtime!.onWatcherPath(path.join(ws.root, 'knowledge-base/capabilities/functional-requirements/FR-002-x.md'), 'add');
     expect((await invoke('storyboards:links')).requirements).toEqual(['FR-001', 'FR-002']);
   });
 });

@@ -1,340 +1,348 @@
 import { create } from 'zustand';
 import {
-  FILTER_FIELDS,
-  SEARCH_PATH,
-  toSearchParams,
+  SAFE_METHODS,
+  buildUrl,
+  isLocalHost,
+  type ApiCatalog,
+  type ApiInfo,
+  type ApiOperation,
   type ApiResponse,
-  type CommandCatalog,
   type HistoryEntry,
-  type OrderFollowUp,
-  type Paging,
-  type QueryParam,
+  type JsonSchema,
   type SaveTemplateResult,
   type TemplateSource,
 } from '@shared/apiExplorer';
+import { templateName, type HttpRequestBlock } from '@shared/httpFile';
 import { getCockpitApi } from '@/api/cockpit-api';
-import { buildTemplate, orderIdOf, type CheckResult } from '@/lib/api-schema';
-import { checkTemplateBody, inlineFileVariables, liveContext, orderToTemplate, resolveVariables, templatize, type CommandTemplate } from '@/lib/api-templates';
+import { buildBody, checkBody, type CheckResult } from '@/lib/api-schema';
+import { inlineFileVariables, liveContext, resolveVariables } from '@/lib/api-templates';
 
-export type ApiExplorerTab = 'commands' | 'orders' | 'history';
+export type ApiExplorerTab = 'operations' | 'templates' | 'history';
+
+/** The operation the editor was filled from. */
+export interface Selection {
+  api: string;
+  operation: string;
+}
 
 interface ApiExplorerState {
   tab: ApiExplorerTab;
-  catalog: CommandCatalog | null;
-  baseUrl: string;
-  local: boolean;
+  catalog: ApiCatalog | null;
+  catalogError: string | null;
 
-  selectedType: string | null;
+  selection: Selection | null;
+  /** The chosen variant of a polymorphic body. */
+  variant: string | null;
+  pathParams: Record<string, string>;
+  queryParams: Record<string, string>;
+
+  method: string;
+  url: string;
+  /** `Name: value` per line. */
+  headersText: string;
   bodyText: string;
-  /** The body as last generated, to tell whether the user edited it. */
-  templateText: string;
+  /** The editor content as last generated or loaded, to tell whether the user edited it. */
+  baseline: string;
+  /** For the history: the operation or template the request came from. */
+  label: string;
   check: CheckResult;
-  sending: boolean;
-  lastCommand: { type: string; response: ApiResponse } | null;
 
-  followUpId: string | null;
-  followUp: OrderFollowUp | null;
-  followUpLoading: boolean;
-
-  filters: QueryParam[];
-  page: number;
-  size: number;
-  sort: string;
-  searching: boolean;
-  searchResult: ApiResponse | null;
-
-  history: HistoryEntry[];
-
-  /** The `.http` template files (SPEC-0008). */
-  templates: TemplateSource[];
-  /** The `@name = value` variables of the template the body came from. */
+  /** The `@name = value` variables of the template the request came from. */
   templateVars: Record<string, string>;
-  /** The file of the template the body came from; Save as template offers it first. */
+  /** The file of the template the request came from; Save as template offers it first. */
   templateSource: string | null;
 
-  /** Shown above the editor after restoring a body that was stored truncated. */
-  restoredNotice: string | null;
+  sending: boolean;
+  response: ApiResponse | null;
+  history: HistoryEntry[];
+  templates: TemplateSource[];
+  /** Shown above the editor, e.g. after restoring a body that was stored truncated. */
+  notice: string | null;
 
   load: () => Promise<void>;
   loadCatalog: () => Promise<void>;
   loadTemplates: () => Promise<void>;
-  /** Puts a template's body in the editor; asks first if the body was edited. */
-  selectTemplate: (template: CommandTemplate) => boolean;
-  /** An OrderCreateCmd body from an existing order's client fields; asks first if the body was edited. */
-  useOrderAsTemplate: (order: Record<string, unknown>) => boolean;
-  /**
-   * Appends the editor body to a template file; `useVariables` turns clOrdId, commandId and times into
-   * variables. File variables the target does not declare are written as their values.
-   */
-  saveTemplate: (target: { path: string } | { newFile: string }, name: string, useVariables: boolean) => Promise<SaveTemplateResult>;
-  setTab: (tab: ApiExplorerTab) => void;
-  /** Replaces the body with the type's template (plus `preset`); asks first if the body was edited. */
-  selectType: (type: string, preset?: Record<string, unknown>) => boolean;
-  setBody: (text: string) => void;
-  send: () => Promise<void>;
-  openFollowUp: (orderId: string) => Promise<void>;
-  refreshFollowUp: () => Promise<void>;
-
-  addFilter: () => void;
-  /** Changing the field resets operator and value; switching to or from `between` resets the value. */
-  updateFilter: (index: number, patch: Partial<QueryParam>) => void;
-  removeFilter: (index: number) => void;
-  setPaging: (patch: Partial<Pick<ApiExplorerState, 'size' | 'sort'>>) => void;
-  /** The request URL the current filters produce; main builds the same one. */
-  searchUrl: () => string;
-  search: (page?: number) => Promise<void>;
-
   loadHistory: () => Promise<void>;
-  /** Puts a past request back into the editor or the filter builder. */
-  restore: (entry: HistoryEntry) => void;
+  setTab: (tab: ApiExplorerTab) => void;
+  /** Fills the editor from an operation; asks first if the request was edited. */
+  selectOperation: (api: string, operation: string) => boolean;
+  selectVariant: (name: string) => void;
+  setParam: (where: 'path' | 'query', name: string, value: string) => void;
+  setMethod: (method: string) => void;
+  setUrl: (url: string) => void;
+  setHeaders: (text: string) => void;
+  setBody: (text: string) => void;
+  /** Fills the editor from a `.http` request; asks first if the request was edited. */
+  selectTemplate: (source: string, request: HttpRequestBlock, variables: Record<string, string>) => boolean;
+  /** Fills the editor from a history entry; asks first if the request was edited. */
+  restore: (entry: HistoryEntry) => boolean;
+  send: () => Promise<void>;
+  saveTemplate: (target: { path: string } | { newFile: string }, name: string) => Promise<SaveTemplateResult>;
   clearHistory: () => Promise<void>;
 }
 
-const paging = (s: Pick<ApiExplorerState, 'page' | 'size' | 'sort'>): Paging => ({
-  page: s.page,
-  size: s.size,
-  ...(s.sort.trim() ? { sort: s.sort.trim() } : {}),
-});
+const NO_CHECK: CheckResult = { findings: [] };
 
-const NO_FINDINGS: CheckResult = { findings: [] };
+const snapshot = (s: Pick<ApiExplorerState, 'method' | 'url' | 'headersText' | 'bodyText'>) => JSON.stringify([s.method, s.url, s.headersText, s.bodyText]);
 
-/** The body check with template variables resolved against the template file and the followed order. */
-function checkOf(
-  s: Pick<ApiExplorerState, 'catalog' | 'selectedType' | 'bodyText' | 'templateVars' | 'followUpId' | 'followUp'>,
-): CheckResult {
-  const schema = s.selectedType ? s.catalog?.schemas[s.selectedType] : undefined;
-  if (!schema || !s.selectedType) return NO_FINDINGS;
-  return checkTemplateBody(s.bodyText, s.selectedType, schema, liveContext(s.templateVars, s.followUpId, followedSymbol(s)));
+export function findOperation(catalog: ApiCatalog | null, sel: Selection | null): { api: ApiInfo; op: ApiOperation } | null {
+  const api = catalog?.apis.find((a) => a.name === sel?.api);
+  const op = api?.operations.find((o) => o.id === sel?.operation);
+  return api && op ? { api, op } : null;
 }
 
-/** The followed order's symbol, once its follow-up has loaded (SPEC-0069). */
-function followedSymbol(s: Pick<ApiExplorerState, 'followUpId' | 'followUp'>): string | null {
-  const symbol = s.followUp && s.followUp.orderId === s.followUpId ? s.followUp.order?.symbol : null;
-  return typeof symbol === 'string' ? symbol : null;
+/** The schema and discriminator the body is checked against. */
+function bodySchema(catalog: ApiCatalog | null, sel: Selection | null, variant: string | null) {
+  const found = findOperation(catalog, sel);
+  if (!found) return null;
+  const v = found.op.variants.find((x) => x.name === variant);
+  if (v) return { schema: v.schema, discriminator: v.discriminator };
+  return found.op.requestSchema ? { schema: found.op.requestSchema as JsonSchema, discriminator: undefined } : null;
 }
 
-export const useApiExplorerStore = create<ApiExplorerState>((set, get) => ({
-  tab: 'commands',
-  catalog: null,
-  baseUrl: '',
-  local: true,
+function parseHeaders(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  return out;
+}
 
-  selectedType: null,
-  bodyText: '',
-  templateText: '',
-  check: NO_FINDINGS,
-  sending: false,
-  lastCommand: null,
-
-  followUpId: null,
-  followUp: null,
-  followUpLoading: false,
-
-  filters: [],
-  page: 0,
-  size: 50,
-  sort: '',
-  searching: false,
-  searchResult: null,
-
-  history: [],
-  templates: [],
-  templateVars: {},
-  templateSource: null,
-  restoredNotice: null,
-
-  load: async () => {
-    const api = getCockpitApi().apiExplorer;
-    const [{ baseUrl, local }] = await Promise.all([api.baseUrl(), get().loadCatalog(), get().loadHistory(), get().loadTemplates()]);
-    set({ baseUrl, local });
-  },
-
-  loadCatalog: async () => {
-    const catalog = await getCockpitApi().apiExplorer.catalog();
-    set({ catalog });
-    if (get().selectedType) set({ check: checkOf(get()) });
-  },
-
-  loadTemplates: async () => {
-    set({ templates: await getCockpitApi().apiExplorer.templates() });
-  },
-
-  selectTemplate: (template) => {
-    const { bodyText, templateText } = get();
-    if (bodyText !== templateText && !window.confirm('Replace the edited command body with this template?')) return false;
-    set({ selectedType: template.type, bodyText: template.body, templateText: template.body, templateVars: template.variables, templateSource: template.source, tab: 'commands', restoredNotice: null });
-    set({ check: checkOf(get()) });
-    return true;
-  },
-
-  useOrderAsTemplate: (order) => {
-    const { catalog, bodyText, templateText } = get();
-    const schema = catalog?.schemas.OrderCreateCmd;
-    if (!schema) return false;
-    if (bodyText !== templateText && !window.confirm('Replace the edited command body with this order?')) return false;
-    const text = orderToTemplate(order, schema);
-    set({ selectedType: 'OrderCreateCmd', bodyText: text, templateText: text, templateVars: {}, templateSource: null, tab: 'commands', restoredNotice: null });
-    set({ check: checkOf(get()) });
-    return true;
-  },
-
-  saveTemplate: async (target, name, useVariables) => {
-    const { bodyText, templateVars, templates } = get();
-    const declared = 'path' in target ? templates.find((s) => s.path === target.path)?.file?.variables ?? {} : { baseUrl: '' };
-    const text = inlineFileVariables(bodyText, templateVars, declared);
-    const body = useVariables ? templatize(text) : text;
-    const result = await getCockpitApi().apiExplorer.saveTemplate({ ...target, name, body });
-    if (result.ok) await get().loadTemplates();
-    return result;
-  },
-
-  setTab: (tab) => set({ tab }),
-
-  selectType: (type, preset) => {
-    const { catalog, bodyText, templateText } = get();
-    const schema = catalog?.schemas[type];
-    if (!schema) return false;
-    if (bodyText !== templateText && !window.confirm('Replace the edited command body with a new template?')) return false;
-    const text = JSON.stringify(buildTemplate(type, schema, preset), null, 2);
-    set({ selectedType: type, bodyText: text, templateText: text, templateVars: {}, templateSource: null, tab: 'commands', restoredNotice: null });
-    set({ check: checkOf(get()) });
-    return true;
-  },
-
-  setBody: (text) => {
-    set({ bodyText: text });
-    set({ check: checkOf(get()) });
-  },
-
-  send: async () => {
-    const { bodyText, check, local, baseUrl, selectedType, sending, templateVars, followUpId } = get();
-    if (sending || check.parseError) return;
-    if (resolveVariables(bodyText, liveContext(templateVars, followUpId, followedSymbol(get()))).unresolved.length) {
-      set({ check: checkOf(get()) });
-      return;
-    }
-    let confirmedHost: string | undefined;
-    if (!local) {
-      const host = new URL(baseUrl).hostname;
-      if (!window.confirm(`Send this command to ${host}? It is not a local oms-core.`)) return;
-      confirmedHost = host;
-    }
-    // Variables get fresh values on every send, after any confirmation; the editor keeps the template.
-    const resolved = resolveVariables(bodyText, liveContext(templateVars, followUpId, followedSymbol(get())));
-    set({ sending: true });
-    try {
-      const response = await getCockpitApi().apiExplorer.sendCommand(resolved.text, confirmedHost);
-      set({ lastCommand: { type: selectedType ?? '', response } });
-      const orderId = response.status !== null ? orderIdOf(JSON.parse(resolved.text), response.body) : null;
-      if (orderId) void get().openFollowUp(orderId);
-      void get().loadHistory();
-    } finally {
-      set({ sending: false });
-    }
-  },
-
-  openFollowUp: async (orderId) => {
-    set({ followUpId: orderId, followUpLoading: true });
-    // {{orderId}} in the body now means this order.
-    if (get().selectedType) set({ check: checkOf(get()) });
-    try {
-      const followUp = await getCockpitApi().apiExplorer.followUp(orderId);
-      // A newer follow-up may have been opened meanwhile.
-      if (get().followUpId === orderId) {
-        set({ followUp });
-        // ...and {{symbol}} this order's symbol (SPEC-0069).
-        if (get().selectedType) set({ check: checkOf(get()) });
-      }
-    } finally {
-      if (get().followUpId === orderId) set({ followUpLoading: false });
-    }
-  },
-
-  refreshFollowUp: async () => {
-    const id = get().followUpId;
-    if (id) await get().openFollowUp(id);
-  },
-
-  // Any change to the query starts again at the first page, which is what Search sends.
-  addFilter: () => set((s) => ({ page: 0, filters: [...s.filters, { field: FILTER_FIELDS[0].field, op: 'eq', value: '' }] })),
-
-  updateFilter: (index, patch) =>
-    set((s) => ({
-      page: 0,
-      filters: s.filters.map((f, i) => {
-        if (i !== index) return f;
-        if (patch.field && patch.field !== f.field) {
-          const field = FILTER_FIELDS.find((x) => x.field === patch.field) ?? FILTER_FIELDS[0];
-          return { field: field.field, op: field.ops[0], value: '' };
-        }
-        const next = { ...f, ...patch };
-        if (patch.op && (patch.op === 'between') !== (f.op === 'between')) next.value = '';
-        return next;
-      }),
-    })),
-
-  removeFilter: (index) => set((s) => ({ page: 0, filters: s.filters.filter((_, i) => i !== index) })),
-
-  setPaging: (patch) => set({ ...patch, page: 0 }),
-
-  searchUrl: () => {
+export const useApiExplorerStore = create<ApiExplorerState>((set, get) => {
+  /** The body check on the resolved text; unresolved variables block sending. */
+  const recheck = () => {
     const s = get();
-    const qs = toSearchParams(s.filters, paging(s)).toString();
-    return `${s.baseUrl.replace(/\/+$/, '')}${SEARCH_PATH}${qs ? `?${qs}` : ''}`;
-  },
-
-  search: async (page) => {
-    if (page !== undefined) set({ page });
-    set({ searching: true });
-    try {
-      const s = get();
-      set({ searchResult: await getCockpitApi().apiExplorer.search(s.filters, paging(s)) });
-      await get().loadHistory();
-    } finally {
-      set({ searching: false });
+    const target = bodySchema(s.catalog, s.selection, s.variant);
+    if (!s.bodyText.trim() || SAFE_METHODS.includes(s.method)) return set({ check: NO_CHECK });
+    const r = resolveVariables(s.bodyText, liveContext(s.templateVars));
+    if (r.unresolved.length) {
+      return set({ check: { findings: r.unresolved.map((n) => ({ path: `{{${n}}}`, message: 'unresolved variable' })), unresolved: r.unresolved } });
     }
-  },
+    set({ check: target ? checkBody(r.text, target.schema, target.discriminator) : NO_CHECK });
+  };
 
-  loadHistory: async () => {
-    set({ history: await getCockpitApi().apiExplorer.history() });
-  },
+  const edited = () => snapshot(get()) !== get().baseline;
+  const confirmReplace = (what: string) => !edited() || window.confirm(`Replace the edited request with ${what}?`);
 
-  restore: (entry) => {
-    const { catalog, bodyText, templateText, selectedType } = get();
-    const r = entry.request;
-    if ('body' in r) {
-      if (bodyText !== templateText && !window.confirm('Replace the edited command body with the one from history?')) return;
-      let type: unknown;
+  const fill = (patch: Partial<ApiExplorerState>) => {
+    set({ ...patch, response: null });
+    set({ baseline: snapshot(get()) });
+    recheck();
+  };
+
+  const rebuildUrl = () => {
+    const found = findOperation(get().catalog, get().selection);
+    if (found) set({ url: buildUrl(found.api.baseUrl, found.op.path, get().pathParams, get().queryParams) });
+  };
+
+  const bodyFor = (op: ApiOperation, variant: string | null): string => {
+    const v = op.variants.find((x) => x.name === variant);
+    const schema = v?.schema ?? op.requestSchema;
+    return schema ? JSON.stringify(buildBody(schema, v?.discriminator), null, 2) : '';
+  };
+
+  return {
+    tab: 'operations',
+    catalog: null,
+    catalogError: null,
+    selection: null,
+    variant: null,
+    pathParams: {},
+    queryParams: {},
+    method: 'GET',
+    url: '',
+    headersText: '',
+    bodyText: '',
+    baseline: snapshot({ method: 'GET', url: '', headersText: '', bodyText: '' }),
+    label: '',
+    check: NO_CHECK,
+    templateVars: {},
+    templateSource: null,
+    sending: false,
+    response: null,
+    history: [],
+    templates: [],
+    notice: null,
+
+    load: async () => {
+      await Promise.all([get().loadCatalog(), get().loadHistory(), get().loadTemplates()]);
+    },
+
+    loadCatalog: async () => {
       try {
-        type = JSON.parse(r.body)?.type;
-      } catch {
-        // an invalid body is restored as it was sent
+        const catalog = await getCockpitApi().apiExplorer.catalog();
+        set({ catalog, catalogError: null });
+        recheck();
+      } catch (err) {
+        set({ catalogError: (err as Error).message });
       }
-      const known = typeof type === 'string' && catalog?.schemas[type] ? type : selectedType ?? catalog?.commandTypes[0] ?? null;
-      set({
-        tab: 'commands',
-        selectedType: known,
-        bodyText: r.body,
-        templateText: r.body,
+    },
+
+    loadTemplates: async () => {
+      try {
+        set({ templates: await getCockpitApi().apiExplorer.templates() });
+      } catch {
+        set({ templates: [] });
+      }
+    },
+
+    loadHistory: async () => {
+      try {
+        set({ history: await getCockpitApi().apiExplorer.history() });
+      } catch {
+        set({ history: [] });
+      }
+    },
+
+    setTab: (tab) => set({ tab }),
+
+    selectOperation: (apiName, operation) => {
+      const found = findOperation(get().catalog, { api: apiName, operation });
+      if (!found || !confirmReplace('this operation')) return false;
+      const { api, op } = found;
+      const variant = op.variants[0]?.name ?? null;
+      const defaults = (where: 'path' | 'query') =>
+        Object.fromEntries(op.params.filter((p) => p.in === where).map((p) => [p.name, p.schema?.default !== undefined ? String(p.schema.default) : '']));
+      const pathParams = defaults('path');
+      const queryParams = defaults('query');
+      fill({
+        selection: { api: apiName, operation },
+        variant,
+        pathParams,
+        queryParams,
+        method: op.method,
+        url: buildUrl(api.baseUrl, op.path, pathParams, queryParams),
+        headersText: '',
+        bodyText: bodyFor(op, variant),
+        label: `${apiName} · ${op.id}`,
         templateVars: {},
         templateSource: null,
-        restoredNotice: r.truncated ? 'This body was truncated when it was stored; check it before sending.' : null,
+        notice: null,
       });
-      set({ check: checkOf(get()) });
-    } else {
-      set({
-        tab: 'orders',
-        filters: r.params.map((p) => ({ ...p })),
-        page: r.page ?? 0,
-        size: r.size ?? 50,
-        sort: r.sort ?? '',
-      });
-    }
-  },
+      return true;
+    },
 
-  clearHistory: async () => {
-    if (!window.confirm('Clear the API Explorer history?')) return;
-    await getCockpitApi().apiExplorer.clearHistory();
-    await get().loadHistory();
-  },
-}));
+    selectVariant: (name) => {
+      const found = findOperation(get().catalog, get().selection);
+      if (!found || !found.op.variants.some((v) => v.name === name)) return;
+      const replaceBody = !edited() || window.confirm('Replace the edited body with this variant?');
+      set({ variant: name, label: `${found.api.name} · ${found.op.id} · ${name}` });
+      if (replaceBody) fill({ bodyText: bodyFor(found.op, name) });
+      else recheck();
+    },
+
+    setParam: (where, name, value) => {
+      if (where === 'path') set({ pathParams: { ...get().pathParams, [name]: value } });
+      else set({ queryParams: { ...get().queryParams, [name]: value } });
+      rebuildUrl();
+    },
+
+    setMethod: (method) => {
+      set({ method: method.toUpperCase() });
+      recheck();
+    },
+    setUrl: (url) => set({ url }),
+    setHeaders: (headersText) => set({ headersText }),
+    setBody: (bodyText) => {
+      set({ bodyText });
+      recheck();
+    },
+
+    selectTemplate: (source, request, variables) => {
+      if (!confirmReplace('this template')) return false;
+      fill({
+        selection: null,
+        variant: null,
+        pathParams: {},
+        queryParams: {},
+        method: request.method,
+        url: request.url,
+        headersText: '',
+        bodyText: request.body ?? '',
+        label: templateName(request),
+        templateVars: variables,
+        templateSource: source,
+        notice: null,
+      });
+      return true;
+    },
+
+    restore: (entry) => {
+      if (!confirmReplace('this request')) return false;
+      const headersText = Object.entries(entry.request.headers ?? {})
+        .map(([k, v]) => `${k}: ${v}`)
+        .join('\n');
+      fill({
+        selection: null,
+        variant: null,
+        pathParams: {},
+        queryParams: {},
+        method: entry.method,
+        url: entry.url ?? entry.path,
+        headersText,
+        bodyText: entry.request.body ?? '',
+        label: entry.label,
+        templateVars: {},
+        templateSource: null,
+        notice: entry.request.truncated ? 'This body was stored truncated; check it before sending.' : null,
+      });
+      return true;
+    },
+
+    send: async () => {
+      const s = get();
+      if (s.sending || s.check.parseError || s.check.unresolved?.length) return;
+      const ctx = liveContext(s.templateVars);
+      const resolved = [s.url, s.headersText, s.bodyText].map((t) => resolveVariables(t, ctx));
+      const unresolved = [...new Set(resolved.flatMap((r) => r.unresolved))];
+      if (unresolved.length) {
+        set({ response: { ok: false, status: null, durationMs: 0, body: null, contentType: '', url: s.url, error: `Unresolved variables: ${unresolved.join(', ')}`, refused: true } });
+        return;
+      }
+      const [url, headersText, body] = resolved.map((r) => r.text);
+      let confirmedHost: string | undefined;
+      if (!SAFE_METHODS.includes(s.method) && !isLocalHost(url)) {
+        let host = '';
+        try {
+          host = new URL(url).hostname;
+        } catch {
+          // the main process refuses an invalid URL
+        }
+        if (host) {
+          if (!window.confirm(`Send this ${s.method} request to ${host}? It is not a local service.`)) return;
+          confirmedHost = host;
+        }
+      }
+      set({ sending: true });
+      try {
+        const response = await getCockpitApi().apiExplorer.send(
+          { method: s.method, url, headers: parseHeaders(headersText), ...(body.trim() ? { body } : {}), label: s.label },
+          confirmedHost,
+        );
+        set({ response, sending: false });
+      } catch (err) {
+        set({ response: { ok: false, status: null, durationMs: 0, body: null, contentType: '', url, error: (err as Error).message }, sending: false });
+      }
+      void get().loadHistory();
+    },
+
+    saveTemplate: async (target, name) => {
+      const s = get();
+      // Variables the target file does not declare are written as their values.
+      const declared = 'path' in target ? (s.templates.find((t) => t.path === target.path)?.file?.variables ?? {}) : {};
+      const inline = (text: string) => inlineFileVariables(text, s.templateVars, declared);
+      const result = await getCockpitApi().apiExplorer.saveTemplate({ ...target, name, method: s.method, url: inline(s.url), body: inline(s.bodyText) });
+      if (result.ok) {
+        await get().loadTemplates();
+        set({ templateSource: result.path });
+      }
+      return result;
+    },
+
+    clearHistory: async () => {
+      await getCockpitApi().apiExplorer.clearHistory();
+      set({ history: [] });
+    },
+  };
+});

@@ -9,29 +9,6 @@ export type CommandRunner = (
   opts: { cwd: string },
 ) => Promise<{ code: number; stdout: string; stderr: string }>;
 
-// Matches CLAUDE.md "Code Generation": models come from oms-contracts, API interfaces from oms-core.
-// The order is the "Run all" order: models first, interfaces are generated against them.
-const TASKS: CodeGenTask[] = [
-  {
-    id: 'contracts',
-    name: 'Contract models',
-    description: 'Generate the shared command, query and Avro models in oms-contracts',
-    inputSpec: 'openapi/*.yml, avro/*.avsc',
-    outputPackage: 'org.example.common.model.{cmd,query,msg}',
-    module: 'oms-contracts',
-    gradleTasks: ['generateAvroJava', 'openApiGenerateCmdModels', 'openApiGenerateQueryModels'],
-  },
-  {
-    id: 'api',
-    name: 'API interfaces',
-    description: 'Generate the ExecuteApi and SearchApi interfaces that oms-core implements',
-    inputSpec: 'oms-cmd-api.yml, oms-query-api.yml',
-    outputPackage: 'org.example.common.api',
-    module: 'oms-core',
-    gradleTasks: ['openApiGenerateCmd', 'openApiGenerateQuery'],
-  },
-];
-
 const execFileRunner: CommandRunner = (command, args, opts) =>
   new Promise((resolve, reject) => {
     execFile(command, args, { ...opts, timeout: 10 * 60_000, maxBuffer: 1024 * 1024 * 10, windowsHide: true },
@@ -46,29 +23,37 @@ const execFileRunner: CommandRunner = (command, args, opts) =>
   });
 
 export class CodeGenService {
+  /** `tasks` come from the project's `cockpit.yaml` (`codegen`), in their "Run all" order. */
   constructor(
     private workspaceRoot: string,
+    private tasks: CodeGenTask[] = [],
     private runner: CommandRunner = execFileRunner,
     private platform: NodeJS.Platform = process.platform,
   ) {}
 
   getTasks(): CodeGenTask[] {
-    return TASKS;
+    return this.tasks;
   }
 
   async runTask(taskId: string): Promise<CodeGenResult> {
-    const task = TASKS.find((t) => t.id === taskId);
+    const task = this.tasks.find((t) => t.id === taskId);
     if (!task) {
       return { taskId, success: false, output: `Unknown task: ${taskId}`, durationMs: 0 };
     }
 
-    // Each module is an independent build with its own wrapper. Node cannot execFile a .bat on
-    // Windows, so it goes through cmd.exe; every argument is a constant from TASKS. The explicit
-    // .\ is needed: with NoDefaultCurrentDirectoryInExePath set, cmd.exe ignores cwd for bare names.
-    const cwd = path.join(this.workspaceRoot, task.module);
-    const [command, args] = this.platform === 'win32'
-      ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', '.\\gradlew.bat', ...task.gradleTasks]]
-      : ['./gradlew', [...task.gradleTasks]];
+    // The folder must stay inside the workspace; the command comes from the project's own file.
+    const workspace = path.resolve(this.workspaceRoot);
+    const cwd = path.resolve(workspace, task.cwd || '.');
+    if (cwd !== workspace && !cwd.startsWith(workspace + path.sep)) {
+      return { taskId, success: false, output: `The task folder ${task.cwd} is outside the workspace`, durationMs: 0 };
+    }
+    // Node cannot execFile a .bat or .cmd on Windows, so those go through cmd.exe. Write them with an
+    // explicit .\\ (e.g. ".\\gradlew.bat"): with NoDefaultCurrentDirectoryInExePath set, cmd.exe
+    // ignores cwd for bare names.
+    const argv = this.platform === 'win32' && task.windowsCommand?.length ? task.windowsCommand : task.command;
+    const [command, args] = this.platform === 'win32' && /\.(bat|cmd)$/i.test(argv[0])
+      ? [process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', ...argv]]
+      : [argv[0], argv.slice(1)];
 
     const start = Date.now();
     try {
@@ -78,7 +63,7 @@ export class CodeGenService {
       const output = r.stdout + (r.stderr ? '\n' + r.stderr : '');
       return { taskId, success: r.code === 0, output, durationMs };
     } catch (e: unknown) {
-      // Killed (timeout), output too large or not startable: keep whatever Gradle printed so far.
+      // Killed (timeout), output too large or not startable: keep whatever the command printed so far.
       const durationMs = Date.now() - start;
       const { stdout = '', stderr = '' } = e as { stdout?: string; stderr?: string };
       const message = e instanceof Error ? e.message : String(e);

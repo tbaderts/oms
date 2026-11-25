@@ -12,8 +12,22 @@ export const COCKPIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.
  */
 export const FOREIGN_ROOT = process.platform === 'win32' ? '/nonexistent-posix-home/oms' : 'C:\\data\\workspace\\oms';
 
-/** The OMS repository root. */
-export const REPO_ROOT = path.dirname(COCKPIT_ROOT);
+/**
+ * The git repository the cockpit sits in: the project it was developed inside, or the cockpit's own
+ * repository. Found like ConfigService.detectWorkspaceRoot, so tests agree with the app.
+ */
+export const REPO_ROOT = (() => {
+  for (let dir = COCKPIT_ROOT; ; dir = path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) return fs.realpathSync(dir);
+    if (path.dirname(dir) === dir) return COCKPIT_ROOT;
+  }
+})();
+
+/** Whether the repository around the cockpit has `rel` (a host project's own content, e.g. its knowledge base). */
+export const hostHas = (rel: string): boolean => REPO_ROOT !== COCKPIT_ROOT && fs.existsSync(path.join(REPO_ROOT, rel));
+
+/** The copy of the spec workflow toolkit the spec-ticket tests run (SPEC-0076, design D-9). */
+export const SPEC_TOOLKIT = path.join(COCKPIT_ROOT, 'test', 'fixtures', 'spec-toolkit');
 
 export interface CliResult {
   status: number;
@@ -42,16 +56,16 @@ export interface Workspace {
 }
 
 /**
- * A throw-away git workspace containing a copy of the real spec tooling
- * (specs/tools, templates, policies, config.json). Tests never touch the repository's own specs/.
+ * A throw-away git workspace containing a copy of the spec tooling (specs/tools, templates,
+ * policies, config.json) from the toolkit fixture. Tests never touch a repository's own specs/.
  */
 export function createWorkspace(opts: { user?: string } = {}): Workspace {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-spec-'));
   const specs = path.join(root, 'specs');
   for (const dir of ['tools', 'templates', 'policies']) {
-    fs.cpSync(path.join(REPO_ROOT, 'specs', dir), path.join(specs, dir), { recursive: true });
+    fs.cpSync(path.join(SPEC_TOOLKIT, dir), path.join(specs, dir), { recursive: true });
   }
-  fs.copyFileSync(path.join(REPO_ROOT, 'specs', 'config.json'), path.join(specs, 'config.json'));
+  fs.copyFileSync(path.join(SPEC_TOOLKIT, 'config.json'), path.join(specs, 'config.json'));
   fs.mkdirSync(path.join(specs, 'changes'), { recursive: true });
   fs.mkdirSync(path.join(specs, 'archive'), { recursive: true });
   fs.writeFileSync(path.join(specs, 'changes', '.gitkeep'), '');

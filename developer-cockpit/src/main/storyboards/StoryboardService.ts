@@ -59,10 +59,14 @@ export interface CardInfo {
 /** Evaluates a parsed story.card.yaml (trust, drift, kb links); replaced by EvidenceService. */
 export type CardEvaluator = (card: Record<string, unknown>, storyDir: string) => Omit<CardInfo, 'hasCard' | 'overrides'>;
 
+export const DEFAULT_LIBRARY = 'storyboard.excalidrawlib';
+
 export interface StoryboardServiceOptions {
   workspaceRoot: string;
   kbPath: string;
   config: StoryboardsConfig;
+  /** File name of the shared Excalidraw library under each root's `_library` (cockpit.yaml). */
+  library?: string;
   evaluateCard?: CardEvaluator;
   /** Valid link targets; categories left empty are not checked. */
   linkIndex?: { get(): LinkIndex };
@@ -437,7 +441,7 @@ export class StoryboardService {
     const entry = this.entry(id);
     if (!entry) return notFound(`No storyboard "${id}" in the last scan.`);
     if (folderState(entry.root.dir, '_library') !== 'ok') return { ok: true, library: null };
-    const read = readBounded(path.join(entry.root.dir, '_library', 'oms-storyboard.excalidrawlib'), this.opts.config.maxSourceBytes * 4);
+    const read = readBounded(path.join(entry.root.dir, '_library', path.basename(this.opts.library ?? DEFAULT_LIBRARY)), this.opts.config.maxSourceBytes * 4);
     return { ok: true, library: read.ok ? read.text : null };
   }
 

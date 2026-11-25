@@ -1,10 +1,50 @@
 import { vi } from 'vitest';
-import { ApiCatalogService } from '../../src/main/services/ApiCatalogService';
-import type { ApiResponse, CommandCatalog, HistoryEntry, OrderFollowUp, SaveTemplateRequest, SaveTemplateResult, TemplateSource } from '../../src/shared/apiExplorer';
-import { REPO_ROOT } from '../fixtures/workspace';
+import type { ApiCatalog, ApiRequest, ApiResponse, HistoryEntry, SaveTemplateRequest, SaveTemplateResult, TemplateSource } from '../../src/shared/apiExplorer';
 
-/** The catalog of the repository's real contracts. */
-export const CATALOG: CommandCatalog = new ApiCatalogService(REPO_ROOT, ['oms-contracts/src/main/openapi']).load();
+/** A small catalog: a polymorphic command endpoint, a GET with path and query parameters. */
+export const CATALOG: ApiCatalog = {
+  apis: [
+    {
+      name: 'Shop',
+      title: 'Shop API',
+      baseUrl: 'http://localhost:8000/v1',
+      spec: 'api/shop.yml',
+      operations: [
+        {
+          id: 'execute',
+          method: 'POST',
+          path: '/commands',
+          summary: 'Run a command',
+          params: [],
+          requestSchema: { type: 'object', required: ['kind'], properties: { kind: { type: 'string' } } },
+          variants: [
+            {
+              name: 'AddItem',
+              discriminator: { property: 'kind', value: 'AddItem' },
+              schema: { type: 'object', required: ['kind', 'sku', 'quantity'], properties: { kind: { type: 'string' }, sku: { type: 'string', minLength: 1 }, quantity: { type: 'integer' } } },
+            },
+            {
+              name: 'Checkout',
+              discriminator: { property: 'kind', value: 'Checkout' },
+              schema: { type: 'object', required: ['kind', 'basketId'], properties: { kind: { type: 'string' }, basketId: { type: 'string' } } },
+            },
+          ],
+        },
+        {
+          id: 'getBasket',
+          method: 'GET',
+          path: '/baskets/{basketId}',
+          params: [
+            { name: 'basketId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'verbose', in: 'query', required: false, schema: { type: 'boolean' } },
+          ],
+          variants: [],
+        },
+      ],
+    },
+    { name: 'Broken', baseUrl: 'http://localhost:9', spec: 'api/broken.yml', operations: [], error: 'broken.yml: bad indentation' },
+  ],
+};
 
 export const response = (over: Partial<ApiResponse> = {}): ApiResponse => ({
   ok: true,
@@ -12,31 +52,19 @@ export const response = (over: Partial<ApiResponse> = {}): ApiResponse => ({
   durationMs: 12,
   body: { status: 'OK' },
   contentType: 'application/json',
-  url: 'http://localhost:8090/api/command/execute',
-  ...over,
-});
-
-export const followUp = (over: Partial<OrderFollowUp> = {}): OrderFollowUp => ({
-  orderId: 'O-1',
-  order: { orderId: 'O-1', state: 'UNACK', side: 'BUY', symbol: 'AAPL', orderQty: 100, cumQty: 0, leavesQty: 100 },
-  events: [
-    { version: 1, event: 'NEW_ORDER', resultingState: 'UNACK', timeStamp: '2026-10-27T10:00:00Z', transaction: { type: 'OrderCreateCmd' }, orderSnapshot: { orderId: 'O-1' } },
-  ],
+  url: 'http://localhost:8000/v1/commands',
   ...over,
 });
 
 /** Installs window.cockpit.apiExplorer with vi.fn()s returning sensible defaults. */
-export function mockApiExplorer(opts: { baseUrl?: string; local?: boolean; history?: HistoryEntry[]; templates?: TemplateSource[] } = {}) {
+export function mockApiExplorer(opts: { catalog?: ApiCatalog; history?: HistoryEntry[]; templates?: TemplateSource[] } = {}) {
   const api = {
-    catalog: vi.fn(async () => CATALOG),
-    baseUrl: vi.fn(async () => ({ baseUrl: opts.baseUrl ?? 'http://localhost:8090', local: opts.local ?? true })),
-    sendCommand: vi.fn(async (_body: string, _host?: string) => response({ status: 201, body: { id: 'O-1', status: 'OK', message: 'Order created successfully: O-1' } })),
-    search: vi.fn(async () => response({ url: 'http://localhost:8090/api/query/search', body: { content: [], page: { number: 0, size: 50, totalElements: 0, totalPages: 0 } } })),
-    followUp: vi.fn(async (_id: string) => followUp()),
+    catalog: vi.fn(async () => opts.catalog ?? CATALOG),
+    send: vi.fn(async (_req: ApiRequest, _host?: string) => response({ status: 201, body: { id: 'B-1' } })),
     history: vi.fn(async () => opts.history ?? []),
     clearHistory: vi.fn(async () => {}),
     templates: vi.fn(async () => opts.templates ?? []),
-    saveTemplate: vi.fn(async (req: SaveTemplateRequest): Promise<SaveTemplateResult> => ({ ok: true, path: 'path' in req ? req.path : `developer-cockpit/api-templates/${req.newFile}` })),
+    saveTemplate: vi.fn(async (req: SaveTemplateRequest): Promise<SaveTemplateResult> => ({ ok: true, path: 'path' in req ? req.path : `requests/${req.newFile}` })),
   };
   (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { apiExplorer: api };
   return api;

@@ -45,7 +45,7 @@ export type ToolLike = {
 export function kbSearchTool(kb: { search: (query: string) => KbSearchResult[] }): ToolLike {
   return {
     description:
-      'Search the OMS knowledge base (Markdown documents) for documents relevant to a query. ' +
+      'Search the project knowledge base (Markdown documents) for documents relevant to a query. ' +
       `Returns up to ${KB_SEARCH_MAX_RESULTS} matching documents (title, path, category, score), best first. ` +
       'score is a fuzzy-match distance: 0 is an exact match, 1 no match; lower is better.',
     // A real JSON Schema object: providers send it as the tool's input_schema, and Anthropic
@@ -72,7 +72,7 @@ export function kbSearchTool(kb: { search: (query: string) => KbSearchResult[] }
 /**
  * Collects the tools an AI run can use (AC-4): a local `search_knowledge_base` tool backed by the
  * cockpit's `KbService`, plus the tools of any configured MCP server (e.g. the existing
- * `oms-mcp-server`). Each MCP tool is wrapped as an AI-SDK tool whose `execute` delegates to the
+ * the knowledge server). Each MCP tool is wrapped as an AI-SDK tool whose `execute` delegates to the
  * server's `tools/call` and returns the concatenated text content.
  *
  * A server that fails to connect (bad URL, timeout, protocol error) is skipped with a log line —

@@ -29,7 +29,7 @@ class FakeAdapter implements AiAdapter {
 function setup(reply: string, extract: (ref: string) => string | null = () => null) {
   const ws = createStoryboardWorkspace();
   ws.writeExample();
-  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG, linkIndex: { get: () => index } });
+  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG, linkIndex: { get: () => index } });
   svc.scan();
   const adapter = new FakeAdapter(reply);
   const ai = new StoryboardAiService({ adapter, storyboards: svc, linkIndex: { get: () => index }, extract });
@@ -61,7 +61,7 @@ describe('StoryboardAiService', () => {
     expect(req.user).toContain('OMS');
     expect(req.user).toContain('FR-001');
     expect(req.user).not.toContain(ws.root);
-    expect(req.user).not.toContain('oms-knowledge-base/storyboards');
+    expect(req.user).not.toContain('knowledge-base/storyboards');
     // extracts are cut to 2000 characters each
     const extract = req.user.split('requirement text').length - 1;
     expect(extract).toBeLessThanOrEqual(Math.ceil(2000 / 'requirement text '.length) + 1);

@@ -20,7 +20,10 @@ export interface KbIpcDeps {
 
 export function registerKbIpc(ipcMain: IpcMain, configService: ConfigService, deps: KbIpcDeps = {}): void {
   kbService = null;
-  const okfCli = () => (deps.createOkfCli ?? ((root: string) => new OkfCli(root)))(configService.getWorkspaceRoot());
+  const okfCli = () =>
+    (deps.createOkfCli ?? ((root: string) => new OkfCli(root, process.execPath, configService.getProject().config.knowledgeBase.checkScript)))(
+      configService.getWorkspaceRoot(),
+    );
 
   ipcMain.handle('kb:getCategories', async () => {
     const svc = await getKbService(configService);

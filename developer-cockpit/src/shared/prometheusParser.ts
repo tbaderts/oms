@@ -1,168 +1,127 @@
-import type { ParsedMetrics, OrderStateCount, OutboxMetrics } from './types/monitor';
-
 /**
- * Parses the Prometheus text exposition format into the OMS-domain series the Monitor tiles
- * display (SPEC-0053, design → Decision 2). A deliberate, dependency-free replacement for a full
- * Prometheus client: only ~6 known series are needed, and the raw pane shows everything else.
- *
- * Prometheus names: Micrometer dots become dashes and counters get a `_total` suffix, so
- * `oms.order.events` → `oms-order-events-total`. All missing series are `null`/empty, never thrown.
+ * A small parser for the Prometheus text exposition format, plus the three reductions the
+ * Monitoring panels need on scraped text (SPEC-0076): a sum, a group-by-label and a histogram
+ * quantile. Dependency-free on purpose; it never throws, and lines it cannot read are skipped.
  */
-export function parsePrometheus(raw: string): ParsedMetrics {
-  const ordersByState: OrderStateCount[] = [];
-  let eventsTotal = 0;
-  const ackBuckets: Bucket[] = [];
-  const marketBuckets: Bucket[] = [];
-  const outbox: OutboxMetrics = { pending: 0, stuck: 0, oldestAgeSeconds: null };
 
-  if (!raw) return { ordersByState, eventsTotal, timeToAckP99Ms: null, timeToMarketP99Ms: null, outbox };
+export interface Sample {
+  name: string;
+  labels: Record<string, string>;
+  value: number;
+}
 
+const LINE = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{.*\})?\s+(\S+)(?:\s+-?\d+)?$/;
+
+/** Every sample line of a scrape. `NaN`, `+Inf` and `-Inf` values are kept as numbers. */
+export function parsePrometheusText(raw: string | null | undefined): Sample[] {
+  const samples: Sample[] = [];
+  if (!raw) return samples;
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    const m = /^([a-zA-Z_:][a-zA-Z0-9_:\-]*)(\{[^}]*\})?\s+(\S+)$/.exec(trimmed);
+    const m = LINE.exec(trimmed);
     if (!m) continue;
-    const name = m[1];
-    const group = m[2];
-    const valueText = m[3];
-    if (valueText === '-Inf' || valueText === '+Inf') continue;
+    const labels = m[2] ? parseLabels(m[2]) : {};
+    if (labels === null) continue;
+    const value = parseValue(m[3]);
+    if (value === null) continue;
+    samples.push({ name: m[1], labels, value });
+  }
+  return samples;
+}
 
-    switch (name) {
-      case 'oms-orders-by-state': {
-        const state = labelOf(group, 'state');
-        if (state !== undefined) {
-          const value = parseFloat(valueText);
-          if (!Number.isNaN(value) && value !== 0) ordersByState.push({ state, value });
-        }
-        break;
+function parseValue(text: string): number | null {
+  if (text === '+Inf' || text === 'Inf') return Infinity;
+  if (text === '-Inf') return -Infinity;
+  if (text === 'NaN') return NaN;
+  const v = Number(text);
+  return Number.isNaN(v) ? null : v;
+}
+
+/** `{a="x",b="y \"q\""}` → `{ a: 'x', b: 'y "q"' }`; null when malformed. */
+function parseLabels(group: string): Record<string, string> | null {
+  const labels: Record<string, string> = {};
+  let i = 1;
+  const end = group.length - 1;
+  while (i < end) {
+    while (i < end && (group[i] === ',' || group[i] === ' ')) i++;
+    if (i >= end) break;
+    const eq = group.indexOf('=', i);
+    if (eq < 0 || group[eq + 1] !== '"') return null;
+    const key = group.slice(i, eq).trim();
+    let j = eq + 2;
+    let value = '';
+    while (j < end && group[j] !== '"') {
+      if (group[j] === '\\' && j + 1 < end) {
+        const next = group[j + 1];
+        value += next === 'n' ? '\n' : next;
+        j += 2;
+      } else {
+        value += group[j++];
       }
-      case 'oms-order-events-total': {
-        const v = parseFloat(valueText);
-        if (!Number.isNaN(v)) eventsTotal += v;
-        break;
-      }
-      case 'oms-order-time-to-ack-seconds_bucket': {
-        const le = labelOf(group, 'le');
-        if (le !== undefined) ackBuckets.push(bucketOf(le, valueText));
-        break;
-      }
-      case 'oms-order-time-to-market-seconds_bucket': {
-        const le = labelOf(group, 'le');
-        if (le !== undefined) marketBuckets.push(bucketOf(le, valueText));
-        break;
-      }
-      case 'oms-outbox-pending': {
-        const v = parseFloat(valueText);
-        if (!Number.isNaN(v)) outbox.pending = v;
-        break;
-      }
-      case 'oms-outbox-stuck': {
-        const v = parseFloat(valueText);
-        if (!Number.isNaN(v)) outbox.stuck = v;
-        break;
-      }
-      case 'oms-outbox-oldest-age-seconds': {
-        const v = parseFloat(valueText);
-        if (!Number.isNaN(v)) outbox.oldestAgeSeconds = v;
-        break;
-      }
-      default:
-        break;
     }
+    if (group[j] !== '"') return null;
+    labels[key] = value;
+    i = j + 1;
   }
-
-  return {
-    ordersByState,
-    eventsTotal,
-    timeToAckP99Ms: p99Ms(ackBuckets),
-    timeToMarketP99Ms: p99Ms(marketBuckets),
-    outbox,
-  };
+  return labels;
 }
 
-interface Bucket {
-  /** The upper bound in seconds; null for the `+Inf` bucket. */
-  le: number | null;
-  count: number;
+const matches = (s: Sample, metric: string, labels: Record<string, string> = {}) =>
+  s.name === metric && Object.entries(labels).every(([k, v]) => s.labels[k] === v);
+
+/** The sum of every finite sample of `metric` whose labels include `labels`; null when none matches. */
+export function sumMatching(samples: Sample[], metric: string, labels?: Record<string, string>): number | null {
+  let sum: number | null = null;
+  for (const s of samples) {
+    if (matches(s, metric, labels) && Number.isFinite(s.value)) sum = (sum ?? 0) + s.value;
+  }
+  return sum;
 }
 
-/** `le="0.01"` → `{le:0.01,count}`; `le="+Inf"` → `{le:null,count}`. */
-function bucketOf(le: string, valueText: string): Bucket {
-  const count = parseFloat(valueText);
-  if (le === '+Inf') return { le: null, count: Number.isNaN(count) ? 0 : count };
-  const bound = parseFloat(le);
-  if (Number.isNaN(bound) || Number.isNaN(count)) return { le: null, count: 0 };
-  return { le: bound, count };
+/** One entry per value of label `by`, summed, in first-seen order. Samples without the label are skipped. */
+export function groupBy(samples: Sample[], metric: string, by: string, labels?: Record<string, string>): { label: string; value: number }[] {
+  const out = new Map<string, number>();
+  for (const s of samples) {
+    if (!matches(s, metric, labels) || !Number.isFinite(s.value)) continue;
+    const key = s.labels[by];
+    if (key === undefined) continue;
+    out.set(key, (out.get(key) ?? 0) + s.value);
+  }
+  return [...out].map(([label, value]) => ({ label, value }));
 }
 
 /**
- * The value of one label out of a `{k="v",…}` group, parsed with plain string ops (no regex, to
- * avoid escaping pitfalls). Returns undefined when the group or label is absent.
+ * The `q` quantile of histogram `metric` (read from `<metric>_bucket`, buckets summed per `le`
+ * across series), with Prometheus `histogram_quantile` semantics: linear interpolation inside the
+ * bucket the rank falls in; the highest finite bound when it falls in `+Inf`. Null when there are
+ * no buckets or no observations.
  */
-function labelOf(group: string | undefined, key: string): string | undefined {
-  if (!group) return undefined;
-  const inner = group.slice(1, -1);
-  for (const part of inner.split(',')) {
-    const eq = part.indexOf('=');
-    if (eq < 0) continue;
-    const k = part.slice(0, eq).trim();
-    let v = part.slice(eq + 1).trim();
-    if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1);
-    if (k === key) return v;
+export function histogramQuantile(samples: Sample[], metric: string, q: number, labels?: Record<string, string>): number | null {
+  const byLe = new Map<number, number>();
+  for (const s of samples) {
+    if (!matches(s, `${metric}_bucket`, labels)) continue;
+    const le = parseValue(s.labels.le ?? '');
+    if (le === null || Number.isNaN(le) || !Number.isFinite(s.value)) continue;
+    byLe.set(le, (byLe.get(le) ?? 0) + s.value);
   }
-  return undefined;
-}
+  const buckets = [...byLe].map(([le, count]) => ({ le, count })).sort((a, b) => a.le - b.le);
+  if (!buckets.length || buckets[buckets.length - 1].le !== Infinity) return null;
+  const total = buckets[buckets.length - 1].count;
+  if (total <= 0) return null;
 
-/**
- * Interpolated p99 in milliseconds, following Prometheus `histogram_quantile` semantics
- * (design → Decision 3). The 99th-percentile rank is `0.99·total`; it lands in some bucket and is
- * linearly interpolated between that bucket's previous and current bounds. Because a p99 rank
- * almost always lands in the `+Inf` bucket (every observation is below the 99th percentile), the
- * common case interpolates within the last *finite* bucket. Returns null when there is no total or
- * no finite bucket.
- */
-function p99Ms(buckets: Bucket[]): number | null {
-  // Prometheus histogram buckets carry *cumulative* counts (le=X means "values <= X"), so the
-  // per-bucket delta is the difference from the previous cumulative. total is the last (or +Inf)
-  // cumulative count.
-  const total = buckets.length ? buckets[buckets.length - 1].count : 0;
-  const finite = buckets.filter((b) => b.le !== null && b.le > 0);
-  if (total <= 0 || finite.length === 0) return null;
-
-  const threshold = 0.99 * total;
-  let prevCumulative = 0;
-  let prevLe: number | null = null;
-
+  const rank = q * total;
+  let prevLe = 0;
+  let prevCount = 0;
   for (const b of buckets) {
-    const cumulative = b.count; // already cumulative
-    const delta = cumulative - prevCumulative;
-    if (cumulative < threshold) {
-      if (b.le !== null) prevLe = b.le;
-      prevCumulative = cumulative;
-      continue;
+    if (b.count >= rank) {
+      if (b.le === Infinity) return buckets.length > 1 ? buckets[buckets.length - 2].le : null;
+      const inBucket = b.count - prevCount;
+      if (inBucket <= 0) return b.le;
+      return prevLe + (b.le - prevLe) * ((rank - prevCount) / inBucket);
     }
-    // This bucket contains the 99th-percentile rank (cumulative >= threshold).
-    if (b.le === null) {
-      // The rank is in the +Inf bucket: every finite value sits below it. The last finite bucket
-      // holds the remaining finite values over [its previous cumulative, its cumulative].
-      const last = finite[finite.length - 1];
-      const lastLe = last.le;
-      if (lastLe === null) return null;
-      const lastPrevCum = prevCumulative; // cumulative just before the last finite bucket
-      const lastDelta = last.count - lastPrevCum;
-      const frac = lastDelta > 0 ? (threshold - lastPrevCum) / lastDelta : 0;
-      const lo = prevLe ?? 0;
-      return (lo + Math.min(1, frac) * (lastLe - lo)) * 1000;
-    }
-    // The rank is in a finite bucket: interpolate between the previous bound and this bucket's bound.
-    const bLe = b.le;
-    if (bLe === null) return null;
-    const lo = prevLe ?? 0;
-    const frac = delta > 0 ? (threshold - prevCumulative) / delta : 0;
-    prevCumulative = cumulative;
-    return (lo + Math.min(1, frac) * (bLe - lo)) * 1000;
+    prevLe = b.le;
+    prevCount = b.count;
   }
-
-  const maxLe = finite[finite.length - 1].le;
-  return maxLe === null ? null : maxLe * 1000;
+  return null;
 }

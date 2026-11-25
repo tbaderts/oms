@@ -111,7 +111,7 @@ export function parseLocalSearch(output: string): LocalHit[] {
   }
 }
 
-/** The tool's own name, without an MCP server prefix (`oms:searchKnowledgeBase` → `searchKnowledgeBase`). */
+/** The tool's own name, without an MCP server prefix (`kb:searchKnowledgeBase` → `searchKnowledgeBase`). */
 const baseName = (name: string) => name.slice(name.lastIndexOf(':') + 1);
 const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
 

@@ -5,7 +5,7 @@ export type Implementation = 'implemented' | 'partial' | 'not-implemented';
 /** How much of a capability is built (front matter `maturity`). */
 export type Maturity = 'implemented' | 'partial' | 'planned';
 
-/** Something the OMS can do, built or planned (knowledge base `capabilities/`). */
+/** Something the project can do, built or planned (knowledge base `capabilities/`). */
 export interface Capability {
   /** File name without `.md`, e.g. `order-capture`. */
   id: string;

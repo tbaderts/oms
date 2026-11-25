@@ -5,7 +5,7 @@ title: "Retry failed publication"
 description: "A message that fails to publish stays in the outbox with its attempt count and holds back only its own aggregate; after max attempts it is no longer retried and holds its aggregate until an operator acts."
 tags: [functional, event-publication]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 id: "FR-024"
 priority: "must"
 implementation: "implemented"
@@ -33,5 +33,9 @@ attempt. So a broker or registry outage delays publication without exhausting an
 in the table, is counted by the `oms.outbox.stuck` gauge, and holds the later messages of its
 aggregate until an operator replays or removes it. `oms.outbox.oldest.age` shows how long the
 waiting messages have waited.
+
+Operators see which messages are stuck or held, with their attempts and last error, in oms-ui's
+Outbox tab (SPEC-0075; [Query API](../../domain/interfaces/query-api.md#operations-outbox-and-dead-letters)).
+Replaying or removing one is still a manual step, left to a follow-up ticket.
 
 Capability: [event-publication](../event-publication.md).

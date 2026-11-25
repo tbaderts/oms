@@ -11,15 +11,19 @@ export interface SpecValidationResult {
   errors: string[];
 }
 
+/** A code-generation task from the project's `cockpit.yaml` (`codegen`, SPEC-0076). */
 export interface CodeGenTask {
   id: string;
   name: string;
   description: string;
-  inputSpec: string;
-  outputPackage: string;
-  /** Module whose own Gradle wrapper runs the tasks, e.g. oms-contracts. */
-  module: string;
-  gradleTasks: string[];
+  /** Workspace-relative folder the command runs in. */
+  cwd: string;
+  /** The command and its arguments, e.g. `["./gradlew", "build"]`. */
+  command: string[];
+  /** Used instead of `command` on Windows, e.g. `[".\\gradlew.bat", "build"]`. */
+  windowsCommand?: string[];
+  /** What the task reads, shown on its card. */
+  inputs?: string;
 }
 
 export interface CodeGenResult {

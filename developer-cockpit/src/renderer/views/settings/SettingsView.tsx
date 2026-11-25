@@ -13,11 +13,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Save, RotateCcw } from 'lucide-react';
 import { AiKeysSection } from './AiKeysSection';
 import { isAcceptableEnvVarField } from '@shared/envVarName';
+import type { ProjectConfigResult } from '@shared/projectConfig';
+import { ProjectCard } from './ProjectCard';
+
+const FROM_PROJECT = 'Set by the project file (cockpit.yaml).';
 
 export function SettingsView() {
   const { config, saveConfig, loadConfig } = useConfigStore();
   const [draft, setDraft] = useState<CockpitConfig>(config);
   const [saved, setSaved] = useState(false);
+  const [project, setProject] = useState<ProjectConfigResult | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    window.cockpit?.config?.project?.()
+      .then((p) => live && setProject(p))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [config]);
+  // Settings the project file states are read-only here; editing them would have no effect.
+  const declared = project && project.present && project.errors.length === 0 ? project.declared : null;
 
   useEffect(() => {
     setDraft(config);
@@ -88,6 +105,8 @@ export function SettingsView() {
           AI → the environment variable name is not a variable name (did you paste a key?). Fix it to save.
         </p>
       )}
+
+      <ProjectCard project={project} />
 
       <Tabs defaultValue="general" className="space-y-4">
         <TabsList>
@@ -225,7 +244,7 @@ export function SettingsView() {
                   id="knowledgeServerUrl"
                   value={draft.ai.knowledgeServerUrl ?? DEFAULT_KNOWLEDGE_SERVER_URL}
                   onChange={(e) => updateAi({ knowledgeServerUrl: e.target.value })}
-                  placeholder={DEFAULT_KNOWLEDGE_SERVER_URL}
+                  placeholder={project?.config.knowledgeBase.serverUrl ?? 'From cockpit.yaml, or empty for local search'}
                 />
                 <p className="text-xs text-muted-foreground">
                   The Knowledge Base chat uses this server's search and read tools. When it is unreachable, the chat falls back to local search.
@@ -267,8 +286,10 @@ export function SettingsView() {
                 <Input
                   id="kbRoot"
                   value={draft.knowledgeBase.rootPath}
+                  disabled={!!declared?.knowledgeBaseRoot}
                   onChange={(e) => updateKb({ rootPath: e.target.value })}
                 />
+                {declared?.knowledgeBaseRoot && <p className="text-xs text-muted-foreground">{FROM_PROJECT}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="kbExtensions">File Extensions (comma-separated)</Label>
@@ -301,12 +322,15 @@ export function SettingsView() {
                   id="storyboardRoots"
                   className="min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
                   value={rootsText ?? draft.storyboards.roots.join('\n')}
+                  disabled={!!declared?.storyboardRoots}
                   onChange={(e) => {
                     setRootsText(e.target.value);
                     updateStoryboards({ roots: e.target.value.split('\n').map((r) => r.trim()).filter(Boolean) });
                   }}
                 />
-                <p className="text-xs text-muted-foreground">One folder per line, relative to the workspace; a * segment matches one folder level.</p>
+                <p className="text-xs text-muted-foreground">
+                  {declared?.storyboardRoots ? FROM_PROJECT : 'One folder per line, relative to the workspace; a * segment matches one folder level.'}
+                </p>
               </div>
               <div className="flex items-center justify-between">
                 <Label htmlFor="storyboardsWritable">Storyboards writable</Label>
@@ -377,52 +401,21 @@ export function SettingsView() {
                 />
               </div>
               <Separator />
-              <div className="space-y-2">
-                <Label htmlFor="prometheusUrl">Prometheus URL</Label>
-                <Input
-                  id="prometheusUrl"
-                  value={draft.infrastructure.prometheusUrl}
-                  onChange={(e) => updateInfra({ prometheusUrl: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="grafanaUrl">Grafana URL</Label>
-                <Input
-                  id="grafanaUrl"
-                  value={draft.infrastructure.grafanaUrl}
-                  onChange={(e) => updateInfra({ grafanaUrl: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lokiUrl">Loki URL</Label>
-                <Input
-                  id="lokiUrl"
-                  value={draft.infrastructure.lokiUrl}
-                  onChange={(e) => updateInfra({ lokiUrl: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="omsCoreUrl">oms-core URL</Label>
-                <Input
-                  id="omsCoreUrl"
-                  placeholder="http://localhost:8090"
-                  value={draft.infrastructure.omsCoreUrl ?? ''}
-                  onChange={(e) => updateInfra({ omsCoreUrl: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">Used by the API Explorer. Empty means http://localhost:8090.</p>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Monitoring targets, Prometheus and Grafana links are set per project in cockpit.yaml (<code>monitoring</code>, <code>links</code>).
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="apiTemplateSources">API Explorer template files</Label>
                 <textarea
                   id="apiTemplateSources"
                   className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm"
-                  placeholder="oms-core/rest.http"
+                  placeholder="requests/api.http"
+                  disabled={!!declared?.templateSources}
                   value={(draft.infrastructure.apiTemplateSources ?? []).join('\n')}
                   onChange={(e) => updateInfra({ apiTemplateSources: e.target.value.split('\n') })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Extra .http files listed as templates, one path per line (relative to the workspace or absolute). Files in
-                  developer-cockpit/api-templates are always listed.
+                  {declared?.templateSources ? FROM_PROJECT : '.http files listed as templates, one path per line (relative to the workspace or absolute).'}
                 </p>
               </div>
             </CardContent>
@@ -437,6 +430,7 @@ export function SettingsView() {
                 <Label htmlFor="openApiPaths">OpenAPI Paths (comma-separated)</Label>
                 <Input
                   id="openApiPaths"
+                  disabled={!!declared?.openApiPaths}
                   value={draft.specs.openApiPaths.join(', ')}
                   onChange={(e) =>
                     setDraft((d) => ({
@@ -450,6 +444,7 @@ export function SettingsView() {
                 <Label htmlFor="avroPaths">Avro Paths (comma-separated)</Label>
                 <Input
                   id="avroPaths"
+                  disabled={!!declared?.avroPaths}
                   value={draft.specs.avroPaths.join(', ')}
                   onChange={(e) =>
                     setDraft((d) => ({

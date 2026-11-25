@@ -20,10 +20,12 @@ export function TaskCard({ task, result, running, onRun }: TaskCardProps) {
       </CardHeader>
       <CardContent className="space-y-2">
         <p className="text-sm text-muted-foreground">{task.description}</p>
-        <div className="text-xs text-muted-foreground">
-          <span className="font-medium">{task.inputSpec}</span>
-          <span className="mx-1">&rarr;</span>
-          <span className="font-medium">{task.outputPackage}</span>
+        <div className="space-y-0.5 text-xs text-muted-foreground">
+          {task.inputs && <div className="font-medium">{task.inputs}</div>}
+          <div className="font-mono">
+            {task.cwd && task.cwd !== '.' ? `${task.cwd}$ ` : '$ '}
+            {task.command.join(' ')}
+          </div>
         </div>
         <div className="flex items-center gap-2 pt-1">
           <Button size="sm" onClick={onRun} disabled={running}>

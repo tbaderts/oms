@@ -1,151 +1,155 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useMonitorStore, REFRESH_INTERVAL_MS } from '../../src/renderer/stores/monitor';
-import type { MonitorHealthResult, MonitorMetricsResult } from '../../src/shared/types/monitor';
+import { EMPTY_DATA, HISTORY_LENGTH, reducePoll, useMonitorStore, type MonitorData } from '../../src/renderer/stores/monitor';
+import { projectConfigSchema } from '../../src/shared/projectConfig';
+import type { MonitorConfigResult, MonitorPoll, ServiceCheck, ServiceStatus } from '../../src/shared/types/monitor';
 
-const HEALTH: MonitorHealthResult = { ok: true, status: 200, body: { status: 'UP' }, url: 'http://localhost:8090' };
-const METRICS: MonitorMetricsResult = {
-  ok: true,
-  status: 200,
-  raw: 'oms-outbox-pending 4\noms-order-events-total{event="X"} 5',
-  url: 'http://localhost:8090',
-};
-const FAILED_HEALTH: MonitorHealthResult = { ok: false, status: null, body: null, url: 'http://localhost:8090', error: 'oms-core not reachable at http://localhost:8090: timeout after 10000 ms' };
-const FAILED_METRICS: MonitorMetricsResult = { ok: false, status: null, raw: null, url: 'http://localhost:8090', error: 'oms-core not reachable at http://localhost:8090: timeout after 10000 ms' };
+const check = (name: string, status: ServiceStatus, at: number, extra: Partial<ServiceCheck> = {}): ServiceCheck => ({
+  name,
+  status,
+  latencyMs: 12,
+  checkedAt: at,
+  target: `http://localhost/${name}`,
+  ...extra,
+});
+const poll = (at: number, checks: ServiceCheck[], panels: MonitorPoll['panels'] = []): MonitorPoll => ({ at, checks, panels });
 
-interface MonitorApi {
-  health: ReturnType<typeof vi.fn>;
-  metrics: ReturnType<typeof vi.fn>;
-}
+const monitoring = projectConfigSchema.parse({
+  monitoring: {
+    services: [
+      { name: 'api', check: { kind: 'http', url: 'http://localhost:1/' }, metricsUrl: 'http://localhost:1/metrics' },
+      { name: 'db', check: { kind: 'tcp', host: 'localhost', port: 5432 } },
+    ],
+    panels: [
+      { title: 'Events/min', type: 'timeseries', unit: 'perMinute', source: { kind: 'scrape', service: 'api', metric: 'events_total', rate: true } },
+      { title: 'Queue', type: 'timeseries', source: { kind: 'scrape', service: 'api', metric: 'queue' } },
+    ],
+  },
+}).monitoring;
 
-function setMonitorApi(overrides: Partial<Pick<MonitorApi, 'health' | 'metrics'>> = {}): MonitorApi {
-  const api: MonitorApi = {
-    health: (overrides.health as MonitorApi['health']) ?? vi.fn(async () => HEALTH),
-    metrics: (overrides.metrics as MonitorApi['metrics']) ?? vi.fn(async () => METRICS),
-  };
-  (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { monitor: api };
-  return api;
-}
+const CONFIG: MonitorConfigResult = { file: '/w/cockpit.yaml', present: true, projectName: 'Acme', monitoring, errors: [], links: [] };
+
+describe('reducePoll', () => {
+  it('statusChange_addsTimelineEntryWithTime', () => {
+    let d: MonitorData = reducePoll(EMPTY_DATA, poll(1000, [check('api', 'UP', 1000), check('db', 'UP', 1000)]), []);
+    expect(d.timeline).toEqual([]); // the first poll records no change
+
+    d = reducePoll(d, poll(2000, [check('api', 'DOWN', 2000, { reason: 'timeout after 3000 ms' }), check('db', 'UP', 2000)]), []);
+    expect(d.timeline).toEqual([{ service: 'api', from: 'UP', to: 'DOWN', at: 2000, reason: 'timeout after 3000 ms' }]);
+
+    d = reducePoll(d, poll(3000, [check('api', 'UP', 3000), check('db', 'UNKNOWN', 3000)]), []);
+    expect(d.timeline).toHaveLength(3);
+    expect(d.timeline.slice(0, 2).map((e) => `${e.service}:${e.from}->${e.to}@${e.at}`).sort()).toEqual(['api:DOWN->UP@3000', 'db:UP->UNKNOWN@3000']);
+    expect(d.timeline[d.timeline.length - 1]).toMatchObject({ service: 'api', to: 'DOWN', at: 2000 });
+  });
+
+  it('historyKeepsLast30Checks', () => {
+    let d: MonitorData = EMPTY_DATA;
+    for (let i = 1; i <= 40; i++) d = reducePoll(d, poll(i * 1000, [check('api', i % 2 ? 'UP' : 'DOWN', i * 1000, { latencyMs: i })]), []);
+    expect(d.history.api).toHaveLength(HISTORY_LENGTH);
+    expect(d.history.api[0]).toEqual({ status: 'UP', latencyMs: 11, at: 11_000 });
+    expect(d.history.api.at(-1)).toEqual({ status: 'DOWN', latencyMs: 40, at: 40_000 });
+  });
+
+  it('derives a per-minute rate and a series from scraped values', () => {
+    const p = (at: number, events: number, queue: number) =>
+      poll(at, [], [
+        { title: 'Events/min', type: 'timeseries', unit: 'perMinute', ok: true, value: events },
+        { title: 'Queue', type: 'timeseries', unit: 'count', ok: true, value: queue },
+      ]);
+    let d = reducePoll(EMPTY_DATA, p(0, 100, 3), monitoring.panels);
+    expect(d.panels[0].value).toBeNull(); // no baseline yet
+    expect(d.panels[1].series).toEqual([{ t: 0, value: 3 }]);
+    d = reducePoll(d, p(30_000, 130, 5), monitoring.panels);
+    expect(d.panels[0].value).toBe(60);
+    expect(d.panels[0].series).toEqual([{ t: 30_000, value: 60 }]);
+    expect(d.panels[1].series).toEqual([{ t: 0, value: 3 }, { t: 30_000, value: 5 }]);
+    d = reducePoll(d, p(60_000, 10, 5), monitoring.panels); // counter reset
+    expect(d.panels[0].value).toBeNull();
+  });
+});
 
 describe('useMonitorStore', () => {
+  let api: { config: ReturnType<typeof vi.fn>; poll: ReturnType<typeof vi.fn> };
   beforeEach(() => {
     vi.useFakeTimers();
+    api = {
+      config: vi.fn(async () => CONFIG),
+      poll: vi.fn(async () => poll(Date.now(), [check('api', 'UP', Date.now()), check('db', 'UP', Date.now())])),
+    };
+    (window as unknown as { cockpit: unknown }).cockpit = { monitor: api };
   });
   afterEach(() => {
+    useMonitorStore.getState().stop();
     vi.useRealTimers();
     useMonitorStore.setState(useMonitorStore.getInitialState(), true);
   });
 
-  it('AC-1: load() sets sample + lastUpdated from a successful health+metrics result', async () => {
-    setMonitorApi();
-    await useMonitorStore.getState().load();
-    const s = useMonitorStore.getState();
-    expect(s.sample).not.toBeNull();
-    expect(s.sample!.health?.body?.status).toBe('UP');
-    expect(s.sample!.parsed).not.toBeNull();
-    expect(s.lastUpdated).toBeGreaterThan(0);
-    expect(s.error).toBeNull();
-    expect(s.connectionLost).toBe(false);
+  it('start loads the config, polls now and then every intervalSeconds', async () => {
+    await useMonitorStore.getState().start();
+    expect(api.config).toHaveBeenCalledTimes(1);
+    expect(api.poll).toHaveBeenCalledTimes(1);
+    expect(useMonitorStore.getState().history.api).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(api.poll).toHaveBeenCalledTimes(2);
+    expect(useMonitorStore.getState().lastUpdated).toBeGreaterThan(0);
   });
 
-  it('AC-6: a failed poll with a previous sample keeps the sample and flags connectionLost', async () => {
-    const api = setMonitorApi();
-    // First successful load.
+  it('overlapping polls are ignored', async () => {
+    let release!: () => void;
+    api.poll.mockImplementationOnce(() => new Promise((r) => (release = () => r(poll(1, [])))));
+    useMonitorStore.setState({ config: CONFIG });
+    const first = useMonitorStore.getState().load();
     await useMonitorStore.getState().load();
-    expect(useMonitorStore.getState().sample).not.toBeNull();
-    // Now make the next poll fail.
-    api.health = vi.fn(async () => FAILED_HEALTH);
-    api.metrics = vi.fn(async () => FAILED_METRICS);
-    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { monitor: api };
+    expect(api.poll).toHaveBeenCalledTimes(1);
+    release();
+    await first;
+  });
+
+  it('a failed poll after a good one keeps the data and flags the connection', async () => {
+    await useMonitorStore.getState().start();
+    api.poll.mockRejectedValueOnce(new Error('IPC gone'));
     await useMonitorStore.getState().load();
     const s = useMonitorStore.getState();
     expect(s.connectionLost).toBe(true);
-    expect(s.sample).not.toBeNull(); // last good sample kept
-    expect(s.sample!.health?.body?.status).toBe('UP');
+    expect(s.history.api).toHaveLength(1);
+    expect(s.error).toBe('IPC gone');
   });
 
-  it('AC-6: a failed poll with no previous sample sets error and no connectionLost', async () => {
-    const api = setMonitorApi({
-      health: vi.fn(async () => FAILED_HEALTH),
-      metrics: vi.fn(async () => FAILED_METRICS),
-    });
-    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { monitor: api };
+  it('a changed configuration resets the history', async () => {
+    await useMonitorStore.getState().start();
+    api.config.mockResolvedValueOnce({ ...CONFIG, monitoring: { ...CONFIG.monitoring, intervalSeconds: 30 } });
+    await useMonitorStore.getState().refresh();
+    expect(useMonitorStore.getState().history.api).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(api.poll).toHaveBeenCalledTimes(2); // not yet: the interval is now 30 s
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(api.poll).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('a changed cockpit.yaml (SPEC-0076 review)', () => {
+  afterEach(() => {
+    useMonitorStore.getState().stop();
+    useMonitorStore.setState(useMonitorStore.getInitialState(), true);
+  });
+
+  it('a poll that no longer matches the config on screen re-reads the config first', async () => {
+    const edited: MonitorConfigResult = { ...CONFIG, monitoring: { ...CONFIG.monitoring, services: [...CONFIG.monitoring.services, { ...CONFIG.monitoring.services[1], name: 'cache' }] } };
+    const api = {
+      config: vi.fn(async () => CONFIG),
+      poll: vi.fn(async () => poll(1, [check('api', 'UP', 1), check('db', 'UP', 1)])),
+    };
+    (window as unknown as { cockpit: unknown }).cockpit = { monitor: api };
+    await useMonitorStore.getState().loadConfig();
     await useMonitorStore.getState().load();
-    const s = useMonitorStore.getState();
-    expect(s.error).toContain('not reachable');
-    expect(s.connectionLost).toBe(false);
-    expect(s.sample).toBeNull();
-  });
+    expect(api.config).toHaveBeenCalledTimes(1);
 
-  it('a partial failure (health ok, metrics failed) is treated as a success that keeps the health tile', async () => {
-    // Exercises the `health.ok || metrics.ok` partial-success path in load(): the sample is stored
-    // with the health tile present and the metrics/parsed part null, without an error banner.
-    const api = setMonitorApi({
-      health: vi.fn(async () => HEALTH),
-      metrics: vi.fn(async () => FAILED_METRICS),
-    });
-    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { monitor: api };
+    api.config.mockResolvedValue(edited);
+    api.poll.mockResolvedValue(poll(2, [check('api', 'UP', 2), check('db', 'UP', 2), check('cache', 'DOWN', 2)]));
     await useMonitorStore.getState().load();
-    const s = useMonitorStore.getState();
-    expect(s.sample).not.toBeNull();
-    expect(s.sample!.health?.body?.status).toBe('UP');
-    expect(s.sample!.metrics).toBeNull();
-    expect(s.sample!.parsed).toBeNull();
-    expect(s.error).toBeNull();
-    expect(s.connectionLost).toBe(false);
-  });
-
-  it('AC-7: auto refresh fires a new load every REFRESH_INTERVAL_MS and refreshes lastUpdated on success', async () => {
-    const api = setMonitorApi();
-    useMonitorStore.getState().startAutoRefresh();
-    // The first load happens on start.
-    await vi.advanceTimersByTimeAsync(0);
-    const firstCalls = (api.health as ReturnType<typeof vi.fn>).mock.calls.length;
-    expect(firstCalls).toBe(1);
-    const firstUpdated = useMonitorStore.getState().lastUpdated;
-    expect(firstUpdated).not.toBeNull();
-    // Advance one full interval (the fake clock moves, so Date.now() changes) → a second load.
-    await vi.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS);
-    expect((api.health as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2);
-    // The "Last updated" timestamp is refreshed on the successful poll (AC-7's second clause).
-    const secondUpdated = useMonitorStore.getState().lastUpdated;
-    expect(secondUpdated).not.toBeNull();
-    expect(secondUpdated!).toBeGreaterThan(firstUpdated!);
-    // And a third.
-    await vi.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS);
-    expect((api.health as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
-    expect(useMonitorStore.getState().lastUpdated!).toBeGreaterThan(secondUpdated!);
-  });
-
-  it('AC-8: manualRefresh() fires a load immediately and restarts the interval after the response', async () => {
-    const api = setMonitorApi();
-    useMonitorStore.getState().startAutoRefresh();
-    await vi.advanceTimersByTimeAsync(0); // initial load
-    // Trigger a manual refresh at t=0 (right after the initial load).
-    await useMonitorStore.getState().manualRefresh();
-    expect((api.health as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2); // immediate
-    // The interval restarts after the response; advancing a full interval yields the next tick.
-    await vi.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS);
-    expect((api.health as ReturnType<typeof vi.fn>).mock.calls.length).toBe(3);
-  });
-
-  it('a refreshing guard prevents overlapping loads', async () => {
-    let release: (() => void) | null = null;
-    const slow = new Promise<MonitorHealthResult>((res) => {
-      release = () => res(HEALTH);
-    });
-    const api = setMonitorApi({
-      health: vi.fn(async () => (slow as Promise<MonitorHealthResult>)),
-      metrics: vi.fn(async () => METRICS),
-    });
-    (window as unknown as { cockpit: Record<string, unknown> }).cockpit = { monitor: api };
-    const s = useMonitorStore.getState();
-    const first = s.load();
-    // A second load while the first is in flight should be a no-op.
-    const second = s.load();
-    release!();
-    await first;
-    await second;
-    expect((api.health as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
+    expect(api.config).toHaveBeenCalledTimes(2);
+    expect(useMonitorStore.getState().config?.monitoring.services.map((s) => s.name)).toEqual(['api', 'db', 'cache']);
+    expect(useMonitorStore.getState().history.cache).toHaveLength(1);
   });
 });

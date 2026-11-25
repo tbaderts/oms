@@ -1,0 +1,12 @@
+// OutboxView.scss - the Outbox tab (SPEC-0075); shared layout in Operations.scss
+
+.outbox-view {
+  code {
+    font-family: var(--oms-font-mono);
+  }
+
+  .outbox-key {
+    font-family: var(--oms-font-mono);
+    font-size: var(--oms-font-size-sm);
+  }
+}

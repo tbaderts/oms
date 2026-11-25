@@ -64,6 +64,10 @@ Services can also run with `./gradlew bootRun` on the host, against the infrastr
 They then use `localhost` endpoints and have OTLP export off unless `OTLP_EXPORT_ENABLED=true` is
 set. The KB explorer, the developer cockpit and mission control always run on the host.
 
+The developer cockpit's Monitoring view checks every service of this stack on its published port,
+as listed under `monitoring.services` in the root `cockpit.yaml` (SPEC-0076). Services started
+only with a profile, such as Control Center and pgAdmin, show as DOWN while they are not running.
+
 ## Checks
 
 `powershell -File oms-core/scripts/lgtm-smoke-test.ps1` checks that telemetry flows end to end

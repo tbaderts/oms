@@ -209,4 +209,45 @@ describe('OMSApiService', () => {
       await expect(apiService.getOrderEvents('ORD-1')).rejects.toThrow('500');
     });
   });
+
+  // SPEC-0075: the operator API - outbox and dead letters.
+  describe('operations (SPEC-0075)', () => {
+    it('getOutboxSummary calls the summary endpoint', async () => {
+      mockGet.mockResolvedValue({ pending: 1, stuck: 2, held: 3, maxAttempts: 10 });
+
+      expect(await apiService.getOutboxSummary()).toEqual({ pending: 1, stuck: 2, held: 3, maxAttempts: 10 });
+      expect(mockGet).toHaveBeenCalledWith('/api/query/admin/outbox/summary');
+    });
+
+    it('getOutboxMessages passes state, page and size, and leaves out an absent state', async () => {
+      mockGet.mockResolvedValue({ content: [], page: { size: 50, totalElements: 0, totalPages: 0, number: 0 } });
+
+      await apiService.getOutboxMessages('STUCK', 2, 25);
+      expect(mockGet).toHaveBeenCalledWith('/api/query/admin/outbox/messages', { params: { state: 'STUCK', page: 2, size: 25 } });
+
+      await apiService.getOutboxMessages(undefined, 0, 50);
+      expect(mockGet).toHaveBeenLastCalledWith('/api/query/admin/outbox/messages', { params: { page: 0, size: 50 } });
+    });
+
+    it('getOutboxMessage calls the message endpoint', async () => {
+      mockGet.mockResolvedValue({ id: 7, state: 'STUCK' });
+
+      expect(await apiService.getOutboxMessage(7)).toEqual({ id: 7, state: 'STUCK' });
+      expect(mockGet).toHaveBeenCalledWith('/api/query/admin/outbox/messages/7');
+    });
+
+    it('getDeadLetterTopics calls the topics endpoint; a null body is no topics', async () => {
+      mockGet.mockResolvedValue(null);
+
+      expect(await apiService.getDeadLetterTopics()).toEqual([]);
+      expect(mockGet).toHaveBeenCalledWith('/api/query/admin/dead-letters');
+    });
+
+    it('getDeadLetterRecords calls the records endpoint with the encoded topic and limit', async () => {
+      mockGet.mockResolvedValue([{ topic: 'commands.DLT', offset: 4 }]);
+
+      expect(await apiService.getDeadLetterRecords('commands.DLT', 50)).toEqual([{ topic: 'commands.DLT', offset: 4 }]);
+      expect(mockGet).toHaveBeenCalledWith('/api/query/admin/dead-letters/commands.DLT/records', { params: { limit: 50 } });
+    });
+  });
 });

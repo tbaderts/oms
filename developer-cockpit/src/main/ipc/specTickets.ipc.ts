@@ -1,13 +1,15 @@
 import type { IpcMain } from 'electron';
 import type { ConfigService } from '../services/ConfigService';
 import { SpecTicketsService } from '../services/SpecTicketsService';
+import { SpecCli } from '../services/SpecCli';
 import type { SpecAction, SpecDocument } from '../../shared/types/specTickets';
 
 let specTicketsService: SpecTicketsService | null = null;
 
 function getSpecTicketsService(configService: ConfigService): SpecTicketsService {
   if (!specTicketsService) {
-    specTicketsService = new SpecTicketsService(configService.getWorkspaceRoot());
+    const root = configService.getWorkspaceRoot();
+    specTicketsService = new SpecTicketsService(root, new SpecCli(root, process.execPath, configService.getProject().config.specs.cli));
   }
   return specTicketsService;
 }

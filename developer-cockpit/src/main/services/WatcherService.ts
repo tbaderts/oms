@@ -13,27 +13,23 @@ export class WatcherService {
   private extraPaths: string[] = [];
   private pathListeners = new Set<(filePath: string, kind: FileChangePayload['kind']) => void>();
 
+  /**
+   * `projectPaths` are workspace-relative folders or files the project wants watched (its
+   * knowledge base, its `watch` list from cockpit.yaml, cockpit.yaml itself). The spec ticket
+   * folders are always watched.
+   */
   constructor(
     private workspaceRoot: string,
     private wsServer: WebSocketServer,
+    private projectPaths: string[] = [],
   ) {}
 
   start(): void {
     // Watch only the directories we care about rather than the entire workspace.
     // The full workspace contains ~100K files; scanning all of them at startup
     // blocks the Electron main process and makes the app feel sluggish.
-    const watchPaths = [
-      'oms-contracts/src/main',
-      'oms-core/src',
-      'oms-streaming-service/src',
-      'oms-ui/frontend/src',
-      'oms-knowledge-base',
-      'developer-cockpit/src',
-      'developer-cockpit/api-templates',
-      'specs/changes',
-      'specs/archive',
-    ]
-      .map((p) => path.join(this.workspaceRoot, p))
+    const watchPaths = [...new Set(['specs/changes', 'specs/archive', ...this.projectPaths])]
+      .map((p) => path.resolve(this.workspaceRoot, p))
       .concat(this.extraPaths);
 
     this.watcher = watch(watchPaths, {

@@ -21,8 +21,8 @@ function mockSpecs() {
     }]),
     parseEntities: vi.fn(async () => [{ name: 'OrderCreateCmd', source: 'avro', kind: 'record', fields: [], references: [] }]),
     getCodeGenTasks: vi.fn(async () => [{
-      id: 'contracts', name: 'Contract models', description: 'Generate models', inputSpec: 'in', outputPackage: 'out',
-      module: 'oms-contracts', gradleTasks: ['generateAvroJava'],
+      id: 'contracts', name: 'Contract models', description: 'Generate models', inputs: 'openapi/*.yml',
+      cwd: 'oms-contracts', command: ['./gradlew', 'generateAvroJava'],
     }]),
   };
   const ticketApi = mockCockpit();

@@ -6,6 +6,7 @@ const api: CockpitAPI = {
     load: () => ipcRenderer.invoke('config:load'),
     save: (config) => ipcRenderer.invoke('config:save', config),
     getWorkspaceRoot: () => ipcRenderer.invoke('config:getWorkspaceRoot'),
+    project: () => ipcRenderer.invoke('config:project'),
   },
   kb: {
     getCategories: () => ipcRenderer.invoke('kb:getCategories'),
@@ -64,10 +65,7 @@ const api: CockpitAPI = {
   },
   apiExplorer: {
     catalog: () => ipcRenderer.invoke('apiExplorer:catalog'),
-    baseUrl: () => ipcRenderer.invoke('apiExplorer:baseUrl'),
-    sendCommand: (bodyText, confirmedHost) => ipcRenderer.invoke('apiExplorer:sendCommand', bodyText, confirmedHost),
-    search: (params, paging) => ipcRenderer.invoke('apiExplorer:search', params, paging),
-    followUp: (orderId) => ipcRenderer.invoke('apiExplorer:followUp', orderId),
+    send: (req, confirmedHost) => ipcRenderer.invoke('apiExplorer:send', req, confirmedHost),
     history: () => ipcRenderer.invoke('apiExplorer:history'),
     clearHistory: () => ipcRenderer.invoke('apiExplorer:clearHistory'),
     templates: () => ipcRenderer.invoke('apiExplorer:templates'),
@@ -110,8 +108,8 @@ const api: CockpitAPI = {
     logs: (container: string, lines?: number) => ipcRenderer.invoke('docker:logs', container, lines),
   },
   monitor: {
-    health: () => ipcRenderer.invoke('monitor:health'),
-    metrics: () => ipcRenderer.invoke('monitor:metrics'),
+    config: () => ipcRenderer.invoke('monitor:config'),
+    poll: () => ipcRenderer.invoke('monitor:poll'),
   },
   events: {
     getWebSocketUrl: () => ipcRenderer.invoke('events:getWebSocketUrl'),

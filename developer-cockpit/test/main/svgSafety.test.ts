@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { checkSvg } from '../../src/main/storyboards/svgSafety';
 import { EXCALIDRAW_SVG } from '../fixtures/storyboards';
+import { REPO_ROOT, hostHas } from '../fixtures/workspace';
 
 const MAX = 512 * 1024;
 const svg = (inner: string, attrs = '') =>
@@ -74,10 +75,10 @@ describe('checkSvg', () => {
     expect(rejected(svg('<rect style="fill:url(\'//evil.example/p\')"/>'))).toMatch(/url/);
   });
 
-  it('still accepts the repository sketch and safe fragment references in presentation attributes', () => {
+  it.skipIf(!hostHas('oms-knowledge-base/storyboards'))('still accepts the repository sketch and safe fragment references in presentation attributes (needs host knowledge base next to the cockpit)', () => {
     const fs = require('fs') as typeof import('fs');
     const path = require('path') as typeof import('path');
-    const sketch = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'oms-knowledge-base', 'storyboards', 'order-lifecycle', 'place-and-fill-order', 'assets', 'submit-order.excalidraw.svg'), 'utf8');
+    const sketch = fs.readFileSync(path.join(REPO_ROOT, 'oms-knowledge-base', 'storyboards', 'order-lifecycle', 'place-and-fill-order', 'assets', 'submit-order.excalidraw.svg'), 'utf8');
     expect(checkSvg(sketch, MAX)).toEqual({ ok: true });
     expect(checkSvg(svg('<defs><linearGradient id="g"/></defs><rect fill="url(#g)" clip-path="url( \'#c\' )"/>'), MAX)).toEqual({ ok: true });
   });

@@ -52,7 +52,8 @@ export interface AiConfig {
   knowledgeServerUrl?: string;
 }
 
-export const DEFAULT_KNOWLEDGE_SERVER_URL = 'http://localhost:8091/mcp';
+/** No knowledge server unless the project (cockpit.yaml `knowledgeBase.serverUrl`) or the user names one. */
+export const DEFAULT_KNOWLEDGE_SERVER_URL = '';
 
 export interface KnowledgeBaseConfig {
   rootPath: string;
@@ -67,11 +68,6 @@ export interface InfrastructureConfig {
   /** Path to the `docker` CLI. Defaults to `docker` (found on PATH). Override for non-standard installs. */
   dockerPath?: string;
   kubernetesEnabled: boolean;
-  prometheusUrl: string;
-  grafanaUrl: string;
-  lokiUrl: string;
-  /** oms-core base URL the API Explorer calls. */
-  omsCoreUrl: string;
   /** Extra `.http` files the API Explorer lists as templates, workspace-relative or absolute. */
   apiTemplateSources: string[];
 }
@@ -81,12 +77,6 @@ export interface SpecsConfig {
   avroPaths: string[];
   autoGenerate: boolean;
 }
-
-/** Contract paths before the contracts moved to oms-contracts; saved configs with exactly these are migrated. */
-export const LEGACY_SPECS_PATHS: Pick<SpecsConfig, 'openApiPaths' | 'avroPaths'> = {
-  openApiPaths: ['oms-core/src/main/openapi'],
-  avroPaths: ['oms-core/src/main/avro'],
-};
 
 export const DEFAULT_CONFIG: CockpitConfig = {
   general: {
@@ -114,7 +104,7 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     knowledgeServerUrl: DEFAULT_KNOWLEDGE_SERVER_URL,
   },
   knowledgeBase: {
-    rootPath: 'oms-knowledge-base',
+    rootPath: 'knowledge-base',
     fileExtensions: ['.md', '.mdx'],
     excludePatterns: ['node_modules', '.git', 'build', 'dist'],
   },
@@ -122,15 +112,11 @@ export const DEFAULT_CONFIG: CockpitConfig = {
     dockerEnabled: true,
     dockerRefreshIntervalSeconds: 5,
     kubernetesEnabled: false,
-    prometheusUrl: 'http://localhost:9090',
-    grafanaUrl: 'http://localhost:3000',
-    lokiUrl: 'http://localhost:3100',
-    omsCoreUrl: 'http://localhost:8090',
     apiTemplateSources: [],
   },
   specs: {
-    openApiPaths: ['oms-contracts/src/main/openapi'],
-    avroPaths: ['oms-contracts/src/main/avro'],
+    openApiPaths: [],
+    avroPaths: [],
     autoGenerate: false,
   },
   storyboards: { ...DEFAULT_STORYBOARDS_CONFIG, roots: [...DEFAULT_STORYBOARDS_CONFIG.roots] },

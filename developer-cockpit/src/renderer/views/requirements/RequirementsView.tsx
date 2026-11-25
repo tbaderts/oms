@@ -21,7 +21,7 @@ export function RequirementsView() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Requirements Explorer</h1>
-        <p className="text-sm text-muted-foreground">Browse the capabilities of the OMS, their use cases, functional and non-functional requirements, and actors</p>
+        <p className="text-sm text-muted-foreground">Browse the capabilities of the project, their use cases, functional and non-functional requirements, and actors</p>
       </div>
 
       <Tabs defaultValue="capabilities">

@@ -28,7 +28,7 @@ const STEP = [
 
 /** The editor's save path end to end: detail → draft → user edit → patch → service → file. */
 function editAndSave(ws: StoryboardWorkspace, edit: (d: ReturnType<typeof draftOf>) => void) {
-  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
   svc.scan();
   const d = svc.detail(ID);
   if (!d.ok) throw new Error(d.message);
@@ -86,7 +86,7 @@ describe('step editor save: only what the user changed reaches the file', () => 
     const dir = ws.writeExample();
     const file = `${dir}/steps/accept-quote.md`;
     ws.write({ [file]: STEP });
-    const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+    const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
     svc.scan();
     const d = svc.detail(ID);
     if (!d.ok) throw new Error(d.message);

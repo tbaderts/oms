@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ConfigService, migrateConfig, resolveStoryboardsConfig } from '../../src/main/services/ConfigService';
+import { ConfigService, resolveStoryboardsConfig } from '../../src/main/services/ConfigService';
 import { DEFAULT_CONFIG } from '../../src/shared/types/config';
 import { REPO_ROOT } from '../fixtures/workspace';
 import { KeyStore } from '../../src/main/ai/KeyStore';
@@ -10,8 +10,6 @@ import { migrateAiKeys } from '../../src/main/ai/keyMigration';
 import { fakeCrypto } from './keyTestUtils';
 
 const getWorkspaceRoot = (service: ConfigService) => service.getConfig().general.workspaceRoot;
-
-const LEGACY = { openApiPaths: ['oms-core/src/main/openapi'], avroPaths: ['oms-core/src/main/avro'] };
 
 describe('ConfigService contract paths', () => {
   let dir: string | undefined;
@@ -26,40 +24,24 @@ describe('ConfigService contract paths', () => {
   };
   const readSaved = () => JSON.parse(fs.readFileSync(path.join(dir!, 'config.json'), 'utf8'));
 
-  it('defaults point at oms-contracts', () => {
-    expect(DEFAULT_CONFIG.specs.openApiPaths).toEqual(['oms-contracts/src/main/openapi']);
-    expect(DEFAULT_CONFIG.specs.avroPaths).toEqual(['oms-contracts/src/main/avro']);
+  it('defaults name no project paths', () => {
+    expect(DEFAULT_CONFIG.specs.openApiPaths).toEqual([]);
+    expect(DEFAULT_CONFIG.specs.avroPaths).toEqual([]);
+    expect(DEFAULT_CONFIG.knowledgeBase.rootPath).toBe('knowledge-base');
   });
 
-  it('migrates the legacy oms-core contract paths and saves', async () => {
-    const saved = {
-      ...DEFAULT_CONFIG,
-      general: { ...DEFAULT_CONFIG.general, workspaceRoot: 'D:\\somewhere', theme: 'light' },
-      specs: { ...LEGACY, autoGenerate: true },
-    };
-    writeSaved(saved);
-
-    const config = await new ConfigService(dir).load();
-
-    expect(config.specs).toEqual({ ...DEFAULT_CONFIG.specs, autoGenerate: true });
-    const onDisk = readSaved();
-    expect(onDisk.specs).toEqual({ ...DEFAULT_CONFIG.specs, autoGenerate: true });
-    // Everything else is written back unchanged.
-    expect({ ...onDisk, specs: null }).toEqual({ ...saved, specs: null });
-  });
-
-  it('keeps custom contract paths', async () => {
-    const custom = { openApiPaths: ['oms-core/src/main/openapi', 'extra/openapi'], avroPaths: ['my/avro'], autoGenerate: false };
-    writeSaved({ ...DEFAULT_CONFIG, specs: custom });
-    const before = fs.readFileSync(path.join(dir!, 'config.json'), 'utf8');
+  it('keeps custom contract paths and drops the removed API URL setting', async () => {
+    const custom = { openApiPaths: ['api/openapi', 'extra/openapi'], avroPaths: ['my/avro'], autoGenerate: false };
+    writeSaved({ ...DEFAULT_CONFIG, specs: custom, infrastructure: { ...DEFAULT_CONFIG.infrastructure, omsCoreUrl: 'http://localhost:8090' } });
 
     const config = await new ConfigService(dir).load();
 
     expect(config.specs).toEqual(custom);
-    expect(fs.readFileSync(path.join(dir!, 'config.json'), 'utf8')).toBe(before);
+    expect(config.infrastructure).not.toHaveProperty('omsCoreUrl');
+    expect(readSaved().infrastructure).not.toHaveProperty('omsCoreUrl');
   });
 
-  it('an empty workspace root is filled from the repo the app runs inside', async () => {
+  it.skipIf(!fs.existsSync(path.join(REPO_ROOT, '.git')))('an empty workspace root is filled from the repo the app runs inside (needs the cockpit inside a git repository)', async () => {
     const saved = { ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: '' } };
     writeSaved(saved);
     const before = fs.readFileSync(path.join(dir!, 'config.json'), 'utf8');
@@ -67,17 +49,17 @@ describe('ConfigService contract paths', () => {
     const service = new ConfigService(dir);
     await service.load();
 
-    // This checkout runs inside the OMS repository, so the effective root is its root.
+    // The effective root is the repository this checkout runs inside.
     expect(getWorkspaceRoot(service)).toBe(REPO_ROOT);
     // Auto-detection is resolved at read time and never persisted: the file is untouched.
     expect(fs.readFileSync(path.join(dir!, 'config.json'), 'utf8')).toBe(before);
   });
 
   it('a saved foreign-platform path is left as-is (downstream guards make it non-fatal)', async () => {
-    writeSaved({ ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: 'C:\\data\\workspace\\oms' } });
+    writeSaved({ ...DEFAULT_CONFIG, general: { ...DEFAULT_CONFIG.general, workspaceRoot: 'C:\\data\\workspace\\acme' } });
     const service = new ConfigService(dir);
     await service.load();
-    expect(getWorkspaceRoot(service)).toBe('C:\\data\\workspace\\oms');
+    expect(getWorkspaceRoot(service)).toBe('C:\\data\\workspace\\acme');
   });
 
   it('the COCKPIT_WORKSPACE_ROOT environment variable wins over the saved value', async () => {
@@ -92,22 +74,13 @@ describe('ConfigService contract paths', () => {
     }
   });
 
-  it('migrateConfig is a no-op for current paths', () => {
-    const r = migrateConfig(DEFAULT_CONFIG);
-    expect(r.migrated).toBe(false);
-    expect(r.config.specs).toEqual(DEFAULT_CONFIG.specs);
-    // Only the exact legacy array is replaced; the other may already be current.
-    const half = migrateConfig({ ...DEFAULT_CONFIG, specs: { ...DEFAULT_CONFIG.specs, avroPaths: LEGACY.avroPaths } });
-    expect(half.migrated).toBe(true);
-    expect(half.config.specs).toEqual(DEFAULT_CONFIG.specs);
-  });
 });
 
 describe('ConfigService storyboards', () => {
   it('defaults: enabled, KB root, 1 MiB sources, 512 KiB assets, writable', () => {
     expect(DEFAULT_CONFIG.storyboards).toEqual({
       enabled: true,
-      roots: ['oms-knowledge-base/storyboards'],
+      roots: ['knowledge-base/storyboards'],
       maxSourceBytes: 1_048_576,
       maxAssetBytes: 524_288,
       writable: true,
@@ -161,7 +134,7 @@ describe('ConfigService key migration (SPEC-0063 AC-7)', () => {
     const LEGACY_LOCAL = 'vllm-legacy-key-in-config';
     fs.writeFileSync(
       path.join(dir, 'config.json'),
-      JSON.stringify({ ...DEFAULT_CONFIG, specs: { ...DEFAULT_CONFIG.specs, ...LEGACY }, ai: { ...DEFAULT_CONFIG.ai, provider: 'anthropic', apiKey: LEGACY_LOCAL } }, null, 2),
+      JSON.stringify({ ...DEFAULT_CONFIG, infrastructure: { ...DEFAULT_CONFIG.infrastructure, omsCoreUrl: 'http://localhost:8090' }, ai: { ...DEFAULT_CONFIG.ai, provider: 'anthropic', apiKey: LEGACY_LOCAL } }, null, 2),
     );
     const store = new KeyStore(dir, fakeCrypto(), () => {});
 
@@ -170,7 +143,7 @@ describe('ConfigService key migration (SPEC-0063 AC-7)', () => {
     const onDisk = fs.readFileSync(path.join(dir, 'config.json'), 'utf8');
     expect(onDisk).not.toContain(LEGACY_LOCAL);
     expect(JSON.parse(onDisk).ai).not.toHaveProperty('apiKey');
-    expect(JSON.parse(onDisk).specs.openApiPaths).toEqual(DEFAULT_CONFIG.specs.openApiPaths); // the contract migration still ran
+    expect(JSON.parse(onDisk).infrastructure).not.toHaveProperty('omsCoreUrl'); // the removed setting is dropped in the same save
     expect(config.ai).not.toHaveProperty('apiKey');
     expect(store.get('local')).toBe(LEGACY_LOCAL);
   });
@@ -181,5 +154,80 @@ describe('ConfigService key migration (SPEC-0063 AC-7)', () => {
     const store = new KeyStore(dir, fakeCrypto(), () => {});
     await new ConfigService(dir).load({ migrateKeys: (c) => migrateAiKeys(c, store, () => {}) });
     expect(fs.readFileSync(path.join(dir, 'config.json'), 'utf8')).not.toContain('k-only');
+  });
+});
+
+describe('ConfigService project file (SPEC-0076)', () => {
+  let dir: string | undefined;
+  let ws: string | undefined;
+  afterEach(() => {
+    for (const d of [dir, ws]) if (d) fs.rmSync(d, { recursive: true, force: true });
+    dir = ws = undefined;
+  });
+
+  /** A user config that still holds another project's paths, as files saved by older versions do. */
+  const setup = (cockpitYaml?: string) => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-config-'));
+    ws = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-ws-'));
+    if (cockpitYaml !== undefined) fs.writeFileSync(path.join(ws, 'cockpit.yaml'), cockpitYaml);
+    fs.writeFileSync(
+      path.join(dir, 'config.json'),
+      JSON.stringify({
+        ...DEFAULT_CONFIG,
+        general: { ...DEFAULT_CONFIG.general, workspaceRoot: ws, theme: 'light' },
+        knowledgeBase: { ...DEFAULT_CONFIG.knowledgeBase, rootPath: 'old-kb' },
+        specs: { ...DEFAULT_CONFIG.specs, openApiPaths: ['old/openapi'], avroPaths: ['old/avro'] },
+        storyboards: { ...DEFAULT_CONFIG.storyboards, roots: ['old-kb/storyboards'] },
+        infrastructure: { ...DEFAULT_CONFIG.infrastructure, apiTemplateSources: ['old.http'] },
+      }),
+    );
+  };
+
+  it('projectFileOverridesUserProjectSettings', async () => {
+    setup(`
+project: { name: Acme Shop }
+knowledgeBase: { root: handbook }
+specs: { openApiPaths: [api/openapi], avroPaths: [api/avro] }
+apiExplorer: { templateSources: [requests/shop.http] }
+`);
+    const service = new ConfigService(dir);
+    await service.load();
+    const config = service.getConfig();
+
+    expect(config.knowledgeBase.rootPath).toBe('handbook');
+    expect(config.specs.openApiPaths).toEqual(['api/openapi']);
+    expect(config.specs.avroPaths).toEqual(['api/avro']);
+    expect(config.storyboards.roots).toEqual(['handbook/storyboards']);
+    expect(config.infrastructure.apiTemplateSources).toEqual(['requests/shop.http']);
+    // Personal settings stay the user's.
+    expect(config.general.theme).toBe('light');
+    expect(service.getProject()).toMatchObject({ present: true, errors: [], config: { project: { name: 'Acme Shop' } } });
+  });
+
+  it('settings the project file does not state stay the user values', async () => {
+    setup('monitoring:\n  services: []\n');
+    const service = new ConfigService(dir);
+    await service.load();
+    const config = service.getConfig();
+    expect(config.knowledgeBase.rootPath).toBe('old-kb');
+    expect(config.specs.openApiPaths).toEqual(['old/openapi']);
+    expect(config.storyboards.roots).toEqual(['old-kb/storyboards']);
+  });
+
+  it('an invalid project file changes nothing and reports its errors', async () => {
+    setup('knowledgeBase: { root: handbook }\nmonitoring:\n  services:\n    - name: api\n      check: { kind: http }\n');
+    const service = new ConfigService(dir);
+    await service.load();
+    expect(service.getConfig().knowledgeBase.rootPath).toBe('old-kb');
+    expect(service.getProject().errors.map((e) => e.path)).toEqual(['monitoring.services[0].check.url']);
+  });
+
+  it('an edited project file applies to the next read', async () => {
+    setup('knowledgeBase: { root: first }\n');
+    const service = new ConfigService(dir);
+    await service.load();
+    expect(service.getConfig().knowledgeBase.rootPath).toBe('first');
+    fs.writeFileSync(path.join(ws!, 'cockpit.yaml'), 'knowledgeBase: { root: second-longer }\n');
+    expect(service.getConfig().knowledgeBase.rootPath).toBe('second-longer');
   });
 });

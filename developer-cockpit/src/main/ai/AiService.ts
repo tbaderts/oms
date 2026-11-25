@@ -1,3 +1,4 @@
+import { assistantSystem, DEFAULT_IDENTITY, kbChatSystem, type ProjectIdentity } from './prompts';
 import { isStepCount, streamText } from 'ai';
 import type { LanguageModel } from 'ai';
 import type { AiConfig } from '../../shared/types/config';
@@ -18,6 +19,8 @@ export type Broadcast = (event: AiEvent) => void;
 
 /** Injectable dependencies: tests pass a fake model and record broadcasts; production uses the adapters. */
 export interface AiServiceDeps {
+  /** The project the prompts name (cockpit.yaml); absent = a generic identity. */
+  project?: () => ProjectIdentity;
   /** The run's tool set (AC-4). Empty/absent = one-shot only. */
   tools?: Record<string, unknown>;
   /** Where the run's `ai:*` events go (the WebSocket broadcast). */
@@ -45,6 +48,10 @@ export class AiService {
 
   constructor(private config: AiConfig, private env: NodeJS.ProcessEnv = process.env, private deps: AiServiceDeps = { broadcast: () => {} }) {}
 
+  private identity(): ProjectIdentity {
+    return this.deps.project?.() ?? DEFAULT_IDENTITY;
+  }
+
   /** `ai:available`: whether the configured provider can be used, and why not (AC-3). */
   status(): AiStatus {
     const s: AiStatus = { available: false, provider: this.config.provider, model: this.config.model };
@@ -69,7 +76,7 @@ export class AiService {
     try {
       const result = streamText({
         model,
-        system: SYSTEM,
+        system: assistantSystem(this.identity()),
         messages: [{ role: 'user', content: prompt.slice(0, MAX_PROMPT_CHARS) }],
         maxOutputTokens: this.config.maxTokens,
         temperature: this.config.temperature,
@@ -88,7 +95,7 @@ export class AiService {
    * in tool calls).
    */
   async runAgent(params: { prompt: string; runId: string; options?: AiRunOptions }): Promise<void> {
-    await this.loop(params.runId, [{ role: 'user', content: params.prompt }], SYSTEM, params.options?.feature ?? 'assistant', params.options?.maxSteps);
+    await this.loop(params.runId, [{ role: 'user', content: params.prompt }], assistantSystem(this.identity()), params.options?.feature ?? 'assistant', params.options?.maxSteps);
   }
 
   /**
@@ -98,7 +105,7 @@ export class AiService {
    */
   async runChat(params: { runId: string; messages: KbChatMessage[]; system?: string; options?: AiRunOptions }): Promise<void> {
     const messages = params.messages.slice(-KB_CHAT_MAX_MESSAGES);
-    await this.loop(params.runId, messages, params.system ?? KB_CHAT_SYSTEM, params.options?.feature ?? 'kb-chat', params.options?.maxSteps);
+    await this.loop(params.runId, messages, params.system ?? kbChatSystem(this.identity()), params.options?.feature ?? 'kb-chat', params.options?.maxSteps);
   }
 
   private async loop(runId: string, messages: KbChatMessage[], system: string, feature: string, steps: number | undefined): Promise<void> {
@@ -300,17 +307,5 @@ function summarize(output: unknown): string {
   return text || '(empty result)';
 }
 
-const SYSTEM = [
-  'You are the developer cockpit assistant for an order management system (OMS).',
-  'Answer concisely and factually, using the tools available to you when they help.',
-  'Do not invent identifiers, endpoints, or file paths that a tool did not return.',
-].join(' ');
-
-/** The KB chat's system prompt (SPEC-0062): answer from the knowledge base, cite what was read. */
-export const KB_CHAT_SYSTEM = [
-  'You answer questions about the OMS knowledge base (Markdown documentation) for a developer.',
-  'Always search the knowledge base with your tools before answering, and read the relevant documents when you need their content or are asked for a summary.',
-  'Answer only from what the tools returned; if nothing relevant is found, say so instead of guessing.',
-  'Cite the documents you used by their path, written as oms-knowledge-base/<path>.',
-  'Be concise; use Markdown.',
-].join(' ');
+/** The KB chat's system prompt for a project without a cockpit.yaml; see `kbChatSystem`. */
+export const KB_CHAT_SYSTEM = kbChatSystem();

@@ -65,8 +65,8 @@ describe('kbChat store (SPEC-0062)', () => {
     await useKbChatStore.getState().send('lifecycle?');
     const runId = useKbChatStore.getState().activeRunId!;
     const handle = useKbChatStore.getState().handleEvent;
-    handle({ type: 'ai:tool-call', runId, toolCallId: 'c1', name: 'readKnowledgeBase', input: { path: 'oms-knowledge-base/domain/model/order.md' } });
-    handle({ type: 'ai:tool-result', runId: 'other-run', toolCallId: 'x', name: 'searchKnowledgeBase', output: '`oms-knowledge-base/ignored.md`' });
+    handle({ type: 'ai:tool-call', runId, toolCallId: 'c1', name: 'readKnowledgeBase', input: { path: 'knowledge-base/domain/model/order.md' } });
+    handle({ type: 'ai:tool-result', runId: 'other-run', toolCallId: 'x', name: 'searchKnowledgeBase', output: '`knowledge-base/ignored.md`' });
     handle({ type: 'ai:message', runId, text: 'Answer.' });
     handle({ type: 'ai:done', runId, aborted: false, incomplete: false });
     const last = useKbChatStore.getState().turns.at(-1)!;
@@ -75,7 +75,7 @@ describe('kbChat store (SPEC-0062)', () => {
 
   it('summarise names the document path (AC-5) and an error ends the run (AC-8)', async () => {
     await useKbChatStore.getState().summarise('domain/model/order.md', 'Order');
-    expect(lastMessages()[0].content).toContain('oms-knowledge-base/domain/model/order.md');
+    expect(lastMessages()[0].content).toContain('knowledge-base/domain/model/order.md');
     const runId = useKbChatStore.getState().activeRunId!;
     useKbChatStore.getState().handleEvent({ type: 'ai:error', runId, message: 'AI run failed: boom' });
     useKbChatStore.getState().handleEvent({ type: 'ai:done', runId, aborted: false, incomplete: false });

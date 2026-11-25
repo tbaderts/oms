@@ -9,7 +9,7 @@ const index: LinkIndex = { api: ['oms-cmd-api#executeCommand'], events: ['OrderM
 function service(ws: StoryboardWorkspace) {
   return new StoryboardService({
     workspaceRoot: ws.root,
-    kbPath: path.join(ws.root, 'oms-knowledge-base'),
+    kbPath: path.join(ws.root, 'knowledge-base'),
     config: DEFAULT_STORYBOARDS_CONFIG,
     linkIndex: { get: () => index },
   });
@@ -74,7 +74,7 @@ describe('StoryboardService.detail', () => {
 
   it('reports exactly one problem per defect, with its severity, for all 11 codes', () => {
     ws = createStoryboardWorkspace();
-    const dir = 'oms-knowledge-base/storyboards/d/all-defects';
+    const dir = 'knowledge-base/storyboards/d/all-defects';
     const lanes = [{ id: 'customer', label: 'Customer', kind: 'actor' }, { id: 'app', label: 'App', kind: 'channel' }];
     ws.write({
       [`${dir}/story.md`]: md({ id: 'all-defects', title: 'All defects', status: 'draft', lanes, steps: ['a', 'ghost', 'c', 'd'] }),
@@ -123,7 +123,7 @@ describe('StoryboardService.detail', () => {
     const svc = service(ws);
     expect(svc.detail('buy-gold-mobile')).toMatchObject({ ok: false, code: 'not-found' });
     svc.scan();
-    for (const id of ['nope', '../buy-gold-mobile', 'oms-knowledge-base/storyboards', '']) {
+    for (const id of ['nope', '../buy-gold-mobile', 'knowledge-base/storyboards', '']) {
       expect(svc.detail(id)).toMatchObject({ ok: false, code: 'not-found' });
     }
   });

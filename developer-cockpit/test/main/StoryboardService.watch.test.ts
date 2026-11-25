@@ -17,7 +17,7 @@ function setup() {
   const events: CockpitEvent[] = [];
   const svc = new StoryboardService({
     workspaceRoot: ws.root,
-    kbPath: path.join(ws.root, 'oms-knowledge-base'),
+    kbPath: path.join(ws.root, 'knowledge-base'),
     config: DEFAULT_STORYBOARDS_CONFIG,
     broadcast: (e) => events.push(e),
     debounceMs: 50,
@@ -116,7 +116,7 @@ describe('WatcherService path listeners', () => {
     ws = createStoryboardWorkspace();
     const dir = ws.writeExample();
     const seen: string[] = [];
-    watcher = new WatcherService(ws.root, { broadcast: () => undefined } as unknown as WebSocketServer);
+    watcher = new WatcherService(ws.root, { broadcast: () => undefined } as unknown as WebSocketServer, ['knowledge-base']);
     const off = watcher.onPath((p) => seen.push(p));
     watcher.start();
     await sleep(1000);

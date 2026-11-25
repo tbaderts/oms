@@ -1,3 +1,4 @@
+import { storyboardSystem, type ProjectIdentity } from '../ai/prompts';
 import type { AiConfig } from '../../shared/types/config';
 import {
   LINK_CATEGORIES,
@@ -30,13 +31,10 @@ export interface StoryboardAiOptions {
   linkIndex: { get(): LinkIndex };
   /** Bounded text of a linked requirement id or knowledge-base document, or null. Supplied by the caller. */
   extract: (ref: string) => string | null;
+  /** The project the prompt names (cockpit.yaml). */
+  project?: ProjectIdentity;
 }
 
-const SYSTEM = [
-  'You help business analysts document an order management system (OMS) as storyboards: ordered steps',
-  'with a responsibility hand-off between lanes (actors, channels, systems, external parties).',
-  'Answer with the requested format only. Do not invent identifiers.',
-].join(' ');
 
 /**
  * Optional AI assists (source-spec §10). Every assist returns a proposal the user may apply to the
@@ -57,7 +55,7 @@ export class StoryboardAiService {
     const user = bounded([context(r.detail, step), kind === 'suggestLinks' || kind === 'reviewExtensions' ? candidates(kind, index) : '', this.extracts(r.detail, step), instruction]);
     let reply: string;
     try {
-      reply = await this.opts.adapter.complete({ system: SYSTEM, user, maxTokens });
+      reply = await this.opts.adapter.complete({ system: storyboardSystem(this.opts.project), user, maxTokens });
     } catch (err) {
       return { ok: false, code: 'invalid', message: `The AI assist failed: ${(err as Error).message}` };
     }

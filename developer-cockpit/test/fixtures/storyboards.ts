@@ -41,7 +41,7 @@ export const EXAMPLE_LANES = [
 export interface StoryboardWorkspace {
   /** Workspace root (what `general.workspaceRoot` points at). */
   root: string;
-  /** `<root>/oms-knowledge-base/storyboards`, the default storyboard root. */
+  /** `<root>/knowledge-base/storyboards`, the default storyboard root. */
   storyboards: string;
   /** Whether this OS lets the test process create file symlinks (Windows needs Developer Mode). */
   symlinks: boolean;
@@ -62,7 +62,7 @@ export interface StoryboardWorkspace {
 
 export function createStoryboardWorkspace(opts: { git?: boolean } = {}): StoryboardWorkspace {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-storyboards-')));
-  const storyboards = path.join(root, 'oms-knowledge-base', 'storyboards');
+  const storyboards = path.join(root, 'knowledge-base', 'storyboards');
   fs.mkdirSync(storyboards, { recursive: true });
 
   const write = (files: Record<string, string | Buffer>) => {
@@ -97,7 +97,7 @@ export function createStoryboardWorkspace(opts: { git?: boolean } = {}): Storybo
       fs.symlinkSync(path.join(root, target), path.join(root, link), 'file');
       return true;
     },
-    writeExample({ id = 'buy-gold-mobile', domain = 'precious-metals', title = 'Buy gold via mobile app', root: sbRoot = 'oms-knowledge-base/storyboards' } = {}) {
+    writeExample({ id = 'buy-gold-mobile', domain = 'precious-metals', title = 'Buy gold via mobile app', root: sbRoot = 'knowledge-base/storyboards' } = {}) {
       const dir = `${sbRoot}/${domain}/${id}`;
       write({
         [`${dir}/story.md`]: md(

@@ -1,3 +1,4 @@
+import { identityOf } from '../ai/prompts';
 import type { IpcMain } from 'electron';
 import type { ConfigService } from '../services/ConfigService';
 import type { KbService } from '../services/KbService';
@@ -83,6 +84,7 @@ export function registerAiIpc(ipcMain: IpcMain, deps: AiIpcDeps): AiIpc {
   /** The model seam: tests inject a scripted model; production resolves through the adapter factory. */
   const makeService = (config: AiConfig, tools: McpTools | null): AiService =>
     new AiService(config, env, {
+      project: () => identityOf(deps.configService.getProject().config, deps.configService.getConfig().knowledgeBase.rootPath),
       broadcast: (event) => deps.broadcast({ type: event.type, timestamp: Date.now(), payload: event } as CockpitEvent<AiEvent>),
       usage: deps.usage,
       tools: tools?.tools,
@@ -153,7 +155,8 @@ export function registerAiIpc(ipcMain: IpcMain, deps: AiIpcDeps): AiIpc {
    * on every question while it is down (design D6).
    */
   const kbChatToolsFor = async (config: AiConfig): Promise<KbChatToolSet> => {
-    const url = config.knowledgeServerUrl ?? DEFAULT_KNOWLEDGE_SERVER_URL;
+    // The user's setting wins; else the project's knowledge server; else none (local tools).
+    const url = config.knowledgeServerUrl?.trim() || deps.configService.getProject().config.knowledgeBase.serverUrl || DEFAULT_KNOWLEDGE_SERVER_URL;
     const cached = runtime.kbChat;
     if (cached && cached.url === url && (cached.set.source === 'knowledge-server' || Date.now() - cached.builtAt < KB_CHAT_RETRY_MS)) {
       return cached.set;

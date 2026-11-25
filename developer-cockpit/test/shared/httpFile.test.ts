@@ -1,55 +1,56 @@
 import { describe, expect, it } from 'vitest';
-import { formatTemplateBlock, isCommandRequest, parseHttpFile, templateName } from '../../src/shared/httpFile';
+import { effectiveNames, formatTemplateBlock, parseHttpFile, templateName } from '../../src/shared/httpFile';
 
 const FILE = [
-  '@baseUrl = http://localhost:8090',
-  '@account=account-01',
+  '@baseUrl = http://localhost:8000',
+  '@owner=ann',
   '',
-  '# @name INTC buy',
-  'POST {{baseUrl}}/api/command/execute HTTP/1.1',
+  '# @name Create basket',
+  'POST {{baseUrl}}/baskets HTTP/1.1',
   'content-type: application/json',
   '',
   '{',
-  '  "type": "OrderCreateCmd"',
+  '  "owner": "{{owner}}"',
   '}',
   '',
   '###',
-  'GET http://localhost:8090/api/query/search?symbol=INTC HTTP/1.1',
+  'GET http://localhost:8000/search?q=lamp HTTP/1.1',
   '',
   '###',
-  '# Market rejects an order (ExecType=8)',
-  'POST http://localhost:8090/api/command/execute',
+  '# Checkout a basket',
+  'POST http://localhost:8000/baskets/{{basketId}}/checkout',
   'Content-Type: application/json',
   '',
-  '{"type":"OrderRejectCmd","orderId":"{{orderId}}"}',
+  '{"express":true}',
   '###',
-  '// @name accept',
-  'POST http://x/api/command/execute/',
-  '',
-  '{"type":"OrderAcceptCmd"}',
+  '// @name drop',
+  'DELETE http://x/baskets/1',
   '###',
-  'http://localhost:8090/api/v1/metamodel',
-  '@account = account-02',
+  'http://localhost:8000/health',
+  '@owner = bo',
 ].join('\r\n');
 
 describe('parseHttpFile', () => {
   it('parses requests, names, comments and file variables', () => {
     const f = parseHttpFile(FILE);
-    expect(f.variables).toEqual({ baseUrl: 'http://localhost:8090', account: 'account-02' });
+    expect(f.variables).toEqual({ baseUrl: 'http://localhost:8000', owner: 'bo' });
     expect(f.requests.map((r) => [r.method, r.name, r.comment, r.line])).toEqual([
-      ['POST', 'INTC buy', null, 5],
+      ['POST', 'Create basket', null, 5],
       ['GET', null, null, 13],
-      ['POST', null, 'Market rejects an order (ExecType=8)', 17],
-      ['POST', 'accept', null, 23],
-      ['GET', null, null, 27],
+      ['POST', null, 'Checkout a basket', 17],
+      ['DELETE', 'drop', null, 23],
+      ['GET', null, null, 25],
     ]);
-    expect(f.requests[0].url).toBe('{{baseUrl}}/api/command/execute');
-    expect(f.requests[0].body).toBe('{\n  "type": "OrderCreateCmd"\n}');
+    expect(f.requests[0].url).toBe('{{baseUrl}}/baskets');
+    expect(f.requests[0].body).toBe('{\n  "owner": "{{owner}}"\n}');
     expect(f.requests[1].body).toBeNull();
-    expect(f.requests[2].body).toBe('{"type":"OrderRejectCmd","orderId":"{{orderId}}"}');
-    expect(f.requests.map(isCommandRequest)).toEqual([true, false, true, true, false]);
-    expect(templateName(f.requests[2], 'OrderRejectCmd', 2)).toBe('Market rejects an order (ExecType=8)');
-    expect(templateName({ ...f.requests[2], comment: null }, 'OrderRejectCmd', 2)).toBe('OrderRejectCmd #2');
+    expect(f.requests[2].body).toBe('{"express":true}');
+  });
+
+  it('lists a request by its name, its comment, or its method and URL', () => {
+    const f = parseHttpFile(FILE);
+    expect(effectiveNames(f)).toEqual(['Create basket', 'GET http://localhost:8000/search?q=lamp', 'Checkout a basket', 'drop', 'GET http://localhost:8000/health']);
+    expect(templateName({ ...f.requests[2], comment: null })).toBe('POST http://localhost:8000/baskets/{{basketId}}/checkout');
   });
 
   it('parses an empty file', () => {
@@ -59,11 +60,16 @@ describe('parseHttpFile', () => {
 
 describe('formatTemplateBlock', () => {
   it('round-trips through parseHttpFile', () => {
-    const body = '{\n  "type": "OrderCreateCmd",\n  "order": { "clOrdId": "{{$guid}}" }\n}';
-    const block = formatTemplateBlock('My order', '{{baseUrl}}/api/command/execute', body);
-    expect(block.startsWith('\n###\n# @name My order\nPOST {{baseUrl}}/api/command/execute HTTP/1.1\n')).toBe(true);
+    const body = '{\n  "owner": "{{$guid}}"\n}';
+    const block = formatTemplateBlock('My basket', 'post', '{{baseUrl}}/baskets', body);
+    expect(block.startsWith('\n###\n# @name My basket\nPOST {{baseUrl}}/baskets HTTP/1.1\ncontent-type: application/json\n')).toBe(true);
     const [r] = parseHttpFile(`@baseUrl = http://h${block}`).requests;
-    expect(r).toMatchObject({ name: 'My order', method: 'POST', body });
-    expect(isCommandRequest(r)).toBe(true);
+    expect(r).toMatchObject({ name: 'My basket', method: 'POST', url: '{{baseUrl}}/baskets', body });
+  });
+
+  it('writes no content type for a request without a body', () => {
+    const block = formatTemplateBlock('List', 'GET', 'http://h/baskets', '');
+    expect(block).toBe('\n###\n# @name List\nGET http://h/baskets HTTP/1.1\n');
+    expect(parseHttpFile(block).requests[0]).toMatchObject({ method: 'GET', body: null });
   });
 });

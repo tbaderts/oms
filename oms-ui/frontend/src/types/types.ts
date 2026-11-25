@@ -118,6 +118,79 @@ export interface CommandLogEntry {
   [key: string]: any;
 }
 
+/** Where an outbox message stands (SPEC-0075): retried as usual, out of attempts, or held behind a stuck one. */
+export type OutboxState = 'PENDING' | 'STUCK' | 'HELD';
+
+/** `OutboxSummaryDto`: the outbox counted by state (SPEC-0075). */
+export interface OutboxSummary {
+  pending: number;
+  stuck: number;
+  held: number;
+  maxAttempts: number;
+  /** When the oldest message still to be published (pending or held) was staged. */
+  oldestWaitingCreatedAt?: string | null;
+  oldestWaitingAgeSeconds?: number | null;
+}
+
+/** `OutboxMessageDto`: one message waiting in the outbox (SPEC-0075). */
+export interface OutboxMessageEntry {
+  id: number;
+  state: OutboxState;
+  aggregateType: string;
+  topic: string;
+  /** The Kafka key (the outbox's aggregate id). */
+  key: string;
+  orderId?: string | null;
+  execId?: string | null;
+  aggregateVersion?: number | null;
+  payloadType?: string | null;
+  createdAt: string;
+  attempts: number;
+  maxAttempts: number;
+  lastError?: string | null;
+}
+
+/** `OutboxMessageDetailDto`: a message with its decoded payload; none for a pointer message. */
+export interface OutboxMessageDetail extends OutboxMessageEntry {
+  payload?: unknown;
+  payloadSchemaId?: number | null;
+  payloadError?: string | null;
+}
+
+/** `PagedOutboxMessageDto`. */
+export interface OutboxMessagePage {
+  content: OutboxMessageEntry[];
+  page: { size: number; totalElements: number; totalPages: number; number: number };
+}
+
+/** `DeadLetterTopicDto` (SPEC-0075). */
+export interface DeadLetterTopic {
+  topic: string;
+  partitions: number;
+  records: number;
+}
+
+/** `DeadLetterRecordDto`: one dead-letter record and the failure Spring Kafka recorded (SPEC-0075). */
+export interface DeadLetterRecord {
+  topic: string;
+  partition: number;
+  offset: number;
+  timestamp: string;
+  key?: string | null;
+  originalTopic?: string | null;
+  originalPartition?: number | null;
+  originalOffset?: number | null;
+  originalTimestamp?: string | null;
+  exceptionClass?: string | null;
+  exceptionMessage?: string | null;
+  causeClass?: string | null;
+  payloadFormat: 'AVRO' | 'TEXT' | 'BINARY' | 'EMPTY';
+  payload?: unknown;
+  payloadText?: string | null;
+  payloadError?: string | null;
+  headers?: Record<string, string>;
+}
+
 export interface Execution {
   id: string;
   execId: string;

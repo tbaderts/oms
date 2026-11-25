@@ -88,7 +88,7 @@ export const KNOWLEDGE_SERVER_TOOLS: StubMcpTool[] = [
   {
     name: 'searchKnowledgeBase',
     inputSchema: obj({ query: 'string', topK: 'integer', category: 'string', status: 'string', type: 'string', tag: 'string' }),
-    reply: (a) => `## Knowledge base search: "${String(a.query)}"\n### 1. \`oms-knowledge-base/domain/concepts/order-lifecycle.md#states\``,
+    reply: (a) => `## Knowledge base search: "${String(a.query)}"\n### 1. \`knowledge-base/domain/concepts/order-lifecycle.md#states\``,
   },
   {
     name: 'readKnowledgeBase',

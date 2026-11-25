@@ -30,7 +30,7 @@ export function CodeGeneratorView() {
       {/* Header (the Contracts tab provides the title) */}
       <div className="flex items-center gap-3 border-b border-border px-6 py-3">
         <div className="flex-1" />
-        <Button onClick={runAllCodeGen} disabled={!!runningTask}>
+        <Button onClick={runAllCodeGen} disabled={!!runningTask || codeGenTasks.length === 0}>
           {runningTask ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -42,6 +42,11 @@ export function CodeGeneratorView() {
 
       {/* Task cards */}
       <div className="flex-1 overflow-auto p-6">
+        {codeGenTasks.length === 0 && (
+          <p className="text-sm text-muted-foreground" data-testid="codegen-empty">
+            No code-generation tasks configured. List them under <code>codegen</code> in the project's cockpit.yaml.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {codeGenTasks.map((task) => (
             <TaskCard

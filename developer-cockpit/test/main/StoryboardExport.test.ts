@@ -24,7 +24,7 @@ function setup() {
       '\n## What happens\n\nThe customer asks. <script>alert(1)</script> <img src="https://evil.example/x.png" onerror="x">\n\n[Docs](https://example.com/docs) and [bad](javascript:alert(1)) and ![remote](https://evil.example/y.png)\n\n## Notes\n\n- A note.\n',
     ),
   });
-  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'oms-knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
+  const svc = new StoryboardService({ workspaceRoot: ws.root, kbPath: path.join(ws.root, 'knowledge-base'), config: DEFAULT_STORYBOARDS_CONFIG });
   svc.scan();
   return { ws, svc, exporter: new StoryboardExportService(svc) };
 }

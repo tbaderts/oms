@@ -18,6 +18,8 @@ import { registerStoryboardsIpc, type StoryboardsIpc } from './ipc/storyboards.i
 import { registerAiIpc, type AiIpc } from './ipc/ai.ipc';
 import { registerDockerIpc } from './ipc/docker.ipc';
 import { registerMonitorIpc } from './ipc/monitor.ipc';
+import { PROJECT_CONFIG_FILE } from '../shared/projectConfig';
+import { setKbBundlePrefix } from '../shared/kbPath';
 import { KbService } from './services/KbService';
 import { AiUsageTracker } from './ai/AiUsageTracker';
 import { KeyStore, electronKeyCrypto } from './ai/KeyStore';
@@ -99,7 +101,13 @@ async function initServices(): Promise<void> {
   wsServer.start();
 
   const config = configService.getConfig();
-  watcherService = new WatcherService(config.general.workspaceRoot, wsServer);
+  const project = configService.getProject().config;
+  setKbBundlePrefix(config.knowledgeBase.rootPath);
+  watcherService = new WatcherService(config.general.workspaceRoot, wsServer, [
+    PROJECT_CONFIG_FILE,
+    config.knowledgeBase.rootPath,
+    ...project.watch,
+  ]);
   watcherService.setExtraPaths(extraWatchPaths(config));
 }
 
@@ -107,6 +115,7 @@ function registerAllIpc(): void {
   registerConfigIpc(ipcMain, configService, (config) => {
     watcherService.setExtraPaths(extraWatchPaths(config));
     storyboards.reconfigure(configService.getConfig());
+    setKbBundlePrefix(configService.getConfig().knowledgeBase.rootPath);
     // A KB root change rebuilds the assistant's KB on its next run (cheap, idempotent scan).
     if (aiKb && aiKb.searchPath !== configService.getKnowledgeBasePath()) {
       aiKb = new KbService(configService.getKnowledgeBasePath());
@@ -162,6 +171,13 @@ function registerAllIpc(): void {
     },
   });
   watcherService.onPath((filePath, kind) => storyboards.onWatcherPath(filePath, kind));
+  // An edited cockpit.yaml applies at once: the Help menu and the KB citation prefix follow it (the
+  // views read the file per call). Watched folders apply on the next start.
+  watcherService.onPath((filePath) => {
+    if (path.basename(filePath) !== PROJECT_CONFIG_FILE) return;
+    createApplicationMenu(configService.getProject().config.links);
+    setKbBundlePrefix(configService.getConfig().knowledgeBase.rootPath);
+  });
 }
 
 function registerAssetProtocol(): void {
@@ -177,7 +193,7 @@ app.whenReady().then(async () => {
   await initServices();
   registerAllIpc();
   registerAssetProtocol();
-  createApplicationMenu();
+  createApplicationMenu(configService.getProject().config.links);
   await createWindow();
 
   // Defer file watcher startup so it doesn't block the initial render.

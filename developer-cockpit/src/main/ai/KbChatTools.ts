@@ -5,12 +5,15 @@ import type { KbDocument, KbSearchResult } from '../../shared/types/kb';
 import { normaliseKbPath } from '../../shared/kbPath';
 import { McpToolRegistry, kbSearchTool, type ToolLike } from './McpToolRegistry';
 
-/** The knowledge server's read-only KB tools; everything else it exposes (e.g. `searchOrders`) is left out (D2). */
+/**
+ * The knowledge-server protocol: the MCP tools the KB chat uses (README → "Knowledge server").
+ * Anything else a server exposes is left out (D2).
+ */
 export const KB_TOOL_NAMES = ['searchKnowledgeBase', 'readKnowledgeBase', 'getKnowledgeBaseOverview'] as const;
 
 /**
- * The parameters the knowledge server's KB tools really need. oms-mcp-server (Spring AI) declares
- * every parameter required, but treats all but these as optional, so the model is asked only for
+ * The parameters the KB tools really need. Some MCP servers (e.g. ones built with Spring AI) declare
+ * every parameter required but treat all but these as optional, so the model is asked only for
  * these and the rest are filled with neutral values (see `neutralValue`).
  */
 const KB_TOOL_REQUIRED: Record<string, string[]> = {
@@ -125,7 +128,7 @@ export function localReadTool(kb: Pick<KbChatKb, 'getDocument'>): ToolLike {
   return {
     description:
       'Read a knowledge base document by its path (as returned by search_knowledge_base, e.g. ' +
-      "'domain/concepts/order-lifecycle.md'). Returns its title, path and Markdown content.",
+      "'guides/getting-started.md'). Returns its title, path and Markdown content.",
     inputSchema: jsonSchema({ type: 'object', properties: { path: { type: 'string', minLength: 1 } }, required: ['path'] }),
     execute: async (input) => {
       const raw = String((input as { path?: unknown }).path ?? '');

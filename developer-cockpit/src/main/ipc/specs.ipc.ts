@@ -14,7 +14,7 @@ function services(configService: ConfigService) {
     cached = {
       config,
       specs: new SpecsService(config.general.workspaceRoot, config.specs),
-      codeGen: new CodeGenService(config.general.workspaceRoot),
+      codeGen: new CodeGenService(config.general.workspaceRoot, configService.getProject().config.codegen),
     };
   }
   return cached;

@@ -87,37 +87,16 @@ export function parseHttpFile(text: string): HttpFile {
   return { variables, requests };
 }
 
-export const isCommandRequest = (r: HttpRequestBlock): boolean =>
-  r.method === 'POST' && /\/api\/command\/execute\/?$/.test(r.url.split('?')[0]);
+/** The name a request is listed under: `@name`, else the comment above it, else `METHOD url`. */
+export const templateName = (r: HttpRequestBlock): string => r.name ?? r.comment ?? `${r.method} ${r.url}`;
 
-/** The name a template is listed under: `@name`, else the comment above it, else `<type> #n`. */
-export const templateName = (r: HttpRequestBlock, type: string, n: number): string => r.name ?? r.comment ?? `${type} #${n}`;
-
-/** One execute request as a `.http` block, to append to a file; the body is written as given. */
-export function formatTemplateBlock(name: string, url: string, body: string): string {
-  return `\n###\n# @name ${name}\nPOST ${url} HTTP/1.1\ncontent-type: application/json\n\n${body}\n`;
+/** One request as a `.http` block, to append to a file; the body is written as given. */
+export function formatTemplateBlock(name: string, method: string, url: string, body: string): string {
+  const head = `\n###\n# @name ${name}\n${method.toUpperCase()} ${url} HTTP/1.1\n`;
+  return body.trim() ? `${head}content-type: application/json\n\n${body}\n` : head;
 }
 
-const VARIABLE_REF = /\{\{\s*([^{}]*?)\s*\}\}/g;
-
-/** The `type` of a template body; variables may stand for numbers, so they are read as 0. Throws on invalid JSON. */
-export function bodyType(body: string): unknown {
-  return JSON.parse(body.replace(VARIABLE_REF, '0'))?.type;
-}
-
-/** The names the requests of a file are listed under, as the API Explorer lists them (`<type> #n` counted per type). */
+/** The names the requests of a file are listed under, as the API Explorer lists them. */
 export function effectiveNames(file: HttpFile): string[] {
-  const seen: Record<string, number> = {};
-  return file.requests.map((r) => {
-    if (r.name ?? r.comment) return (r.name ?? r.comment)!;
-    if (!isCommandRequest(r)) return '';
-    let type: unknown;
-    try {
-      type = r.body ? bodyType(r.body) : undefined;
-    } catch {
-      // unnamed invalid JSON has no listed name to clash with
-    }
-    const label = typeof type === 'string' ? type : 'command';
-    return templateName(r, label, (seen[label] = (seen[label] ?? 0) + 1));
-  });
+  return file.requests.map(templateName);
 }

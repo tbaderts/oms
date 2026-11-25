@@ -46,7 +46,7 @@ export interface KbStats {
   requirements: { total: number; byImplementation: Record<string, number>; byPriority: Record<string, number> };
   /** Archived documents left out; `due` means older than reviewAfterDays (null: no review period set). */
   reviewAge: { reviewAfterDays: number | null; current: number; due: number; unknown: number };
-  /** Whether git could date the `repo:` sources for the OMS-DRIFT warning. */
+  /** Whether git could date the `repo:` sources for the drift warning. */
   drift: 'checked' | 'unavailable';
 }
 

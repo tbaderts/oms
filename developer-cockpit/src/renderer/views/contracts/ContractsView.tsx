@@ -4,7 +4,7 @@ import { SpecsEditorView } from '@/views/specs-editor/SpecsEditorView';
 import { DomainModelView } from '@/views/domain-model/DomainModelView';
 import { CodeGeneratorView } from '@/views/code-generator/CodeGeneratorView';
 
-/** The OMS contracts (oms-contracts OpenAPI and Avro): edit them, browse the model, regenerate code. */
+/** The project's contracts (OpenAPI and Avro from the configured paths): edit them, browse the model, regenerate code. */
 export function ContractsView() {
   return (
     <Tabs defaultValue="editor" className="flex h-full flex-col">

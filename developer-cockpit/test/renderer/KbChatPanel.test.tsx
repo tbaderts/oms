@@ -104,7 +104,7 @@ describe('KbChatPanel (SPEC-0062)', () => {
       runId: id,
       toolCallId: 'c1',
       name: 'searchKnowledgeBase',
-      output: '### 1. `oms-knowledge-base/domain/concepts/order-lifecycle.md#states`\n### 2. `oms-knowledge-base/domain/concepts/order-lifecycle.md#cancel`',
+      output: '### 1. `knowledge-base/domain/concepts/order-lifecycle.md#states`\n### 2. `knowledge-base/domain/concepts/order-lifecycle.md#cancel`',
     });
     emit({ type: 'ai:message', runId: id, text: 'See the lifecycle.' });
     emit({ type: 'ai:done', runId: id, aborted: false, incomplete: false });
@@ -128,7 +128,7 @@ describe('KbChatPanel (SPEC-0062)', () => {
       fireEvent.click(button);
     });
     const messages = kbChat.mock.calls[0][1];
-    expect(messages.at(-1)!.content).toContain('oms-knowledge-base/domain/concepts/order-lifecycle.md');
+    expect(messages.at(-1)!.content).toContain('knowledge-base/domain/concepts/order-lifecycle.md');
     emit({ type: 'ai:message', runId: runId(), text: 'Summary: orders move through states.' });
     emit({ type: 'ai:done', runId: runId(), aborted: false, incomplete: false });
     expect(screen.getByTestId('kb-chat-answer').textContent).toContain('Summary: orders move through states.');
@@ -209,7 +209,7 @@ describe('Knowledge Base view: document and chat take turns in the centre', () =
     await ask('lifecycle?');
     const id = runId();
     emit({ type: 'ai:tool-call', runId: id, toolCallId: 'c1', name: 'searchKnowledgeBase', input: { query: 'lifecycle' } });
-    emit({ type: 'ai:tool-result', runId: id, toolCallId: 'c1', name: 'searchKnowledgeBase', output: '### 1. `oms-knowledge-base/domain/concepts/order-lifecycle.md#states`' });
+    emit({ type: 'ai:tool-result', runId: id, toolCallId: 'c1', name: 'searchKnowledgeBase', output: '### 1. `knowledge-base/domain/concepts/order-lifecycle.md#states`' });
     emit({ type: 'ai:message', runId: id, text: 'See the lifecycle.' });
     emit({ type: 'ai:done', runId: id, aborted: false, incomplete: false });
 
@@ -226,7 +226,7 @@ describe('Knowledge Base view: document and chat take turns in the centre', () =
 describe('KB chat source and run details (SPEC-0065)', () => {
   const SEARCH = [
     '## Knowledge base search: "cancel"',
-    '### 1. `oms-knowledge-base/domain/concepts/order-lifecycle.md#cancellation`',
+    '### 1. `knowledge-base/domain/concepts/order-lifecycle.md#cancellation`',
     '**Order Lifecycle › Cancellation** (lines 40-58) — Domain Concept · stable · human-reviewed — score 0.0325 · keyword #1 · semantic #2',
     '',
     '> A cancel request moves the order to PendingCancel.',
@@ -285,7 +285,7 @@ describe('KB chat source and run details (SPEC-0065)', () => {
     await ready();
     const twoHits = [
       SEARCH.trimEnd(),
-      '### 2. `oms-knowledge-base/domain/concepts/order-lifecycle.md#states`',
+      '### 2. `knowledge-base/domain/concepts/order-lifecycle.md#states`',
       '**Order Lifecycle › States** (lines 5-20) — Domain Concept · stable · human-reviewed — score 0.0161 · keyword #4',
       '',
       '> The states of an order.',

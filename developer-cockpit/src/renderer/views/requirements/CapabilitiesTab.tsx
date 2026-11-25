@@ -11,7 +11,7 @@ export const MATURITY_VARIANT: Record<Maturity, 'default' | 'secondary' | 'outli
   planned: 'outline',
 };
 
-/** The capability catalogue (SPEC-0061): what the OMS does, how built it is, and what it links. */
+/** The capability catalogue (SPEC-0061): what the project does, how built it is, and what it links. */
 export function CapabilitiesTab() {
   const capabilities = useRequirementsStore((s) => s.capabilities);
   const useCases = useRequirementsStore((s) => s.useCases);

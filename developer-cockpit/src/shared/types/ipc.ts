@@ -1,20 +1,11 @@
 import type { CockpitConfig } from './config';
-import type {
-  ApiResponse,
-  CommandCatalog,
-  HistoryEntry,
-  OrderFollowUp,
-  Paging,
-  QueryParam,
-  SaveTemplateRequest,
-  SaveTemplateResult,
-  TemplateSource,
-} from '../apiExplorer';
+import type { ApiCatalog, ApiRequest, ApiResponse, HistoryEntry, SaveTemplateRequest, SaveTemplateResult, TemplateSource } from '../apiExplorer';
 import type { KbDocument, KbCategory, KbSearchResult, KbHealthReport, KbIndexFixResult } from './kb';
 import type { AiKeySetResult, AiKeyStatus, AiProviderId, AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary, KbChatMessage, KbChatStartResult } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
-import type { MonitorHealthResult, MonitorMetricsResult } from './monitor';
+import type { MonitorConfigResult, MonitorPoll } from './monitor';
+import type { ProjectConfigResult } from '../projectConfig';
 import type { Capability, UseCase, FunctionalRequirement, NonFunctionalRequirement, Actor } from './requirements';
 import type { GitStatus, GitLogEntry, GitDiff, GitBranch, GitBranchResult } from './git';
 import type { SpecFile, SpecValidationResult, CodeGenTask, CodeGenResult, DomainEntity } from './specs';
@@ -46,6 +37,8 @@ export interface CockpitAPI {
     /** `ok: false, code: 'invalid'` when a field was refused (e.g. an env-var name that is not a name, SPEC-0063). */
     save(config: CockpitConfig): Promise<{ ok: boolean; code?: 'invalid'; message?: string } | void>;
     getWorkspaceRoot(): Promise<string>;
+    /** The project's `cockpit.yaml`: validated config, errors, whether it exists (SPEC-0076). */
+    project(): Promise<ProjectConfigResult>;
   };
 
   // Knowledge Base
@@ -119,19 +112,17 @@ export interface CockpitAPI {
     toggleTask(id: string, taskId: string, done: boolean, baseContent: string, force: boolean): Promise<SpecSaveResult>;
   };
 
-  // API Explorer: calls oms-core from the main process (SPEC-0007)
+  // API Explorer (SPEC-0076): the project's OpenAPI operations, requests sent from the main process
   apiExplorer: {
-    catalog(): Promise<CommandCatalog>;
-    baseUrl(): Promise<{ baseUrl: string; local: boolean }>;
-    /** A non-local oms-core needs `confirmedHost` equal to its host name. */
-    sendCommand(bodyText: string, confirmedHost?: string): Promise<ApiResponse>;
-    search(params: QueryParam[], paging: Paging): Promise<ApiResponse>;
-    followUp(orderId: string): Promise<OrderFollowUp>;
+    /** The operations of the APIs listed in cockpit.yaml. */
+    catalog(): Promise<ApiCatalog>;
+    /** A request that may change something on a non-local host needs `confirmedHost` equal to its host name. */
+    send(req: ApiRequest, confirmedHost?: string): Promise<ApiResponse>;
     history(): Promise<HistoryEntry[]>;
     clearHistory(): Promise<void>;
     /** The `.http` template files (SPEC-0008). */
     templates(): Promise<TemplateSource[]>;
-    /** Appends a template to a listed source, or creates a new file in the shared folder. */
+    /** Appends a template to a listed source, or creates a new file next to the first one. */
     saveTemplate(req: SaveTemplateRequest): Promise<SaveTemplateResult>;
   };
 
@@ -187,12 +178,12 @@ export interface CockpitAPI {
     logs(container: string, lines?: number): Promise<DockerLogs>;
   };
 
-  // Monitoring (SPEC-0053): read-only oms-core actuator endpoints (health + prometheus).
+  // Monitoring (SPEC-0076): the services and panels configured in the project's cockpit.yaml.
   monitor: {
-    /** The service state from `/actuator/health`. */
-    health(): Promise<MonitorHealthResult>;
-    /** The raw `/actuator/prometheus` text, possibly truncated. */
-    metrics(): Promise<MonitorMetricsResult>;
+    /** The monitoring section of cockpit.yaml, with its validation errors. */
+    config(): Promise<MonitorConfigResult>;
+    /** Checks every configured service and evaluates every panel. Always resolves. */
+    poll(): Promise<MonitorPoll>;
   };
 
   // Events

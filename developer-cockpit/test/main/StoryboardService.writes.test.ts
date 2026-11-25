@@ -16,7 +16,7 @@ function setup(config: Partial<StoryboardsConfig> = {}) {
   const dir = ws.writeExample();
   const svc = new StoryboardService({
     workspaceRoot: ws.root,
-    kbPath: path.join(ws.root, 'oms-knowledge-base'),
+    kbPath: path.join(ws.root, 'knowledge-base'),
     config: { ...DEFAULT_STORYBOARDS_CONFIG, ...config },
   });
   svc.scan();
@@ -218,7 +218,7 @@ describe('StoryboardService writes: reorder, createStep, deleteStep', () => {
     let svc: StoryboardService;
     let dir: string;
     ({ ws, svc, dir } = setup());
-    ws.write({ ['oms-knowledge-base/storyboards/_templates/step.md']: '---\nid: {{id}}\ntitle: {{title}}\nkind: manual\nowner-team: ops\n---\n\n## What happens\n\nTBD\n' });
+    ws.write({ ['knowledge-base/storyboards/_templates/step.md']: '---\nid: {{id}}\ntitle: {{title}}\nkind: manual\nowner-team: ops\n---\n\n## What happens\n\nTBD\n' });
     const r = svc.createStep(ID, 'Ops: "approve" #1', null, detail(svc).revision);
     expect(r).toMatchObject({ ok: true, stepId: 'ops-approve-1' });
     const text = ws.read(`${dir}/steps/ops-approve-1.md`);
@@ -280,7 +280,7 @@ describe('StoryboardService writes: create and read-only', () => {
     const rootId = svc.scan().roots[0].rootId;
     const r = svc.create({ rootId, domain: 'order-lifecycle', title: 'Place and fill an order', lanes: LANES, stepTitles: ['Submit order', 'Fill arrives', 'Submit order'] });
     expect(r).toMatchObject({ ok: true, id: 'place-and-fill-an-order' });
-    const dir = 'oms-knowledge-base/storyboards/order-lifecycle/place-and-fill-an-order';
+    const dir = 'knowledge-base/storyboards/order-lifecycle/place-and-fill-an-order';
     const story = ws.read(`${dir}/story.md`);
     expect(story).toContain('id: place-and-fill-an-order\n');
     expect(story).toContain('status: draft\n');
@@ -298,11 +298,11 @@ describe('StoryboardService writes: create and read-only', () => {
     let svc: StoryboardService;
     ({ ws, svc } = setup());
     ws.write({
-      ['oms-knowledge-base/storyboards/_templates/story.md']: '---\nid: {{id}}\ntitle: {{title}}\nstatus: draft\nreview-board: retail\nlanes: []\nsteps: []\n---\n\n## Summary\n\nTBD.\n',
+      ['knowledge-base/storyboards/_templates/story.md']: '---\nid: {{id}}\ntitle: {{title}}\nstatus: draft\nreview-board: retail\nlanes: []\nsteps: []\n---\n\n## Summary\n\nTBD.\n',
     });
     const rootId = svc.scan().roots[0].rootId;
     expect(svc.create({ rootId, domain: 'x', title: 'From template', lanes: LANES, stepTitles: ['One'] })).toMatchObject({ ok: true });
-    const story = ws.read('oms-knowledge-base/storyboards/x/from-template/story.md');
+    const story = ws.read('knowledge-base/storyboards/x/from-template/story.md');
     expect(story).toContain('review-board: retail');
     expect(story).toContain('  - one\n');
   });
@@ -312,7 +312,7 @@ describe('StoryboardService writes: create and read-only', () => {
     ({ ws, svc } = setup());
     const rootId = svc.scan().roots[0].rootId;
     const good = { rootId, domain: 'x', title: 'New one', lanes: LANES, stepTitles: ['A'] };
-    expect(svc.create({ ...good, rootId: 'oms-knowledge-base/storyboards' })).toMatchObject({ ok: false, code: 'invalid' });
+    expect(svc.create({ ...good, rootId: 'knowledge-base/storyboards' })).toMatchObject({ ok: false, code: 'invalid' });
     expect(svc.create({ ...good, rootId: 'ffffffffffff' })).toMatchObject({ ok: false, code: 'invalid' });
     expect(svc.create({ ...good, domain: '../escape' })).toMatchObject({ ok: false, code: 'invalid' });
     expect(svc.create({ ...good, title: 'Buy gold mobile', domain: 'elsewhere' })).toMatchObject({ ok: false, code: 'exists' });
@@ -378,7 +378,7 @@ describe('StoryboardService writes: illustrations and library', () => {
     let svc: StoryboardService;
     ({ ws, svc } = setup());
     expect(svc.library(ID)).toEqual({ ok: true, library: null });
-    ws.write({ ['oms-knowledge-base/storyboards/_library/oms-storyboard.excalidrawlib']: '{"type":"excalidrawlib","version":2,"libraryItems":[]}' });
+    ws.write({ ['knowledge-base/storyboards/_library/storyboard.excalidrawlib']: '{"type":"excalidrawlib","version":2,"libraryItems":[]}' });
     expect(svc.library(ID)).toEqual({ ok: true, library: '{"type":"excalidrawlib","version":2,"libraryItems":[]}' });
     expect(svc.library('nope')).toMatchObject({ ok: false, code: 'not-found' });
   });

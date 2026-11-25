@@ -1,0 +1,79 @@
+# Example project file for the Developer Cockpit. Copy it to your repository's root as cockpit.yaml
+# and keep what applies; every section is optional. Paths are relative to the repository root.
+
+project:
+  name: Acme Shop
+  description: Online shop with a REST API, a web front end and a Postgres database
+
+knowledgeBase:
+  root: knowledge-base                       # Markdown documentation the Knowledge Base view reads
+  checkScript: tools/okf-check/okf-check.mjs # optional checker the KB health panel runs
+  # stateDiagramDoc: domain/order-state.md   # optional: steps may link to its stateDiagram transitions
+  # serverUrl: http://localhost:8091/mcp     # optional knowledge server (MCP) for the KB chat
+
+specs:
+  cli: specs/tools/spec.mjs                  # the spec workflow CLI the Spec Tickets view calls
+  openApiPaths: [api/openapi]
+  avroPaths: []
+
+# Contracts view → code generation. "Run all" runs them top to bottom.
+codegen:
+  - id: client
+    name: API client
+    description: Generate the TypeScript client from the OpenAPI spec
+    inputs: api/openapi/shop.yml
+    cwd: web
+    command: ["npm", "run", "generate:api"]
+    windowsCommand: ["npm.cmd", "run", "generate:api"]
+
+# Extra folders whose changes refresh the cockpit (specs/ and the knowledge base are always watched).
+watch:
+  - api/src
+  - web/src
+
+# Help menu and the Monitoring header.
+links:
+  - { label: Grafana, url: "http://localhost:3000" }
+  - { label: API docs, url: "http://localhost:8000/docs" }
+
+apiExplorer:
+  templateSources:
+    - requests/shop.http                     # REST Client .http files listed as templates
+  apis:
+    - name: Shop
+      spec: api/openapi/shop.yml
+      baseUrl: http://localhost:8000/v1      # prefix for the spec's paths
+
+monitoring:
+  intervalSeconds: 10
+  prometheusUrl: http://localhost:9090       # any Prometheus-compatible HTTP API (Prometheus, Mimir, …)
+  services:
+    - name: api
+      group: Application
+      check: { kind: http, url: "http://localhost:8000/health" }
+      metricsUrl: http://localhost:8000/metrics
+      links:
+        - { label: Docs, url: "http://localhost:8000/docs" }
+    - name: web
+      group: Application
+      check: { kind: http, url: "http://localhost:3001/" }
+    - name: postgres
+      group: Data
+      check: { kind: tcp, host: localhost, port: 5432 }
+  panels:
+    - title: Requests / min
+      type: timeseries
+      unit: perMinute
+      source: { kind: promql, query: "sum(rate(http_requests_total[1m])) * 60" }
+    - title: Requests by status
+      type: bars
+      by: status
+      source: { kind: promql, query: "sum by (status) (rate(http_requests_total[5m]))" }
+    - title: p95 latency
+      type: stat
+      unit: s
+      source: { kind: promql, query: "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[5m])))" }
+    # Read straight from the service's /metrics, without a Prometheus server.
+    - title: Open baskets
+      type: stat
+      source: { kind: scrape, service: api, metric: shop_baskets_open }

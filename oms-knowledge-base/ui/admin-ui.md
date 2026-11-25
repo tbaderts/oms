@@ -5,7 +5,7 @@ title: "User Interface Specification: OMS Admin Tool"
 description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, ag-grid]
 status: draft
-updated: "2026-11-25T09:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 ---
 # User Interface Specification: OMS Admin Tool
 
@@ -413,6 +413,35 @@ The History tab shows how the order reached its state, as one timeline, oldest f
   SPEC-0021.
 - Live updates: the view is a snapshot until refreshed.
 
+### 9. Operations: Outbox and Dead letters (SPEC-0075)
+
+Two tabs after Order Entry help operators see what didn't get where it was going. Each loads when
+its tab is first opened and stays mounted, keeping its filter, page and open detail. A failure in
+one never affects the other. Both are read-only: replaying stuck messages and resending dead
+letters are a follow-up ticket.
+
+**Outbox** (`OutboxView.tsx`):
+- **Summary tiles:** pending, stuck (in the danger tone when above 0), held (in the warning tone) and
+  the oldest waiting age (`1 h 5 min`), with a line explaining stuck and held.
+- **State filter** (All, Pending, Stuck, Held) and a paged table: state badge, id, topic, key, order,
+  type, attempts against the maximum, created time, and last error.
+- **Detail.** Opening a message shows every field and its last error. The payload is a JSON tree
+  (`JsonTree.tsx`); a pointer message says what its record is built from. A message published
+  meanwhile says so.
+- **States:** an empty outbox says "Outbox is empty: every message has been published"; errors show
+  with Retry; Refresh reloads.
+
+**Dead letters** (`DeadLetterView.tsx`):
+- **The `.DLT` topics** with their record counts. The first with records is selected.
+- **The selected topic's latest 50 records,** newest first: time, key, original topic and
+  partition@offset, exception (its simple name) and message.
+- **Detail.** Opening a record shows the failure details, the value, and every header. The value is
+  a JSON tree when Avro, and text or hex otherwise.
+- **States:** without topics, "No dead-letter topics: nothing has been dead-lettered". When Kafka is
+  unavailable (503), the error carries oms-core's detail, with Retry.
+
+Styles: `Operations.scss`, shared, plus one file per view, all on design-system tokens.
+
 ## Service Architecture
 
 The frontend uses a layered service architecture with clear separation of concerns:
@@ -530,6 +559,10 @@ const cached = cacheService.get<DomainObjectMetadata>('order-metadata');
 - `GET /api/query/orders/{orderId}/events` and `GET /api/query/orders/{orderId}/commands`: an
   order's event log and command log, for the History tab (`getOrderEvents`, `getOrderCommands`,
   SPEC-0074). A failed request rejects, so the view can show it
+- `GET /api/query/admin/outbox/summary`, `…/outbox/messages`, `…/outbox/messages/{id}`,
+  `GET /api/query/admin/dead-letters` and `…/dead-letters/{topic}/records`: the Outbox and Dead
+  letters tabs (`getOutboxSummary`, `getOutboxMessages`, `getOutboxMessage`, `getDeadLetterTopics`,
+  `getDeadLetterRecords`, SPEC-0075)
 
 **Filter Conversion**:
 

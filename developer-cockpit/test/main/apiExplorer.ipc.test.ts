@@ -1,12 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { IpcMain } from 'electron';
 import { registerApiExplorerIpc } from '../../src/main/ipc/apiExplorer.ipc';
 import { ConfigService } from '../../src/main/services/ConfigService';
-import type { ApiResponse, CommandCatalog, HistoryEntry, OrderFollowUp, TemplateSource } from '../../src/shared/apiExplorer';
-import { REPO_ROOT } from '../fixtures/workspace';
+import type { ApiCatalog, ApiResponse, HistoryEntry, TemplateSource } from '../../src/shared/apiExplorer';
 
 function fakeIpcMain() {
   const handlers = new Map<string, (...args: unknown[]) => unknown>();
@@ -15,134 +14,105 @@ function fakeIpcMain() {
   return { ipcMain: ipcMain as unknown as IpcMain, invoke, channels: () => [...handlers.keys()] };
 }
 
-function recordingFetch() {
-  const urls: string[] = [];
-  const impl = (async (input: string | URL) => {
-    urls.push(String(input));
-    const p = new URL(String(input)).pathname;
-    const body = p.endsWith('/events') ? [] : p.endsWith('/search') ? { content: [] } : { id: 'O-1', status: 'OK' };
-    return new Response(JSON.stringify(body), { status: p.endsWith('/execute') ? 201 : 200, headers: { 'Content-Type': 'application/json' } });
-  }) as typeof fetch;
-  return { impl, urls };
-}
+const SPEC = `
+openapi: 3.0.3
+info: { title: Shop, version: 1.0.0 }
+paths:
+  /baskets:
+    post:
+      operationId: createBasket
+      requestBody: { content: { application/json: { schema: { type: object, properties: { owner: { type: string } } } } } }
+`;
 
 describe('API Explorer IPC', () => {
   const dirs: string[] = [];
   afterEach(() => dirs.splice(0).forEach((d) => fs.rmSync(d, { recursive: true, force: true })));
 
-  async function setup(omsCoreUrl?: string) {
+  async function setup() {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-cfg-'));
-    dirs.push(configDir);
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-ws-'));
+    dirs.push(configDir, ws);
+    fs.mkdirSync(path.join(ws, 'api'));
+    fs.writeFileSync(path.join(ws, 'api', 'shop.yml'), SPEC);
+    fs.writeFileSync(path.join(ws, 'api', 'shop.http'), '@base = http://localhost:8000\n\n###\n# @name Create\nPOST {{base}}/baskets\n\n{}\n');
+    fs.writeFileSync(
+      path.join(ws, 'cockpit.yaml'),
+      'apiExplorer:\n  templateSources: [api/shop.http]\n  apis:\n    - { name: Shop, spec: api/shop.yml, baseUrl: "http://localhost:8000" }\n',
+    );
     const configService = new ConfigService(configDir);
     const config = await configService.load();
-    await configService.save({
-      ...config,
-      general: { ...config.general, workspaceRoot: REPO_ROOT },
-      infrastructure: { ...config.infrastructure, ...(omsCoreUrl !== undefined ? { omsCoreUrl } : {}) },
-    });
-    const f = recordingFetch();
+    await configService.save({ ...config, general: { ...config.general, workspaceRoot: ws } });
+    const urls: string[] = [];
+    const fetchImpl = (async (input: string | URL) => {
+      urls.push(String(input));
+      return new Response('{"id":"B-1"}', { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }) as typeof fetch;
     const ipc = fakeIpcMain();
-    registerApiExplorerIpc(ipc.ipcMain, configService, { fetch: f.impl, log: () => {} });
-    return { ...ipc, configService, configDir, urls: f.urls };
+    registerApiExplorerIpc(ipc.ipcMain, configService, { fetch: fetchImpl, log: () => {} });
+    return { ...ipc, ws, urls };
   }
 
   it('registers the explorer channels', async () => {
     const { channels } = await setup();
-    expect(channels().sort()).toEqual(
-      ['catalog', 'baseUrl', 'sendCommand', 'search', 'followUp', 'history', 'clearHistory', 'templates', 'saveTemplate'].map((c) => `apiExplorer:${c}`).sort(),
-    );
+    expect(channels().sort()).toEqual(['catalog', 'send', 'history', 'clearHistory', 'templates', 'saveTemplate'].map((c) => `apiExplorer:${c}`).sort());
   });
 
-  it('defaults to http://localhost:8090', async () => {
-    const { invoke, configService, urls } = await setup();
-    expect(configService.getConfig().infrastructure.omsCoreUrl).toBe('http://localhost:8090');
-    expect(await invoke('apiExplorer:baseUrl')).toEqual({ baseUrl: 'http://localhost:8090', local: true });
-    await invoke('apiExplorer:sendCommand', '{"type":"OrderAcceptCmd","orderId":"X"}');
-    expect(urls).toEqual(['http://localhost:8090/api/command/execute']);
-  });
-
-  it('falls back to the default when the saved URL is empty', async () => {
-    const { invoke } = await setup('  ');
-    expect(await invoke('apiExplorer:baseUrl')).toEqual({ baseUrl: 'http://localhost:8090', local: true });
-  });
-
-  it('uses the new base URL after config save without re-registering', async () => {
-    const { invoke, configService, urls } = await setup();
-    const current = configService.getConfig();
-    await configService.save({ ...current, infrastructure: { ...current.infrastructure, omsCoreUrl: 'http://127.0.0.1:9999' } });
-    await invoke('apiExplorer:search', [], { page: 0 });
-    expect(urls).toEqual(['http://127.0.0.1:9999/api/query/search?page=0']);
-    expect(await invoke('apiExplorer:baseUrl')).toEqual({ baseUrl: 'http://127.0.0.1:9999', local: true });
-  });
-
-  it('serves the catalog from the configured contracts', async () => {
+  it('lists the operations of the APIs in cockpit.yaml', async () => {
     const { invoke } = await setup();
-    const catalog = (await invoke('apiExplorer:catalog')) as CommandCatalog;
-    expect(catalog.commandTypes).toContain('OrderCreateCmd');
+    const catalog = (await invoke('apiExplorer:catalog')) as ApiCatalog;
+    expect(catalog.apis.map((a) => [a.name, a.operations.map((o) => o.id)])).toEqual([['Shop', ['createBasket']]]);
   });
 
-  it('records each send including failures, not follow-ups', async () => {
-    const { invoke, configDir, configService } = await setup();
-    const sent = (await invoke('apiExplorer:sendCommand', '{"type":"OrderAcceptCmd","orderId":"X"}')) as ApiResponse;
-    expect(sent.status).toBe(201);
-    await invoke('apiExplorer:search', [{ field: 'symbol', op: 'eq', value: 'AAPL' }], { size: 10 });
-    await invoke('apiExplorer:sendCommand', '{"type":'); // refused before sending: still recorded
-    const followUp = (await invoke('apiExplorer:followUp', 'X')) as OrderFollowUp;
-    expect(followUp.orderId).toBe('X');
+  it('sends a request and records it in the history', async () => {
+    const { invoke, urls } = await setup();
+    const r = (await invoke('apiExplorer:send', { method: 'POST', url: 'http://localhost:8000/baskets', body: '{"owner":"ann"}', label: 'Shop · createBasket' })) as ApiResponse;
+    expect(r).toMatchObject({ ok: true, status: 201, body: { id: 'B-1' } });
+    expect(urls).toEqual(['http://localhost:8000/baskets']);
 
     const history = (await invoke('apiExplorer:history')) as HistoryEntry[];
-    expect(history.map((h) => [h.kind, h.label, h.method, h.path, h.status, Boolean(h.refused)])).toEqual([
-      ['command', '(invalid JSON)', 'POST', '/api/command/execute', null, true],
-      ['query', 'search', 'GET', '/api/query/search?symbol=AAPL&size=10', 200, false],
-      ['command', 'OrderAcceptCmd', 'POST', '/api/command/execute', 201, false],
-    ]);
-    expect(history[1].request).toEqual({ params: [{ field: 'symbol', op: 'eq', value: 'AAPL' }], size: 10 });
-    expect(history[2].request).toEqual({ body: '{"type":"OrderAcceptCmd","orderId":"X"}' });
-    expect(fs.existsSync(path.join(configDir, 'api-explorer-history.json'))).toBe(true);
-    expect(configService.getConfigDir()).toBe(configDir);
+    expect(history[0]).toMatchObject({ label: 'Shop · createBasket', method: 'POST', path: '/baskets', url: 'http://localhost:8000/baskets', status: 201, request: { body: '{"owner":"ann"}' } });
 
     await invoke('apiExplorer:clearHistory');
     expect(await invoke('apiExplorer:history')).toEqual([]);
   });
 
-  it('returns the response when the history cannot be written', async () => {
-    const { invoke, configDir } = await setup();
-    // A directory where the history file belongs makes every write fail.
-    fs.mkdirSync(path.join(configDir, 'api-explorer-history.json'));
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const sent = (await invoke('apiExplorer:sendCommand', '{"type":"OrderAcceptCmd","orderId":"X"}')) as ApiResponse;
-    expect(sent.status).toBe(201);
-    const found = (await invoke('apiExplorer:search', [], {})) as ApiResponse;
-    expect(found.status).toBe(200);
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('[api-explorer] history not written'))).toBe(true);
-    warn.mockRestore();
+  it('a refused request is recorded as refused and never sent', async () => {
+    const { invoke, urls } = await setup();
+    const r = (await invoke('apiExplorer:send', { method: 'POST', url: 'https://shop.example.test/baskets', body: '{}' })) as ApiResponse;
+    expect(r.refused).toBe(true);
+    expect(urls).toEqual([]);
+    expect(((await invoke('apiExplorer:history')) as HistoryEntry[])[0]).toMatchObject({ label: 'POST /baskets', refused: true, status: null });
+    const confirmed = (await invoke('apiExplorer:send', { method: 'POST', url: 'https://shop.example.test/baskets', body: '{}' }, 'shop.example.test')) as ApiResponse;
+    expect(confirmed.ok).toBe(true);
   });
 
-  it('templates and saveTemplate channels', async () => {
-    const { invoke, configService } = await setup('http://oms:9000');
-    const repo = (await invoke('apiExplorer:templates')) as TemplateSource[];
-    expect(repo.map((s) => s.path)).toEqual(expect.arrayContaining(['developer-cockpit/api-templates/orders.http', 'developer-cockpit/api-templates/lifecycle.http']));
+  it('lists and saves templates in the configured files', async () => {
+    const { invoke, ws } = await setup();
+    const sources = (await invoke('apiExplorer:templates')) as TemplateSource[];
+    expect(sources.map((s) => [s.path, s.file?.requests.map((r) => r.name)])).toEqual([['api/shop.http', ['Create']]]);
 
-    // a scratch workspace, so saving does not touch the repository
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-ws-'));
-    dirs.push(root);
-    fs.writeFileSync(path.join(root, 'extra.http'), 'GET http://h/x\n');
-    const config = configService.getConfig();
-    await configService.save({
-      ...config,
-      general: { ...config.general, workspaceRoot: root },
-      infrastructure: { ...config.infrastructure, apiTemplateSources: ['extra.http', 'gone.http'] },
+    expect(await invoke('apiExplorer:saveTemplate', { path: 'api/shop.http', name: 'Second', method: 'post', url: '{{base}}/baskets', body: '{"owner":"bo"}' })).toEqual({
+      ok: true,
+      path: 'api/shop.http',
     });
-    expect(((await invoke('apiExplorer:templates')) as TemplateSource[]).map((s) => [s.path, Boolean(s.missing)])).toEqual([
-      ['extra.http', false],
-      ['gone.http', true],
-    ]);
-    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
-    expect(await invoke('apiExplorer:saveTemplate', { newFile: 'new.http', name: 'N', body: '{}' })).toEqual({ ok: true, path: 'developer-cockpit/api-templates/new.http' });
-    expect(fs.readFileSync(path.join(root, 'developer-cockpit', 'api-templates', 'new.http'), 'utf8')).toMatch(/^@baseUrl = http:\/\/oms:9000\n/);
-    expect(await invoke('apiExplorer:saveTemplate', { path: 'extra.http', name: 'E', body: '{}' })).toEqual({ ok: true, path: 'extra.http' });
-    expect(await invoke('apiExplorer:saveTemplate', { path: 'C:/elsewhere.http', name: 'E', body: '{}' })).toEqual({ ok: false, error: 'Not a template source: C:/elsewhere.http' });
-    expect(await invoke('apiExplorer:saveTemplate', null)).toEqual({ ok: false, error: 'Invalid save request' });
-    info.mockRestore();
+    expect(fs.readFileSync(path.join(ws, 'api', 'shop.http'), 'utf8')).toContain('# @name Second\nPOST {{base}}/baskets HTTP/1.1\ncontent-type: application/json\n\n{"owner":"bo"}\n');
+    expect(await invoke('apiExplorer:saveTemplate', { newFile: 'more.http', name: 'Third', method: 'GET', url: 'http://localhost:8000/baskets', body: '' })).toEqual({
+      ok: true,
+      path: 'api/more.http',
+    });
+    expect(await invoke('apiExplorer:saveTemplate', { path: 'api/shop.http', name: 'Bad' })).toEqual({ ok: false, error: 'Invalid save request' });
+  });
+});
+
+describe('API Explorer history redaction (SPEC-0076 review)', () => {
+  it('stores credential headers without their values', async () => {
+    const { redactHeaders, REDACTED } = await import('../../src/main/ipc/apiExplorer.ipc');
+    expect(redactHeaders({ Authorization: 'Bearer abc', Cookie: 'sid=1', 'X-Api-Key': 'k', 'X-Session-Token': 't', 'X-Trace': 'keep' })).toEqual({
+      Authorization: REDACTED,
+      Cookie: REDACTED,
+      'X-Api-Key': REDACTED,
+      'X-Session-Token': REDACTED,
+      'X-Trace': 'keep',
+    });
   });
 });

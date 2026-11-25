@@ -7,8 +7,11 @@ describe('useSpecsStore code generation', () => {
   afterEach(() => useSpecsStore.setState(useSpecsStore.getInitialState(), true));
 
   it('run all runs contract models before API interfaces', async () => {
-    // The real task table, as the main process serves it.
-    const tasks = new CodeGenService('/ws', vi.fn()).getTasks();
+    // A task table as cockpit.yaml lists it, served by the main process in that order.
+    const tasks = new CodeGenService('/ws', [
+      { id: 'contracts', name: 'Contract models', description: '', cwd: 'contracts', command: ['./gradlew', 'build'] },
+      { id: 'api', name: 'API interfaces', description: '', cwd: 'api', command: ['./gradlew', 'generate'] },
+    ], vi.fn()).getTasks();
     const runCodeGen = vi.fn(async (taskId: string) => ({ taskId, success: true, output: '', durationMs: 1 }));
     (window as unknown as { cockpit: unknown }).cockpit = { specs: { getCodeGenTasks: vi.fn(async () => tasks), runCodeGen } };
 
@@ -19,7 +22,10 @@ describe('useSpecsStore code generation', () => {
   });
 
   it('run all stops when contract models fail', async () => {
-    const tasks = new CodeGenService('/ws', vi.fn()).getTasks();
+    const tasks = new CodeGenService('/ws', [
+      { id: 'contracts', name: 'Contract models', description: '', cwd: 'contracts', command: ['./gradlew', 'build'] },
+      { id: 'api', name: 'API interfaces', description: '', cwd: 'api', command: ['./gradlew', 'generate'] },
+    ], vi.fn()).getTasks();
     const runCodeGen = vi.fn(async (taskId: string) => ({ taskId, success: false, output: 'FAILURE', durationMs: 1 }));
     (window as unknown as { cockpit: unknown }).cockpit = { specs: { getCodeGenTasks: vi.fn(async () => tasks), runCodeGen } };
 

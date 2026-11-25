@@ -41,6 +41,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem;
     }
 
+    /** An outbox message or dead-letter topic that is not there (SPEC-0075). */
+    @ExceptionHandler(org.example.oms.admin.AdminNotFoundException.class)
+    public ProblemDetail handleNotFound(org.example.oms.admin.AdminNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setType(URI.create("urn:oms:error:not-found"));
+        problem.setTitle("Not Found");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    /** Dead letters cannot be read now: Kafka unreachable, too slow or disabled (SPEC-0075). */
+    @ExceptionHandler(org.example.oms.admin.DeadLetterUnavailableException.class)
+    public ProblemDetail handleDeadLetterUnavailable(org.example.oms.admin.DeadLetterUnavailableException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+        problem.setType(URI.create("urn:oms:error:kafka-unavailable"));
+        problem.setTitle("Kafka Unavailable");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     /**
      * Request bodies that break the contract (a required field missing, a string too short). The
      * format is the one in framework/exception-handling.md: every failing field, keyed by its path

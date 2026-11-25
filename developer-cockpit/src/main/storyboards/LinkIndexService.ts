@@ -3,7 +3,7 @@ import * as path from 'path';
 import { parse as parseYaml } from 'yaml';
 import type { LinkIndex } from '../../shared/types/storyboards';
 import { parseFrontMatter } from './parse';
-import { ORDER_STATE_DOC, REQUIREMENT_DIRS } from '../services/kbLayout';
+import { REQUIREMENT_DIRS } from '../services/kbLayout';
 
 export interface LinkIndexOptions {
   workspaceRoot: string;
@@ -12,9 +12,13 @@ export interface LinkIndexOptions {
   openApiPaths: string[];
   /** Workspace-relative folders with Avro schemas (`specs.avroPaths`). */
   avroPaths: string[];
+  /**
+   * KB-relative document whose `stateDiagram` lists the state transitions steps may link to
+   * (`knowledgeBase.stateDiagramDoc` in cockpit.yaml). Absent = no transition links are checked.
+   */
+  stateDiagramDoc?: string;
 }
 
-const STATE_DOC = path.join(...ORDER_STATE_DOC.split('/'));
 const REQUIREMENT_ID = /^(N?FR-\d{3,})/;
 const TRANSITION = /^\s*([A-Za-z_][\w]*)\s*-->\s*([A-Za-z_][\w]*)\b/;
 
@@ -26,6 +30,10 @@ export class LinkIndexService {
   private cache: LinkIndex | null = null;
 
   constructor(private readonly opts: LinkIndexOptions) {}
+
+  private get stateDoc(): string | null {
+    return this.opts.stateDiagramDoc ? path.join(...this.opts.stateDiagramDoc.split('/')) : null;
+  }
 
   get(): LinkIndex {
     if (!this.cache) this.cache = this.build();
@@ -43,7 +51,7 @@ export class LinkIndexService {
     if (this.opts.openApiPaths.some((p) => under(path.resolve(this.opts.workspaceRoot, p)))) return true;
     if (this.opts.avroPaths.some((p) => under(path.resolve(this.opts.workspaceRoot, p)))) return true;
     if (REQUIREMENT_DIRS.some((d) => under(path.join(this.opts.kbPath, d)))) return true;
-    return abs === path.resolve(this.opts.kbPath, STATE_DOC);
+    return !!this.stateDoc && abs === path.resolve(this.opts.kbPath, this.stateDoc);
   }
 
   private build(): LinkIndex {
@@ -82,7 +90,7 @@ export class LinkIndexService {
     const states = new Set<string>();
     try {
       let inDiagram = false;
-      for (const line of fs.readFileSync(path.join(this.opts.kbPath, STATE_DOC), 'utf8').split(/\r?\n/)) {
+      for (const line of this.stateDoc ? fs.readFileSync(path.join(this.opts.kbPath, this.stateDoc), 'utf8').split(/\r?\n/) : []) {
         if (/^\s*stateDiagram/.test(line)) inDiagram = true;
         else if (/^\s*```/.test(line)) inDiagram = false;
         const m = inDiagram ? TRANSITION.exec(line) : null;

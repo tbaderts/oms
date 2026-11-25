@@ -132,4 +132,14 @@ name opens a log panel showing the last 200 lines of its combined stdout/stderr.
 read-only — it never starts, stops, or modifies containers. When the Docker daemon is unreachable,
 the view retains the last known container list and shows a "Connection lost — retrying…" notice.
 
+## Service monitoring (developer-cockpit, SPEC-0076)
+
+The cockpit's **Monitoring** view checks every service of the root `docker-compose.yml` (actuator
+health, HTTP status or TCP connect, as listed in `cockpit.yaml`), with a response-time sparkline,
+the last 30 checks and a timeline of status changes. Its panels read the order-flow metrics from
+oms-core's `/actuator/prometheus` (orders by state, order events per minute, outbox pending, stuck
+and oldest age, heap and connection-pool use) and time to ACK and time to market p99 from Mimir. It
+replaces the oms-core-only Monitoring view of SPEC-0053. See
+[Developer Cockpit](../../tools/developer-cockpit.md#monitoring).
+
 Capability: [order-sla-monitoring](../order-sla-monitoring.md).

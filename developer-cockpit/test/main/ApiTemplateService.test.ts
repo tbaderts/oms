@@ -5,7 +5,7 @@ import * as path from 'path';
 import { ApiTemplateService } from '../../src/main/services/ApiTemplateService';
 import { parseHttpFile } from '../../src/shared/httpFile';
 
-const BODY = '{\n  "type": "OrderAcceptCmd",\n  "orderId": "{{orderId}}"\n}';
+const BODY = '{\n  "owner": "{{owner}}"\n}';
 
 describe('ApiTemplateService', () => {
   const dirs: string[] = [];
@@ -17,97 +17,82 @@ describe('ApiTemplateService', () => {
   function workspace(): string {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'cockpit-templates-'));
     dirs.push(root);
-    const shared = path.join(root, 'developer-cockpit', 'api-templates');
-    fs.mkdirSync(shared, { recursive: true });
-    fs.writeFileSync(path.join(shared, 'b.http'), '@baseUrl = http://h\n\n###\n# @name one\nPOST {{baseUrl}}/api/command/execute\n\n{"type":"OrderAcceptCmd"}\n');
-    fs.writeFileSync(path.join(shared, 'a.http'), 'POST http://h/api/command/execute\n\n{}');
-    fs.writeFileSync(path.join(shared, 'notes.md'), 'not a template');
-    fs.mkdirSync(path.join(root, 'oms-core'));
-    fs.writeFileSync(path.join(root, 'oms-core', 'rest.http'), 'GET http://h/x\r\n');
+    fs.mkdirSync(path.join(root, 'requests'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'requests', 'shop.http'), '@baseUrl = http://h\n\n###\n# @name one\nPOST {{baseUrl}}/baskets\n\n{"owner":"ann"}\n');
+    fs.mkdirSync(path.join(root, 'service'));
+    fs.writeFileSync(path.join(root, 'service', 'rest.http'), 'GET http://h/x\r\n');
     return root;
   }
 
-  const service = (root: string, extra: string[] = ['oms-core/rest.http']) => new ApiTemplateService(root, extra, () => 'http://localhost:8090');
+  const service = (root: string, sources = ['requests/shop.http', 'service/rest.http']) => new ApiTemplateService(root, sources);
 
-  it('lists shared and extra sources and marks a missing one', () => {
+  it('lists the configured sources and marks a missing one', () => {
     const root = workspace();
     const outside = path.join(root, '..', `${path.basename(root)}-outside.http`);
     fs.writeFileSync(outside, 'GET http://h/y');
     dirs.push(outside);
-    const list = service(root, ['oms-core/rest.http', 'nope/missing.http', outside]).list();
-    expect(list.map((s) => [s.path, s.shared, Boolean(s.missing)])).toEqual([
-      ['developer-cockpit/api-templates/a.http', true, false],
-      ['developer-cockpit/api-templates/b.http', true, false],
-      ['oms-core/rest.http', false, false],
-      ['nope/missing.http', false, true],
-      [outside.replace(/\\/g, '/'), false, false],
+    const list = service(root, ['requests/shop.http', 'nope/missing.http', outside, ' ']).list();
+    expect(list.map((s) => [s.path, Boolean(s.missing)])).toEqual([
+      ['requests/shop.http', false],
+      ['nope/missing.http', true],
+      [outside.replace(/\\/g, '/'), false],
     ]);
-    expect(list[1].file?.requests[0].name).toBe('one');
-    expect(list[3].file).toBeUndefined();
-
-    // read on every call
-    fs.writeFileSync(path.join(root, 'developer-cockpit', 'api-templates', 'c.http'), '');
-    expect(service(root).list().map((s) => s.path)).toContain('developer-cockpit/api-templates/c.http');
-  });
-
-  it('lists the configured sources when the shared folder does not exist', () => {
-    const root = workspace();
-    fs.rmSync(path.join(root, 'developer-cockpit'), { recursive: true });
-    expect(service(root).list().map((s) => s.path)).toEqual(['oms-core/rest.http']);
+    expect(list[0].file?.requests[0].name).toBe('one');
+    expect(list[1].file).toBeUndefined();
   });
 
   it('appends a template block without changing existing bytes', () => {
     const root = workspace();
     const log = vi.spyOn(console, 'info').mockImplementation(() => {});
     const s = service(root);
-    for (const [rel, declared] of [['developer-cockpit/api-templates/b.http', true], ['developer-cockpit/api-templates/a.http', false], ['oms-core/rest.http', false]] as const) {
+    for (const rel of ['requests/shop.http', 'service/rest.http']) {
       const file = path.join(root, rel);
       const before = fs.readFileSync(file);
-      expect(s.save({ path: rel, name: 'Accept it', body: BODY })).toEqual({ ok: true, path: rel });
+      expect(s.save({ path: rel, name: 'Basket for ann', method: 'post', url: '{{baseUrl}}/baskets', body: BODY })).toEqual({ ok: true, path: rel });
       const after = fs.readFileSync(file);
       expect(after.subarray(0, before.length).equals(before), rel).toBe(true);
-      const t = parseHttpFile(after.toString('utf8')).requests.find((r) => r.name === 'Accept it');
-      expect(t?.body, rel).toBe(BODY);
-      expect(t?.url, rel).toBe(declared ? '{{baseUrl}}/api/command/execute' : 'http://localhost:8090/api/command/execute');
+      const t = parseHttpFile(after.toString('utf8')).requests.find((r) => r.name === 'Basket for ann');
+      expect(t, rel).toMatchObject({ method: 'POST', url: '{{baseUrl}}/baskets', body: BODY });
     }
     // a CRLF file gets a CRLF block
-    expect(fs.readFileSync(path.join(root, 'oms-core', 'rest.http'), 'utf8')).not.toMatch(/[^\r]\n/);
-    expect(log).toHaveBeenCalledWith('[api-explorer] template saved Accept it → oms-core/rest.http');
+    expect(fs.readFileSync(path.join(root, 'service', 'rest.http'), 'utf8')).not.toMatch(/[^\r]\n/);
+    expect(log).toHaveBeenCalledWith('[api-explorer] template saved Basket for ann → service/rest.http');
 
-    const created = s.save({ newFile: 'mine.http', name: 'Mine', body: BODY });
-    expect(created).toEqual({ ok: true, path: 'developer-cockpit/api-templates/mine.http' });
-    const text = fs.readFileSync(path.join(root, 'developer-cockpit', 'api-templates', 'mine.http'), 'utf8');
-    const parsed = parseHttpFile(text);
-    expect(parsed.variables).toEqual({ baseUrl: 'http://localhost:8090' });
-    expect(parsed.requests).toMatchObject([{ name: 'Mine', url: '{{baseUrl}}/api/command/execute', body: BODY }]);
+    const created = s.save({ newFile: 'mine.http', name: 'Mine', method: 'GET', url: 'http://h/baskets', body: '' });
+    expect(created).toEqual({ ok: true, path: 'requests/mine.http' });
+    const parsed = parseHttpFile(fs.readFileSync(path.join(root, 'requests', 'mine.http'), 'utf8'));
+    expect(parsed.requests).toMatchObject([{ name: 'Mine', method: 'GET', url: 'http://h/baskets', body: null }]);
   });
 
-  it('refuses a duplicate name, an unknown path and an existing new file', () => {
+  it('refuses a duplicate name, an unknown path, bad input and an existing new file', () => {
     const root = workspace();
     const s = service(root);
-    const shared = path.join(root, 'developer-cockpit', 'api-templates');
-    const snapshot = () => fs.readdirSync(shared).map((f) => fs.readFileSync(path.join(shared, f), 'utf8')).join('|');
+    const dir = path.join(root, 'requests');
+    const snapshot = () => fs.readdirSync(dir).map((f) => fs.readFileSync(path.join(dir, f), 'utf8')).join('|');
     const before = snapshot();
+    const req = { method: 'POST', url: 'http://h/baskets', body: BODY };
 
-    expect(s.save({ path: 'developer-cockpit/api-templates/b.http', name: ' one ', body: BODY })).toEqual({ ok: false, error: 'A template named "one" already exists in developer-cockpit/api-templates/b.http' });
-    // the fallback name of an unnamed block counts too
-    fs.writeFileSync(path.join(root, 'oms-core', 'rest.http'), '# Accept it\nPOST http://h/api/command/execute\n\n{}');
-    expect(s.save({ path: 'oms-core/rest.http', name: 'Accept it', body: BODY }).ok).toBe(false);
-    expect(s.save({ path: '../outside.http', name: 'x', body: BODY })).toEqual({ ok: false, error: 'Not a template source: ../outside.http' });
-    expect(s.save({ path: 'nope/missing.http', name: 'x', body: BODY }).ok).toBe(false);
-    expect(s.save({ newFile: 'a.http', name: 'x', body: BODY })).toEqual({ ok: false, error: 'developer-cockpit/api-templates/a.http already exists' });
-    expect(s.save({ newFile: '../evil.http', name: 'x', body: BODY })).toEqual({ ok: false, error: 'File name must look like name.http' });
-    expect(s.save({ newFile: 'x.txt', name: 'x', body: BODY }).ok).toBe(false);
-    expect(s.save({ path: 'developer-cockpit/api-templates/b.http', name: '', body: BODY })).toEqual({ ok: false, error: 'Template name must be 1–80 characters on one line' });
-    expect(s.save({ path: 'developer-cockpit/api-templates/b.http', name: 'a\nb', body: BODY }).ok).toBe(false);
-    expect(s.save({ path: 'developer-cockpit/api-templates/b.http', name: 'x'.repeat(81), body: BODY }).ok).toBe(false);
+    expect(s.save({ path: 'requests/shop.http', name: ' one ', ...req })).toEqual({ ok: false, error: 'A template named "one" already exists in requests/shop.http' });
+    // the name an unnamed block is listed under counts too
+    expect(s.save({ path: 'service/rest.http', name: 'GET http://h/x', ...req }).ok).toBe(false);
+    expect(s.save({ path: '../outside.http', name: 'x', ...req })).toEqual({ ok: false, error: 'Not a template source: ../outside.http' });
+    expect(s.save({ path: 'nope/missing.http', name: 'x', ...req }).ok).toBe(false);
+    expect(s.save({ newFile: 'shop.http', name: 'x', ...req })).toEqual({ ok: false, error: 'requests/shop.http already exists' });
+    expect(s.save({ newFile: '../evil.http', name: 'x', ...req })).toEqual({ ok: false, error: 'File name must look like name.http' });
+    expect(s.save({ newFile: 'x.txt', name: 'x', ...req }).ok).toBe(false);
+    expect(s.save({ path: 'requests/shop.http', name: '', ...req })).toEqual({ ok: false, error: 'Template name must be 1–80 characters on one line' });
+    expect(s.save({ path: 'requests/shop.http', name: 'a\nb', ...req }).ok).toBe(false);
+    expect(s.save({ path: 'requests/shop.http', name: 'x'.repeat(81), ...req }).ok).toBe(false);
+    expect(s.save({ path: 'requests/shop.http', name: 'x', ...req, method: 'BREW' })).toEqual({ ok: false, error: 'Unsupported method BREW' });
+    expect(s.save({ path: 'requests/shop.http', name: 'x', ...req, url: 'http://h/a b' }).ok).toBe(false);
     expect(snapshot()).toBe(before);
-    expect(fs.readFileSync(path.join(root, 'oms-core', 'rest.http'), 'utf8')).toBe('# Accept it\nPOST http://h/api/command/execute\n\n{}');
+  });
 
-    // the `<type> #n` name an unnamed, uncommented block is listed under counts too
-    const unnamed = 'POST http://h/api/command/execute\n\n{"type":"OrderAcceptCmd","orderId":"{{orderId}}"}\n';
-    fs.writeFileSync(path.join(shared, 'b.http'), unnamed);
-    expect(s.save({ path: 'developer-cockpit/api-templates/b.http', name: 'OrderAcceptCmd #1', body: BODY }).ok).toBe(false);
-    expect(fs.readFileSync(path.join(shared, 'b.http'), 'utf8')).toBe(unnamed);
+  it('a new file needs a configured source to go next to', () => {
+    const root = workspace();
+    expect(service(root, []).save({ newFile: 'mine.http', name: 'Mine', method: 'GET', url: 'http://h/', body: '' })).toEqual({
+      ok: false,
+      error: 'List a template file under apiExplorer.templateSources in cockpit.yaml first',
+    });
   });
 });

@@ -32,8 +32,8 @@ export class ApiHistoryService {
 
   add(entry: Omit<HistoryEntry, 'id' | 'at'>): HistoryEntry {
     let request = entry.request;
-    if ('body' in request && request.body.length > MAX_BODY_CHARS) {
-      request = { body: request.body.slice(0, MAX_BODY_CHARS), truncated: true };
+    if (typeof request.body === 'string' && request.body.length > MAX_BODY_CHARS) {
+      request = { ...request, body: request.body.slice(0, MAX_BODY_CHARS), truncated: true };
     }
     const full: HistoryEntry = { id: randomUUID(), at: new Date().toISOString(), ...entry, request };
     this.write([full, ...this.list()].slice(0, MAX_ENTRIES));

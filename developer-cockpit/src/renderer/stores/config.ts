@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CockpitConfig } from '@shared/types/config';
 import { DEFAULT_CONFIG } from '@shared/types/config';
+import { setKbBundlePrefix } from '@shared/kbPath';
 
 interface ConfigState {
   config: CockpitConfig;
@@ -32,6 +33,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ loading: true });
     try {
       const config = await window.cockpit.config.load();
+      setKbBundlePrefix(config.knowledgeBase.rootPath);
       set({ config, loaded: true, loading: false });
       applyTheme(config.general.theme);
     } catch {
@@ -43,6 +45,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
   saveConfig: async (config: CockpitConfig) => {
     try {
       await window.cockpit.config.save(config);
+      setKbBundlePrefix(config.knowledgeBase.rootPath);
       set({ config });
       applyTheme(config.general.theme);
     } catch (err) {

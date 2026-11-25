@@ -5,9 +5,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { OkfCli } from '../../src/main/services/OkfCli';
-import { REPO_ROOT } from '../fixtures/workspace';
+import { REPO_ROOT, hostHas } from '../fixtures/workspace';
 
 const VALID = path.join(REPO_ROOT, 'tools', 'okf-check', 'test', 'fixtures', 'valid');
+
+// The repository's own checker and its fixtures; the configured-script test below needs neither.
+const HAS_CHECKER = hostHas('tools/okf-check/okf-check.mjs') && hostHas('tools/okf-check/node_modules');
 
 describe('OkfCli', () => {
   const dirs: string[] = [];
@@ -22,7 +25,7 @@ describe('OkfCli', () => {
     return dir;
   }
 
-  it('report runs the repository CLI on the given bundle', async () => {
+  it.skipIf(!HAS_CHECKER)('report runs the repository CLI on the given bundle (needs host okf-check next to the cockpit)', async () => {
     const dir = bundle();
     // The fixture's repo: sources live inside the bundle copy.
     const report = await new OkfCli(REPO_ROOT, process.execPath).report(dir, dir);
@@ -32,13 +35,13 @@ describe('OkfCli', () => {
     expect(report.stats.byType.Specification).toBe(3);
   });
 
-  it('a report with errors is a result, not a failure', async () => {
+  it.skipIf(!HAS_CHECKER)('a report with errors is a result, not a failure (needs host okf-check next to the cockpit)', async () => {
     const dir = bundle((d) => fs.rmSync(path.join(d, 'sub', 'index.md')));
     const report = await new OkfCli(REPO_ROOT, process.execPath).report(dir, dir);
     expect(report.errors.some((e) => e.file === 'sub/index.md' && e.rule === 'OKF-INDEX')).toBe(true);
   });
 
-  it('fixIndexes previews, then applies', async () => {
+  it.skipIf(!HAS_CHECKER)('fixIndexes previews, then applies (needs host okf-check next to the cockpit)', async () => {
     const dir = bundle((d) => fs.writeFileSync(path.join(d, 'sub', 'index.md'), '# Sub\n'));
     const cli = new OkfCli(REPO_ROOT, process.execPath);
 
@@ -55,9 +58,22 @@ describe('OkfCli', () => {
     expect((await cli.report(dir, dir)).errors).toEqual([]);
   });
 
-  it('a workspace without the checker rejects with a readable message', async () => {
+  it.skipIf(!HAS_CHECKER)('a workspace without the checker rejects with a readable message (needs host okf-check next to the cockpit)', async () => {
     const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-noworkspace-'));
     dirs.push(empty);
     await expect(new OkfCli(empty, process.execPath).report(bundle())).rejects.toThrow(/checker was not found: .*tools[\\/]okf-check/);
+  });
+
+  it('runs the checker at the configured script path', async () => {
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), 'okf-custom-'));
+    dirs.push(ws);
+    fs.mkdirSync(path.join(ws, 'qa'));
+    fs.writeFileSync(
+      path.join(ws, 'qa', 'kb-check.mjs'),
+      'process.stdout.write(JSON.stringify({ errors: [], warnings: [], stats: { args: process.argv.slice(2) } }));\n',
+    );
+    const report = (await new OkfCli(ws, process.execPath, 'qa/kb-check.mjs').report('docs', ws)) as unknown as { stats: { args: string[] } };
+    expect(report.stats.args).toEqual(['docs', '--repo', ws, '--json']);
+    await expect(new OkfCli(ws, process.execPath, 'qa/missing.mjs').report('docs')).rejects.toThrow(/checker was not found: .*qa[\\/]missing\.mjs/);
   });
 });

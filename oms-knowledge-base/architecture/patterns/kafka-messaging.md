@@ -4,7 +4,7 @@ title: "Kafka Messaging"
 description: "How services consume and produce Kafka messages in the OMS: Avro records from oms-contracts, consumers that decode, dispatch in one transaction and retry or dead-letter, and producers that only publish through the transactional outbox."
 tags: [pattern, kafka, avro, consumer, producer, outbox]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/config/CommandListener.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/config/KafkaConsumerConfig.java"
@@ -46,6 +46,12 @@ documented on the [Message API](../../domain/interfaces/message-api.md); the rea
    duplicate `commandId`, `expectedVersion` mismatch) is logged as `REFUSED` and acknowledged.
 5. **Failures retry, then dead-letter.** `KafkaConsumerConfig.commandErrorHandler` retries with
    exponential back-off and sends the record to `<topic>.DLT` when the budget is spent.
+   - **What the record keeps.** Its original bytes, and Spring's `kafka_dlt-*` headers: the
+     exception class, message and cause, and the original topic, partition, offset and time.
+   - **Where operators see it.** oms-ui's **Dead letters** tab lists every `.DLT` topic and shows its
+     latest records, with those details and the value decoded through the schema registry. It
+     reads without consuming: no consumer group, no commit (SPEC-0075; [Query API](../../domain/interfaces/query-api.md#operations-outbox-and-dead-letters)).
+   - **Resending** is a follow-up ticket.
    Concurrency failures (a lost version race, lock timeout, deadlock) are retried without a budget,
    capped at `kafka.consumer.concurrency-max-interval-ms` (`CommandBackOffs`).
 6. **Be idempotent.** Delivery is at least once. oms-core de-duplicates lifecycle commands on

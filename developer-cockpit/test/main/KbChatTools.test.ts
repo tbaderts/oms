@@ -42,10 +42,10 @@ describe('KbChatTools — knowledge server (AC-2)', () => {
   it('forwards a tool call to the server', async () => {
     stub = await startStubMcpServer(KNOWLEDGE_SERVER_TOOLS);
     built = await KbChatTools.build(stub.url, kb, () => {});
-    const out = await (built.tools.readKnowledgeBase as Exec).execute({ path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md' });
+    const out = await (built.tools.readKnowledgeBase as Exec).execute({ path: 'knowledge-base/domain/concepts/order-lifecycle.md' });
     // The server's other declared-required parameters are filled with neutral values: a bounded read from the start.
     expect(stub.calls).toEqual([
-      { name: 'readKnowledgeBase', arguments: { path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md', anchor: '', offset: 0, limit: DEFAULT_READ_LIMIT } },
+      { name: 'readKnowledgeBase', arguments: { path: 'knowledge-base/domain/concepts/order-lifecycle.md', anchor: '', offset: 0, limit: DEFAULT_READ_LIMIT } },
     ]);
     expect(out).toContain('The order lifecycle.');
   });
@@ -102,7 +102,7 @@ describe('KbChatTools — local fallback (AC-3)', () => {
   it('local read returns document content', async () => {
     built = await KbChatTools.build('http://127.0.0.1:1/mcp', kb, () => {});
     const read = built.tools.read_knowledge_base_document as Exec;
-    const out = String(await read.execute({ path: 'oms-knowledge-base/domain/concepts/order-lifecycle.md#states' }));
+    const out = String(await read.execute({ path: 'knowledge-base/domain/concepts/order-lifecycle.md#states' }));
     expect(out).toContain('domain/concepts/order-lifecycle.md');
     expect(out).toContain('Orders move from NEW to FILLED.');
     expect(String(await read.execute({ path: 'domain/missing.md' }))).toBe('Error: no document at domain/missing.md.');
