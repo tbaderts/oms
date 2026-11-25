@@ -35,6 +35,8 @@ class OmsQueryClientTest {
 
     /** The (page, size, sort) of each Query API call, in order. */
     private final List<String> calls = new ArrayList<>();
+    private final List<String> paths = new ArrayList<>();
+    private final List<String> queries = new ArrayList<>();
 
     @Test
     void fetchOrderSnapshot_stopsAtLimitAndReportsMatching() {
@@ -76,29 +78,32 @@ class OmsQueryClientTest {
         assertEquals(8300L, snapshot.matching().block());
     }
 
-    /** One fill as GET /api/query/executions returns it: the fill with its order as of that fill. */
+    /** One stored fill as GET /api/query/executions/search returns it (SPEC-0070). */
     private static final String FILL_JSON = """
-            {"orderId":"ORD-1","execId":"ORD-1-F1","rootOrderId":"ORD-1","clOrdId":"CL-1","sessionId":"S",
-             "account":"ACC-1","side":"BUY","symbol":"INTC","securityId":"INTC.OQ","ordType":"LIMIT",
-             "price":86.96000000,"orderQty":500.00000000,"exDestination":"XNAS","lastQty":200.00000000,
-             "lastPx":86.95000000,"execType":"F","lastMkt":"XSIM","transactTime":"2026-11-16T17:12:07.556Z",
-             "cumQty":200.00000000,"leavesQty":300.00000000,"avgPx":86.95000000,"state":"LIVE",
-             "orderVersion":3,"tradeDate":"2026-11-16"}""";
+            {"id":41,"orderId":"ORD-1","execId":"ORD-1-F1","rootOrderId":"ORD-1","symbol":"INTC",
+             "securityId":"US4581401001","securityIdSource":"ISIN","execType":"F","lastQty":200.00000000,
+             "lastPx":86.95000000,"lastMkt":"XSIM","lastCapacity":"A","cumQty":200.00000000,
+             "leavesQty":300.00000000,"avgPx":86.95000000,"transactTime":"2026-11-16T17:12:07.556Z",
+             "status":"APPLIED","orderVersion":3}""";
 
     /** The (path, query) of each executions request. */
     private final List<String> executionCalls = new ArrayList<>();
 
-    /** SPEC-0067 AC-1: a stored fill maps to the streaming ExecutionDto with its order. */
+    /** SPEC-0071 AC-1: a stored fill maps to the streaming ExecutionDto with the execution's fields. */
     @Test
-    void fetchRecentExecutions_mapsFillsWithTheirOrder() {
-        OmsQueryClient client = clientAnswering("[" + FILL_JSON + "]");
+    void fetchExecutionSnapshot_mapsStoredFills() {
+        OmsQueryClient client = clientAnswering("{\"content\":[" + FILL_JSON + "],"
+                + "\"page\":{\"size\":500,\"number\":0,\"totalElements\":1,\"totalPages\":1}}");
 
-        List<org.example.streaming.model.ExecutionDto> fills = client.fetchRecentExecutions(100).collectList().block();
+        OmsQueryClient.ExecutionSnapshot snapshot = client.fetchExecutionSnapshot(null, 2000);
+        List<org.example.streaming.model.ExecutionDto> fills = snapshot.rows().collectList().block();
 
         assertEquals(1, fills.size());
         var fill = fills.get(0);
         assertEquals("ORD-1-F1", fill.getExecId());
         assertEquals("ORD-1", fill.getOrderId());
+        assertEquals("INTC", fill.getSymbol());
+        assertEquals("US4581401001", fill.getSecurityId());
         assertEquals(0, new java.math.BigDecimal("200").compareTo(fill.getLastQty()));
         assertEquals(0, new java.math.BigDecimal("86.95").compareTo(fill.getLastPx()));
         assertEquals(0, new java.math.BigDecimal("200").compareTo(fill.getCumQty()));
@@ -106,32 +111,29 @@ class OmsQueryClientTest {
         assertEquals(0, new java.math.BigDecimal("86.95").compareTo(fill.getAvgPx()));
         assertEquals("F", fill.getExecType());
         assertEquals("XSIM", fill.getLastMkt());
+        assertEquals("A", fill.getLastCapacity());
         assertEquals(java.time.Instant.parse("2026-11-16T17:12:07.556Z"), fill.getTransactTime());
         assertEquals(3L, fill.getOrderVersion());
         assertEquals(3L, fill.getSequenceNumber());
-        assertEquals(fill.getTransactTime(), fill.getEventTime(), "eviction orders by eventTime");
-
-        var order = fill.getOrder();
-        assertEquals("ORD-1", order.getOrderId());
-        assertEquals("ACC-1", order.getAccount());
-        assertEquals("INTC", order.getSymbol());
-        assertEquals("BUY", order.getSide());
-        assertEquals("LIMIT", order.getOrdType());
-        assertEquals("LIVE", order.getState());
-        assertEquals(0, new java.math.BigDecimal("500").compareTo(order.getOrderQty()));
-        assertEquals(0, new java.math.BigDecimal("86.96").compareTo(order.getPrice()));
-        assertEquals("INTC.OQ", order.getSecurityId());
-        assertEquals("XNAS", order.getExDestination());
-        assertEquals(3L, order.getEventId());
+        assertEquals(1L, snapshot.matching().block());
     }
 
-    /** SPEC-0067 AC-5: the request asks for the newest fills, with the given limit. */
+    /**
+     * SPEC-0071 AC-1: the execution snapshot pages the execution search newest first, with the
+     * stream filter as search filters, stops at the limit and counts the matches.
+     */
     @Test
-    void fetchRecentExecutions_asksForNewestWithTheLimit() {
-        OmsQueryClient client = clientAnswering("[]");
+    void fetchExecutionSnapshot_pagesTheSearchAndCountsMatches() {
+        OmsQueryClient client = clientOver(1200);
 
-        assertEquals(0, client.fetchRecentExecutions(250).collectList().block().size());
-        assertEquals(List.of("/api/query/executions?order=newest&limit=250"), executionCalls);
+        OmsQueryClient.ExecutionSnapshot snapshot =
+                client.fetchExecutionSnapshot(StreamFilter.eq("symbol", "AAPL"), 600);
+
+        assertEquals(600, snapshot.rows().collectList().block().size());
+        assertEquals(1200L, snapshot.matching().block());
+        assertEquals(List.of("0,500,id,DESC", "1,500,id,DESC"), calls, "the first page once, none past the limit");
+        assertTrue(paths.stream().allMatch(path -> path.equals("/api/query/executions/search")), paths.toString());
+        assertTrue(queries.stream().allMatch(q -> q.contains("symbol=AAPL")), queries.toString());
     }
 
     /** A client over a Query API stub answering every executions request with {@code json}. */
@@ -159,6 +161,8 @@ class OmsQueryClientTest {
             int page = Integer.parseInt(params.getFirst("page"));
             int size = Integer.parseInt(params.getFirst("size"));
             calls.add(page + "," + size + "," + params.getFirst("sort"));
+            paths.add(request.url().getPath());
+            queries.add(request.url().getQuery());
             return Mono.just(ClientResponse.create(HttpStatus.OK)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .body(pageJson(total, page, size))

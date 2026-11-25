@@ -57,10 +57,10 @@ class OrderExecutionSchemaTest {
         return field.schema().getTypes().get(1);
     }
 
-    /** Parses the record together with the named types it references (Side, OrdType, State). */
+    /** Parses the record together with the named types it references (Side, OrdType, State, SecurityIDSource). */
     private static Schema parse(String record) throws IOException {
         Schema.Parser parser = new Schema.Parser();
-        for (String named : List.of("Side", "OrdType", "State")) {
+        for (String named : List.of("Side", "OrdType", "State", "SecurityIDSource")) {
             parser.parse(resource(named));
         }
         return parser.parse(resource(record));

@@ -158,6 +158,7 @@ public class ExchangeEngine {
     private void newOrder(SimOrder order, OrderMessage message) {
         metrics.orderReceived();
         order.cause = Cause.of(message);
+        order.instrument = Instrument.of(message);
         Evaluation evaluation = evaluator.evaluate(message);
 
         if (!evaluation.accepted()) {
@@ -218,7 +219,7 @@ public class ExchangeEngine {
         BigDecimal cum = order.cumQty;
         BigDecimal leaves = order.leavesQty;
         log.info("Filling order {}: execId={}, lastQty={}, lastPx={}, leaves={}", order.orderId, execId, qty, price, leaves);
-        send(() -> sink.fill(order.cause, order.orderId, execId, qty, price, cum, leaves), metrics::execution, "fill", order.orderId);
+        send(() -> sink.fill(order.cause, order.orderId, order.instrument, execId, qty, price, cum, leaves), metrics::execution, "fill", order.orderId);
     }
 
     private void cancelRequest(SimOrder order, OrderMessage request) {

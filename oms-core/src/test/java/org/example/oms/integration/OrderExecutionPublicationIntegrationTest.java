@@ -313,7 +313,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
         mockMvc()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{\"symbol\":\"AAPL\","
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":" + lastQty + ",\"lastPx\":170,"
                                 + "\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
@@ -359,7 +359,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
         mockMvc()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{\"symbol\":\"AAPL\","
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":" + lastQty + ",\"lastPx\":170,"
                                 + "\"execType\":\"F\",\"lastMkt\":\"XSIM\""
@@ -370,7 +370,7 @@ class OrderExecutionPublicationIntegrationTest extends AbstractKafkaPostgresInte
 
     private static ExecutionCreateCmd fill(String execId, String orderId, String lastQty) {
         var execution =
-                Execution.newBuilder()
+                Execution.newBuilder().setSymbol("AAPL")
                         .setExecId(execId)
                         .setOrderId(orderId)
                         .setLastQty(new BigDecimal(lastQty).setScale(4, RoundingMode.HALF_UP))

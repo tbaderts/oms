@@ -53,7 +53,7 @@ class ProjectTaskTest {
             @Override public String name() { return "failing"; }
             @Override public String table() { return "failing_projection"; }
             @Override public List<StagedMessage> project(ProjectionContext context) { throw new IllegalStateException("boom"); }
-            @Override public void clear() { }
+            @Override public void retainOnly(java.util.Set<Fill> fills) { }
         };
         ProjectTask task = new ProjectTask(List.of(failing), appender);
 
@@ -101,7 +101,7 @@ class ProjectTaskTest {
                 seen.add(name + " v" + context.orderVersion());
                 return List.of(message);
             }
-            @Override public void clear() { }
+            @Override public void retainOnly(java.util.Set<Fill> fills) { }
         };
     }
 }

@@ -3,34 +3,25 @@ import { ApiClient } from './ApiClient';
 import { ConfigService } from './ConfigService';
 import { FilterCondition, PageResponse, Order, Execution } from '../types/types';
 
+/** What became of an order sent from order entry (SPEC-0072). */
+export type CreateOrderOutcome =
+  | { kind: 'created'; orderId: string }
+  | { kind: 'refused'; status: number; body: any }
+  | { kind: 'network'; message: string };
+
 /**
  * Normalizes a paged response to the shape the UI expects ({ content, page }).
  *
- * - oms-core `/api/query/search` returns `PagedOrderDto` ({ content, page }) natively.
- * - oms-core `/api/executions` returns a raw Spring Data `Page` where the
- *   metadata (totalElements, totalPages, size, number) sits at the top level.
+ * oms-core's searches (`/api/query/search` for orders, `/api/query/executions/search` for
+ * executions, SPEC-0070) return `{ content, page }` natively.
  */
 function normalizePage<T>(raw: any): PageResponse<T> {
   if (!raw) {
     return { content: [], page: { totalElements: 0, totalPages: 0, size: 0, number: 0 } };
   }
 
-  // Already in PagedOrderDto shape
   if (raw.page && Array.isArray(raw.content)) {
     return raw as PageResponse<T>;
-  }
-
-  // Raw Spring Data Page shape
-  if (Array.isArray(raw.content)) {
-    return {
-      content: raw.content,
-      page: {
-        totalElements: raw.totalElements ?? raw.content.length,
-        totalPages: raw.totalPages ?? 1,
-        size: raw.size ?? raw.content.length,
-        number: raw.number ?? 0,
-      },
-    };
   }
 
   // Unexpected shape — surface an empty page rather than crash the grid
@@ -100,6 +91,38 @@ export class OMSApiService {
     return page.content.length > 0 ? page.content[0] : null;
   }
 
+  /**
+   * Sends an OrderCreateCmd to oms-core (SPEC-0072). Never throws: the outcome says whether the order
+   * was created, refused (with oms-core's answer, to show) or not sent at all (network), in which case
+   * the same ticket, with the same clOrdId, may be sent again.
+   */
+  public async createOrder(command: unknown): Promise<CreateOrderOutcome> {
+    if (!this.apiClient) {
+      throw new Error('API client not initialized');
+    }
+    try {
+      const result = await this.apiClient.post<{ id?: string }>('/api/command/execute', command);
+      return { kind: 'created', orderId: result?.id ?? '' };
+    } catch (error: any) {
+      if (error?.response) {
+        return { kind: 'refused', status: error.response.status, body: error.response.data };
+      }
+      return { kind: 'network', message: error?.message ?? 'Network error' };
+    }
+  }
+
+  /** The order with this client order id, or null (SPEC-0072: resolves a ticket's own duplicate). */
+  public async findOrderByClOrdId(clOrdId: string): Promise<Order | null> {
+    if (!this.apiClient) {
+      throw new Error('API client not initialized');
+    }
+    const response = await this.apiClient.get<PageResponse<Order>>('/api/query/search', {
+      params: { clOrdId, size: 1 },
+    });
+    const page = normalizePage<Order>(response);
+    return page.content.length > 0 ? page.content[0] : null;
+  }
+
   // Query executions
   public async getExecutions(
     filters?: FilterCondition[],
@@ -112,7 +135,8 @@ export class OMSApiService {
     }
 
     const params = this.buildQueryParams(filters, sort, page, size);
-    const raw = await this.apiClient.get<any>('/api/executions', { params });
+    // The specified execution search over stored fills, filtered like orders (SPEC-0070)
+    const raw = await this.apiClient.get<any>('/api/query/executions/search', { params });
     return normalizePage<Execution>(raw);
   }
 

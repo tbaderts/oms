@@ -16,23 +16,102 @@ import org.example.common.model.msg.OrderMessage;
 import org.example.common.model.msg.Side;
 import org.example.common.model.msg.TimeInForce;
 import org.example.simulator.config.SimulatorProperties;
+import org.example.simulator.marketdata.ReferencePrices;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class OrderEvaluatorTest {
 
-    private final OrderEvaluator evaluator =
-            new OrderEvaluator(
-                    new SimulatorProperties(
-                            Map.of("AAPL", new BigDecimal("170.00")),
-                            new BigDecimal("10"),
-                            1,
-                            Duration.ZERO,
-                            "XSIM",
-                            "oms_orders",
-                            "commands",
-                            100_000));
+    private static final Map<String, BigDecimal> PRICES = Map.of(
+            "AAPL", new BigDecimal("170.00"),
+            "T20", new BigDecimal("20.00"),
+            "T40", new BigDecimal("40.00"),
+            "PENNY", new BigDecimal("0.50"));
+
+    private final OrderEvaluator evaluator = evaluator(PRICES);
+
+    private static OrderEvaluator evaluator(Map<String, BigDecimal> prices) {
+        SimulatorProperties properties = TestProperties.of(prices, 1, Duration.ZERO, 100_000);
+        return new OrderEvaluator(properties, ReferencePrices.fixed(prices));
+    }
+
+    /** A LIMIT order with the price exactly as given, at the wire's scale 8 (no rounding to cents). */
+    private static OrderMessage limitAt(String symbol, Side side, String price) {
+        OrderMessage order = order("O1", symbol, OrdType.LIMIT, side, "100", null, TimeInForce.DAY);
+        order.setPrice(new BigDecimal(price).setScale(8));
+        return order;
+    }
+
+    // SPEC-0073 AC-6
+    @Test
+    void subPennyLimitAboveOneDollar_rejected() {
+        Evaluation evaluation = evaluator.evaluate(limitAt("AAPL", Side.BUY, "170.005"));
+
+        assertFalse(evaluation.accepted());
+        assertEquals("Price 170.005 is not a multiple of tick 0.01", evaluation.rejectReason());
+    }
+
+    // SPEC-0073 AC-6
+    @Test
+    void fourDecimalLimitBelowOneDollar_accepted_fiveDecimalsRejected() {
+        assertTrue(evaluator.evaluate(limitAt("PENNY", Side.BUY, "0.1234")).accepted());
+
+        Evaluation fiveDecimals = evaluator.evaluate(limitAt("PENNY", Side.BUY, "0.12345"));
+        assertFalse(fiveDecimals.accepted());
+        assertEquals("Price 0.12345 is not a multiple of tick 0.0001", fiveDecimals.rejectReason());
+    }
+
+    // SPEC-0073 AC-7: NYSE tiers, 10 % up to 25, 5 % up to 50, 3 % above.
+    @ParameterizedTest
+    @CsvSource({"T20, 22.00, 22.01, 18-22", "T40, 42.00, 42.01, 38-42", "AAPL, 175.10, 175.11, 164.9-175.1"})
+    void buyCollar_perTier(String symbol, String accepted, String rejected, String collar) {
+        Evaluation inside = evaluator.evaluate(limitAt(symbol, Side.BUY, accepted));
+        assertTrue(inside.accepted(), inside.rejectReason());
+        assertTrue(inside.marketable());
+
+        Evaluation outside = evaluator.evaluate(limitAt(symbol, Side.BUY, rejected));
+        assertFalse(outside.accepted());
+        assertEquals("Price " + rejected + " outside collar " + collar, outside.rejectReason());
+    }
+
+    // SPEC-0073 AC-7
+    @ParameterizedTest
+    @CsvSource({"T20, 18.00, 17.99", "T40, 38.00, 37.99", "AAPL, 164.90, 164.89"})
+    void sellCollar_perTier(String symbol, String accepted, String rejected) {
+        for (Side side : new Side[] {Side.SELL, Side.SELL_SHORT}) {
+            Evaluation inside = evaluator.evaluate(limitAt(symbol, side, accepted));
+            assertTrue(inside.accepted(), inside.rejectReason());
+            assertTrue(inside.marketable());
+
+            Evaluation outside = evaluator.evaluate(limitAt(symbol, side, rejected));
+            assertFalse(outside.accepted());
+            assertTrue(outside.rejectReason().startsWith("Price " + rejected + " outside collar "), outside.rejectReason());
+        }
+    }
+
+    // SPEC-0073 AC-7: the passive side is not collared, so the order rests.
+    @Test
+    void passiveBuyFarBelowReference_acceptedAndRests() {
+        Evaluation evaluation = evaluator.evaluate(limitAt("AAPL", Side.BUY, "100.00"));
+
+        assertTrue(evaluation.accepted(), evaluation.rejectReason());
+        assertFalse(evaluation.marketable());
+    }
+
+    // SPEC-0073: the reference price comes from the injected source, not the static map.
+    @Test
+    void referencePriceComesFromTheSource() {
+        SimulatorProperties properties = TestProperties.of(Map.of(), 1, Duration.ZERO, 100_000);
+        OrderEvaluator fromProvider = new OrderEvaluator(
+                properties, ReferencePrices.fixed(Map.of("GOOGL", new BigDecimal("141.80"))));
+
+        Evaluation evaluation = fromProvider.evaluate(order("O1", "GOOGL", OrdType.MARKET, Side.BUY, "100", null, TimeInForce.DAY));
+
+        assertTrue(evaluation.accepted());
+        assertEquals(0, new BigDecimal("141.80").compareTo(evaluation.fillPrice()));
+    }
 
     @Test
     void marketOrder_isMarketableAtReferencePrice() {
@@ -82,17 +161,6 @@ class OrderEvaluatorTest {
 
         assertFalse(evaluation.accepted());
         assertTrue(evaluation.rejectReason().contains("Unknown symbol ZZZZ"), evaluation.rejectReason());
-    }
-
-    @Test
-    void limitOutsidePriceBand_rejected() {
-        Evaluation evaluation = evaluator.evaluate(limit("O1", Side.BUY, "100", "200.00"));
-
-        assertFalse(evaluation.accepted());
-        assertTrue(evaluation.rejectReason().contains("outside band"), evaluation.rejectReason());
-        // Inside the band on the other side rests rather than rejects.
-        assertTrue(evaluator.evaluate(limit("O1", Side.BUY, "100", "153.00")).accepted());
-        assertFalse(evaluator.evaluate(limit("O1", Side.BUY, "100", "152.99")).accepted());
     }
 
     @ParameterizedTest

@@ -1,0 +1,23 @@
+{
+  "ranAt": "2026-11-17T14:59:02.670Z",
+  "result": "pass",
+  "modules": [
+    "oms-core",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "919380148a82f390",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base 10d8dc46)"
+  },
+  "commands": [
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 466,
+      "log": "evidence/oms-core-1.log"
+    }
+  ]
+}

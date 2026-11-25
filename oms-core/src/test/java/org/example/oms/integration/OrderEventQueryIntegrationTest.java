@@ -227,6 +227,7 @@ class OrderEventQueryIntegrationTest {
     private void fill(String orderId, String execId, String lastQty) {
         var result = TestCommands.applyFill(executionCommandProcessor, Execution.builder()
                 .orderId(orderId)
+                .symbol("AAPL")
                 .execId(execId)
                 .lastQty(new BigDecimal(lastQty))
                 .lastPx(new BigDecimal("100.00"))

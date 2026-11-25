@@ -11,7 +11,7 @@ generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/api/QueryController.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/api/OrderController.java"
-  - resource: "repo:oms-core/src/main/java/org/example/oms/api/ExecutionController.java"
+  - resource: "repo:oms-core/src/main/java/org/example/oms/service/ExecutionQueryService.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/api/OrderEventController.java"
 ---
 # Order Query
@@ -52,9 +52,9 @@ see [decision](../architecture/decisions/ADR-003-shared-table-cqrs.md)); the que
 
 ## Known gaps
 
-- `/api/orders` and `/api/executions` have no automated tests and are not in the OpenAPI contracts. The event log is contracted as `getOrderEvents` in the [Query API](../domain/interfaces/query-api.md) (SPEC-0035).
+- `/api/orders` has no automated tests and is not in the OpenAPI contracts. Executions are searched through the contracted execution search since SPEC-0070, which retired `/api/executions`. The event log is contracted as `getOrderEvents` in the [Query API](../domain/interfaces/query-api.md) (SPEC-0035).
 - No separate read-optimised store exists; the State-Query Store specification evaluates options only.
 
 ## Verification
 
-`OrderSpecificationsIntegrationTest`, `OrderEventQueryIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../delivery/testing.md).
+`OrderSpecificationsIntegrationTest`, `ExecutionSearchIntegrationTest`, `ExecutionSpecificationsTest`, `OrderEventQueryIntegrationTest`, `MetamodelServiceTest`. Conventions: [Testing Patterns](../delivery/testing.md).

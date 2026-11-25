@@ -79,7 +79,6 @@ The streaming service provides real-time order updates via RSocket:
 - **Routes**:
   - `orders.stream` — Stream order events with optional filter
   - `executions.stream` — Stream execution events
-  - `blotter.stream` — Combined order/execution stream
 - **Features**:
   - Snapshot on connect (loads existing data)
   - Live Kafka event streaming

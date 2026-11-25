@@ -26,8 +26,6 @@ public class ExecutionEvent {
     private String execId;
     private String orderId;
     private ExecutionDto execution;
-    /** The order as of this fill (SPEC-0019); the blotter shows it on the fill's row. */
-    private OrderDto order;
     private Long sequenceNumber;
     private Instant timestamp;
     /** On the {@code SNAPSHOT_END} marker only: the number of executions matching the filter (SPEC-0057). */
@@ -54,7 +52,6 @@ public class ExecutionEvent {
                 .execId(execution.getExecId())
                 .orderId(execution.getOrderId())
                 .execution(execution)
-                .order(execution.getOrder())
                 .sequenceNumber(execution.getSequenceNumber())
                 .timestamp(Instant.now())
                 .build();

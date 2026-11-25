@@ -117,6 +117,7 @@ class OrderLifecycleIntegrationTest {
     void executionRequiresLive_thenSucceedsAfterOrderAccept() {
         Execution blockedExecution = Execution.builder()
                 .orderId("ORD-LIFE-1")
+                .symbol("AAPL")
                 .execId("EX-UNACK")
                 .lastQty(new BigDecimal("1.0000"))
                 .lastPx(new BigDecimal("100.00"))
@@ -136,6 +137,7 @@ class OrderLifecycleIntegrationTest {
 
         Execution liveExecution = Execution.builder()
                 .orderId("ORD-LIFE-1")
+                .symbol("AAPL")
                 .execId("EX-LIVE")
                 .lastQty(new BigDecimal("10.0000"))
                 .lastPx(new BigDecimal("100.00"))

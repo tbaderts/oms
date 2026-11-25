@@ -1,5 +1,6 @@
 package org.example.oms.projection;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +22,10 @@ import jakarta.persistence.EntityManager;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Rebuilds a projection from the event log (SPEC-0020): empties its table and re-runs it for every
- * applied fill, from the fill event's order snapshot and the matching {@code executions} row.
+ * Rebuilds a projection from the event log (SPEC-0020): re-runs it for every applied fill, from the
+ * fill event's order snapshot and the matching {@code executions} row, upserting rows in place, then
+ * deletes the rows no fill reproduced. Rows keep their ids, so the archive replica (SPEC-0052) receives
+ * the rebuild as updates.
  *
  * <p>Runs in one transaction that locks the projection's table, so fills arriving meanwhile wait
  * for the rebuild instead of interleaving with it. It stages and publishes nothing: the messages a
@@ -78,7 +81,6 @@ public class ProjectionRebuilder {
 
         // The table comes from a registered bean's constant, never from the request, so it is safe in SQL.
         entityManager.createNativeQuery("LOCK TABLE " + projection.table() + " IN EXCLUSIVE MODE").executeUpdate();
-        projection.clear();
 
         Map<String, List<OrderEvent>> fillEventsByOrder = orderEventRepository
                 .findAll(Sort.by("orderId", "version"))
@@ -91,6 +93,7 @@ public class ProjectionRebuilder {
                 .collect(Collectors.groupingBy(Execution::getOrderId));
 
         int rows = 0;
+        Set<Projection.Fill> projected = new HashSet<>();
         for (Map.Entry<String, List<OrderEvent>> order : fillEventsByOrder.entrySet()) {
             List<Execution> executions = executionsByOrder.getOrDefault(order.getKey(), List.of());
             List<OrderEvent> fills = order.getValue();
@@ -98,9 +101,12 @@ public class ProjectionRebuilder {
                 Execution execution = match(fill, executions);
                 projection.project(new ProjectionContext(
                         fill.getOrderSnapshot(), execution, fill.getVersion(), fill.getTransaction(), fill.getTimeStamp()));
+                projected.add(new Projection.Fill(order.getKey(), execution.getExecId()));
                 rows++;
             }
         }
+        // In place, not emptied first: rows keep their ids, so the rebuild replicates (SPEC-0052).
+        projection.retainOnly(projected);
 
         long nanos = sample.stop(meterRegistry.timer("oms.projection.rebuild", "projection", name));
         log.info("Rebuilt projection {}: {} rows from {} orders in {} ms", name, rows, fillEventsByOrder.size(), nanos / 1_000_000);

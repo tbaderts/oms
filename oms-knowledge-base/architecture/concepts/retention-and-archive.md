@@ -18,7 +18,7 @@ sources:
 # Retention and Archive
 
 Since SPEC-0052, oms-core's database holds a **retention window**, not all history:
-- every order that is open, or was closed within `oms.retention.closed-order-days` (default 90 days);
+- every order that is open, or was closed within `oms.retention.closed-order-days` (default 30 days, the requester's choice for this experimentation stack);
 - the full history of every order lives on the **archive replica**, a PostgreSQL logical replica
   that does not replicate deletes.
 
@@ -46,7 +46,10 @@ periods) is out of scope.
   - keeps the current month and the next `oms.partitions.months-ahead` (2) created;
   - detaches and drops a monthly partition that ended before the retention period and that
     archiving has emptied;
-  - never drops a partition that holds a row, nor the default partition.
+  - never drops a partition that holds a row, nor the default partition;
+  - detaches with `lock_timeout = 5s`: DETACH locks `order_events`, so behind a long transaction it
+    gives up with a WARN, and the run stops dropping until the next one, so a run holds appends back
+    for at most those 5 s.
   - Counter: `oms.retention.partitions_dropped`.
 - **The migration copied the table.** On a large database it needs a maintenance window.
 
@@ -62,10 +65,25 @@ periods) is out of scope.
   - The outbox is not published.
 - **Start-up** (`ReplicaSchema`, when `oms.replica.enabled`):
   1. oms-core migrates the replica with the **same Liquibase changelog**, in context `replica`, so
-     its schema is the primary's, without the publication.
+     its schema is the primary's, without the publication. The primary runs context `primary`
+     (`spring.liquibase.contexts`).
   2. It creates the subscription once, copying existing history (`copy_data`).
   - A replica that can't be reached is logged and does not stop oms-core; archiving then refuses.
-- **Read access.** oms-core reads the replica through a read-only pool (`ReplicaDatabase`).
+- **Keys the replica must not enforce.** The replica keeps every row ever written, so a key that is
+  unique only among the orders the OMS still holds can't hold there. Inserting a row it refuses
+  would stop replication for every table, and with it archiving.
+  - `uq_orders_session_cl_ord_id` is therefore dropped **on the replica only** (changelog
+    `018-replica-relaxed-keys`). A precondition skips it on any database that publishes
+    `oms_history`, so a Liquibase run without contexts can't apply it to the primary. Every other natural key there contains the order id, which is never
+    reused.
+  - **Rewrite rows in place, never delete and re-insert them.** An update replicates by row id; a
+    delete does not replicate, so a re-inserted row arrives as a second copy. Projection rebuilds
+    therefore upsert in place and delete only the rows they no longer produce
+    (`Projection.retainOnly`). A row such a rebuild deletes stays on the replica, and its order fails
+    verification (`replica-mismatch`) until it is resolved by hand.
+- **Read access.** oms-core reads the replica through a read-only pool (`ReplicaDatabase`). It
+  connects as the replica database's owner, because it creates the subscription: read-only is a
+  session default there, not a privilege boundary.
 - **Settings and secrets.** The replica's credentials and the primary's conninfo
   (`REPLICA_DB_*`, `REPLICA_PRIMARY_CONNINFO`) come from the environment only.
 
@@ -86,7 +104,12 @@ For each order:
 3. **Delete.** In one transaction, lock the order and re-check that it is still `CLOSED` at the
    version verified. Then delete its rows from every history table. The replica keeps them.
 
-**Failures** keep every row and are retried on the next run:
+**Failures** keep every row and are retried on later runs. The job remembers them (in memory, up to
+10,000 orders) and fills each batch with never-failed orders first, then the failed ones by fewest
+failures, so orders that keep failing never take every place in the batch. Limits: beyond 10,000
+remembered orders, new failures are not ordered last; and an order archived by another leader stays
+remembered until the memory is lost on a restart or hand-over. An exception for one order fails that
+order only (`error`). The reasons:
 - a replica that differs or is behind (`replica-mismatch`);
 - a replica that can't be reached (`replica-unreachable`);
 - a refused precondition (`precondition`);
@@ -97,8 +120,11 @@ Each is counted in `oms.retention.failures{reason}` and logged at WARN with the 
 reason. Other meters: `oms.retention.archived`, and the gauge `oms.retention.eligible`.
 
 A create reusing an archived order's `(session_id, cl_ord_id)` is no longer refused as a duplicate:
-that pair is unique among retained orders only.
+that pair is unique among retained orders only. The replica then holds both orders.
 
+**A known gap.** A refused command writes its `command_log` row in a transaction of its own, without
+touching the order's version. One committed between verification and the delete is not deleted with
+the order. It still reaches the replica, so nothing is lost, but it stays on the primary as an orphan.
 ## Operating notes
 
 - **A replica that stays down** keeps WAL on the primary through its replication slot.

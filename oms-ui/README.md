@@ -89,6 +89,22 @@ Runtime configuration is served to the SPA by `GET /api/config` and driven by th
 
 Feature flags control tab visibility and the REST/Streaming mode toggle without rebuilding the frontend.
 
+**Order entry (SPEC-0072).** The Order Entry tab sends `OrderCreateCmd`s to oms-core and looks up
+instruments and quotes through this backend's Market Data API (`/api/market-data/...`, specified in
+`oms-contracts/src/main/openapi/oms-marketdata-api.yml`):
+
+| Property | Env var | Default |
+|---|---|---|
+| `oms.ui.order-entry.session-id` | `OMS_UI_SESSION_ID` | `OMS-UI` (sent with every order; served in `/api/config`) |
+| `oms.ui.market-data.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | empty: only the built-in instruments (the exchange simulator's) are offered |
+| `oms.ui.market-data.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | `https://www.alphavantage.co` |
+| `oms.ui.market-data.search-ttl` / `quote-ttl` | — | `PT24H` / `PT5M` (cache; the free tier allows about 25 requests a day) |
+| `oms.ui.market-data.built-in` | — | AAPL, MSFT, IBM, NVDA, INTC with the simulator's reference prices |
+
+The key stays on the server: it is never sent to the browser or logged. The backend includes
+oms-contracts (`settings.gradle`), and the Docker image gets it as the named build context
+`oms-contracts` (see the root `docker-compose.yml`).
+
 ## Running
 
 ### Development (hot reload)
@@ -124,8 +140,8 @@ JRE runtime stage), so no host-side Gradle run is needed first.
 
 ## Integration Points
 
-- **oms-core** (REST, `:8090`): `/api/query/search` (orders), `/api/executions`, `/api/v1/metamodel/{entity}` (column/filter metadata)
-- **oms-streaming-service** (RSocket WebSocket, `:7000`): routes `orders.stream`, `executions.stream`, `blotter.stream` with server-side stream filters
+- **oms-core** (REST, `:8090`): `/api/query/search` (orders), `/api/query/executions/search` (executions), `/api/v1/metamodel/{entity}` (column/filter metadata)
+- **oms-streaming-service** (RSocket WebSocket, `:7000`): routes `orders.stream`, `executions.stream` with server-side stream filters; each snapshot read from oms-core, nothing cached (SPEC-0071)
 - OAuth bearer token is entered via the **Authorize** dialog and kept in `sessionStorage`; blotter preferences (filters, visible columns) persist in `localStorage`
 
 ## Monitoring

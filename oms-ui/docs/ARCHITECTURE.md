@@ -15,7 +15,7 @@ The shell never proxies business data. The browser talks directly to `oms-core` 
 graph TD
     Browser["🌐 Browser"]
     OmsUi["☕ oms-ui<br/>(Spring Boot shell :8080)<br/>static SPA + /api/config"]
-    OmsCore["💼 oms-core (:8090)<br/>/api/query/search<br/>/api/executions<br/>/api/v1/metamodel"]
+    OmsCore["💼 oms-core (:8090)<br/>/api/query/search<br/>/api/query/executions/search<br/>/api/v1/metamodel"]
     Streaming["📡 oms-streaming-service (:7000)<br/>RSocket WS<br/>orders.stream / executions.stream"]
 
     Browser -->|"HTTP — SPA + config"| OmsUi
@@ -80,7 +80,7 @@ Adding a field to the backend entity automatically makes it available as a blott
 
 | | REST mode (`Blotter.tsx`) | Streaming mode (`StreamingBlotter.tsx`, default) |
 |---|---|---|
-| Source | `oms-core /api/query/search`, `/api/executions` | `oms-streaming-service` RSocket WS |
+| Source | `oms-core /api/query/search`, `/api/query/executions/search` | `oms-streaming-service` RSocket WS |
 | Pagination | Server-side (page/size params) | Snapshot + live events (client-side `Map` keyed by ID) |
 | Filtering | Query params (`field__op=value`) | Server-side `StreamFilter` (EQ/LIKE/GT/…, AND/OR) |
 | Updates | Manual refresh / 30s auto-refresh | Real-time, with row flash on change |
@@ -160,7 +160,7 @@ sequenceDiagram
 - **ErrorBoundary** wraps the app so render/streaming failures degrade gracefully with a reload option.
 - **RSocket reconnection** — exponential backoff (capped), connection-state listeners update the blotter status indicator.
 - **Config fallback** — if `/api/config` is unreachable (dev server standalone), `ConfigService` falls back to development defaults.
-- **Page-shape normalization** — `OMSApiService` normalizes both `PagedOrderDto` and raw Spring `Page` responses to one UI shape.
+- **Page-shape normalization** — `OMSApiService` normalizes the `{ content, page }` responses of the order and execution searches to one UI shape.
 
 ## Testing
 

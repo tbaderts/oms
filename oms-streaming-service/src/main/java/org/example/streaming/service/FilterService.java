@@ -72,6 +72,11 @@ public class FilterService {
     private static final Map<String, Function<ExecutionDto, Object>> EXECUTION_ACCESSORS = Map.ofEntries(
             Map.entry("execId", e -> e.getExecId()),
             Map.entry("orderId", e -> e.getOrderId()),
+            // The fill's instrument and status, filterable in the snapshot's search too (SPEC-0071)
+            Map.entry("symbol", e -> e.getSymbol()),
+            Map.entry("securityId", e -> e.getSecurityId()),
+            Map.entry("status", e -> e.getStatus()),
+            Map.entry("orderVersion", e -> e.getOrderVersion()),
             Map.entry("lastQty", e -> e.getLastQty()),
             Map.entry("lastPx", e -> e.getLastPx()),
             Map.entry("cumQty", e -> e.getCumQty()),

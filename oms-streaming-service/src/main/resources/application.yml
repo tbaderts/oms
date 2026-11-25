@@ -28,8 +28,8 @@ streaming:
   kafka:
     topics:
       orders: ${ORDER_TOPIC:oms_orders}
-      # Fills with their order (SPEC-0019); oms_executions is no longer read here.
-      order-executions: ${ORDER_EXECUTION_TOPIC:oms_order_executions}
+      # Fills as the venue reported them (SPEC-0071); oms_order_executions is for booking.
+      executions: ${EXECUTION_TOPIC:oms_executions}
     enabled: ${KAFKA_ENABLED:true}
   
   # OMS Core Query API configuration for initial snapshot
@@ -38,9 +38,8 @@ streaming:
     connect-timeout-ms: 5000
     read-timeout-ms: 30000
   
-  # Buffer settings for backpressure and cache management
+  # Buffer settings for backpressure (the service holds no orders or executions, SPEC-0071)
   buffer:
-    max-size: ${CACHE_MAX_SIZE:10000}
     replay-size: ${REPLAY_BUFFER_SIZE:100}
     timeout-seconds: 30
 
@@ -48,12 +47,6 @@ streaming:
   # Past it the client's stream ends with an error; the UI's Retry reloads with a snapshot.
   subscriber:
     max-pending: ${SUBSCRIBER_MAX_PENDING:10000}
-
-  # Stored fills loaded from the OMS Core Query API at startup (SPEC-0067), so the executions
-  # snapshot survives a restart. At most buffer.max-size; 5000 is the API's per-request maximum.
-  # 0 turns the load off. Retried with backoff until OMS Core answers.
-  executions:
-    warm-up-size: ${EXECUTIONS_WARM_UP_SIZE:5000}
 
   # CORS configuration for Trade Blotter UI
   cors:

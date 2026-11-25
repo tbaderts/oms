@@ -35,20 +35,6 @@ export interface StreamFilter {
 }
 
 /**
- * Stream types for the blotter.stream endpoint
- */
-export type StreamType = 'ORDERS' | 'EXECUTIONS' | 'ALL';
-
-/**
- * Request format for blotter.stream endpoint
- */
-export interface StreamRequest {
-  blotterId: string;
-  streamType: StreamType;
-  filter: StreamFilter;
-}
-
-/**
  * Event types from the streaming service
  */
 export type OrderEventType = 'SNAPSHOT' | 'SNAPSHOT_END' | 'UPDATE' | 'CREATE' | 'CACHE';

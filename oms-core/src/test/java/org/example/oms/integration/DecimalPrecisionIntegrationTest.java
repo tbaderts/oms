@@ -163,7 +163,7 @@ class DecimalPrecisionIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     private static ExecutionCreateCmd kafkaFill(String execId, String orderId, BigDecimal lastQty) {
-        var execution = org.example.common.model.msg.Execution.newBuilder()
+        var execution = org.example.common.model.msg.Execution.newBuilder().setSymbol("AAPL")
                 .setExecId(execId)
                 .setOrderId(orderId)
                 .setLastQty(lastQty)

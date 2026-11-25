@@ -20,6 +20,10 @@ Defined in `oms-contracts/src/main/openapi/oms-cmd-api.yml` as `POST /execute`; 
 `CommandController` (generated `ExecuteApi`) under `/api/command`, so the URL is
 `POST /api/command/execute`. The body is a command with a `type` discriminator.
 
+Clients include the exchange simulator (over Kafka), the developer cockpit's API Explorer and, since
+SPEC-0072, oms-ui's [Order Entry](../../ui/order-entry.md) tab, which sends `OrderCreateCmd` from the
+browser (CORS allows it) under its configured `sessionId`.
+
 | Command (`type`) | Effect | Success |
 |---|---|---|
 | OrderCreateCmd | [Order Capture](../../capabilities/order-capture.md) | 201, `CommandResult` with the new orderId |

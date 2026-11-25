@@ -26,6 +26,8 @@
   ],
   "Execution": [
     "orderId",
+    "symbol",
+    "securityId",
     "avgPx",
     "cumQty",
     "execId",
@@ -36,6 +38,7 @@
     "transactTime",
     "execType",
     "leavesQty",
-    "orderVersion"
+    "orderVersion",
+    "status"
   ]
 }

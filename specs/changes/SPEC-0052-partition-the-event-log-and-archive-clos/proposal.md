@@ -194,16 +194,20 @@ small values.
   publication, the subscription and oms-core's read-only connection, because archiving cannot be
   verified without them. SPEC-0021 then builds its query service on top. If the requester prefers
   SPEC-0021 to go first, this ticket waits for it and drops the replica set-up from its scope.
-- [resolved] **Retention period** → assumption: 90 days after CLOSE, configurable
-  (`oms.retention.closed-order-days`). It covers corrections and busts of recent fills, and
-  month-end and quarter-end checks. Changing it is a configuration change.
+- [resolved] **Retention period** → the requester's decision (2026-11-17): **30 days** after CLOSE,
+  configurable (`oms.retention.closed-order-days`). That is enough for this experimentation stack:
+  it covers corrections and busts of recent fills and a month-end check. Changing it is a
+  configuration change.
+  - The first assumption was 90 days. On a clean history, the verify stage measured 14.3 KB per
+    CLOSED order: 25.7 GB at 90 days, over the 25 GB budget.
 - [resolved] **The budgets for AC-10** → assumptions proposed for approval (the requester asked for
   proposed numbers):
   - **Volume:** 20,000 orders a day, one fill each (the SPEC-0024 baseline shape: create, accept,
     fill, close).
   - **Hot storage budget:** ≤ 25 GB for the order-history tables and their indexes on the primary,
-    at the steady state of one 90-day retention period (about 1.8 million retained orders, so about
-    14 KB per order).
+    at the steady state of one 30-day retention period (about 600,000 retained orders, so about
+    41 KB per order). The budget is unchanged from the 90-day assumption; the shorter retention
+    gives it ample headroom.
   - **Vacuum budget:** autovacuum on `order_events` ≤ 10 minutes a day at that volume, projected
     from the measured per-order cost.
   - **The replica has no budget.** It grows with all history by design; its size is measured and

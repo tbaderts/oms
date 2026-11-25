@@ -12,15 +12,18 @@ Real-time streaming service for the OMS Trade Blotter UI. Consumes order and exe
                         │  - REST Client       │     └─────────────────┘
 ┌─────────────────┐     │  - Avro Consumer     │
 │   Kafka Topics  │────▶│  - Filter Engine     │
-│  - orders       │     │  - State Cache       │
+│  - orders       │     │  (no state, SPEC-0071)│
 │  - executions   │     └──────────────────────┘
 │  (Avro/Schema)  │
 └─────────────────┘
 
 Data Flow:
-1. On client subscription, fetch initial snapshot via REST from OMS Core Query API
-2. Merge snapshot with real-time Kafka stream (Avro serialized OrderMessage)
-3. Stream combined data to UI via RSocket over WebSocket
+1. On client subscription, fetch the snapshot from the OMS Core Query API: orders from
+   /api/query/search, executions from /api/query/executions/search
+2. Follow it with the real-time Kafka stream (OrderMessage from oms_orders, Execution from
+   oms_executions), minus what the snapshot already showed
+3. Stream to the UI via RSocket over WebSocket. Nothing is cached: each snapshot is what the
+   database holds at that moment (SPEC-0071)
 ```
 
 ## Features
@@ -31,7 +34,7 @@ Data Flow:
 - **Reactive Kafka Consumer**: Non-blocking event consumption with backpressure
 - **RSocket over WebSocket**: Bidirectional streaming with flow control
 - **Filter Engine**: Dynamic filtering based on user-defined criteria
-- **State Cache**: In-memory cache updated from both REST and Kafka
+- **No state**: no order or execution cache; a snapshot is always read from OMS Core (SPEC-0071)
 - **Mock Mode**: Development mode without Kafka dependency
 
 ## Quick Start
@@ -93,9 +96,6 @@ cd ..\oms-streaming-service
 |-------|---------|-------------|
 | `orders.stream` | Request-Stream | Stream order events |
 | `executions.stream` | Request-Stream | Stream execution events |
-| `blotter.stream` | Request-Stream | Combined stream by type |
-| `orders.snapshot` | Request-Response | Current order snapshot |
-| `executions.snapshot` | Request-Response | Current execution snapshot |
 | `health` | Request-Response | Health check |
 
 ## Filtering
@@ -175,8 +175,7 @@ oms-streaming-service/
 │   │   ├── OrderEvent.java
 │   │   ├── ExecutionEvent.java
 │   │   ├── StreamFilter.java
-│   │   ├── FilterCondition.java
-│   │   └── StreamRequest.java
+│   │   └── FilterCondition.java
 │   └── service/
 │       ├── OrderEventService.java
 │       ├── ExecutionEventService.java

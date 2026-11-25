@@ -5,12 +5,13 @@ title: "Execution"
 description: "A fill reported by a venue against an order, persisted in the executions table, identified by (orderId, execId) and carrying the order's average price as of that fill."
 tags: [execution, fill, entity]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-24T12:00:00Z"
 entity: "Execution"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/common/model/Execution.java"
   - resource: "repo:oms-core/src/main/resources/db/changelog/003-event-sourcing-and-outbox.yaml"
+  - resource: "repo:oms-core/src/main/resources/db/changelog/019-execution-instrument.yaml"
   - resource: "repo:oms-contracts/src/main/avro/Execution.avsc"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/execution/tasks/PersistExecutionTask.java"
   - resource: "repo:oms-core/src/test/java/org/example/oms/integration/EventSourcingIntegrationTest.java"
@@ -44,6 +45,7 @@ price (`lastPx`). Applying it changes the order's quantities and possibly its st
 | `execRefId` (`exec_ref_id`) | FIX ExecRefID (19): on a correcting execution, the execution it replaces. The column exists; SPEC-0030 sets it |
 | `dayOrderQty`, `dayCumQty`, `dayAvgPx` | Not populated |
 | `execType`, `lastCapacity`, `lastMkt` | FIX ExecType, capacity and venue of the fill |
+| `symbol`, `securityId`, `securityIdSource` (`symbol`, `security_id`, `security_id_source`) | The FIX Instrument block (55, 48, 22) as the venue reported it (SPEC-0069). A fill must carry `symbol` or `securityId`, matching its order's ([Execution Processing](../../capabilities/execution-processing.md)). Fills stored earlier were backfilled from their order; one whose order was already deleted by retention has none |
 | `transactTime`, `creationDate` | Venue time of the fill; time the OMS stored it |
 
 The `executions` row is the execution's current state; its history is in

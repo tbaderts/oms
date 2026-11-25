@@ -1,0 +1,64 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0069: an execution carries the FIX Instrument block the venue reported:
+  # Symbol (55), SecurityID (48) and SecurityIDSource (22), stored as reported.
+  #
+  # Backfill: a fill stored before this change was applied to its order, so it
+  # gets the order's instrument. A fill whose order is no longer in orders
+  # (archived and deleted by retention) keeps nulls here; on the archive replica,
+  # which keeps archived orders, the same statement fills it. The statement only
+  # touches rows without any instrument, so running it again changes nothing.
+  #
+  # No context: the replica is migrated with this changelog too (SPEC-0052).
+  #
+  # The tag marks the schema just before this change; the migration test migrates
+  # to it, inserts legacy rows, then applies the rest.
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 019-tag-before-execution-instrument
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-019-execution-instrument
+  - changeSet:
+      id: 019-execution-instrument-columns
+      author: oms
+      changes:
+        - addColumn:
+            tableName: executions
+            columns:
+              - column:
+                  name: symbol
+                  type: varchar(255)
+              - column:
+                  name: security_id
+                  type: varchar(255)
+              - column:
+                  name: security_id_source
+                  type: varchar(32)
+      rollback:
+        - dropColumn:
+            tableName: executions
+            columns:
+              - column:
+                  name: symbol
+              - column:
+                  name: security_id
+              - column:
+                  name: security_id_source
+  - changeSet:
+      id: 019-execution-instrument-backfill
+      author: oms
+      changes:
+        - sql:
+            sql: >
+              UPDATE executions e
+                 SET symbol = o.symbol,
+                     security_id = o.security_id,
+                     security_id_source = o.security_id_source
+                FROM orders o
+               WHERE o.order_id = e.order_id
+                 AND e.symbol IS NULL
+                 AND e.security_id IS NULL
+      rollback:
+        - empty

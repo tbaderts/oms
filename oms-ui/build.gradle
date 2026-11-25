@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.github.node-gradle.node' version '7.1.0'
+    id 'org.openapi.generator' version '7.24.0'
 }
 
 group = 'org.example'
@@ -25,7 +26,11 @@ repositories {
 }
 
 dependencies {
+    // Shared contracts: the market data API's models (SPEC-0072), generated in oms-contracts.
+    implementation 'org.example.oms:oms-contracts'
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    // Enforces the generated interface's parameter constraints (400 instead of reaching the code).
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -35,6 +40,37 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// ---------------------------------------------------------------------------
+// API interface generation (SPEC-0072): models come from oms-contracts; only the interface this
+// module implements, MarketDataApi, is generated here, as oms-core does for its APIs.
+// ---------------------------------------------------------------------------
+
+def contractsSpecDir = findProperty('omsContractsSpecDir') ?: "$projectDir/../oms-contracts/src/main/openapi"
+
+tasks.register('openApiGenerateMarketData', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    inputSpec = "$contractsSpecDir/oms-marketdata-api.yml".toString()
+    outputDir = layout.buildDirectory.dir("generated").get().asFile.toString()
+    apiPackage = "org.example.common.api"
+    modelPackage = "org.example.common.model.marketdata"
+    globalProperties = [apis: ""]
+    configOptions = [
+        interfaceOnly: "true",
+        useSpringBoot3: "true",
+        skipDefaultInterface: "true",
+        // one interface per tag (MarketDataApi), not per first path segment ("/api")
+        useTags: "true",
+        enumPropertyNaming: "original",
+        modelNameSuffix: ""
+    ]
+}
+
+tasks.named('compileJava') {
+    dependsOn 'openApiGenerateMarketData'
+}
+
+sourceSets.main.java.srcDirs += layout.buildDirectory.dir("generated/src/main/java")
 
 // Node.js configuration for building React app
 node {

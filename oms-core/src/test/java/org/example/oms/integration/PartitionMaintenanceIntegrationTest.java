@@ -106,6 +106,34 @@ class PartitionMaintenanceIntegrationTest extends AbstractKafkaPostgresIntegrati
         assertTrue(exists("order_events_default"));
     }
 
+    /**
+     * DETACH waits at most the lock timeout behind a transaction holding order_events: it gives up
+     * without dropping, and the next run drops the partition.
+     */
+    @Test
+    void aBlockedDropGivesUpAndTheNextRunDropsIt() throws Exception {
+        at("2025-01-10T00:00:00Z", 1, 90).ensureAhead(); // p202501, p202502: two empty past months
+        PartitionMaintenance maintenance = at("2030-05-15T12:00:00Z", 2, 90);
+        javax.sql.DataSource dataSource = jdbc.getDataSource();
+        try (java.sql.Connection holder = dataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (java.sql.Statement statement = holder.createStatement()) {
+                statement.execute("select count(*) from order_events"); // ACCESS SHARE until commit
+            }
+            long start = System.nanoTime();
+            assertFalse(maintenance.dropEmptyPast().contains("order_events_p202501"), "blocked: not dropped");
+            long waitedMillis = (System.nanoTime() - start) / 1_000_000;
+            // one lock timeout for the run, not one per partition (two or more here)
+            assertTrue(waitedMillis < 9_000, "stopped after the first lock timeout, waited " + waitedMillis + " ms");
+            assertTrue(exists("order_events_p202501"));
+            assertTrue(exists("order_events_p202502"));
+            holder.commit();
+        }
+        assertTrue(maintenance.dropEmptyPast().containsAll(List.of("order_events_p202501", "order_events_p202502")), "the next run drops them");
+        assertFalse(exists("order_events_p202501"));
+        assertFalse(exists("order_events_p202502"));
+    }
+
     @Test
     void keepsPastPartitionsInsideTheRetentionPeriod() {
         at("2030-05-15T12:00:00Z", 2, 90).ensureAhead();

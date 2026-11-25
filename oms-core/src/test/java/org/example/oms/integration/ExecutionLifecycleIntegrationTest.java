@@ -125,7 +125,7 @@ class ExecutionLifecycleIntegrationTest {
         int status = MockMvcBuilders.webAppContextSetup(webApplicationContext).build()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{\"symbol\":\"AAPL\","
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":10,\"lastPx\":170,\"execType\":\"F\"}}"))
                 .andReturn().getResponse().getStatus();
@@ -407,6 +407,7 @@ class ExecutionLifecycleIntegrationTest {
     void fill(String orderId, String execId, String lastQty, String lastPx) {
         var result = TestCommands.applyFill(executionCommandProcessor, Execution.builder()
                 .orderId(orderId)
+                .symbol("AAPL")
                 .execId(execId)
                 .lastQty(new BigDecimal(lastQty))
                 .lastPx(new BigDecimal(lastPx))

@@ -11,11 +11,11 @@ updated: "2026-11-14T12:00:00Z"
 
 > **Implementation status (reviewed 2026-11-14).** `oms-streaming-service` implements the core of
 > this design: RSocket over WebSocket (`RSocketConfig`), the routes `orders.stream`,
-> `executions.stream`, `blotter.stream`, `orders.snapshot`, `executions.snapshot` and `health`
+> `executions.stream` and `health`
 > (`TradeBlotterController`), JSON filters (`FilterService`, `FilterCondition`), metadata
-> (`MetadataController`), live data from the Kafka topics `oms_orders` and `oms_order_executions`
-> (`KafkaEventStreamProvider`), and the initial snapshot from the oms-core Query API
-> (`OmsQueryClient`, `/api/query/search`). **Not built:** quote and quote-request streams, and the
+> (`MetadataController`), live data from the Kafka topics `oms_orders` and `oms_executions`
+> (`KafkaEventStreamProvider`), and each subscription's snapshot from the oms-core Query API
+> (`OmsQueryClient`, `/api/query/search` and `/api/query/executions/search`); no cache (SPEC-0071). **Not built:** quote and quote-request streams, and the
 > resilience classes sketched in section 10 (`StreamCircuitBreaker`, `BackpressureHandler`,
 > `StreamHealthMonitor`, message acknowledgement and retry); those sections are design guidance.
 > Current behaviour and its requirements: [Real-time Streaming](../../capabilities/real-time-streaming.md).
@@ -67,7 +67,7 @@ This document specifies the design and functionality of the backend component re
 *   **Programming Language:** Java 25
 *   **Framework:** Spring Boot, Spring WebFlux, Spring Reactor
 *   **Initial snapshot:** the oms-core Query API over HTTP (`OmsQueryClient`); the service has no database of its own
-*   **Messaging:** Kafka via Reactor Kafka, Avro values from the Schema Registry (`oms_orders`, `oms_order_executions`)
+*   **Messaging:** Kafka via Reactor Kafka, Avro values from the Schema Registry (`oms_orders`, `oms_executions`)
 *   **Real-Time Protocol:** RSocket over WebSocket (for bidirectional communication with the UI)
 *   **Serialization:** JSON with Jackson
 
@@ -134,7 +134,7 @@ graph BT
     end
     
     subgraph "Messaging Layer"
-        Kafka[Kafka Topics<br/>oms_orders<br/>oms_order_executions<br/>quote topics: planned]
+        Kafka[Kafka Topics<br/>oms_orders<br/>oms_executions<br/>quote topics: planned]
     end
     
     subgraph "External Systems"
@@ -224,8 +224,8 @@ graph BT
 2.  **Initial Data Load:**
     *   The backend retrieves all entities matching the specified filter from the database or query engine. This provides an initial snapshot of the data.
     *   The retrieval uses reactive data access technologies to avoid blocking the event loop.
-3.  **Kafka Event Subscription:** The backend subscribes to the relevant Kafka topics (`oms_orders`, `oms_order_executions`) to receive real-time updates.
-    *   *As built:* `oms_orders` for orders and `oms_order_executions` for fills, where each fill carries the order as of that fill and is deduplicated on `(orderId, execId, orderVersion)`; see [Real-Time Streaming](../../capabilities/real-time-streaming.md) and [Kafka Topics](../../domain/interfaces/message-api.md).
+3.  **Kafka Event Subscription:** The backend subscribes to the relevant Kafka topics (`oms_orders`, `oms_executions`) to receive real-time updates.
+    *   *As built:* `oms_orders` for orders and `oms_executions` for fills (SPEC-0071), each fill as the venue reported it; a live event the subscription's snapshot already showed is dropped by version; see [Real-Time Streaming](../../capabilities/real-time-streaming.md) and [Kafka Topics](../../domain/interfaces/message-api.md).
 4.  **Data Merging:**
     *   The backend merges the initial data snapshot with the real-time event stream.
     *   For each event, the backend updates the corresponding domain object in the stream.

@@ -1,5 +1,8 @@
+# oms-ui includes oms-contracts, which generates the market data API's models (SPEC-0072). The
+# contracts arrive as the named build context "oms-contracts" (docker-compose additional_contexts).
 FROM eclipse-temurin:25-jdk AS build
-WORKDIR /workspace
+WORKDIR /workspace/oms-ui
+COPY --from=oms-contracts . /workspace/oms-contracts
 COPY . .
 # gradlew may be checked out with CRLF on Windows; Linux sh needs LF
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew \

@@ -1,0 +1,34 @@
+databaseChangeLog:
+  # SPEC-0052: the archive replica keeps every order ever written, because deletes are not
+  # replicated. A clOrdId is unique per session among the orders the OMS still holds, so once an
+  # order is archived a new order may reuse its (session_id, cl_ord_id) on the primary. The replica
+  # still holds the archived row and would refuse the new one, halting replication. The constraint is
+  # therefore dropped on the replica only; the primary keeps it. Every other natural key on the
+  # replica contains the order id, which is never reused.
+  #
+  # Two guards keep it off the primary: the context (the primary runs "primary"), and, for a
+  # Liquibase run without contexts, a precondition: a database that publishes oms_history is the
+  # primary, and there the changeset is only marked as run.
+  - changeSet:
+      id: 018-replica-drop-orders-session-clordid-unique
+      author: oms
+      context: replica
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT count(*) FROM pg_publication WHERE pubname = 'oms_history'
+      changes:
+        - dropUniqueConstraint:
+            tableName: orders
+            constraintName: uq_orders_session_cl_ord_id
+      rollback:
+        # idempotent: on a database where the changeset was only marked as run, the constraint exists
+        - sql:
+            splitStatements: false
+            sql: >
+              DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_orders_session_cl_ord_id') THEN
+                  ALTER TABLE orders ADD CONSTRAINT uq_orders_session_cl_ord_id UNIQUE (session_id, cl_ord_id);
+                END IF;
+              END $$

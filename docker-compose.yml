@@ -134,6 +134,9 @@ services:
     container_name: oms-ui
     build:
       context: ./oms-ui
+      # oms-ui includes oms-contracts (SPEC-0072): passed as a named context to oms-ui/Dockerfile
+      additional_contexts:
+        oms-contracts: ./oms-contracts
     depends_on:
       - oms-core
       - streaming-service
@@ -141,6 +144,10 @@ services:
       # Browser-facing URLs must be host-reachable (published ports), not in-network hostnames
       OMS_API_BASE_URL: http://localhost:8090
       OMS_STREAMING_URL: ws://localhost:7000/trade-blotter/stream
+      # Order entry (SPEC-0072): the session its orders are sent under, and the market data key.
+      # Without a key the built-in instruments are offered. Set it in a root .env file, never here.
+      OMS_UI_SESSION_ID: ${OMS_UI_SESSION_ID:-OMS-UI}
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
     ports:
       - "8080:8080"
     networks:

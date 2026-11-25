@@ -533,7 +533,9 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     if (store.inSnapshot) {
       endSnapshot();
     }
-    if (isNewRow && !isSnapshot) {
+    // A row already held is an update (a Kafka redelivery, say), not a new one: the server no longer
+    // drops redeliveries between snapshots (SPEC-0071).
+    if (isNewRow && !isSnapshot && !store.has(key)) {
       newSinceSnapshotRef.current++;
     }
     store.put(key, row);
@@ -572,7 +574,8 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
     }
 
     // Keyed like the grid rows: execId is unique per order only
-    // Every live fill is a new row: the server drops redeliveries and replays (SPEC-0019, SPEC-0057).
+    // A live fill is a new row unless it is already shown: the server drops what the snapshot showed
+    // (SPEC-0057), takeRow skips keys already held (a redelivery, SPEC-0071).
     takeRow(event.eventType === 'SNAPSHOT', rowIdOf('Execution', execution), execution, true);
   }, [takeRow, endSnapshot]);
 

@@ -1,0 +1,4 @@
+# Sent as the oms-contracts build context of oms-ui (SPEC-0072); build output stays out.
+.gradle
+build
+bin

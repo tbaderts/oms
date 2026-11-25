@@ -82,6 +82,16 @@ public class Execution implements Serializable {
      */
     private Long bustedAtVersion;
 
+    /** FIX Symbol (55), as the venue reported it (SPEC-0069). */
+    private String symbol;
+
+    /** FIX SecurityID (48), as the venue reported it (SPEC-0069). */
+    private String securityId;
+
+    /** FIX SecurityIDSource (22) of {@link #securityId} (SPEC-0069). */
+    @Enumerated(EnumType.STRING)
+    private SecurityIdSource securityIdSource;
+
     /** Links the execution to the event that applied it; called when the fill is recorded. */
     public void recordApplied(long orderVersion, String rootOrderId) {
         this.status = ExecutionStatus.APPLIED;

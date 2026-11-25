@@ -35,6 +35,30 @@ public class MetamodelService {
 
     private final Map<String, EntityMetadataDto> entityMetadata = new HashMap<>();
 
+    /**
+     * The fields the executions blotter offers (SPEC-0068): the FIX ExecutionReport fields the OMS
+     * records for a fill, in reading order. ExecID (17), OrderID (37), the Instrument block the venue
+     * reported (Symbol 55, SecurityID 48; SPEC-0069), ExecType (150), LastQty
+     * (32), LastPx (31), LastMkt (30), LeavesQty (151), CumQty (14), AvgPx (6), TransactTime (60),
+     * plus the OMS's own status (applied or reversed). Fields that are never filled (the day-order
+     * fields, SecondaryExecID, creationDate, LastCapacity until a venue sends it, ExecRefID until
+     * busts exist) and internal bookkeeping (id, orderVersion, rootOrderId, bustedAtVersion) stay on
+     * the entity and the APIs but are not offered. A ticket that fills one adds it here, as
+     * SPEC-0030 will for execRefId.
+     */
+    static final List<String> EXECUTION_FIELDS = List.of(
+            "execId", "orderId", "symbol", "securityId", "execType", "lastQty", "lastPx", "lastMkt",
+            "leavesQty", "cumQty", "avgPx", "transactTime", "status");
+
+    /**
+     * The executions blotter's default columns. The streaming ExecutionDto must carry each of them:
+     * oms-streaming-service's ExecutionMessageMapperTest holds a copy of this list, so change both
+     * together.
+     */
+    static final List<String> EXECUTION_DEFAULT_COLUMNS = List.of(
+            "execId", "orderId", "symbol", "execType", "lastQty", "lastPx", "lastMkt",
+            "cumQty", "leavesQty", "avgPx", "transactTime");
+
     // Fields that support query operations in OrderSpecifications
     private static final Set<String> ORDER_STRING_FIELDS =
             Set.of(
@@ -138,24 +162,13 @@ public class MetamodelService {
     private EntityMetadataDto buildExecutionMetadata() {
         List<FieldMetadataDto> fields = new ArrayList<>();
 
-        Field[] declaredFields = Execution.class.getDeclaredFields();
-        for (Field field : declaredFields) {
+        // Only the execution report fields, in order (SPEC-0068); see EXECUTION_FIELDS.
+        for (String fieldName : EXECUTION_FIELDS) {
             try {
-                String fieldName = field.getName();
-                Class<?> fieldType = field.getType();
-
-                if (fieldName.equals("serialVersionUID")) {
-                    continue;
-                }
-
-                FieldMetadataDto fieldMeta =
-                        buildFieldMetadata(fieldName, fieldType, field, false);
-                fields.add(fieldMeta);
+                Field field = Execution.class.getDeclaredField(fieldName);
+                fields.add(buildFieldMetadata(fieldName, field.getType(), field, false));
             } catch (Exception e) {
-                log.warn(
-                        "Failed to process field {} in Execution: {}",
-                        field.getName(),
-                        e.getMessage());
+                log.error("Execution has no field {} listed in EXECUTION_FIELDS: {}", fieldName, e.getMessage());
             }
         }
 
@@ -163,22 +176,10 @@ public class MetamodelService {
                 .name("Execution")
                 .displayName("Executions")
                 // A fill is identified by its business key (orderId, execId), as an order is by
-                // orderId; the surrogate id stays selectable but is no default (SPEC-0041). The
-                // streaming ExecutionDto must carry every default column: oms-streaming-service's
-                // OrderExecutionMapperTest holds a copy of this list, so change both together.
+                // orderId (SPEC-0041). The surrogate id is no longer offered (SPEC-0068).
                 .primaryKey("execId")
                 .fields(fields)
-                .defaultColumns(
-                        List.of(
-                                "execId",
-                                "orderId",
-                                "execType",
-                                "lastQty",
-                                "lastPx",
-                                "cumQty",
-                                "leavesQty",
-                                "avgPx",
-                                "transactTime"))
+                .defaultColumns(EXECUTION_DEFAULT_COLUMNS)
                 .defaultSort("transactTime,DESC")
                 .build();
     }

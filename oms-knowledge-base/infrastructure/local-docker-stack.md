@@ -47,6 +47,17 @@ All services share the `app-net` network. The four Java services take their tele
 from the `x-otlp-env` anchor (`OTLP_EXPORT_ENABLED=true`, `OTLP_ENDPOINT=http://alloy:4318`,
 sampling 1.0). Details: [Observability](observability.md).
 
+**oms-ui and order entry (SPEC-0072).** The `oms-ui` image includes oms-contracts, passed as the
+named build context `oms-contracts` (`additional_contexts`). Its order entry reads two settings
+from the environment, best kept in a root `.env` file (git-ignored):
+- `ALPHAVANTAGE_API_KEY`: the market data key; without it only the built-in instruments are offered
+  ([Market Data API](../domain/interfaces/market-data-api.md));
+- `OMS_UI_SESSION_ID`: the session its orders are sent under (default `OMS-UI`).
+
+Compose v5 builds images through Bake. On Windows it may ask to grant `fs.read` on the Dockerfile
+(`docker compose up --build oms-ui`); answer yes, or build the image with
+`docker buildx build --build-context oms-contracts=./oms-contracts -t oms-ui:latest --load oms-ui`.
+
 ## Host-native runs
 
 Services can also run with `./gradlew bootRun` on the host, against the infrastructure containers.

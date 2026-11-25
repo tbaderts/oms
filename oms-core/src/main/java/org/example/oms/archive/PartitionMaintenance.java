@@ -65,7 +65,7 @@ public class PartitionMaintenance {
             Clock clock,
             @Value("${oms.partitions.enabled:true}") boolean enabled,
             @Value("${oms.partitions.months-ahead:2}") int monthsAhead,
-            @Value("${oms.retention.closed-order-days:90}") int retentionDays) {
+            @Value("${oms.retention.closed-order-days:30}") int retentionDays) {
         this.jdbc = jdbc;
         this.leadership = leadership;
         this.clock = clock;
@@ -135,14 +135,51 @@ public class PartitionMaintenance {
             if (!Boolean.TRUE.equals(empty)) {
                 continue;
             }
-            jdbc.execute("ALTER TABLE order_events DETACH PARTITION " + name);
-            jdbc.execute("DROP TABLE " + name);
+            if (!detachAndDrop(name)) {
+                // every other drop waits on the same lock: stop, so a run blocks appends once, briefly
+                break;
+            }
             dropped.increment();
             result.add(name);
             log.info("[partitions] dropped {}: emptied by archiving", name);
         }
         return result;
     }
+
+    /**
+     * Detaches and drops one partition in a transaction of its own. DETACH takes an exclusive lock on
+     * {@code order_events}; behind a long transaction it would queue every event append behind it, so
+     * it gives up after {@link #LOCK_TIMEOUT} and the next run tries again.
+     *
+     * @return whether the partition was dropped
+     */
+    private boolean detachAndDrop(String name) {
+        try {
+            jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+                boolean autoCommit = connection.getAutoCommit();
+                connection.setAutoCommit(false);
+                try (java.sql.Statement statement = connection.createStatement()) {
+                    statement.execute("SET LOCAL lock_timeout = '" + LOCK_TIMEOUT + "'");
+                    statement.execute("ALTER TABLE order_events DETACH PARTITION " + name);
+                    statement.execute("DROP TABLE " + name);
+                    connection.commit();
+                } catch (java.sql.SQLException e) {
+                    connection.rollback();
+                    throw e;
+                } finally {
+                    connection.setAutoCommit(autoCommit);
+                }
+                return null;
+            });
+            return true;
+        } catch (org.springframework.dao.DataAccessException e) {
+            log.warn("[partitions] {} not dropped, retried next run: {}", name, e.getMostSpecificCause().getMessage());
+            return false;
+        }
+    }
+
+    /** How long a partition drop waits for its lock on {@code order_events}. */
+    static final String LOCK_TIMEOUT = "5s";
 
     private static Instant start(YearMonth month) {
         return LocalDate.of(month.getYear(), month.getMonth(), 1).atStartOfDay(ZoneOffset.UTC).toInstant();

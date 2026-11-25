@@ -23,13 +23,48 @@ class MetamodelServiceTest {
             List.of(
                     "execId",
                     "orderId",
+                    "symbol",
                     "execType",
                     "lastQty",
                     "lastPx",
+                    "lastMkt",
                     "cumQty",
                     "leavesQty",
                     "avgPx",
                     "transactTime");
+
+    /**
+     * SPEC-0068 AC-1: the execution report fields the OMS records, in FIX reading order; the
+     * Instrument block follows OrderID (SPEC-0069).
+     */
+    static final List<String> EXECUTION_FIELDS =
+            List.of(
+                    "execId",
+                    "orderId",
+                    "symbol",
+                    "securityId",
+                    "execType",
+                    "lastQty",
+                    "lastPx",
+                    "lastMkt",
+                    "leavesQty",
+                    "cumQty",
+                    "avgPx",
+                    "transactTime",
+                    "status");
+
+    /** SPEC-0069 AC-7: the fill's instrument is offered, and its symbol is a default column. */
+    @Test
+    void executionMetamodelOffersInstrument() {
+        MetamodelService service = new MetamodelService();
+        service.initialize();
+
+        EntityMetadataDto execution = service.getEntityMetadata("Execution");
+        List<String> fields = execution.getFields().stream().map(FieldMetadataDto::getName).toList();
+
+        assertTrue(fields.containsAll(List.of("symbol", "securityId")), () -> "instrument not offered: " + fields);
+        assertTrue(execution.getDefaultColumns().contains("symbol"), () -> "symbol not a default: " + execution.getDefaultColumns());
+    }
 
     @Test
     void orderMetamodelIncludesRejectReason() {
@@ -65,7 +100,31 @@ class MetamodelServiceTest {
                 fields.containsAll(execution.getDefaultColumns()),
                 () -> "default columns not in fields: " + execution.getDefaultColumns());
         assertEquals(EXECUTION_DEFAULT_COLUMNS, execution.getDefaultColumns());
-        assertTrue(fields.contains("id"), "the surrogate id stays selectable, as on orders");
+    }
+
+    /**
+     * SPEC-0068 AC-1: the blotter offers the execution report fields the OMS fills, and none of the
+     * never-filled or internal ones (they stay on the entity and the APIs). This reverses SPEC-0041's
+     * "the surrogate id stays selectable".
+     */
+    @Test
+    void executionMetamodelOffersExecutionReportFieldsOnly() {
+        MetamodelService service = new MetamodelService();
+        service.initialize();
+
+        List<String> fields =
+                service.getEntityMetadata("Execution").getFields().stream()
+                        .map(FieldMetadataDto::getName)
+                        .toList();
+
+        assertEquals(EXECUTION_FIELDS, fields);
+        for (String removed : List.of("dayOrderQty", "dayCumQty", "dayAvgPx", "secondaryExecID", "creationDate",
+                "execRefId", "lastCapacity", "bustedAtVersion", "orderVersion", "rootOrderId", "id")) {
+            assertFalse(fields.contains(removed), removed + " is not offered");
+        }
+        FieldMetadataDto status = service.getEntityMetadata("Execution").getFields().stream()
+                .filter(f -> "status".equals(f.getName())).findFirst().orElseThrow();
+        assertFalse(status.getEnumValues() == null || status.getEnumValues().isEmpty(), "status keeps its enum values");
     }
 
     /**

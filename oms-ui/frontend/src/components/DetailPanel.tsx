@@ -1,4 +1,4 @@
-// DetailPanel.tsx - Well-organized detail panel for viewing order data
+// DetailPanel.tsx - Well-organized detail panel for viewing an order or an execution
 import React, { useState } from 'react';
 import { dateTimeService } from '../services/DateTimeService';
 import Icon, { IconName } from './icons/Icon';
@@ -15,8 +15,10 @@ interface DetailPanelProps {
   columns?: string[];
 }
 
-// Field groupings for organized display
-const fieldGroups: Record<string, { title: string; fields: string[]; icon: IconName }> = {
+type FieldGroups = Record<string, { title: string; fields: string[]; icon: IconName }>;
+
+// Field groupings for organized display of an order (and the default layout)
+const orderFieldGroups: FieldGroups = {
   identification: {
     title: 'Identification',
     icon: 'id',
@@ -64,6 +66,68 @@ const fieldGroups: Record<string, { title: string; fields: string[]; icon: IconN
   },
 };
 
+// An execution shows only what the fill itself carries. The order fields some execution rows also
+// hold (symbol, side, price, account, ... as of the fill) are left out: they belong to the order.
+const executionFieldGroups: FieldGroups = {
+  execution: {
+    title: 'Execution',
+    icon: 'execution',
+    fields: ['execId', 'execType', 'lastQty', 'lastPx', 'lastMkt', 'lastCapacity'],
+  },
+  // The FIX Instrument block the venue reported on the fill (SPEC-0069)
+  instrument: {
+    title: 'Instrument',
+    icon: 'instrument',
+    fields: ['symbol', 'securityId', 'securityIdSource'],
+  },
+  orderProgress: {
+    title: 'Order Progress',
+    icon: 'status',
+    fields: ['cumQty', 'leavesQty', 'avgPx'],
+  },
+  identification: {
+    title: 'Identification',
+    icon: 'id',
+    fields: ['orderId', 'rootOrderId', 'orderVersion'],
+  },
+  timing: {
+    title: 'Timing',
+    icon: 'time',
+    fields: ['transactTime', 'tradeDate'],
+  },
+  other: {
+    title: 'Other',
+    icon: 'misc',
+    fields: ['id'],
+  },
+};
+
+interface Layout {
+  groups: FieldGroups;
+  expanded: string[];
+  /** Fields left out entirely, not even under Additional Fields. */
+  hidden: Set<string>;
+}
+
+const defaultLayout: Layout = {
+  groups: orderFieldGroups,
+  expanded: ['identification', 'instrument', 'orderDetails', 'status'],
+  hidden: new Set<string>(),
+};
+
+const layouts: Partial<Record<DomainObjectType, Layout>> = {
+  Execution: {
+    groups: executionFieldGroups,
+    expanded: ['execution', 'instrument', 'orderProgress', 'identification', 'timing'],
+    // Order fields an execution row may carry, except those the fill reports itself
+    hidden: new Set(
+      Object.values(orderFieldGroups)
+        .flatMap(g => g.fields)
+        .filter(f => !Object.values(executionFieldGroups).some(g => g.fields.includes(f)))
+    ),
+  },
+};
+
 // Display names for fields
 const fieldDisplayNames: Record<string, string> = {
   orderId: 'Order ID',
@@ -108,6 +172,15 @@ const fieldDisplayNames: Record<string, string> = {
   putOrCall: 'Put/Call',
   underlyingSecurityType: 'Underlying Type',
   leg: 'Leg',
+  execId: 'Exec ID',
+  execType: 'Exec Type',
+  lastQty: 'Last Qty',
+  lastPx: 'Last Px',
+  avgPx: 'Avg Px',
+  lastMkt: 'Last Market',
+  lastCapacity: 'Last Capacity',
+  orderVersion: 'Order Version',
+  tradeDate: 'Trade Date',
   id: 'Internal ID',
   tx: 'Transaction',
   txNr: 'Transaction Number',
@@ -130,19 +203,22 @@ function enumLabel(domainObject: DomainObjectType | undefined, field: string, va
 }
 
 const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
+  const layout = (domainObject && layouts[domainObject]) || defaultLayout;
+  const fieldGroups = layout.groups;
+
   /** A badge exactly as the grid draws it: the label, in the value's tone. */
   const badge = (field: string, value: string) => (
     <EnumCellRenderer value={value} valueFormatted={enumLabel(domainObject, field, value)} />
   );
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['identification', 'instrument', 'orderDetails', 'status'])
+    () => new Set(layout.expanded)
   );
 
   if (!data) {
     return (
       <div className="detail-panel">
-        <p className="no-data">No order selected</p>
+        <p className="no-data">No {domainObject === 'Execution' ? 'execution' : 'order'} selected</p>
       </div>
     );
   }
@@ -174,7 +250,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
 
     // Numbers as in the grid: prices with 2 to 8 decimals, others with separators (SPEC-0059)
     if (typeof value === 'number') {
-      if (key === 'id' || key === 'txNr') {
+      if (key === 'id' || key === 'txNr' || key === 'orderVersion') {
         return <span className="value-number">{value}</span>;
       }
       const formatted = isPriceField(key) ? formatPrice(value) : formatNumber(value);
@@ -220,7 +296,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
       Object.values(fieldGroups).flatMap(group => group.fields)
     );
     return Object.keys(data)
-      .filter(key => !assignedFields.has(key))
+      .filter(key => !assignedFields.has(key) && !layout.hidden.has(key))
       .map(key => ({ key, value: data[key] }));
   };
 
@@ -257,8 +333,45 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
     );
   };
 
+  const summaryItem = (label: string, value: React.ReactNode) => (
+    <div className="summary-item">
+      <span className="summary-label">{label}</span>
+      <span className="summary-value">{value ?? '—'}</span>
+    </div>
+  );
+
+  const num = (value: any, price = false) =>
+    typeof value === 'number' ? (price ? formatPrice(value) : formatNumber(value)) : value;
+
+  // The fill at a glance: what traded at what price, and where that leaves the order
+  const renderExecutionHeader = () => {
+    const fill = data.lastQty != null && data.lastPx != null
+      ? `${num(data.lastQty)} @ ${num(data.lastPx, true)}`
+      : data.execId || '—';
+    return (
+      <div className="detail-header">
+        <div className="header-main">
+          <div className="header-symbol">
+            <span className="symbol">{fill}</span>
+            <span className="security-desc">{data.lastMkt ? `on ${data.lastMkt}` : ''}</span>
+          </div>
+          <div className="header-badges">
+            {data.execType && <EnumCellRenderer value={data.execType} valueFormatted={execTypeLabel(data.execType)} />}
+          </div>
+        </div>
+        <div className="header-summary">
+          {summaryItem('Cumulative Qty', num(data.cumQty))}
+          {summaryItem('Leaves Qty', num(data.leavesQty))}
+          {summaryItem('Avg Px', num(data.avgPx, true))}
+          {summaryItem('Transact Time', data.transactTime ? dateTimeService.formatForDisplay(data.transactTime) || data.transactTime : null)}
+        </div>
+      </div>
+    );
+  };
+
   // Render header with key info
   const renderHeader = () => {
+    if (domainObject === 'Execution') return renderExecutionHeader();
     return (
       <div className="detail-header">
         <div className="header-main">

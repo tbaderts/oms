@@ -209,57 +209,80 @@ public class OmsQueryClient {
     }
 
     /**
-     * The newest stored fills, each with its order as of that fill (SPEC-0067): the order-execution
-     * projection, {@code GET /api/query/executions?order=newest&limit=N}. Used to fill the execution
-     * cache at startup, so an executions snapshot after a restart holds the earlier fills.
+     * A bounded execution snapshot (SPEC-0071): at most {@code limit} stored fills, newest first, and
+     * the number of fills matching the filter, from the execution search (SPEC-0070).
      */
-    public Flux<ExecutionDto> fetchRecentExecutions(int limit) {
+    public record ExecutionSnapshot(Flux<ExecutionDto> rows, Mono<Long> matching) {}
+
+    /** One page of the execution search. */
+    private record ExecutionPage(List<ExecutionDto> rows, long totalElements, int number, int totalPages) {}
+
+    /**
+     * Fetches the newest {@code limit} stored fills matching the filter from
+     * {@code GET /api/query/executions/search}, the same way {@link #fetchOrderSnapshot} reads orders:
+     * pages of at most {@value #DEFAULT_PAGE_SIZE}, newest (highest id) first, stopping at the limit.
+     * The stream filter's conditions are the search's filters. {@code limit} 0 fetches only the count.
+     */
+    public ExecutionSnapshot fetchExecutionSnapshot(StreamFilter filter, int limit) {
+        Map<String, String> filterParams = filter != null ? filter.toQueryParams() : Map.of();
+        int pageSize = Math.clamp(limit, 1, DEFAULT_PAGE_SIZE);
+        Mono<ExecutionPage> firstPage = fetchExecutionsPage(0, pageSize, filterParams).cache();
+        Mono<Long> matching = firstPage.map(ExecutionPage::totalElements);
+        if (limit <= 0) {
+            return new ExecutionSnapshot(Flux.empty(), matching);
+        }
+        Flux<ExecutionDto> rows = firstPage
+                .expand(page -> {
+                    boolean morePages = page.number() < page.totalPages() - 1;
+                    boolean belowLimit = (long) (page.number() + 1) * pageSize < limit;
+                    return morePages && belowLimit
+                            ? fetchExecutionsPage(page.number() + 1, pageSize, filterParams)
+                            : Mono.empty();
+                })
+                .flatMapIterable(ExecutionPage::rows)
+                .take(limit)
+                .doOnSubscribe(s -> log.info("Fetching execution snapshot from OMS Core: limit={}, filter={}",
+                        limit, filterParams))
+                .doOnError(e -> log.error("Error fetching execution snapshot from OMS Core", e));
+        return new ExecutionSnapshot(rows, matching);
+    }
+
+    private Mono<ExecutionPage> fetchExecutionsPage(int page, int size, Map<String, String> filterParams) {
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/api/query/executions")
-                        .queryParam("order", "newest")
-                        .queryParam("limit", limit)
-                        .build())
+                .uri(uriBuilder -> {
+                    UriBuilder builder = uriBuilder
+                            .path("/api/query/executions/search")
+                            .queryParam("page", page)
+                            .queryParam("size", size)
+                            .queryParam("sort", "id,DESC");
+                    filterParams.forEach(builder::queryParam);
+                    return builder.build();
+                })
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .timeout(Duration.ofMillis(readTimeoutMs))
-                .flatMapMany(root -> {
-                    List<ExecutionDto> fills = new ArrayList<>();
-                    if (root.isArray()) {
-                        root.forEach(node -> fills.add(toExecutionDto(node)));
-                    }
-                    return Flux.fromIterable(fills);
+                .map(root -> {
+                    List<ExecutionDto> rows = new ArrayList<>();
+                    root.path("content").forEach(node -> rows.add(toStoredExecutionDto(node)));
+                    JsonNode pageNode = root.path("page");
+                    Integer total = getInt(pageNode, "totalElements");
+                    Integer number = getInt(pageNode, "number");
+                    Integer totalPages = getInt(pageNode, "totalPages");
+                    return new ExecutionPage(rows, total != null ? total : rows.size(),
+                            number != null ? number : page, totalPages != null ? totalPages : 1);
                 });
     }
 
-    /** One projection row as the streaming ExecutionDto, with its order, like a Kafka OrderExecution record. */
-    private ExecutionDto toExecutionDto(JsonNode node) {
+    /** One stored fill of the execution search as the streaming ExecutionDto: the execution's own fields. */
+    private ExecutionDto toStoredExecutionDto(JsonNode node) {
         Long orderVersion = getLong(node, "orderVersion");
         OffsetDateTime transactTime = getOffsetDateTime(node, "transactTime");
-        org.example.streaming.model.OrderDto order = org.example.streaming.model.OrderDto.builder()
-                .orderId(getText(node, "orderId"))
-                .parentOrderId(getText(node, "parentOrderId"))
-                .rootOrderId(getText(node, "rootOrderId"))
-                .clOrdId(getText(node, "clOrdId"))
-                .account(getText(node, "account"))
-                .symbol(getText(node, "symbol"))
-                .side(getText(node, "side"))
-                .ordType(getText(node, "ordType"))
-                .state(getText(node, "state"))
-                .orderQty(getBigDecimal(node, "orderQty"))
-                .cumQty(getBigDecimal(node, "cumQty"))
-                .leavesQty(getBigDecimal(node, "leavesQty"))
-                .price(getBigDecimal(node, "price"))
-                .avgPx(getBigDecimal(node, "avgPx"))
-                .securityId(getText(node, "securityId"))
-                .exDestination(getText(node, "exDestination"))
-                .eventId(orderVersion)
-                .sequenceNumber(orderVersion)
-                .build();
         return ExecutionDto.builder()
                 .execId(getText(node, "execId"))
                 .orderId(getText(node, "orderId"))
+                .symbol(getText(node, "symbol"))
+                .securityId(getText(node, "securityId"))
                 .lastQty(getBigDecimal(node, "lastQty"))
                 .lastPx(getBigDecimal(node, "lastPx"))
                 .cumQty(getBigDecimal(node, "cumQty"))
@@ -268,13 +291,11 @@ public class OmsQueryClient {
                 .execType(getText(node, "execType"))
                 .lastMkt(getText(node, "lastMkt"))
                 .lastCapacity(getText(node, "lastCapacity"))
+                .status(getText(node, "status"))
                 .transactTime(transactTime != null ? transactTime.toInstant() : null)
                 .orderVersion(orderVersion)
                 .sequenceNumber(orderVersion)
-                // Live fills carry when they were received; a stored fill was received at its
-                // transactTime. The cache evicts by eventTime, so it must be set (SPEC-0067).
-                .eventTime(transactTime != null ? transactTime.toInstant() : java.time.Instant.now())
-                .order(order)
+                .eventTime(java.time.Instant.now())
                 .build();
     }
 

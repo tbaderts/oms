@@ -122,6 +122,7 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         assertEquals(0, new BigDecimal("100").compareTo(fill.getExecution().getLastQty()));
         assertEquals(0, new BigDecimal("170").compareTo(fill.getExecution().getLastPx()));
         assertEquals("F", fill.getExecution().getExecType());
+        assertEquals("AAPL", fill.getExecution().getSymbol(), "the fill names the order's instrument (SPEC-0069)");
         assertEquals(2, awaitCommands(orderId, 3, Duration.ofSeconds(1)).size(), "nothing after the fill");
     }
 
@@ -148,6 +149,19 @@ class ExchangeSimulatorKafkaIntegrationTest extends AbstractKafkaIntegrationTest
         assertEquals(1, sent.size(), "only the reject: " + sent);
         OrderRejectCmd reject = assertInstanceOf(OrderRejectCmd.class, sent.getFirst());
         assertTrue(reject.getText().contains("Unknown symbol ZZZZ"), reject.getText());
+    }
+
+    // SPEC-0073 AC-7: a buy limit 3 % + 1 cent through AAPL's 170.00 is refused by the venue.
+    @Test
+    void limitThroughCollar_rejected() throws Exception {
+        String orderId = newOrderId();
+
+        publish(limit(orderId, Side.BUY, "100", "175.11"));
+
+        List<Object> sent = awaitCommands(orderId, 2, Duration.ofSeconds(5));
+        assertEquals(1, sent.size(), "only the reject: " + sent);
+        OrderRejectCmd reject = assertInstanceOf(OrderRejectCmd.class, sent.getFirst());
+        assertEquals("Price 175.11 outside collar 164.9-175.1", reject.getText());
     }
 
     // AC-7

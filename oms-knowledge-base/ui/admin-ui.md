@@ -5,7 +5,7 @@ title: "User Interface Specification: OMS Admin Tool"
 description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, ag-grid]
 status: draft
-updated: "2026-11-15T12:00:00Z"
+updated: "2026-11-24T18:00:00Z"
 ---
 # User Interface Specification: OMS Admin Tool
 
@@ -87,7 +87,7 @@ Built with modern React patterns using functional components and hooks:
 The main application component provides:
 
 - **Header**: Acme Capital logo, application title (dynamically configured), and OAuth authorization button
-- **Tab Navigation**: Switchable tabs for different domain objects (Orders, Quotes, Quote Requests, Executions)
+- **Tab Navigation**: Switchable tabs for different domain objects (Orders, Quotes, Quote Requests, Executions), and **Order Entry** for placing a new order ([Order Entry](order-entry.md), SPEC-0072)
 - **Feature Flags**: Configurable tab visibility via `FEATURE_FLAGS` constant
 - **Authorization Status**: Visual indicator showing OAuth token status
 - **Footer**: Copyright with the current year and the app name (see Visual design)
@@ -196,11 +196,24 @@ and for the streaming blotter's row map:
   with the same `execId` are two rows, and every fill of one order is its own row.
 
 **Executions columns.** The Execution metamodel (`/api/v1/metamodel/Execution`) has
-`primaryKey: execId`, which is pinned. Its default columns are
-`execId, orderId, execType, lastQty, lastPx, cumQty, leavesQty, avgPx, transactTime`. Each of these
-is present on the REST feed (`/api/executions`) and on the streaming `ExecutionDto`, so no default
-column is empty because of a naming mismatch.
-- The surrogate `id` can still be selected, in REST mode only, as on orders.
+`primaryKey: execId`, which is pinned. Since SPEC-0068 it offers only the execution report fields
+the OMS records, in FIX reading order:
+`execId` (17), `orderId` (37), `execType` (150), `lastQty` (32), `lastPx` (31), `lastMkt` (30),
+`leavesQty` (151), `cumQty` (14), `avgPx` (6), `transactTime` (60), plus the OMS's own `status`
+(applied or reversed). These are the column chooser and filter options in both modes.
+
+Its default columns are
+`execId, orderId, symbol, execType, lastQty, lastPx, lastMkt, cumQty, leavesQty, avgPx, transactTime`
+(`symbol` since SPEC-0069). Each of these is filled on the REST feed (the execution search,
+`/api/query/executions/search`, SPEC-0070) and on the streaming `ExecutionDto`, so no default column
+is empty.
+- **Not offered:** `dayOrderQty`, `dayCumQty`, `dayAvgPx`, `secondaryExecID`, `creationDate`,
+  `execRefId` and `lastCapacity`, which the OMS never fills, and the internal `bustedAtVersion`,
+  `orderVersion`, `rootOrderId` and surrogate `id`. They stay on the entity, in the database and in
+  the APIs; only the blotter stops offering them. A ticket that fills one adds it back to
+  `MetamodelService.EXECUTION_FIELDS` (SPEC-0030 for `execRefId`).
+- A saved column layout that names a field no longer offered skips it and shows the rest.
+- `status` is not streamed, so Live mode lists it as "History only".
 - `execID` and `executionId` no longer exist.
 - `avgPx` is the order's volume-weighted average price as of the fill (see
   [Execution](../domain/model/execution.md)).
@@ -323,7 +336,7 @@ id plus `-F1`), so a narrower cell truncates the *start* and keeps the distingui
 (`…-F1`); hovering shows the full id (`components/IdCell.tsx`).
 
 **Default sort.** Executions in History load newest first (`sort=id,DESC`) until the user sorts a
-column, like orders; `/api/executions` alone would return them oldest first.
+column, like orders; the execution search does that by default too (SPEC-0070).
 
 **Toolbar.** Both blotters use one `BlotterToolbar` component: title, record count, Filters
 (with the active filter count), Columns and Auto-Size, plus each mode's own actions (Live:
@@ -984,4 +997,5 @@ Header (Fixed, 56px)
 - [State Query Store](../archive/state-query-store.md) — Query API consumed by UI for data retrieval
 - [Streaming Architecture](../architecture/concepts/event-streaming.md) — Real-time UI updates via WebSocket/RSocket streaming
 - [Order State Indicator](order-state-indicator.md) — Visual component for order status (4-bar indicator)
+- [Order Entry](order-entry.md) — The Order Entry tab: new orders, instrument lookup and quotes (SPEC-0072)
 - [Order Allocation Diagrams](../architecture/illustrations/order-allocation-diagrams.md) — Reference for order allocation visualization patterns

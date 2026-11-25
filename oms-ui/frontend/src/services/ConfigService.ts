@@ -27,7 +27,12 @@ export interface AppConfig {
   streamingUrl?: string; // WebSocket URL for RSocket streaming
   maxStreamingRows?: number; // Rolling-window cap for streaming blotters
   features?: Partial<FeatureFlags>;
+  /** Order entry (SPEC-0072): the session id this oms-ui sends its orders under. */
+  orderEntry?: { sessionId?: string };
 }
+
+/** The session id used when the backend config is unreachable (same default as the backend). */
+export const DEFAULT_ORDER_ENTRY_SESSION_ID = 'OMS-UI';
 
 /** Default cap for the streaming blotters' rolling window (a few thousand max). */
 export const DEFAULT_MAX_STREAMING_ROWS = 2000;
@@ -90,11 +95,18 @@ export class ConfigService {
     }
   }
 
-  private static getContextPath(): string {
+  /** The path the app is served under ('' at the root); oms-ui's own APIs live below it. */
+  public static getContextPath(): string {
     const path = window.location.pathname;
     // Extract context path (e.g., /ri-oms/ from /ri-oms/index.html)
     const match = path.match(/^(\/[^/]+)\//);
     return match ? match[1] : '';
+  }
+
+  /** The session id order entry sends orders under (SPEC-0072). */
+  public static getOrderEntrySessionId(): string {
+    const value = this.config?.orderEntry?.sessionId;
+    return value && value.trim() ? value : DEFAULT_ORDER_ENTRY_SESSION_ID;
   }
 
   public static getCachedConfig(): AppConfig | null {

@@ -65,8 +65,11 @@ public class OrderExecutionProjection implements Projection {
     }
 
     @Override
-    public void clear() {
-        repository.deleteAllInBatch();
+    public void retainOnly(java.util.Set<Fill> fills) {
+        List<OrderExecutionProjectionRow> stale = repository.findAll().stream()
+                .filter(row -> !fills.contains(new Fill(row.getOrderId(), row.getExecId())))
+                .toList();
+        repository.deleteAllInBatch(stale);
     }
 
     private static void apply(OrderExecutionProjectionRow row, OrderExecution record, ProjectionContext context) {

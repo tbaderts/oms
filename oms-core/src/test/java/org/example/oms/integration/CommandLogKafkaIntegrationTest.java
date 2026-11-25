@@ -155,7 +155,7 @@ class CommandLogKafkaIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     private static Execution execution(String execId, String orderId, String lastQty) {
-        return Execution.newBuilder()
+        return Execution.newBuilder().setSymbol("AAPL")
                 .setExecId(execId)
                 .setOrderId(orderId)
                 .setLastQty(new BigDecimal(lastQty).setScale(4, RoundingMode.HALF_UP))

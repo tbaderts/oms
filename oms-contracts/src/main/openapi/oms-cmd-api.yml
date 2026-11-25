@@ -402,6 +402,20 @@ components:
           format: date-time
           x-java-type: java.time.Instant
           description: Time of the execution
+        symbol:
+          type: string
+          minLength: 1
+          description: >-
+            Instrument traded (FIX Symbol, tag 55). A fill carries symbol, securityId or both;
+            oms-core refuses a fill with neither, or one that differs from its order's.
+        securityId:
+          type: string
+          minLength: 1
+          description: Instrument identifier (FIX SecurityID, tag 48), interpreted by securityIdSource.
+        securityIdSource:
+          allOf:
+            - $ref: 'schema.yml#/components/schemas/SecurityIdSource'
+          description: Source of securityId (FIX SecurityIDSource, tag 22)
 
     CommandResult:
       type: object

@@ -1,1 +1,5 @@
 rootProject.name = 'oms-ui'
+
+// The market data API oms-ui serves is specified in oms-contracts, which also generates its models
+// (SPEC-0072); included so `cd oms-ui && ./gradlew build` works on its own.
+includeBuild('../oms-contracts')

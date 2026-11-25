@@ -129,8 +129,19 @@ tasks.register('openApiGenerateQueryModels', org.openapitools.generator.gradle.p
     configOptions = modelGeneratorOptions
 }
 
+// The market data API served by oms-ui's backend for order entry (SPEC-0072).
+tasks.register('openApiGenerateMarketDataModels', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+    generatorName = "spring"
+    inputSpec = "$projectDir/src/main/openapi/oms-marketdata-api.yml".toString()
+    outputDir = layout.buildDirectory.dir("generated").get().asFile.toString()
+    modelPackage = "org.example.common.model.marketdata"
+    apiPackage = "org.example.common.api"
+    globalProperties = [models: ""]
+    configOptions = modelGeneratorOptions
+}
+
 tasks.named('compileJava') {
-    dependsOn 'openApiGenerateCmdModels', 'openApiGenerateQueryModels'
+    dependsOn 'openApiGenerateCmdModels', 'openApiGenerateQueryModels', 'openApiGenerateMarketDataModels'
 }
 
 sourceSets.main.java.srcDirs += layout.buildDirectory.dir("generated/src/main/java")
@@ -156,7 +167,7 @@ tasks.register('verifyContracts') {
     group = 'verification'
     description = 'Fails if a service module has reintroduced its own copy of the contracts.'
     doLast {
-        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server', 'oms-exchange-simulator']
+        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server', 'oms-exchange-simulator', 'oms-ui']
             .collectMany { module ->
                 [new File(rootDir, "../$module/src/main/avro"),
                  new File(rootDir, "../$module/src/main/openapi")]

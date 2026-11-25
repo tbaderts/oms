@@ -6,9 +6,11 @@ This document describes the filtered streaming implementation for the OMS Trade 
 
 The streaming service supports **filtered order subscriptions** where:
 1. UI opens an RSocket subscription with optional filters matching the Query API format
-2. Streaming service fetches a filtered snapshot from OMS Core REST API
-3. The same filter is applied to the real-time Kafka stream
-4. Events are deduplicated using `eventId` when merging snapshot with live stream
+2. Streaming service fetches a filtered snapshot from OMS Core REST API at that moment (orders:
+   `/api/query/search`; executions: `/api/query/executions/search`). Nothing is cached (SPEC-0071)
+3. The same filter is applied to the real-time Kafka stream (`oms_orders`, `oms_executions`)
+4. Live events the snapshot already showed are dropped by version (orders: `eventId`; executions:
+   `orderVersion` per `orderId`/`execId`)
 
 ## RSocket Endpoints
 
@@ -16,10 +18,10 @@ The streaming service supports **filtered order subscriptions** where:
 |-------|---------|-------------|
 | `orders.stream` | Request-Stream | Stream order events with optional filter |
 | `executions.stream` | Request-Stream | Stream execution events with optional filter |
-| `blotter.stream` | Request-Stream | Unified stream based on StreamRequest (ORDERS, EXECUTIONS, or ALL) |
-| `orders.snapshot` | Request-Response | Get current order snapshot |
-| `executions.snapshot` | Request-Response | Get current execution snapshot |
 | `health` | Request-Response | Health check (returns "OK") |
+
+`blotter.stream`, `orders.snapshot` and `executions.snapshot` were removed in SPEC-0071: they served
+the former in-memory cache, and oms-ui used none of them.
 
 ## Filter Format
 
@@ -64,32 +66,6 @@ Filters use the same format as the OMS Query API:
 - `AND` (default): All conditions must match
 - `OR`: At least one condition must match
 
-## StreamRequest Format
-
-For the `blotter.stream` endpoint, use a `StreamRequest` object:
-
-```json
-{
-  "blotterId": "blotter-1",
-  "streamType": "ORDERS",
-  "filter": {
-    "logicalOperator": "AND",
-    "filters": [
-      {"field": "symbol", "operator": "EQ", "value": "INTC"}
-    ],
-    "includeSnapshot": true
-  }
-}
-```
-
-### Stream Types
-
-| Type | Description |
-|------|-------------|
-| `ORDERS` | Order events only |
-| `EXECUTIONS` | Execution events only |
-| `ALL` | Both orders and executions merged |
-
 ## Data Flow
 
 ```
@@ -97,13 +73,12 @@ For the `blotter.stream` endpoint, use a `StreamRequest` object:
 │   Trade UI   │──RSocket──────────▶│  TradeBlotterController         │
 │  (React)     │  orders.stream     │  @MessageMapping("orders.stream")│
 │              │  executions.stream │  @MessageMapping("executions.stream")
-│              │  blotter.stream    │  @MessageMapping("blotter.stream")│
 └──────────────┘                    └─────────────────────────────────┘
                                                   │
                                                   ▼
                                     ┌─────────────────────────────────┐
                                     │  KafkaEventStreamProvider       │
-                                    │  (or MockEventStreamProvider)   │
+                                    │                                 │
                                     │  getOrderEventStream(filter)    │
                                     │  getExecutionEventStream(bool)  │
                                     └─────────────────────────────────┘
@@ -244,22 +219,6 @@ rsc --request --route health ws://localhost:7000/rsocket
 rsc --stream --route executions.stream ws://localhost:7000/rsocket
 ```
 
-#### 12. Blotter Stream (unified orders + executions)
-
-```bash
-rsc --stream --route blotter.stream \
-  --data '{"blotterId":"blotter-1","streamType":"ALL","filter":{"includeSnapshot":true}}' \
-  ws://localhost:7000/rsocket
-```
-
-#### 13. Orders Only via Blotter Stream
-
-```bash
-rsc --stream --route blotter.stream \
-  --data '{"blotterId":"blotter-1","streamType":"ORDERS","filter":{"filters":[{"field":"symbol","operator":"EQ","value":"INTC"}],"includeSnapshot":true}}' \
-  ws://localhost:7000/rsocket
-```
-
 ### PowerShell Examples
 
 For Windows PowerShell, use **backslash escaping** for JSON quotes:
@@ -295,11 +254,6 @@ java -jar .\tools\rsc-0.9.1.jar --request --route health ws://localhost:7000/rso
 # Execution stream
 java -jar .\tools\rsc-0.9.1.jar --stream --route executions.stream --dataMimeType "application/json" --data '{\"includeSnapshot\":true}' ws://localhost:7000/rsocket
 
-# Blotter stream (unified ORDERS + EXECUTIONS)
-java -jar .\tools\rsc-0.9.1.jar --stream --route blotter.stream --dataMimeType "application/json" --data '{\"blotterId\":\"blotter-1\",\"streamType\":\"ALL\",\"filter\":{\"includeSnapshot\":true}}' ws://localhost:7000/rsocket
-
-# Orders only via blotter stream
-java -jar .\tools\rsc-0.9.1.jar --stream --route blotter.stream --dataMimeType "application/json" --data '{\"blotterId\":\"blotter-1\",\"streamType\":\"ORDERS\",\"filter\":{\"filters\":[{\"field\":\"symbol\",\"operator\":\"EQ\",\"value\":\"INTC\"}],\"includeSnapshot\":true}}' ws://localhost:7000/rsocket
 ```
 
 **Important**: Always include `--dataMimeType "application/json"` for the server to parse the filter correctly.
@@ -399,17 +353,15 @@ Each execution event in the stream will look like:
 |------|-------------|
 | `StreamFilter.java` | Filter model with `withSnapshot()`, `liveOnly()`, `eq()`, `and()` factory methods; `toQueryParams()` |
 | `FilterCondition.java` | Condition model with `eq()`, `like()`, `between()` factory methods; operators: EQ, LIKE, GT, GTE, LT, LTE, BETWEEN |
-| `StreamRequest.java` | Request model with `blotterId`, `filter`, `streamType` (ORDERS, EXECUTIONS, ALL) |
 | `OrderDto.java` | Order DTO with `eventId`, `sequenceNumber`, `eventTime` for streaming |
 | `OrderEvent.java` | Event wrapper with `eventType`, `eventId`, `order`, `timestamp` |
 | `ExecutionDto.java` | Execution DTO with `execId`, `orderId`, `lastQty`, `lastPx`, `cumQty`, `avgPx`, etc. |
 | `ExecutionEvent.java` | Event wrapper with `eventType`, `execId`, `orderId`, `execution`, `timestamp` |
 | `EventStreamProvider.java` | Interface: `getOrderEventStream(filter)`, `getExecutionEventStream(includeSnapshot)` |
-| `KafkaEventStreamProvider.java` | Kafka-based implementation with filtered snapshot fetch and eventId deduplication |
-| `MockEventStreamProvider.java` | Mock implementation for testing without Kafka (enable with `streaming.kafka.enabled=false`) |
-| `OmsQueryClient.java` | REST client: `fetchAllOrders()`, `fetchOrdersWithFilter(filter)`, `fetchOrders(symbol, side, state)` |
+| `KafkaEventStreamProvider.java` | Kafka-based implementation: snapshot fetched per subscription, live from `oms_orders`/`oms_executions`, version deduplication; no cache (SPEC-0071) |
+| `OmsQueryClient.java` | REST client: `fetchOrderSnapshot(filter, limit)`, `fetchExecutionSnapshot(filter, limit)` |
 | `FilterService.java` | Creates predicates from StreamFilter: `createOrderEventPredicate()`, `createOrderPredicate()`, etc. |
-| `TradeBlotterController.java` | RSocket controller with `orders.stream`, `executions.stream`, `blotter.stream`, snapshot endpoints |
+| `TradeBlotterController.java` | RSocket controller with `orders.stream`, `executions.stream`, `health` |
 
 ### Query API Mapping
 

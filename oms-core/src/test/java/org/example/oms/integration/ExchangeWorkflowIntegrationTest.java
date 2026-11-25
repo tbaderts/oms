@@ -126,6 +126,9 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         List<Execution> executions = executions(orderId);
         assertEquals(3, executions.size());
         assertEquals(3, executions.stream().map(Execution::getExecId).distinct().count());
+        // SPEC-0069 AC-6: the simulator's fills name the order's instrument, so they are applied and
+        // stored with it.
+        assertEquals(List.of("AAPL", "AAPL", "AAPL"), executions.stream().map(Execution::getSymbol).toList());
         assertQty(
                 "100",
                 executions.stream().map(Execution::getLastQty).reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -374,7 +377,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
         mockMvc()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                        .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{\"symbol\":\"AAPL\","
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":40,\"lastPx\":170,\"cumQty\":40,\"leavesQty\":60,"
                                 + "\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
@@ -515,7 +518,7 @@ class ExchangeWorkflowIntegrationTest extends AbstractKafkaPostgresIntegrationTe
     /** The ExecutionCreateCmd the simulator sends for one slice: execType F at the reference price. */
     private static ExecutionCreateCmd fill(String orderId, int n, String lastQty, String cum, String leaves) {
         var execution =
-                org.example.common.model.msg.Execution.newBuilder()
+                org.example.common.model.msg.Execution.newBuilder().setSymbol("AAPL")
                         .setExecId(orderId + "-F" + n)
                         .setOrderId(orderId)
                         .setLastQty(scale4(lastQty))

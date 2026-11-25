@@ -20,7 +20,10 @@ public class SimulatorMetrics {
     private final Counter cancels;
     private final Counter cancelRejects;
 
+    private final MeterRegistry registry;
+
     public SimulatorMetrics(MeterRegistry registry) {
+        this.registry = registry;
         ordersReceived = counter(registry, "simulator.orders.received", "New orders received from the OMS");
         acks = counter(registry, "simulator.acks", "Orders acknowledged (ExecType=0)");
         executions = counter(registry, "simulator.executions", "Executions sent (ExecType=F)");
@@ -55,5 +58,18 @@ public class SimulatorMetrics {
 
     public void cancelReject() {
         cancelRejects.increment();
+    }
+
+    /**
+     * One reference price lookup (SPEC-0073): where its price came from (CACHE, ALPHA_VANTAGE,
+     * STATIC, NONE) and why the provider's price was not used (FOUND when it was).
+     */
+    public void referencePriceLookup(String source, String outcome) {
+        Counter.builder("simulator.reference.price.lookups")
+                .description("Reference price lookups by where the price came from")
+                .tag("source", source)
+                .tag("outcome", outcome)
+                .register(registry)
+                .increment();
     }
 }

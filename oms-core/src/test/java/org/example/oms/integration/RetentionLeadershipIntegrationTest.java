@@ -65,8 +65,17 @@ class RetentionLeadershipIntegrationTest extends AbstractArchiveIntegrationTest 
             Leadership secondLeadership = second.getBean(Leadership.class);
 
             String orderId = closedFilledOrder();
-            awaitReplicated(orderId);
-            awaitUntil(() -> count(jdbc, "orders", orderId) == 0, orderId + " archived");
+            // Not awaitReplicated: with retention at 0 days the leader archives the order as soon as
+            // the replica holds it, and once archived the primary no longer matches the replica. The
+            // archive itself proves the replica was verified; the assertion below checks it kept the rows.
+            long deadline = System.nanoTime() + REPLICATION_TIMEOUT.toNanos();
+            while (count(jdbc, "orders", orderId) != 0) {
+                if (System.nanoTime() > deadline) {
+                    throw new AssertionError("Timed out after " + REPLICATION_TIMEOUT + " waiting for: " + orderId + " archived");
+                }
+                Thread.sleep(100);
+            }
+            assertTrue(count(replica.jdbc(), "orders", orderId) == 1, "the replica keeps the archived order");
 
             boolean firstLeads = leadership.holds(Role.SCHEDULER);
             boolean secondLeads = secondLeadership.holds(Role.SCHEDULER);

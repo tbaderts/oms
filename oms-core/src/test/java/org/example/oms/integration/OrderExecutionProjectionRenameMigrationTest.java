@@ -83,6 +83,9 @@ class OrderExecutionProjectionRenameMigrationTest {
             assertTrue(exists(name), name + " exists");
         }
         assertEquals(List.of(), leftovers(), "nothing is still named after the view");
+        // SPEC-0052: this run has no contexts, so it reaches the replica-only changeset 018 too. Its
+        // precondition sees the oms_history publication and leaves the primary's clOrdId key in place.
+        assertTrue(exists("uq_orders_session_cl_ord_id"), "the replica-only drop never applies to a publisher");
         assertTrue(
                 queryLong("select nextval('order_execution_projection_seq')") > maxId,
                 "the next id follows the existing rows");

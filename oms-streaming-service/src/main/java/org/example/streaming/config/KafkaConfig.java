@@ -5,7 +5,7 @@ import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.example.common.model.msg.OrderExecution;
+import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.OrderMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -40,8 +40,8 @@ public class KafkaConfig {
     @Value("${streaming.kafka.topics.orders}")
     private String ordersTopic;
 
-    @Value("${streaming.kafka.topics.order-executions}")
-    private String orderExecutionsTopic;
+    @Value("${streaming.kafka.topics.executions}")
+    private String executionsTopic;
 
     /**
      * Creates base consumer properties for Kafka receivers with Avro deserialization.
@@ -70,14 +70,23 @@ public class KafkaConfig {
     }
 
     /**
-     * Kafka receiver for fills (Avro).
-     *
-     * <p>Consumes OrderExecution records: each fill with the order as of that fill, so a blotter row
-     * needs no join with the orders stream (SPEC-0019).
+     * Kafka receiver for fills (Avro), SPEC-0071: Execution records from {@code oms_executions}, the
+     * fill as the venue reported it. The order as of the fill ({@code oms_order_executions}) is for
+     * booking and downstream systems, not the blotter.
      */
     @Bean
-    public KafkaReceiver<String, OrderExecution> orderExecutionReceiver(ObservationRegistry observationRegistry) {
-        return KafkaReceiver.create(this.<OrderExecution>receiverOptions(orderExecutionsTopic, observationRegistry));
+    public KafkaReceiver<String, Execution> executionReceiver(ObservationRegistry observationRegistry) {
+        return KafkaReceiver.create(executionReceiverOptions(observationRegistry));
+    }
+
+    /**
+     * Options for the fills topic. A first start reads new fills only ({@code latest}): history comes
+     * from the database snapshot each subscription takes, so replaying the topic would only resend
+     * past fills as live events. Later starts resume from the committed offset.
+     */
+    ReceiverOptions<String, Execution> executionReceiverOptions(ObservationRegistry observationRegistry) {
+        return this.<Execution>receiverOptions(executionsTopic, observationRegistry)
+                .consumerProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
     }
 
     /**

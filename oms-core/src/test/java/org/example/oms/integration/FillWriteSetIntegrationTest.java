@@ -108,7 +108,7 @@ class FillWriteSetIntegrationTest {
     }
 
     private static ExecutionCreateCmd fill(String orderId, String execId, String qty) {
-        return new ExecutionCreateCmd().type("ExecutionCreateCmd").execution(new Execution()
+        return new ExecutionCreateCmd().type("ExecutionCreateCmd").execution(new Execution().symbol("AAPL")
                 .execId(execId).orderId(orderId).lastQty(new BigDecimal(qty)).lastPx(new BigDecimal("170")).execType("F"));
     }
 

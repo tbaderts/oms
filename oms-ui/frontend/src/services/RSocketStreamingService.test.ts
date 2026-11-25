@@ -152,3 +152,11 @@ describe('RSocketStreamingService stream demand (SPEC-0057)', () => {
     expect(service.convertToStreamFilter([], true)).not.toHaveProperty('snapshotLimit');
   });
 });
+
+// SPEC-0071 AC-7: blotter.stream (orders and fills dressed as orders) is gone from the server, and
+// nothing in oms-ui used it.
+describe('RSocketStreamingService routes (SPEC-0071)', () => {
+  it('offers no blotter.stream subscription', () => {
+    expect((RSocketStreamingService.prototype as any).subscribeToBlotter).toBeUndefined();
+  });
+});

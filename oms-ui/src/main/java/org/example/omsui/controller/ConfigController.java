@@ -31,6 +31,10 @@ public class ConfigController {
     @Value("${oms.ui.max-streaming-rows:2000}")
     private int maxStreamingRows;
 
+    /** The session id order entry sends orders under (SPEC-0072). */
+    @Value("${oms.ui.order-entry.session-id:OMS-UI}")
+    private String orderEntrySessionId;
+
     @Value("${oms.ui.features.quotes-enabled:false}")
     private boolean quotesEnabled;
 
@@ -54,6 +58,7 @@ public class ConfigController {
         config.put("apiBaseUrl", apiBaseUrl);
         config.put("streamingUrl", streamingUrl);
         config.put("maxStreamingRows", maxStreamingRows);
+        config.put("orderEntry", Map.of("sessionId", orderEntrySessionId));
         config.put("features", Map.of(
                 "quotesEnabled", quotesEnabled,
                 "quoteRequestsEnabled", quoteRequestsEnabled,

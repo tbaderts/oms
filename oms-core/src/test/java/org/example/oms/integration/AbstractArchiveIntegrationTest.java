@@ -34,7 +34,12 @@ abstract class AbstractArchiveIntegrationTest extends AbstractFillFlowIntegratio
 
     /** An order created, accepted, filled in full and closed by end of day; returns its id. */
     String closedFilledOrder() throws Exception {
-        String orderId = createLiveOrder();
+        return closedFilledOrder("CL-" + java.util.UUID.randomUUID());
+    }
+
+    /** As {@link #closedFilledOrder()}, with the given clOrdId. */
+    String closedFilledOrder(String clOrdId) throws Exception {
+        String orderId = createLiveOrder(null, "ACC-PRJ", clOrdId);
         assertEquals(201, postFill(orderId + "-F1", orderId, "100", null));
         awaitUntil(() -> state(orderId) == State.FILLED, orderId + " FILLED");
         Thread.sleep(5);

@@ -11,7 +11,6 @@ import RSocketWebSocketClient from 'rsocket-websocket-client';
 import {
   StreamFilter,
   StreamFilterCondition,
-  StreamRequest,
   OrderEvent,
   ExecutionEvent,
   StreamingConnectionState,
@@ -368,64 +367,6 @@ export class RSocketStreamingService {
           callbacks.onNext(event);
         } catch (e) {
           console.error('[RSocketStreamingService] Failed to parse execution event:', e);
-        } finally {
-          demand?.();
-        }
-      },
-      onSubscribe: (sub: any) => {
-        subscription = sub;
-        demand = boundedDemand(sub);
-      },
-    });
-
-    return {
-      unsubscribe: () => {
-        if (subscription) {
-          subscription.cancel();
-          active = false;
-        }
-      },
-      isActive: () => active,
-    };
-  }
-
-  /**
-   * Subscribe to blotter stream (unified orders + executions)
-   */
-  public subscribeToBlotter(
-    request: StreamRequest,
-    callbacks: StreamingCallbacks<OrderEvent | ExecutionEvent>
-  ): StreamSubscription {
-    if (!this.socket) {
-      callbacks.onError(new Error('Not connected to streaming server'));
-      return { unsubscribe: () => {}, isActive: () => false };
-    }
-
-    console.info('[RSocketStreamingService] Subscribing to blotter.stream');
-    
-    let active = true;
-    let subscription: any = null;
-    let demand: (() => void) | null = null;
-
-    this.socket.requestStream({
-      data: Buffer.from(JSON.stringify(request)),
-      metadata: this.createMetadata('blotter.stream'),
-    }).subscribe({
-      onComplete: () => {
-        active = false;
-        callbacks.onComplete();
-      },
-      onError: (error: Error) => {
-        console.error('[RSocketStreamingService] Blotter stream error:', error);
-        active = false;
-        callbacks.onError(error);
-      },
-      onNext: (payload: any) => {
-        try {
-          const event = JSON.parse(payload.data.toString());
-          callbacks.onNext(event);
-        } catch (e) {
-          console.error('[RSocketStreamingService] Failed to parse blotter event:', e);
         } finally {
           demand?.();
         }

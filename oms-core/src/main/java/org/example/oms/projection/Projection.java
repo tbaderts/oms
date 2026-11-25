@@ -1,6 +1,7 @@
 package org.example.oms.projection;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * A read model derived from order changes inside the command transaction (SPEC-0020).
@@ -31,6 +32,14 @@ public interface Projection {
      */
     List<StagedMessage> project(ProjectionContext context);
 
-    /** Deletes all of this projection's rows, before a rebuild. */
-    void clear();
+    /**
+     * Ends a rebuild: deletes the rows of every fill not in {@code fills}. The rebuild projects every
+     * fill in place first, upserting by the natural key, so rows keep their ids. It never deletes and
+     * re-inserts them, so the archive replica (SPEC-0052), which receives updates but not deletes,
+     * stays equal row for row.
+     */
+    void retainOnly(Set<Fill> fills);
+
+    /** A fill a projection row derives from: the order and the execution. */
+    record Fill(String orderId, String execId) {}
 }

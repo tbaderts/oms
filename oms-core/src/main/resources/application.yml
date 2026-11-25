@@ -11,6 +11,10 @@ spring:
     hikari:
       minimum-idle: 8
       maximum-pool-size: 32
+  liquibase:
+    # SPEC-0052: the same changelog migrates the archive replica with context "replica". Changesets
+    # without a context run on both; "primary" ones only here, "replica" ones only there.
+    contexts: primary
   threads:
     virtual:
       enabled: false
@@ -136,7 +140,7 @@ oms:
   # analytics, which is only planned: off.
   retention:
     enabled: ${OMS_RETENTION_ENABLED:true}
-    closed-order-days: ${OMS_RETENTION_CLOSED_ORDER_DAYS:90}
+    closed-order-days: ${OMS_RETENTION_CLOSED_ORDER_DAYS:30}
     batch-size: ${OMS_RETENTION_BATCH_SIZE:200}
     interval-ms: ${OMS_RETENTION_INTERVAL_MS:600000}
     require-analytics: ${OMS_RETENTION_REQUIRE_ANALYTICS:false}

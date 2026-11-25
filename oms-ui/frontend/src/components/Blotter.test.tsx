@@ -124,6 +124,18 @@ describe('Blotter shared state with the live blotter (SPEC-0056)', () => {
     expect(mockSavedState.filters).toEqual({ orderId__like: 'O-1' });
   });
 
+  // SPEC-0070 AC-6: the REST execution blotter sends its filter set to the execution search and
+  // shows the content of the paged response.
+  it('sends its filters to the execution search and shows the content', async () => {
+    mockSavedState = { ...saved(['execId', 'orderId']), filters: { orderId__like: 'O-1' } };
+    render(<Blotter domainObject="Execution" />);
+
+    await waitFor(() => expect(mockGetExecutionsCalls.length).toBeGreaterThan(0));
+    const [filters] = mockGetExecutionsCalls[mockGetExecutionsCalls.length - 1];
+    expect(filters).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'orderId' })]));
+    await waitFor(() => expect(mockGridProps?.rowData?.map((r: any) => r.execId)).toEqual(['E-1', 'E-2', 'E-1']));
+  });
+
   it('re-reads the shared saved columns when it becomes active, and saves only while active', async () => {
     mockSavedState = saved(['execId']);
     const { rerender } = render(<Blotter domainObject="Execution" active />);

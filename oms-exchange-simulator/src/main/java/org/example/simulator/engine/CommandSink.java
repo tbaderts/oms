@@ -18,10 +18,11 @@ public interface CommandSink {
     /** ExecutionReport ExecType=0 (New): the order is on the book. */
     void accept(Cause cause, String orderId);
 
-    /** ExecutionReport ExecType=F (Trade). */
+    /** ExecutionReport ExecType=F (Trade), with the order's instrument (SPEC-0069). */
     void fill(
             Cause cause,
             String orderId,
+            Instrument instrument,
             String execId,
             BigDecimal lastQty,
             BigDecimal lastPx,

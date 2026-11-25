@@ -19,7 +19,7 @@ public interface EventStreamProvider {
      * Returns a stream of order events with optional filtering.
      * 
      * <p>When filter.includeSnapshot is true, fetches filtered snapshot from
-     * OMS Core REST API and merges with real-time filtered Kafka stream.
+     * OMS Core REST API and merges with real-time filtered Kafka stream. Nothing is cached (SPEC-0071).
      * Uses eventId for deduplication when merging snapshot with live stream.
      * 
      * @param filter the stream filter (null for unfiltered stream without snapshot)
@@ -59,23 +59,4 @@ public interface EventStreamProvider {
         return getExecutionEventStream(includeSnapshot ? StreamFilter.withSnapshot() : StreamFilter.liveOnly());
     }
 
-    /**
-     * Returns current orders from cache.
-     */
-    Flux<OrderDto> getCurrentOrders();
-
-    /**
-     * Returns current executions from cache.
-     */
-    Flux<ExecutionDto> getCurrentExecutions();
-
-    /**
-     * Returns the number of cached orders.
-     */
-    int getOrderCacheSize();
-
-    /**
-     * Returns the number of cached executions.
-     */
-    int getExecutionCacheSize();
 }

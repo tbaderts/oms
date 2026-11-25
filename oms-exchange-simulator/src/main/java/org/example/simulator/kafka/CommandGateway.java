@@ -17,6 +17,7 @@ import org.example.common.model.msg.OrderRejectCmd;
 import org.example.simulator.config.SimulatorProperties;
 import org.example.simulator.engine.Cause;
 import org.example.simulator.engine.CommandSink;
+import org.example.simulator.engine.Instrument;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -62,6 +63,7 @@ public class CommandGateway implements CommandSink {
     public void fill(
             Cause cause,
             String orderId,
+            Instrument instrument,
             String execId,
             BigDecimal lastQty,
             BigDecimal lastPx,
@@ -71,6 +73,9 @@ public class CommandGateway implements CommandSink {
                 Execution.newBuilder()
                         .setExecId(execId)
                         .setOrderId(orderId)
+                        .setSymbol(instrument.symbol())
+                        .setSecurityId(instrument.securityId())
+                        .setSecurityIdSource(instrument.securityIdSource())
                         .setLastQty(scaled(lastQty))
                         .setLastPx(scaled(lastPx))
                         .setCumQty(scaled(cumQty))

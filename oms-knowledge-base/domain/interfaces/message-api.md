@@ -45,8 +45,8 @@ setup ([Avro Messages](#subjects-and-registration)).
 |---|---|---|---|---|
 | `commands` (`COMMAND_TOPIC`) | in | the producer's `orderId` | each command as its own record, starting with a `CommandHeader`; subject `commands-<record full name>` | `CommandListener`; produced by the exchange simulator and other clients |
 | `oms_orders` (`ORDER_TOPIC`) | out | `rootOrderId` | `OrderMessage`, the order after each change; `eventId` is the order's event-log version | streaming service, exchange simulator |
-| `oms_executions` (`EXECUTION_TOPIC`) | out | `rootOrderId` | `Execution`, with `rootOrderId` and `orderVersion` | other consumers (no longer read by the streaming service) |
-| `oms_order_executions` (`ORDER_EXECUTION_TOPIC`) | out | `rootOrderId` | `OrderExecution`: one fill with the order as of that fill, `orderVersion` and `tradeDate` | streaming service; booking (planned) |
+| `oms_executions` (`EXECUTION_TOPIC`) | out | `rootOrderId` | `Execution`, the fill as the venue reported it, with its instrument, `rootOrderId` and `orderVersion` | streaming service (since SPEC-0071) |
+| `oms_order_executions` (`ORDER_EXECUTION_TOPIC`) | out | `rootOrderId` | `OrderExecution`: one fill with the order as of that fill, `orderVersion` and `tradeDate` | booking (planned); no longer the streaming service (SPEC-0071) |
 
 - Outbound messages are published only by the [outbox relay](../../capabilities/event-publication.md),
   in commit order. The outbox `aggregateId` is the record key: the order's `rootOrderId`, or its

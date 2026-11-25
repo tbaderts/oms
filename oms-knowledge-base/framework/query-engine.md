@@ -51,6 +51,7 @@ answered.
 |---|---|---|
 | An order's event log | `GET /api/query/orders/{orderId}/events` | `OrderEventController` → `OrderEventReadService` (`order_events`) |
 | An order's command log | `GET /api/query/orders/{orderId}/commands` | `OrderEventController` → `CommandLogReadService` (`command_log`) |
+| Stored fills, searched like orders | `GET /api/query/executions/search` | `ExecutionViewController` → `ExecutionQueryService` with `ExecutionSpecifications` (`executions`; SPEC-0070) |
 | Fills with their order | `GET /api/query/executions` | `ExecutionViewController` → `OrderExecutionProjectionQueryService` (`order_execution_projection`) |
 | Field metadata | `GET /api/v1/metamodel` | `MetamodelService`, for the UI's columns and filters |
 

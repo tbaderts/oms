@@ -148,8 +148,8 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     try {
       const omsApiService = await OMSApiService.getInstance();
       
-      // Without a chosen sort, executions come newest first like orders; /api/executions would
-      // otherwise return them by id ascending, oldest first (SPEC-0059).
+      // Without a chosen sort, executions come newest first like orders (SPEC-0059); the execution
+      // search does that by default too (SPEC-0070), the explicit sort just says so.
       const sort = sortModel.length > 0
         ? { field: sortModel[0].colId, direction: sortModel[0].sort }
         : domainObject === 'Execution' ? { field: 'id', direction: 'desc' as const } : undefined;

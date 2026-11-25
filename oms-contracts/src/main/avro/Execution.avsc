@@ -127,6 +127,24 @@
       "type": ["null", "long"],
       "doc": "The order's event-log version this fill produced (order_events.version).",
       "default": null
+    },
+    {
+      "name": "symbol",
+      "type": ["null", "string"],
+      "doc": "Instrument traded (FIX Symbol, 55), as the venue reported it.",
+      "default": null
+    },
+    {
+      "name": "securityId",
+      "type": ["null", "string"],
+      "doc": "Instrument identifier (FIX SecurityID, 48), as the venue reported it.",
+      "default": null
+    },
+    {
+      "name": "securityIdSource",
+      "type": ["null", "org.example.common.model.msg.SecurityIDSource"],
+      "doc": "Source of securityId (FIX SecurityIDSource, 22).",
+      "default": null
     }
   ]
 }

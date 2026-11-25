@@ -6,6 +6,7 @@ import OrderBlotter from './components/OrderBlotter';
 import ExecutionBlotter from './components/ExecutionBlotter';
 import StreamingOrderBlotter from './components/StreamingOrderBlotter';
 import StreamingExecutionBlotter from './components/StreamingExecutionBlotter';
+import OrderEntry from './components/OrderEntry';
 import AuthorizeModal from './components/AuthorizeModal';
 import AcmeLogo from './components/AcmeLogo';
 import Icon from './components/icons/Icon';
@@ -15,7 +16,7 @@ import './App.scss';
 // users download none of it.
 const LoadHarness = React.lazy(() => import('./loadHarness/LoadHarness'));
 
-type TabType = 'orders' | 'executions' | 'quotes' | 'quoteRequests';
+type TabType = 'orders' | 'executions' | 'orderEntry' | 'quotes' | 'quoteRequests';
 type DataMode = 'rest' | 'streaming';
 
 const OmsApp: React.FC = () => {
@@ -76,6 +77,13 @@ const OmsApp: React.FC = () => {
   };
   const mountedViews = visitedViews.includes(activeView) ? visitedViews : [...visitedViews, activeView];
 
+  // Order entry (SPEC-0072) does not depend on the data mode; once opened it stays mounted, so a
+  // half-filled ticket survives a look at the blotters.
+  const [orderEntryOpened, setOrderEntryOpened] = useState(false);
+  useEffect(() => {
+    if (activeTab === 'orderEntry') setOrderEntryOpened(true);
+  }, [activeTab]);
+
   return (
     <div className="oms-app">
       {/* Header */}
@@ -131,6 +139,12 @@ const OmsApp: React.FC = () => {
         >
           Executions
         </button>
+        <button
+          className={`tab ${activeTab === 'orderEntry' ? 'active' : ''}`}
+          onClick={() => setActiveTab('orderEntry')}
+        >
+          Order Entry
+        </button>
         {featureFlags.quotesEnabled && (
           <button
             className={`tab ${activeTab === 'quotes' ? 'active' : ''}`}
@@ -164,6 +178,15 @@ const OmsApp: React.FC = () => {
               {BLOTTER_VIEWS[view](view === activeView)}
             </div>
           ))}
+        {(orderEntryOpened || activeTab === 'orderEntry') && (
+          <div
+            className="blotter-view"
+            hidden={activeTab !== 'orderEntry'}
+            style={activeTab !== 'orderEntry' ? { display: 'none' } : undefined}
+          >
+            <OrderEntry onShowOrders={() => setActiveTab('orders')} />
+          </div>
+        )}
         {activeTab === 'quotes' && <div>Quotes blotter (coming soon)</div>}
         {activeTab === 'quoteRequests' && <div>Quote Requests blotter (coming soon)</div>}
       </main>

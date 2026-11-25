@@ -2,7 +2,6 @@ package org.example.streaming.controller;
 
 import java.time.Duration;
 
-import org.example.streaming.model.OrderDto;
 import org.example.streaming.model.OrderEvent;
 import org.example.streaming.service.EventStreamProvider;
 import org.springframework.context.annotation.Profile;
@@ -41,16 +40,6 @@ public class TestStreamController {
                 .doOnSubscribe(sub -> log.info("SSE order stream started"))
                 .doOnCancel(() -> log.info("SSE order stream cancelled"))
                 .doOnError(error -> log.error("Error in SSE order stream", error));
-    }
-
-    /**
-     * Get current order snapshot.
-     * GET http://localhost:8092/api/test/orders/snapshot
-     */
-    @GetMapping("/orders/snapshot")
-    public Flux<OrderDto> getOrderSnapshot() {
-        log.info("Order snapshot requested");
-        return eventStreamProvider.getCurrentOrders();
     }
 
     /**

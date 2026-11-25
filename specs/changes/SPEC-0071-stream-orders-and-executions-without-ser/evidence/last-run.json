@@ -1,0 +1,38 @@
+{
+  "ranAt": "2026-11-24T13:41:59.379Z",
+  "result": "pass",
+  "modules": [
+    "oms-streaming-service",
+    "oms-ui",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "333469d2aa13640e",
+  "policy": {
+    "errors": [],
+    "warnings": [],
+    "scope": "changes since main (merge-base 10d8dc46)"
+  },
+  "commands": [
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 3,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "npm test -- --watchAll=false --passWithNoTests",
+      "exitCode": 0,
+      "seconds": 17,
+      "log": "evidence/oms-ui-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "..\\gradlew.bat -p .. check",
+      "exitCode": 0,
+      "seconds": 17,
+      "log": "evidence/oms-ui-2.log"
+    }
+  ]
+}

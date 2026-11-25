@@ -172,6 +172,58 @@ class RetentionJobIntegrationTest extends AbstractArchiveIntegrationTest {
         assertTrue(output.getOut().contains("order " + orderId + " not archived: replica-unreachable"));
     }
 
+    /**
+     * An order that keeps failing must not hold its place in the batch: with a batch of one, a newer
+     * eligible order is still archived on the next run, and the failed one is retried once there is room.
+     */
+    @Test
+    void failingOrdersDoNotStarveNewerOnes() throws Exception {
+        job(0).run(); // archive whatever earlier tests left eligible, so this run's batch is ours alone
+        String stuck = closedFilledOrder();
+        awaitReplicated(stuck);
+        JdbcTemplate admin = replicaAdmin();
+        String symbol = admin.queryForObject("select symbol from orders where order_id = ?", String.class, stuck);
+        admin.update("update orders set symbol = 'XXXX' where order_id = ?", stuck);
+        try {
+            meters = new SimpleMeterRegistry();
+            RetentionJob job = new RetentionJob(jdbc, transactionManager, leadership,
+                    Optional.of(new ReplicaVerifier(jdbc, replica.jdbc())), new ArchivePreconditions(Optional.empty(), false),
+                    meters, clock, true, 0, 1, false);
+            assertEquals(Map.of(stuck, Outcome.REPLICA_MISMATCH), job.run());
+
+            String newer = closedFilledOrder();
+            awaitReplicated(newer);
+            assertEquals(Map.of(newer, Outcome.ARCHIVED), job.run(), "the newer order goes first, not the failing one again");
+
+            assertEquals(Map.of(stuck, Outcome.REPLICA_MISMATCH), job.run(), "with room again, the failed order is retried");
+        } finally {
+            admin.update("update orders set symbol = ? where order_id = ?", symbol, stuck);
+        }
+        assertEquals(Outcome.ARCHIVED, job(0).run().get(stuck));
+    }
+
+    /** An exception for one order fails that order only: the run goes on with the others. */
+    @Test
+    void anOrderSpecificErrorDoesNotAbortTheRun() throws Exception {
+        String broken = closedFilledOrder();
+        String fine = closedFilledOrder();
+        awaitReplicated(broken);
+        awaitReplicated(fine);
+        AnalyticsHistoryCheck throwsForOne = id -> {
+            if (id.equals(broken)) {
+                throw new IllegalStateException("analytics unavailable for " + id);
+            }
+            return true;
+        };
+        Map<String, Outcome> outcomes =
+                job(0, new ReplicaVerifier(jdbc, replica.jdbc()), new ArchivePreconditions(Optional.of(throwsForOne), true)).run();
+        assertEquals(Outcome.ERROR, outcomes.get(broken));
+        assertEquals(Outcome.ARCHIVED, outcomes.get(fine));
+        assertEquals(1, count(jdbc, "orders", broken), "nothing of the failed order deleted");
+        assertTrue(failures("error") >= 1);
+        assertEquals(Outcome.ARCHIVED, job(0).run().get(broken));
+    }
+
     @Test
     void analyticsPreconditionBlocksWhenRequired(CapturedOutput output) throws Exception {
         String orderId = closedFilledOrder();

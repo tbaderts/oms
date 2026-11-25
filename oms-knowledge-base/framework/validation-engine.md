@@ -6,7 +6,7 @@ description: "Predicate-based, composable validation framework for orders, execu
 tags: [validation, framework, business-rules]
 status: draft
 version: "1.0"
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-24T12:00:00Z"
 ---
 # Validation Rules Framework Specification
 
@@ -14,7 +14,9 @@ updated: "2026-11-14T12:00:00Z"
 > (`ValidationEngine`, `ValidationRule`, `ValidationResult`, the rule factories and the
 > asset-class rules) is **not built**. Validation today is done by tasks in the command pipelines:
 > `ValidateOrderTask` (required fields, positive quantity, price for limit orders, stop price for
-> stop orders), `ValidateExecutionTask` and `ValidateLifecycleActionTask`, plus Jakarta Bean
+> stop orders), `ValidateExecutionTask` (required fields, positive quantity and price, a LIVE order,
+> and since SPEC-0069 an instrument: the fill must carry `symbol` or `securityId`, and neither may
+> differ from the order's where both have one) and `ValidateLifecycleActionTask`, plus Jakarta Bean
 > Validation on the generated API models. A failed check fails the pipeline and is reported as
 > described in [Exception Handling](exception-handling.md). Treat the rest of this document as the
 > target design for when the rules outgrow the tasks.

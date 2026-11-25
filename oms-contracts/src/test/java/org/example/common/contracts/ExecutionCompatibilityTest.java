@@ -1,6 +1,8 @@
 package org.example.common.contracts;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +29,18 @@ class ExecutionCompatibilityTest {
         Schema baseline = loadBaseline();
         assertCompatible(Execution.getClassSchema(), baseline, "backward");
         assertCompatible(baseline, Execution.getClassSchema(), "forward");
+    }
+
+    /** SPEC-0069: the FIX instrument block is optional in the schema, so old writers stay readable. */
+    @Test
+    void instrumentFieldsAreOptional() {
+        for (String field : new String[] {"symbol", "securityId", "securityIdSource"}) {
+            Schema.Field f = Execution.getClassSchema().getField(field);
+            assertNotNull(f, field + " is on Execution");
+            assertEquals(Schema.Type.UNION, f.schema().getType(), field + " is nullable");
+            assertEquals(Schema.Type.NULL, f.schema().getTypes().getFirst().getType(), field + " defaults to null");
+            assertTrue(f.hasDefaultValue(), field + " has a default");
+        }
     }
 
     private static void assertCompatible(Schema reader, Schema writer, String direction) {

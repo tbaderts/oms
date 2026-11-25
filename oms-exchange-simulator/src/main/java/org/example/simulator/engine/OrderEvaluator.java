@@ -1,7 +1,7 @@
 package org.example.simulator.engine;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
+import java.util.Optional;
 import java.util.Set;
 
 import org.example.common.model.msg.OrdType;
@@ -9,22 +9,24 @@ import org.example.common.model.msg.OrderMessage;
 import org.example.common.model.msg.Side;
 import org.example.common.model.msg.TimeInForce;
 import org.example.simulator.config.SimulatorProperties;
+import org.example.simulator.marketdata.ReferencePrices;
 import org.springframework.stereotype.Component;
 
 /**
  * Decides what the venue does with a new order: reject it, trade it now, or rest it.
  *
- * <p>Pure logic over the order and the configuration, so every economic rule is unit-testable. It
- * never throws on bad data: anything it cannot trade becomes a reject with a reason, because a real
- * venue answers every order.
+ * <p>Logic over the order, the configuration and the symbol's reference price (Alpha Vantage or the
+ * static fallback, SPEC-0073), so every economic rule is unit-testable. It never throws on bad data:
+ * anything it cannot trade becomes a reject with a reason, because a real venue answers every order.
  *
  * <ul>
  *   <li>MARKET orders are always marketable.
  *   <li>A LIMIT buy is marketable when its price is at or above the reference price; a sell when at
  *       or below it.
  *   <li>Marketable quantity fills at the reference price (price improvement for limits).
- *   <li>A limit price outside the reference ± {@code priceBandPercent} is rejected, as venues do
- *       with fat-finger price collars.
+ *   <li>A limit price that is not a whole number of ticks (Reg NMS Rule 612) is rejected.
+ *   <li>A limit priced further through the reference than the collar is rejected, as NYSE's Limit
+ *       Order Price Protection does; the passive side is not collared. See {@link LimitPriceRules}.
  * </ul>
  */
 @Component
@@ -33,12 +35,12 @@ public class OrderEvaluator {
     private static final Set<OrdType> SUPPORTED_TYPES = Set.of(OrdType.MARKET, OrdType.LIMIT);
     private static final Set<Side> BUY_SIDES = Set.of(Side.BUY);
     private static final Set<Side> SELL_SIDES = Set.of(Side.SELL, Side.SELL_SHORT);
-    private static final BigDecimal HUNDRED = new BigDecimal("100");
-
     private final SimulatorProperties properties;
+    private final ReferencePrices referencePrices;
 
-    public OrderEvaluator(SimulatorProperties properties) {
+    public OrderEvaluator(SimulatorProperties properties, ReferencePrices referencePrices) {
         this.properties = properties;
+        this.referencePrices = referencePrices;
     }
 
     public Evaluation evaluate(OrderMessage order) {
@@ -54,7 +56,7 @@ public class OrderEvaluator {
         if (!buy && !SELL_SIDES.contains(side)) {
             return Evaluation.reject("Unsupported side " + side);
         }
-        BigDecimal reference = properties.referencePrices().get(order.getSymbol());
+        BigDecimal reference = referencePrices.referencePrice(order.getSymbol()).orElse(null);
         if (reference == null) {
             return Evaluation.reject("Unknown symbol " + order.getSymbol());
         }
@@ -70,14 +72,10 @@ public class OrderEvaluator {
             return Evaluation.reject("Limit order without price");
         }
 
-        BigDecimal band = reference.multiply(properties.priceBandPercent()).divide(HUNDRED, 4, RoundingMode.HALF_UP);
-        BigDecimal low = reference.subtract(band);
-        BigDecimal high = reference.add(band);
-        if (price.compareTo(low) < 0 || price.compareTo(high) > 0) {
-            return Evaluation.reject(
-                    "Price " + price.toPlainString() + " outside band "
-                            + low.stripTrailingZeros().toPlainString() + "-"
-                            + high.stripTrailingZeros().toPlainString());
+        Optional<String> violation = LimitPriceRules.tickViolation(price)
+                .or(() -> LimitPriceRules.collarViolation(buy, price, reference, properties.priceCollar()));
+        if (violation.isPresent()) {
+            return Evaluation.reject(violation.get());
         }
 
         boolean marketable = buy ? price.compareTo(reference) >= 0 : price.compareTo(reference) <= 0;

@@ -373,7 +373,7 @@ Consequences:
   topics.
 - **A full rebuild** ("reprocess everything since January") uses re-publish from the event log
   (C6), not Kafka retention; Kafka is only the transport.
-  - **Retention.** Since SPEC-0052 the OMS database keeps a retention window (90 days after CLOSE by
+  - **Retention.** Since SPEC-0052 the OMS database keeps a retention window (30 days after CLOSE by
     default). The full history beyond it lives on the archive replica, a logical replica that does
     not replicate deletes, so a rebuild reaching further back reads the replica.
   - **Analytics first.** The rule that analytics holds an order's history before it is archived

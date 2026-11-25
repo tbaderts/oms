@@ -236,7 +236,7 @@ class EventSourcingIntegrationTest {
         return new org.example.common.model.cmd.ExecutionCreateCmd()
                 .type("ExecutionCreateCmd")
                 .commandId(commandId)
-                .execution(new org.example.common.model.cmd.Execution().execId(execId).orderId(ORDER_ID));
+                .execution(new org.example.common.model.cmd.Execution().symbol("AAPL").execId(execId).orderId(ORDER_ID));
     }
 
     /**
@@ -375,6 +375,7 @@ class EventSourcingIntegrationTest {
     private Execution execution(String execId, String lastQty) {
         return Execution.builder()
                 .orderId(ORDER_ID)
+                .symbol("AAPL")
                 .execId(execId)
                 .lastQty(new BigDecimal(lastQty))
                 .lastPx(new BigDecimal("100.00"))

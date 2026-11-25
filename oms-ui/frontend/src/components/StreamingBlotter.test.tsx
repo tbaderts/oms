@@ -245,13 +245,14 @@ describe('StreamingBlotter columns (SPEC-0056)', () => {
     mockSavedState = { filters: {}, visibleColumns: ['execId', 'id', 'orderId', 'status'], sortModel: [], pageSize: 100, currentPage: 1 };
     render(<StreamingBlotter domainObject="Execution" />);
 
-    await waitFor(() => expect(mockColumnArgs[mockColumnArgs.length - 1]).toEqual(['execId', 'orderId']));
-    expect(document.querySelector('.history-only-note')?.textContent).toBe('History only: Id, Status');
+    // status is streamed since SPEC-0071; id stays history-only.
+    await waitFor(() => expect(mockColumnArgs[mockColumnArgs.length - 1]).toEqual(['execId', 'orderId', 'status']));
+    expect(document.querySelector('.history-only-note')?.textContent).toBe('History only: Id');
     await waitFor(() => expect(mockSavedColumns).toEqual(['execId', 'id', 'orderId', 'status']));
 
     fireEvent.click(screen.getByRole('button', { name: 'Columns' }));
     const offered = Array.from(document.querySelectorAll('.column-selector-modal .column-item .field-name')).map(e => e.textContent);
-    expect(offered).toEqual(['Exec Id', 'Order Id']);
+    expect(offered).toEqual(['Exec Id', 'Order Id', 'Status']);
   });
 });
 
@@ -605,6 +606,29 @@ describe('StreamingBlotter rolling window (SPEC-0054)', () => {
       mockExecutionCallbacks.onNext(fill('O-L', 'L3'));
     });
     await waitFor(() => expect(showing()).toBe('Showing 3 of 8,303'));
+  });
+
+  // SPEC-0071 AC-7: an execution event carries the fill alone (no order), from oms_executions; the
+  // server no longer drops Kafka redeliveries between snapshots, so the blotter counts a fill it
+  // already shows once.
+  it('shows the fields of a bare execution and counts a redelivery once', async () => {
+    await renderAndSubscribe();
+    const showing = () => document.querySelector('.showing-count')?.textContent;
+    act(() => mockExecutionCallbacks.onNext({ eventType: 'SNAPSHOT_END', snapshotTotal: 5 }));
+    await waitFor(() => expect(showing()).toBe('Showing 0 of 5'));
+
+    const bare = {
+      eventType: 'F', execId: 'E-1', orderId: 'O-1', sequenceNumber: 3, timestamp: '2026-11-24T10:00:00Z',
+      execution: { orderId: 'O-1', execId: 'E-1', symbol: 'AAPL', lastQty: 10, lastPx: 170, orderVersion: 3 },
+    };
+    act(() => {
+      mockExecutionCallbacks.onNext(bare);
+      mockExecutionCallbacks.onNext(bare); // redelivered
+    });
+
+    await waitFor(() => expect(gridRows()).toHaveLength(1));
+    expect(gridRows()[0]).toEqual(expect.objectContaining({ symbol: 'AAPL', lastQty: 10, orderId: 'O-1' }));
+    await waitFor(() => expect(showing()).toBe('Showing 1 of 6'));
   });
 
   it('shows N of M for orders, counting orders created since the snapshot', async () => {

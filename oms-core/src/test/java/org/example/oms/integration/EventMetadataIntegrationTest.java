@@ -97,7 +97,7 @@ class EventMetadataIntegrationTest extends AbstractFillFlowIntegrationTest {
         int status = mockMvc().perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"correlationId\":\"" + correlation + "\","
-                                + "\"execution\":{\"execId\":\"" + orderId + "-R1\",\"orderId\":\"" + orderId + "\","
+                                + "\"execution\":{\"symbol\":\"AAPL\",\"execId\":\"" + orderId + "-R1\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":10,\"lastPx\":170,\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
                 .andReturn().getResponse().getStatus();
         assertEquals(201, status);
@@ -178,7 +178,7 @@ class EventMetadataIntegrationTest extends AbstractFillFlowIntegrationTest {
         assertEquals(201, mockMvc().perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"correlationId\":\"" + correlation + "\","
-                                + "\"causationId\":\"CAUSE-API\",\"execution\":{\"execId\":\"" + orderId + "-A1\",\"orderId\":\"" + orderId + "\","
+                                + "\"causationId\":\"CAUSE-API\",\"execution\":{\"symbol\":\"AAPL\",\"execId\":\"" + orderId + "-A1\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":40,\"lastPx\":170,\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
                 .andReturn().getResponse().getStatus());
         // The create event stands in for one recorded before SPEC-0049.

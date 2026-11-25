@@ -99,10 +99,18 @@ const paging = (s: Pick<ApiExplorerState, 'page' | 'size' | 'sort'>): Paging => 
 const NO_FINDINGS: CheckResult = { findings: [] };
 
 /** The body check with template variables resolved against the template file and the followed order. */
-function checkOf(s: Pick<ApiExplorerState, 'catalog' | 'selectedType' | 'bodyText' | 'templateVars' | 'followUpId'>): CheckResult {
+function checkOf(
+  s: Pick<ApiExplorerState, 'catalog' | 'selectedType' | 'bodyText' | 'templateVars' | 'followUpId' | 'followUp'>,
+): CheckResult {
   const schema = s.selectedType ? s.catalog?.schemas[s.selectedType] : undefined;
   if (!schema || !s.selectedType) return NO_FINDINGS;
-  return checkTemplateBody(s.bodyText, s.selectedType, schema, liveContext(s.templateVars, s.followUpId));
+  return checkTemplateBody(s.bodyText, s.selectedType, schema, liveContext(s.templateVars, s.followUpId, followedSymbol(s)));
+}
+
+/** The followed order's symbol, once its follow-up has loaded (SPEC-0069). */
+function followedSymbol(s: Pick<ApiExplorerState, 'followUpId' | 'followUp'>): string | null {
+  const symbol = s.followUp && s.followUp.orderId === s.followUpId ? s.followUp.order?.symbol : null;
+  return typeof symbol === 'string' ? symbol : null;
 }
 
 export const useApiExplorerStore = create<ApiExplorerState>((set, get) => ({
@@ -201,7 +209,7 @@ export const useApiExplorerStore = create<ApiExplorerState>((set, get) => ({
   send: async () => {
     const { bodyText, check, local, baseUrl, selectedType, sending, templateVars, followUpId } = get();
     if (sending || check.parseError) return;
-    if (resolveVariables(bodyText, liveContext(templateVars, followUpId)).unresolved.length) {
+    if (resolveVariables(bodyText, liveContext(templateVars, followUpId, followedSymbol(get()))).unresolved.length) {
       set({ check: checkOf(get()) });
       return;
     }
@@ -212,7 +220,7 @@ export const useApiExplorerStore = create<ApiExplorerState>((set, get) => ({
       confirmedHost = host;
     }
     // Variables get fresh values on every send, after any confirmation; the editor keeps the template.
-    const resolved = resolveVariables(bodyText, liveContext(templateVars, followUpId));
+    const resolved = resolveVariables(bodyText, liveContext(templateVars, followUpId, followedSymbol(get())));
     set({ sending: true });
     try {
       const response = await getCockpitApi().apiExplorer.sendCommand(resolved.text, confirmedHost);
@@ -232,7 +240,11 @@ export const useApiExplorerStore = create<ApiExplorerState>((set, get) => ({
     try {
       const followUp = await getCockpitApi().apiExplorer.followUp(orderId);
       // A newer follow-up may have been opened meanwhile.
-      if (get().followUpId === orderId) set({ followUp });
+      if (get().followUpId === orderId) {
+        set({ followUp });
+        // ...and {{symbol}} this order's symbol (SPEC-0069).
+        if (get().selectedType) set({ check: checkOf(get()) });
+      }
     } finally {
       if (get().followUpId === orderId) set({ followUpLoading: false });
     }

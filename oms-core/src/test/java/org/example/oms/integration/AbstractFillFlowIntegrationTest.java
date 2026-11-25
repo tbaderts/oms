@@ -60,8 +60,13 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
 
     /** Creates a limit order for 100 (optionally under a root) and waits until it is LIVE. */
     String createLiveOrder(String rootOrderId, String account) throws Exception {
+        return createLiveOrder(rootOrderId, account, "CL-" + UUID.randomUUID());
+    }
+
+    /** As {@link #createLiveOrder(String, String)}, with the given clOrdId (session {@code SES-PRJ}). */
+    String createLiveOrder(String rootOrderId, String account, String clOrdId) throws Exception {
         var order = new org.example.common.model.cmd.Order()
-                .clOrdId("CL-" + UUID.randomUUID())
+                .clOrdId(clOrdId)
                 .sessionId("SES-PRJ")
                 .account(account)
                 .symbol("AAPL")
@@ -87,10 +92,17 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
 
     /** Posts a fill over REST and returns the HTTP status. */
     int postFill(String execId, String orderId, String lastQty, String transactTime, String lastPx) throws Exception {
+        return postFill(execId, orderId, lastQty, transactTime, lastPx, "\"symbol\":\"AAPL\",");
+    }
+
+    /** Posts a fill over REST with the given instrument JSON (each field followed by a comma). */
+    int postFill(String execId, String orderId, String lastQty, String transactTime, String lastPx, String instrumentJson)
+            throws Exception {
         return mockMvc()
                 .perform(post("/api/command/execute")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                                + instrumentJson
                                 + "\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                                 + "\"lastQty\":" + lastQty + ",\"lastPx\":" + lastPx + ","
                                 + "\"execType\":\"F\",\"lastMkt\":\"XSIM\""
@@ -102,7 +114,7 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
     }
 
     static ExecutionCreateCmd fill(String execId, String orderId, String lastQty) {
-        var execution = Execution.newBuilder()
+        var execution = Execution.newBuilder().setSymbol("AAPL")
                 .setExecId(execId)
                 .setOrderId(orderId)
                 .setLastQty(new BigDecimal(lastQty).setScale(4, RoundingMode.HALF_UP))

@@ -72,3 +72,15 @@ describe('ColumnConfigService (SPEC-0060)', () => {
     for (const c of columns()) expect(['agTextColumnFilter', 'agNumberColumnFilter', 'agDateColumnFilter']).toContain(c.filter);
   });
 });
+
+describe('ColumnConfigService (SPEC-0068)', () => {
+  // AC-5: a saved layout may name a field the metamodel no longer offers (dayAvgPx was offered
+  // before SPEC-0068); that column is skipped and the others still show.
+  test('skips a saved column that is no longer offered', () => {
+    let saved: ReturnType<ColumnConfigService['getColumnConfig']> = [];
+    expect(() => {
+      saved = ColumnConfigService.getInstance().getColumnConfig('Execution', ['dayAvgPx', 'lastQty']);
+    }).not.toThrow();
+    expect(saved.map(c => c.field)).toEqual(['lastQty']);
+  });
+});

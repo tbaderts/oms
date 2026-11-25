@@ -43,8 +43,23 @@ simulator:
   command-topic: ${COMMAND_TOPIC:commands}
   fill-slices: ${SIMULATOR_FILL_SLICES:1}
   fill-delay: ${SIMULATOR_FILL_DELAY:0ms}
-  price-band-percent: ${SIMULATOR_PRICE_BAND_PERCENT:10}
   last-mkt: ${SIMULATOR_LAST_MKT:XSIM}
+  # Reference prices come from Alpha Vantage's latest quote when ALPHAVANTAGE_API_KEY is set
+  # (SPEC-0073), cached for quote-ttl to stay within the free quota (about 25 requests a day). After
+  # a rate limit or an outage the provider is left alone for provider-backoff.
+  quote-ttl: ${SIMULATOR_QUOTE_TTL:5m}
+  provider-backoff: ${SIMULATOR_PROVIDER_BACKOFF:60s}
+  alpha-vantage:
+    api-key: ${ALPHAVANTAGE_API_KEY:}
+    base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
+  # A limit priced further through the reference than this is rejected, as NYSE's Limit Order Price
+  # Protection does. The passive side is not collared.
+  price-collar:
+    tiers:
+      - { max-reference: 25.00, percent: 10 }
+      - { max-reference: 50.00, percent: 5 }
+    default-percent: 3
+  # The fallback when Alpha Vantage is not configured, cannot answer or has no quote for a symbol.
   reference-prices:
     AAPL: 170.00
     MSFT: 420.00

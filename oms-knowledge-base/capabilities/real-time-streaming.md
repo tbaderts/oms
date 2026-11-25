@@ -4,7 +4,7 @@ title: "Real-time Streaming"
 description: "Pushing live orders and executions to the trade blotter over RSocket, after an initial snapshot."
 tags: [streaming, rsocket, trade-blotter]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-24T16:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -25,16 +25,15 @@ Admin UI / trade blotter users.
 
 ## Behaviour
 
-RSocket routes `orders.stream`, `executions.stream`, `blotter.stream`, `orders.snapshot`,
-`executions.snapshot` and `health` (`TradeBlotterController`). The snapshot comes from the oms-core
-[Query API](../domain/interfaces/query-api.md); live updates from the `oms_orders` and
-`oms_order_executions` topics. Metadata over HTTP under `/trade-blotter`.
+RSocket routes `orders.stream`, `executions.stream` and `health` (`TradeBlotterController`). Each
+snapshot comes from the oms-core [Query API](../domain/interfaces/query-api.md) at subscription time
+(orders: `/search`; executions: `/executions/search`); live updates from the `oms_orders` and
+`oms_executions` topics. Metadata over HTTP under `/trade-blotter`. The service holds no orders or
+executions (SPEC-0071): see [Streaming Service](../architecture/context/streaming-service.md).
 
-Fills come from `oms_order_executions` (since SPEC-0019; before, `oms_executions`). Each record
-carries the order as of that fill, so a fill's blotter event (`EXECUTION_<execType>`) has an
-`order` with its symbol, side, account, quantities and state instead of ids only, and stream
-filters on order fields apply to fills too. A fill whose `(orderId, execId, orderVersion)` was already
-emitted is a redelivery and is dropped; a newer version of the same `execId` passes.
+Fills come from `oms_executions` (since SPEC-0071; SPEC-0019 to SPEC-0070 read
+`oms_order_executions`, the fill with its order, which is for booking). Each event carries the
+execution's own fields, including its instrument (SPEC-0069), not the order's.
 
 After the snapshot, live order events are deduplicated **per order on the event version**: a live
 event whose `eventId` is at or below the snapshot's `eventVersion` for the same order is dropped,
@@ -51,17 +50,17 @@ deduplication never applied to real snapshots.
   - `OmsQueryClient.fetchOrderSnapshot` pages the Query API newest first (`sort=id,DESC`) and
     stops at the limit.
   - The first page's `totalElements` is the matching count.
-  - If oms-core is down, the newest matching cached orders by `transactTime` are sent instead.
+  - If oms-core is down, the subscription ends with an error (since SPEC-0071; before, cached
+    orders were sent).
 - **Executions:**
-  - The snapshot is the matching fills of the in-memory cache, newest by `transactTime`, up to the
-    limit.
+  - `OmsQueryClient.fetchExecutionSnapshot` pages the execution search the same way, newest stored
+    first, up to the limit (SPEC-0071; before, the in-memory cache).
   - `executions.stream` now honours `includeSnapshot`; without it, only live fills follow.
   - The filter is applied inside the provider, so it never drops the marker.
   - The live sink replays its last events to a new subscriber. A replayed fill the snapshot
     already accounted for, at the same or a lower `orderVersion`, is skipped.
 - **The marker.** After the last snapshot row, a `SNAPSHOT_END` event carries `snapshotTotal`:
   how many rows matched, including those beyond the limit. Live events follow it.
-  `blotter.stream` filters the marker out and keeps its old shape.
 
 **Back-pressure (SPEC-0057).**
 - oms-ui requests events in batches of 256, over RSocket REQUEST_N.

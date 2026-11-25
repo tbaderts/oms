@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: OMS UI Market Data API
+  version: 1.0.0
+  description: |
+    Instrument lookup and quotes for order entry (SPEC-0072), served by oms-ui's backend.
+
+    Data comes from a market data provider (Alpha Vantage when an API key is configured) or, when
+    the provider is not configured, not reachable or out of quota, from a built-in list of the
+    instruments the exchange simulator prices. Provider limits and failures never fail a request:
+    the built-in data is returned with a `notice` saying why. The provider's API key stays on the
+    server.
+
+    Answers from the provider are cached (searches for a day, quotes for minutes by default), so
+    repeated requests do not spend the provider's quota.
+paths:
+  /api/market-data/instruments:
+    get:
+      operationId: searchInstruments
+      summary: Instruments whose symbol or name matches a query
+      tags:
+        - MarketData
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+          description: Part of a symbol or an instrument name
+      responses:
+        '200':
+          description: Matching instruments, possibly none
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstrumentSearchResult'
+        '400':
+          description: Missing or invalid query
+  /api/market-data/quotes/{symbol}:
+    get:
+      operationId: getQuote
+      summary: The latest quote for a symbol
+      tags:
+        - MarketData
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 20
+      responses:
+        '200':
+          description: The latest quote
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '404':
+          description: Neither the provider nor the built-in list has a quote for this symbol
+
+components:
+  schemas:
+    MarketDataSource:
+      type: string
+      description: Where the data came from
+      enum:
+        - ALPHA_VANTAGE
+        - BUILT_IN
+    Instrument:
+      type: object
+      required:
+        - symbol
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: Instrument type as the provider names it (e.g. Equity, ETF)
+        region:
+          type: string
+        currency:
+          type: string
+    InstrumentSearchResult:
+      type: object
+      required:
+        - instruments
+        - source
+      properties:
+        instruments:
+          type: array
+          x-field-extra-annotation: "@lombok.Builder.Default"
+          items:
+            $ref: '#/components/schemas/Instrument'
+        source:
+          $ref: '#/components/schemas/MarketDataSource'
+        notice:
+          type: string
+          description: Why the built-in list was used, when it was
+    Quote:
+      type: object
+      required:
+        - symbol
+        - source
+      properties:
+        symbol:
+          type: string
+        last:
+          type: number
+          description: Last traded price (the reference price for built-in instruments)
+        change:
+          type: number
+        changePercent:
+          type: number
+          description: Change in percent, e.g. 1.25 for +1.25%
+        high:
+          type: number
+        low:
+          type: number
+        previousClose:
+          type: number
+        bid:
+          type: number
+          description: Absent when the provider does not supply it
+        ask:
+          type: number
+          description: Absent when the provider does not supply it
+        currency:
+          type: string
+        asOf:
+          type: string
+          description: The provider's as-of date or time, as given
+        source:
+          $ref: '#/components/schemas/MarketDataSource'
+        notice:
+          type: string
+          description: Why the built-in data was used, when it was

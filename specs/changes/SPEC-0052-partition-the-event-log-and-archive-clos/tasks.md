@@ -40,8 +40,8 @@
 - [x] **T-5** Write the failing `PartitionMaintenanceIntegrationTest` (ahead creation, the month boundary, dropping an emptied past partition and keeping one with a retained row), then implement `PartitionMaintenance` (AC-3, AC-8)
   - files: oms-core/src/test/java/org/example/oms/integration/PartitionMaintenanceIntegrationTest.java, oms-core/src/main/java/org/example/oms/archive/PartitionMaintenance.java
   - verify: `cd oms-core && ./gradlew test --tests '*PartitionMaintenanceIntegrationTest'` passes
-- [x] **T-6** Write the failing `ReplicaIntegrationTest`, then implement `ReplicaConfig` (the `@Replica` read-only data source and `JdbcTemplate`) and `ReplicaSchema` (Liquibase with context `replica`, then the subscription) (AC-4)
-  - files: oms-core/src/test/java/org/example/oms/integration/ReplicaIntegrationTest.java, oms-core/src/main/java/org/example/oms/archive/ReplicaConfig.java, oms-core/src/main/java/org/example/oms/archive/Replica.java, oms-core/src/main/java/org/example/oms/archive/ReplicaSchema.java, oms-core/src/main/resources/application.yml
+- [x] **T-6** Write the failing `ReplicaIntegrationTest`, then implement `ReplicaConfig` (the `ReplicaDatabase` holder: read-only pool and `JdbcTemplate`) and `ReplicaSchema` (Liquibase with context `replica`, then the subscription) (AC-4)
+  - files: oms-core/src/test/java/org/example/oms/integration/ReplicaIntegrationTest.java, oms-core/src/main/java/org/example/oms/archive/ReplicaConfig.java, oms-core/src/main/java/org/example/oms/archive/ReplicaDatabase.java, oms-core/src/main/java/org/example/oms/archive/ReplicaSchema.java, oms-core/src/main/resources/application.yml
   - verify: `cd oms-core && ./gradlew test --tests '*ReplicaIntegrationTest'` passes
 - [x] **T-7** Write the failing `ArchivePreconditionsTest`, then implement `ArchivePreconditions` and the `AnalyticsHistoryCheck` interface (AC-7)
   - files: oms-core/src/test/java/org/example/oms/archive/ArchivePreconditionsTest.java, oms-core/src/main/java/org/example/oms/archive/ArchivePreconditions.java, oms-core/src/main/java/org/example/oms/archive/AnalyticsHistoryCheck.java
@@ -53,17 +53,47 @@
   - files: oms-core/src/test/java/org/example/oms/integration/RetentionLeadershipIntegrationTest.java
   - verify: `cd oms-core && ./gradlew test --tests '*RetentionLeadershipIntegrationTest'` passes
 - [x] **T-10** docker-compose: the `postgres-replica` service (port 5433, volume, `REPLICA_DB_PASSWORD`), `max_slot_wal_keep_size=2GB` on the primary, and `oms.replica.*` environment for oms-core (AC-4)
-  - files: docker-compose.yml, oms-core/.env.example
+  - files: docker-compose.yml
   - verify: `docker compose config` validates, and `docker compose up -d postgres postgres-replica oms-core` then shows `[replica] subscription oms_history active` in the oms-core log
-- [x] **T-11** Load measurement: a storage section in `LoadReport` (bytes and WAL per order, timed vacuum after a retention pass) and `RetentionProjection` with its unit test; run the suite against compose and record the report (AC-10)
-  - files: oms-core/src/test/java/org/example/oms/load/LoadSuiteRunnerTest.java, oms-core/src/test/java/org/example/oms/load/LoadReport.java, oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java
+- [x] **T-11** Load measurement: a storage section written next to the load report as `retention-<timestamp>.txt` (bytes and WAL per order, timed vacuum after a retention pass) and `RetentionProjection` with its unit test; run the suite against compose and record the report (AC-10)
+  - files: oms-core/src/test/java/org/example/oms/load/LoadSuiteRunnerTest.java, oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java
   - verify: `cd oms-core && ./gradlew test --tests '*RetentionProjectionTest'` passes, and an `OMS_LOAD_SUITE=true` run writes a report with the storage section and projection
-- [x] **T-12** Knowledge base: the new `architecture/concepts/retention-and-archive.md`, and updates to `state-store.md`, `domain/model/order-event.md`, `domain/concepts/post-trade-analytics.md`, `architecture/context/market-adapter.md`, `capabilities/order-expiry-and-close.md` and `infrastructure/local-docker-stack.md` (AC-11)
-  - files: oms-knowledge-base/architecture/concepts/retention-and-archive.md, oms-knowledge-base/architecture/concepts/state-store.md, oms-knowledge-base/domain/model/order-event.md, oms-knowledge-base/domain/concepts/post-trade-analytics.md, oms-knowledge-base/architecture/context/market-adapter.md, oms-knowledge-base/capabilities/order-expiry-and-close.md, oms-knowledge-base/infrastructure/local-docker-stack.md
+- [x] **T-12** Knowledge base: the new `architecture/concepts/retention-and-archive.md`, and updates to `state-store.md`, `domain/model/order-event.md`, `domain/concepts/post-trade-analytics.md`, `capabilities/order-expiry-and-close.md` and `infrastructure/local-docker-stack.md` (AC-11)
+  - files: oms-knowledge-base/architecture/concepts/retention-and-archive.md, oms-knowledge-base/architecture/concepts/state-store.md, oms-knowledge-base/domain/model/order-event.md, oms-knowledge-base/domain/concepts/post-trade-analytics.md, oms-knowledge-base/architecture/concepts/index.md, oms-knowledge-base/semantic-layer/okf-conventions.md, oms-knowledge-base/capabilities/order-expiry-and-close.md, oms-knowledge-base/infrastructure/local-docker-stack.md
   - verify: `node tools/okf-check/okf-check.mjs oms-knowledge-base` reports no errors
-- [ ] **T-13** Run the full oms-core check and spec verify (all ACs)
+- [x] **T-14** Write the failing `ReplicaIntegrationTest#replicationSurvivesClOrdIdReuseAfterArchiving`, then add changelog `018-replica-relaxed-keys.yaml` (context `replica`) dropping `uq_orders_session_cl_ord_id` on the replica only (AC-4, AC-5)
+  - files: oms-core/src/test/java/org/example/oms/integration/ReplicaIntegrationTest.java, oms-core/src/main/resources/db/changelog/018-replica-relaxed-keys.yaml, oms-core/src/main/resources/db/changelog/db.changelog-master.yaml
+  - verify: `cd oms-core && ./gradlew test --tests '*ReplicaIntegrationTest'` passes
+- [x] **T-15** Write the failing `ReplicaIntegrationTest#replicationSurvivesAProjectionRebuild`, then rebuild projections in place: `Projection.retainOnly(keys)` replaces `clear()`, and `ProjectionRebuilder` upserts, then removes the rows it did not reproduce (AC-4)
+  - files: oms-core/src/test/java/org/example/oms/integration/ReplicaIntegrationTest.java, oms-core/src/main/java/org/example/oms/projection/Projection.java, oms-core/src/main/java/org/example/oms/projection/OrderExecutionProjection.java, oms-core/src/main/java/org/example/oms/projection/ProjectionRebuilder.java
+  - verify: `cd oms-core && ./gradlew test --tests '*ReplicaIntegrationTest' --tests '*ProjectionRebuildIntegrationTest' --tests '*ProjectionIntegrationTest'` passes
+- [x] **T-16** Write the failing `ReplicaIntegrationTest#maintenanceDropsAnEmptiedPartitionAndTheReplicaKeepsItsRows`, and add `lock_timeout` to the partition detach (AC-8)
+  - files: oms-core/src/test/java/org/example/oms/integration/ReplicaIntegrationTest.java, oms-core/src/main/java/org/example/oms/archive/PartitionMaintenance.java
+  - verify: `cd oms-core && ./gradlew test --tests '*ReplicaIntegrationTest' --tests '*PartitionMaintenanceIntegrationTest'` passes
+- [x] **T-17** Write the failing `RetentionJobIntegrationTest#failingOrdersDoNotStarveNewerOnes`, then make `RetentionJob` remember failures and order candidates by them; move the version read inside the failure handling (AC-5, AC-6)
+  - files: oms-core/src/test/java/org/example/oms/integration/RetentionJobIntegrationTest.java, oms-core/src/main/java/org/example/oms/archive/RetentionJob.java
+  - verify: `cd oms-core && ./gradlew test --tests '*RetentionJobIntegrationTest' --tests '*RetentionLeadershipIntegrationTest'` passes
+- [x] **T-18** AC-10 reporting: `RetentionProjection` gives no verdict on an unmeasured vacuum and rejects negative growth; the suite reports bytes per order held as a cross-check, and storage is measured over 5,000 orders; re-run the suite and record the figures and the method in verification.md (AC-10)
+  - files: oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java, oms-core/src/test/java/org/example/oms/load/LoadSuiteRunnerTest.java
+  - verify: `cd oms-core && ./gradlew test --tests '*RetentionProjectionTest'` passes, and 5,000-order suite runs, with and without the retention pass, write their reports
+- [x] **T-19** KB: `retention-and-archive.md` states the replica's relaxed clOrdId key, in-place projection rebuilds, failure-aware retries and the accepted orphan `command_log` case (AC-11)
+  - files: oms-knowledge-base/architecture/concepts/retention-and-archive.md
+  - verify: `node tools/okf-check/okf-check.mjs oms-knowledge-base` reports no errors
+- [x] **T-20** Second review: measure AC-10 storage and WAL once the run's orders are CLOSED (retention pass measures vacuum only); storage optional in `RetentionProjection`; re-run 5,000-order storage and retention-pass runs (AC-10)
+  - files: oms-core/src/test/java/org/example/oms/load/LoadSuiteRunnerTest.java, oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java
+  - verify: `cd oms-core && ./gradlew test --tests '*RetentionProjectionTest'` passes, and both 5,000-order runs write their reports
+- [x] **T-21** Second review, minors: `RetentionJob` maps any per-order exception to `error` and goes on; a blocked partition drop ends the run's drops; changeset 018 gets a publisher precondition and an idempotent rollback; tests for the rebuild's stale-row delete and the blocked drop; KB notes (AC-4, AC-5, AC-8, AC-11)
+  - files: oms-core/src/main/java/org/example/oms/archive/RetentionJob.java, oms-core/src/main/java/org/example/oms/archive/PartitionMaintenance.java, oms-core/src/main/resources/db/changelog/018-replica-relaxed-keys.yaml, oms-core/src/test/java/org/example/oms/integration/RetentionJobIntegrationTest.java, oms-core/src/test/java/org/example/oms/integration/ProjectionRebuildIntegrationTest.java, oms-core/src/test/java/org/example/oms/integration/PartitionMaintenanceIntegrationTest.java, oms-core/src/test/java/org/example/oms/integration/OrderExecutionProjectionRenameMigrationTest.java, oms-knowledge-base/architecture/concepts/retention-and-archive.md
+  - verify: `cd oms-core && ./gradlew test --tests '*RetentionJobIntegrationTest' --tests '*ProjectionRebuildIntegrationTest' --tests '*PartitionMaintenanceIntegrationTest' --tests '*OrderExecutionProjectionRenameMigrationTest'` passes
+- [x] **T-22** Third review: AC-10 re-measured on a clean history (storage over budget, reported); WAL optional in `RetentionProjection`; the suite reports orders held by state and the replica size; the lock-row race maps to `changed`; the blocked-drop test has two partitions (AC-5, AC-8, AC-10)
+  - files: oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java, oms-core/src/test/java/org/example/oms/load/LoadSuiteRunnerTest.java, oms-core/src/main/java/org/example/oms/archive/RetentionJob.java, oms-core/src/test/java/org/example/oms/integration/PartitionMaintenanceIntegrationTest.java
+  - verify: `cd oms-core && ./gradlew test --tests '*PartitionMaintenanceIntegrationTest' --tests '*RetentionProjectionTest' --tests '*RetentionJobIntegrationTest'` passes, and the clean-history storage and retention-pass runs write their reports
+- [x] **T-23** Retention 30 days (requester, 2026-11-17): the default `oms.retention.closed-order-days` in application.yml and in the `@Value` defaults of `RetentionJob` and `PartitionMaintenance`; `RetentionProjection.proposed` at 30 days, with its test; the KB pages; re-measure AC-10 storage on a clean history (AC-10, AC-11)
+  - files: oms-core/src/main/resources/application.yml, oms-core/src/main/java/org/example/oms/archive/RetentionJob.java, oms-core/src/main/java/org/example/oms/archive/PartitionMaintenance.java, oms-core/src/test/java/org/example/oms/load/RetentionProjection.java, oms-core/src/test/java/org/example/oms/load/RetentionProjectionTest.java, oms-knowledge-base/architecture/concepts/retention-and-archive.md, oms-knowledge-base/domain/concepts/post-trade-analytics.md
+  - verify: `cd oms-core && ./gradlew test --tests '*RetentionProjectionTest'` passes, `okf-check` reports no errors, and a clean-history storage run writes its report
+- [x] **T-13** Run the full oms-core check and spec verify (all ACs)
   - files: (none)
-  - verify: `node specs/tools/spec.mjs verify SPEC-0052` exits 0
+  - verify: `node specs/tools/spec.mjs verify SPEC-0052` exits 0 after `./gradlew cleanTest`
 
 ## Notes
 
@@ -89,3 +119,14 @@
     - a 60 s replication wait.
   - **Evidence.** The three classes pass together (10/10). The full oms-core suite passes: 684
     tests, 0 failures, 1 pre-existing skip.
+- **Second leadership flake: a race in the test itself.**
+  - **Symptom.** After `cleanTest`, a full suite run failed once at the leadership test's
+    archived wait (15 s).
+  - **Cause.** With retention at 0 days, the leader archives the order as soon as the replica holds
+    it. After that, `awaitReplicated` can no longer see primary and replica match. The 15 s archive
+    budget also had to cover scheduler-leadership acquisition by one of two fresh contexts.
+  - **Fix** (test only). The test no longer calls `awaitReplicated`. It waits up to the 60 s
+    replication budget for the order to leave the primary, then asserts that the replica still
+    holds it.
+  - **Evidence.** The three archive classes pass together.
+- **Reopened after the independent review** (verify stage): T-14 to T-19 fix its findings (see design, "Changed during verification"). T-13 moves to the end again.

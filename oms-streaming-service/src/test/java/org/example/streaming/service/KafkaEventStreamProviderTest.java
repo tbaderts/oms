@@ -5,26 +5,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.example.common.model.msg.OrderExecution;
+import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.OrderMessage;
 import org.example.common.model.query.OrderDto;
 import org.example.streaming.client.OmsQueryClient;
-import org.example.streaming.mapper.OrderExecutionMapper;
+import org.example.streaming.mapper.ExecutionMessageMapper;
 import org.example.streaming.mapper.OrderMessageMapper;
 import org.example.streaming.model.ExecutionDto;
 import org.example.streaming.model.ExecutionEvent;
-import org.example.streaming.model.FilterCondition;
 import org.example.streaming.model.OrderEvent;
 import org.example.streaming.model.StreamFilter;
 import org.junit.jupiter.api.AfterEach;
@@ -40,12 +37,17 @@ import reactor.kafka.receiver.ReceiverOffset;
 import reactor.kafka.receiver.ReceiverRecord;
 import reactor.test.StepVerifier;
 
+/**
+ * The stream provider holds no state (SPEC-0071): snapshots come from oms-core at each
+ * subscription, live events from Kafka ({@code oms_orders}, {@code oms_executions}), and the only
+ * deduplication is per subscription, against the versions its snapshot saw (SPEC-0018, SPEC-0057).
+ */
 class KafkaEventStreamProviderTest {
 
     private final Sinks.Many<ReceiverRecord<String, OrderMessage>> orderRecords =
             Sinks.many().unicast().onBackpressureBuffer();
 
-    private final Sinks.Many<ReceiverRecord<String, OrderExecution>> fillRecords =
+    private final Sinks.Many<ReceiverRecord<String, Execution>> fillRecords =
             Sinks.many().unicast().onBackpressureBuffer();
 
     private KafkaEventStreamProvider provider;
@@ -62,43 +64,38 @@ class KafkaEventStreamProviderTest {
     /**
      * SPEC-0018 AC-4. The snapshot reports each order's latest event version; a live event at or
      * below that version for the same order is already in the snapshot (or older), while newer
-     * events and other orders' events must pass. Deduplicating on the bare number across orders
-     * used to swallow order B's version 3 because order A's snapshot was at version 3.
+     * events and other orders' events must pass.
      */
     @Test
     void snapshotDeduplicatesLiveEventsPerOrderByVersion() {
         OmsQueryClient queryClient = mock(OmsQueryClient.class);
         when(queryClient.fetchOrderSnapshot(any(), anyInt()))
-                .thenReturn(snapshot(2, snapshotOrder("A", 3L), snapshotOrder("B", 1L)));
+                .thenReturn(orderSnapshot(2, snapshotOrder("A", 3L), snapshotOrder("B", 1L)));
         provider = startProvider(queryClient);
 
         StepVerifier.create(
                         provider.getOrderEventStream(StreamFilter.builder().includeSnapshot(true).build())
                                 .map(KafkaEventStreamProviderTest::describe))
                 .expectNext("SNAPSHOT A 3", "SNAPSHOT B 1", "SNAPSHOT_END 2")
-                .then(
-                        () -> {
-                            emit("A", 2);
-                            emit("A", 3);
-                            emit("A", 4);
-                            emit("B", 3);
-                        })
+                .then(() -> {
+                    emit("A", 2);
+                    emit("A", 3);
+                    emit("A", 4);
+                    emit("B", 3);
+                })
                 .expectNext("UPDATE A 4", "UPDATE B 3")
                 .expectNoEvent(Duration.ofMillis(300))
                 .thenCancel()
                 .verify(Duration.ofSeconds(5));
     }
 
-    /**
-     * SPEC-0057 AC-3. The client keeps at most its limit; the server sends at most that many orders, the
-     * newest, as the Query API returns them (highest id first), then a marker with how many matched.
-     */
+    /** SPEC-0057 AC-3. The order snapshot is the client's, limited, then the matching count. */
     @Test
     void orderSnapshotIsLimitedAndEndsWithMatchingCount() {
         OmsQueryClient queryClient = mock(OmsQueryClient.class);
         StreamFilter filter = StreamFilter.builder().includeSnapshot(true).snapshotLimit(2).build();
         when(queryClient.fetchOrderSnapshot(filter, 2))
-                .thenReturn(snapshot(8300, snapshotOrder("C", 1L), snapshotOrder("B", 1L)));
+                .thenReturn(orderSnapshot(8300, snapshotOrder("C", 1L), snapshotOrder("B", 1L)));
         provider = startProvider(queryClient);
 
         StepVerifier.create(provider.getOrderEventStream(filter).map(KafkaEventStreamProviderTest::describe))
@@ -110,86 +107,182 @@ class KafkaEventStreamProviderTest {
     }
 
     /**
-     * SPEC-0057 AC-3, oms-core unavailable: the snapshot comes from the cache, still limited, and the
-     * marker counts the cached orders that match.
+     * SPEC-0071 AC-1. The execution snapshot is the execution search's answer for the stream's filter
+     * and limit, in its order (newest stored first), then the marker with its matching count.
      */
     @Test
-    void orderSnapshotFromTheCacheIsLimitedToo() {
+    void executionSnapshotComesFromTheSearchAndEndsWithItsCount() {
         OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchOrderSnapshot(any(), anyInt()))
-                .thenReturn(new OmsQueryClient.OrderSnapshot(
-                        Flux.error(new IllegalStateException("oms-core down")), Mono.just(0L)));
+        StreamFilter filter = StreamFilter.builder().includeSnapshot(true).snapshotLimit(2)
+                .filters(StreamFilter.eq("symbol", "AAPL").getFilters()).build();
+        when(queryClient.fetchExecutionSnapshot(filter, 2))
+                .thenReturn(executionSnapshot(7, stored("B", "E1", 5L), stored("A", "E2", 2L)));
         provider = startProvider(queryClient);
-        emit("A", 1);
-        emit("B", 1);
-        emit("C", 1);
 
-        StepVerifier.create(provider.getOrderEventStream(
-                                StreamFilter.builder().includeSnapshot(true).snapshotLimit(2).build())
-                        .map(e -> e.getEventType().equals(OrderEvent.SNAPSHOT_END) ? describe(e) : e.getEventType()))
-                .expectNext("SNAPSHOT", "SNAPSHOT", "SNAPSHOT_END 3")
+        StepVerifier.create(provider.getExecutionEventStream(filter).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT B/E1 AAPL", "SNAPSHOT A/E2 AAPL", "SNAPSHOT_END 7")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        verify(queryClient).fetchExecutionSnapshot(filter, 2);
+    }
+
+    /**
+     * SPEC-0071 AC-2. The snapshot is read at each subscription: a fill deleted from the database since
+     * the last one is not shown again, without a restart.
+     */
+    @Test
+    void executionSnapshotIsReadAtEachSubscription() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchExecutionSnapshot(any(), anyInt()))
+                .thenReturn(executionSnapshot(2, stored("A", "E2", 2L), stored("A", "E1", 1L)))
+                .thenReturn(executionSnapshot(1, stored("A", "E2", 2L)));
+        provider = startProvider(queryClient);
+        StreamFilter withSnapshot = StreamFilter.withSnapshot();
+
+        StepVerifier.create(provider.getExecutionEventStream(withSnapshot).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT A/E2 AAPL", "SNAPSHOT A/E1 AAPL", "SNAPSHOT_END 2")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        StepVerifier.create(provider.getExecutionEventStream(withSnapshot).map(KafkaEventStreamProviderTest::describe))
+                .expectNext("SNAPSHOT A/E2 AAPL", "SNAPSHOT_END 1")
                 .thenCancel()
                 .verify(Duration.ofSeconds(5));
     }
 
-    /**
-     * SPEC-0057 AC-3. The execution snapshot comes from the cache: the newest matching fills by
-     * transactTime, at most the client's limit, newest first, then the marker with how many matched.
-     * The filter applies to the snapshot, never to the marker.
-     */
+    /** SPEC-0071 AC-3. Live fills are the Execution records of oms_executions, with their instrument. */
     @Test
-    void executionSnapshotIsNewestByTransactTimeAndEndsWithMatchingCount() {
+    void liveExecutionsComeFromTheExecutionRecord() {
         provider = startProvider(mock(OmsQueryClient.class));
-        emitFill("A", "E1", 1L, 100);
-        emitFill("A", "E2", 2L, 300);
-        emitFill("B", "E1", 1L, 400);
-        emitFill("A", "E3", 3L, 200);
-        awaitCachedExecutions(4);
 
-        StreamFilter onA = StreamFilter.builder()
-                .filters(List.of(FilterCondition.eq("orderId", "A")))
-                .includeSnapshot(true)
-                .snapshotLimit(2)
-                .build();
-        StepVerifier.create(provider.getExecutionEventStream(onA).map(KafkaEventStreamProviderTest::describe))
-                .expectNext("SNAPSHOT A/E2", "SNAPSHOT A/E3", "SNAPSHOT_END 3")
-                .then(() -> {
-                    emitFill("B", "E2", 2L, 500);
-                    emitFill("A", "E4", 4L, 600);
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly()))
+                .then(() -> emitFill("A", "E1", 3L))
+                .assertNext(event -> {
+                    assertEquals("F", event.getEventType());
+                    assertEquals("A", event.getOrderId());
+                    assertEquals("E1", event.getExecId());
+                    assertEquals("AAPL", event.getExecution().getSymbol());
+                    assertEquals(0, BigDecimal.TEN.compareTo(event.getExecution().getLastQty()));
+                    assertEquals(3L, event.getExecution().getOrderVersion());
                 })
-                .expectNext("NEW A/E4")
                 .thenCancel()
                 .verify(Duration.ofSeconds(5));
     }
 
     /**
-     * SPEC-0057 AC-4. Without a snapshot, no snapshot is sent, though the cache holds fills: only live
-     * events follow. (The live sink replays its most recent events to a new subscriber, as before
-     * SPEC-0057; those are live events, not a snapshot.)
+     * SPEC-0071 AC-4 (SPEC-0057 AC-8). A live fill at or below the version the subscription's snapshot
+     * saw for that (orderId, execId) is already shown; a higher version, or another fill, is new.
      */
     @Test
-    void executionStreamWithoutSnapshotSendsOnlyLiveEvents() {
-        provider = startProvider(mock(OmsQueryClient.class));
-        emitFill("A", "E1", 1L, 100);
-        awaitCachedExecutions(1);
+    void liveFillAtOrBelowTheSnapshotVersionIsNotEmitted() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        when(queryClient.fetchExecutionSnapshot(any(), anyInt()))
+                .thenReturn(executionSnapshot(1, stored("A", "E1", 3L)));
+        provider = startProvider(queryClient);
 
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly())
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot())
                         .map(KafkaEventStreamProviderTest::describe))
-                .then(() -> emitFill("A", "E2", 2L, 200))
-                .recordWith(ArrayList::new)
-                .thenConsumeWhile(event -> !event.equals("NEW A/E2"))
-                .consumeRecordedWith(events -> assertTrue(
-                        events.stream().noneMatch(event -> event.startsWith("SNAPSHOT")), events.toString()))
-                .expectNext("NEW A/E2")
+                .expectNext("SNAPSHOT A/E1 AAPL", "SNAPSHOT_END 1")
+                .then(() -> {
+                    emitFill("A", "E1", 2L);
+                    emitFill("A", "E1", 3L);
+                    emitFill("A", "E1", 4L);
+                    emitFill("B", "E1", 1L);
+                })
+                .expectNext("F A/E1 AAPL", "F B/E1 AAPL")
                 .expectNoEvent(Duration.ofMillis(300))
                 .thenCancel()
                 .verify(Duration.ofSeconds(5));
     }
 
     /**
+     * SPEC-0071 (review): a filter on the fill's own fields applies to live fills as it does to the
+     * snapshot (which passes it to the execution search): symbol and securityId (SPEC-0069), and
+     * status — every fill on oms_executions is an applied one.
+     */
+    @Test
+    void liveFillsAreFilteredOnTheirInstrumentAndStatus() {
+        provider = startProvider(mock(OmsQueryClient.class));
+        StreamFilter aaplApplied = StreamFilter.builder().includeSnapshot(false)
+                .filters(java.util.List.of(
+                        org.example.streaming.model.FilterCondition.eq("symbol", "AAPL"),
+                        org.example.streaming.model.FilterCondition.eq("status", "APPLIED")))
+                .build();
+
+        StepVerifier.create(provider.getExecutionEventStream(aaplApplied).map(KafkaEventStreamProviderTest::describe))
+                .then(() -> {
+                    emitFill("A", "E1", 1L, "MSFT");
+                    emitFill("A", "E2", 2L, "AAPL");
+                })
+                .expectNext("F A/E2 AAPL")
+                .expectNoEvent(Duration.ofMillis(300))
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.builder().includeSnapshot(false)
+                                .filters(java.util.List.of(org.example.streaming.model.FilterCondition.eq("status", "BUSTED")))
+                                .build())
+                        .map(KafkaEventStreamProviderTest::describe))
+                .then(() -> emitFill("B", "E1", 1L, "AAPL"))
+                .expectNoEvent(Duration.ofMillis(300))
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** SPEC-0071 AC-5. Without oms-core there is no snapshot to serve: the subscription errors. */
+    @Test
+    void snapshotFailsWhenOmsCoreFails() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        IllegalStateException down = new IllegalStateException("oms-core down");
+        when(queryClient.fetchOrderSnapshot(any(), anyInt()))
+                .thenReturn(new OmsQueryClient.OrderSnapshot(Flux.error(down), Mono.error(down)));
+        when(queryClient.fetchExecutionSnapshot(any(), anyInt()))
+                .thenReturn(new OmsQueryClient.ExecutionSnapshot(Flux.error(down), Mono.error(down)));
+        provider = startProvider(queryClient);
+        emit("A", 1);
+
+        StepVerifier.create(provider.getOrderEventStream(StreamFilter.withSnapshot()))
+                .expectErrorMessage("oms-core down")
+                .verify(Duration.ofSeconds(5));
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot()))
+                .expectErrorMessage("oms-core down")
+                .verify(Duration.ofSeconds(5));
+    }
+
+    /** SPEC-0071 AC-5 and SPEC-0057 AC-4. A live-only stream never asks oms-core and sends no snapshot. */
+    @Test
+    void liveOnlyStreamNeedsNoOmsCore() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        provider = startProvider(queryClient);
+
+        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly())
+                        .map(KafkaEventStreamProviderTest::describe))
+                .then(() -> emitFill("A", "E2", 2L))
+                .recordWith(ArrayList::new)
+                .thenConsumeWhile(event -> !event.equals("F A/E2 AAPL"))
+                .consumeRecordedWith(events -> assertTrue(
+                        events.stream().noneMatch(event -> event.startsWith("SNAPSHOT")), events.toString()))
+                .expectNext("F A/E2 AAPL")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        StepVerifier.create(provider.getOrderEventStream(StreamFilter.liveOnly()).map(KafkaEventStreamProviderTest::describe))
+                .then(() -> emit("O", 1))
+                .expectNext("UPDATE O 1")
+                .thenCancel()
+                .verify(Duration.ofSeconds(5));
+        verifyNoInteractions(queryClient);
+    }
+
+    /** SPEC-0071 AC-6. Nothing is loaded at startup: there is no cache to warm. */
+    @Test
+    void startupCallsNoOmsCore() {
+        OmsQueryClient queryClient = mock(OmsQueryClient.class);
+        provider = startProvider(queryClient);
+
+        verifyNoInteractions(queryClient);
+    }
+
+    /**
      * SPEC-0057 AC-6. A client that stops requesting must not make the server buffer without limit: past
-     * the per-subscriber bound its stream ends with an error (the blotter offers Retry, which reloads
-     * a snapshot), and the overflow is counted.
+     * the per-subscriber bound its stream ends with an error, and the overflow is counted.
      */
     @Test
     void slowSubscriberOverflowEndsTheStream() {
@@ -228,283 +321,61 @@ class KafkaEventStreamProviderTest {
         assertEquals(0.0, meters.counter("oms.streaming.subscriber.overflow", "route", "orders.stream").count());
     }
 
-    /**
-     * SPEC-0019 AC-7. The relay publishes at least once, so the same fill can arrive twice; it carries
-     * the same (orderId, execId, orderVersion) both times and must reach the blotter once. A new fill of the
-     * same order, with a higher version, must still pass.
-     */
-    @Test
-    void orderExecutionRedelivery_isEmittedOnce() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchAllOrders()).thenReturn(Flux.empty());
-        provider = startProvider(queryClient);
-
-        StepVerifier.create(
-                        provider.getExecutionEventStream(StreamFilter.liveOnly())
-                                .map(e -> e.getExecId() + " " + e.getExecution().getOrderVersion()))
-                .then(
-                        () -> {
-                            emitFill("A", "X1", 3L);
-                            emitFill("A", "X1", 3L);
-                            emitFill("A", "X2", 4L);
-                        })
-                .expectNext("X1 3", "X2 4")
-                .expectNoEvent(Duration.ofMillis(300))
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-    }
-
-    /**
-     * execId is unique per order only (the executions table is unique on (orderId, execId)), so two
-     * orders may share one. A fill on B must not be taken for a redelivery of A's.
-     */
-    @Test
-    void sameExecIdOnTwoOrders_isNotARedelivery() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchAllOrders()).thenReturn(Flux.empty());
-        provider = startProvider(queryClient);
-
-        StepVerifier.create(
-                        provider.getExecutionEventStream(StreamFilter.liveOnly())
-                                .map(e -> e.getOrderId() + " " + e.getExecId() + " " + e.getExecution().getOrderVersion()))
-                .then(
-                        () -> {
-                            emitFill("A", "F1", 3L);
-                            emitFill("B", "F1", 3L);
-                        })
-                .expectNext("A F1 3", "B F1 3")
-                .expectNoEvent(Duration.ofMillis(300))
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-        assertEquals(2, provider.getExecutionCacheSize(), "both fills cached, neither overwrites the other");
-    }
-
-    // ----- SPEC-0067: the execution cache is warmed from the query API at startup -----
-
-    /** SPEC-0067 AC-1: after a restart, the snapshot holds the stored fills, newest first. */
-    @Test
-    void snapshotAfterStartIncludesStoredFills() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchRecentExecutions(anyInt()))
-                .thenReturn(Flux.just(storedFill("A", "F2", 4, 30), storedFill("B", "F1", 3, 20), storedFill("A", "F1", 3, 10)));
-        provider = startProvider(queryClient);
-        awaitCachedExecutions(3);
-
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot())
-                        .map(KafkaEventStreamProviderTest::describe))
-                .expectNext("SNAPSHOT A/F2", "SNAPSHOT B/F1", "SNAPSHOT A/F1", "SNAPSHOT_END 3")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-        assertEquals("INTC", provider.getExecutionEventStream(StreamFilter.withSnapshot()).blockFirst()
-                .getExecution().getOrder().getSymbol(), "a stored fill carries its order");
-    }
-
-    /** SPEC-0067 AC-2: a stored fill that Kafka delivers again is not a new live event. */
-    @Test
-    void storedFillDeliveredAgainByKafkaIsNotEmitted() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchRecentExecutions(anyInt())).thenReturn(Flux.just(storedFill("A", "F1", 3, 10)));
-        provider = startProvider(queryClient);
-        awaitCachedExecutions(1);
-
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly())
-                        .map(e -> e.getOrderId() + " " + e.getExecId() + " " + e.getExecution().getOrderVersion()))
-                .then(() -> {
-                    emitFill("A", "F1", 3);
-                    emitFill("A", "F1", 4);
-                    emitFill("B", "F1", 3);
-                })
-                .expectNext("A F1 4", "B F1 3")
-                .expectNoEvent(Duration.ofMillis(300))
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-    }
-
-    /** SPEC-0067 AC-3: when oms-core does not answer, live fills still stream, and the load is retried. */
-    @Test
-    void warmUpRetriesUntilQueryApiAnswers() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchRecentExecutions(anyInt()))
-                .thenReturn(Flux.error(new IllegalStateException("oms-core unreachable")))
-                .thenReturn(Flux.error(new IllegalStateException("oms-core unreachable")))
-                .thenReturn(Flux.just(storedFill("A", "F1", 3, 10)));
-        provider = startProvider(queryClient, p -> ReflectionTestUtils.setField(p, "warmUpBackoff", Duration.ofMillis(200)));
-
-        // Before the load succeeds, a live fill is streamed and cached.
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly()).map(KafkaEventStreamProviderTest::describe))
-                .then(() -> emitFill("C", "F1", 1))
-                .expectNext("NEW C/F1")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-
-        awaitCachedExecutions(2);
-        verify(queryClient, timeout(5000).times(3)).fetchRecentExecutions(100);
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.withSnapshot()).map(KafkaEventStreamProviderTest::describe))
-                .expectNextMatches(e -> e.startsWith("SNAPSHOT "))
-                .expectNextMatches(e -> e.startsWith("SNAPSHOT "))
-                .expectNext("SNAPSHOT_END 2")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-    }
-
-    /** SPEC-0067 AC-5: the load asks for the smaller of the warm-up size and the cache size. */
-    @Test
-    void warmUpRequestsTheSmallerOfWarmUpSizeAndCacheSize() {
-        OmsQueryClient big = mock(OmsQueryClient.class);
-        when(big.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
-        provider = startProvider(big, p -> ReflectionTestUtils.setField(p, "warmUpSize", 5000));
-        verify(big, timeout(5000)).fetchRecentExecutions(100);
-        provider.shutdown();
-
-        OmsQueryClient small = mock(OmsQueryClient.class);
-        when(small.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
-        provider = startProvider(small, p -> ReflectionTestUtils.setField(p, "warmUpSize", 50));
-        verify(small, timeout(5000)).fetchRecentExecutions(50);
-    }
-
-    /** SPEC-0067 AC-6: stored fills are filtered in the snapshot exactly like live ones. */
-    @Test
-    void snapshotFiltersStoredFillsLikeLiveOnes() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchRecentExecutions(anyInt()))
-                .thenReturn(Flux.just(storedFill("A", "F1", 3, 30), storedFill("B", "F1", 3, 20), storedFill("A", "F0", 2, 10)));
-        provider = startProvider(queryClient);
-        awaitCachedExecutions(3);
-
-        StreamFilter onA = StreamFilter.builder()
-                .filters(List.of(FilterCondition.eq("orderId", "A")))
-                .includeSnapshot(true)
-                .build();
-        StepVerifier.create(provider.getExecutionEventStream(onA).map(KafkaEventStreamProviderTest::describe))
-                .expectNext("SNAPSHOT A/F1", "SNAPSHOT A/F0", "SNAPSHOT_END 2")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-
-        StreamFilter onMarket = StreamFilter.builder()
-                .filters(List.of(FilterCondition.eq("lastMkt", "XOTHER")))
-                .includeSnapshot(true)
-                .build();
-        StepVerifier.create(provider.getExecutionEventStream(onMarket).map(KafkaEventStreamProviderTest::describe))
-                .expectNext("SNAPSHOT_END 0")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-    }
-
-    /** SPEC-0067 review: stored fills are older than live ones, so a full cache evicts them first. */
-    @Test
-    void fullCacheEvictsStoredFillsBeforeNewerLiveOnes() {
-        OmsQueryClient queryClient = mock(OmsQueryClient.class);
-        when(queryClient.fetchRecentExecutions(anyInt()))
-                .thenReturn(Flux.just(storedFill("A", "F2", 4, 30), storedFill("A", "F1", 3, 10)));
-        provider = startProvider(queryClient);
-        awaitCachedExecutions(2);
-
-        // 99 live fills make 101 > 100: the cache shrinks to 80, dropping the oldest 21. Each live
-        // event is emitted after its fill is cached and evicted, so 99 events mean all are done.
-        StepVerifier.create(provider.getExecutionEventStream(StreamFilter.liveOnly()))
-                .then(() -> {
-                    for (int i = 1; i <= 99; i++) {
-                        emitFill("L-" + i, "F1", 1);
-                    }
-                })
-                .expectNextCount(99)
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-        assertEquals(80, provider.getExecutionCacheSize());
-        StreamFilter onA = StreamFilter.builder()
-                .filters(List.of(FilterCondition.eq("orderId", "A")))
-                .includeSnapshot(true)
-                .build();
-        StepVerifier.create(provider.getExecutionEventStream(onA).map(KafkaEventStreamProviderTest::describe))
-                .expectNext("SNAPSHOT_END 0")
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
-    }
-
-    /** A fill as the query API returns it: with its order, at {@code transactSecond}. */
-    private static ExecutionDto storedFill(String orderId, String execId, long orderVersion, int transactSecond) {
-        return ExecutionDto.builder()
-                .orderId(orderId)
-                .execId(execId)
-                .orderVersion(orderVersion)
-                .sequenceNumber(orderVersion)
-                .lastMkt("XSIM")
-                .transactTime(Instant.ofEpochSecond(transactSecond))
-                .eventTime(Instant.ofEpochSecond(transactSecond))
-                .order(org.example.streaming.model.OrderDto.builder().orderId(orderId).symbol("INTC").eventId(orderVersion).build())
-                .build();
-    }
-
     private KafkaEventStreamProvider startProvider(OmsQueryClient queryClient) {
-        return startProvider(queryClient, p -> { });
-    }
-
-    private KafkaEventStreamProvider startProvider(OmsQueryClient queryClient, Consumer<KafkaEventStreamProvider> configure) {
-        // A plain mock answers null; tests that do not stub the warm-up load nothing. Checked
-        // without calling the mock, so a test's consecutive stubs and call counts stay intact.
-        boolean warmUpStubbed = org.mockito.Mockito.mockingDetails(queryClient).getStubbings().stream()
-                .anyMatch(s -> s.getInvocation().getMethod().getName().equals("fetchRecentExecutions"));
-        if (!warmUpStubbed) {
-            when(queryClient.fetchRecentExecutions(anyInt())).thenReturn(Flux.empty());
-        }
         @SuppressWarnings("unchecked")
         KafkaReceiver<String, OrderMessage> orderReceiver = mock(KafkaReceiver.class);
         @SuppressWarnings("unchecked")
-        KafkaReceiver<String, OrderExecution> orderExecutionReceiver = mock(KafkaReceiver.class);
+        KafkaReceiver<String, Execution> executionReceiver = mock(KafkaReceiver.class);
         when(orderReceiver.receive()).thenReturn(orderRecords.asFlux());
-        when(orderExecutionReceiver.receive()).thenReturn(fillRecords.asFlux());
+        when(executionReceiver.receive()).thenReturn(fillRecords.asFlux());
 
-        KafkaEventStreamProvider started =
-                new KafkaEventStreamProvider(
-                        orderReceiver,
-                        orderExecutionReceiver,
-                        queryClient,
-                        new OrderMessageMapper(),
-                        new OrderExecutionMapper(),
-                        new FilterService(),
-                        meters);
-        // @Value is not applied outside Spring; at 0 every cache put would be evicted at once.
-        ReflectionTestUtils.setField(started, "maxCacheSize", 100);
-        ReflectionTestUtils.setField(started, "warmUpSize", 5000);
-        configure.accept(started);
+        KafkaEventStreamProvider started = new KafkaEventStreamProvider(
+                orderReceiver,
+                executionReceiver,
+                queryClient,
+                new OrderMessageMapper(),
+                new ExecutionMessageMapper(),
+                new FilterService(),
+                meters);
         started.startConsuming();
         return started;
     }
 
     private void emitFill(String orderId, String execId, long orderVersion) {
-        emitFill(orderId, execId, orderVersion, null);
+        emitFill(orderId, execId, orderVersion, "AAPL");
     }
 
-    private void emitFill(String orderId, String execId, long orderVersion, Integer transactSecond) {
-        OrderExecution fill = new OrderExecution();
-        if (transactSecond != null) {
-            fill.setTransactTime(Instant.ofEpochSecond(transactSecond));
-        }
+    private void emitFill(String orderId, String execId, long orderVersion, String symbol) {
+        Execution fill = new Execution();
         fill.setOrderId(orderId);
         fill.setRootOrderId(orderId);
         fill.setExecId(execId);
+        fill.setSymbol(symbol);
+        fill.setLastQty(BigDecimal.TEN);
+        fill.setExecType("F");
         fill.setOrderVersion(orderVersion);
-        fillRecords.tryEmitNext(
-                new ReceiverRecord<>(
-                        new ConsumerRecord<>("oms_order_executions", 0, orderVersion, orderId, fill),
-                        mock(ReceiverOffset.class)));
+        fillRecords.tryEmitNext(new ReceiverRecord<>(
+                new ConsumerRecord<>("oms_executions", 0, orderVersion, orderId, fill),
+                mock(ReceiverOffset.class)));
     }
 
     private void emit(String orderId, long eventId) {
-        // The no-arg constructor, not the builder: the builder insists on every field, and only
-        // these three matter here.
+        // The no-arg constructor, not the builder: the builder insists on every field.
         OrderMessage message = new OrderMessage();
         message.setOrderId(orderId);
         message.setRootOrderId(orderId);
         message.setEventId(eventId);
-        orderRecords.tryEmitNext(
-                new ReceiverRecord<>(
-                        new ConsumerRecord<>("oms_orders", 0, eventId, orderId, message),
-                        mock(ReceiverOffset.class)));
+        orderRecords.tryEmitNext(new ReceiverRecord<>(
+                new ConsumerRecord<>("oms_orders", 0, eventId, orderId, message),
+                mock(ReceiverOffset.class)));
     }
 
     private static OrderDto snapshotOrder(String orderId, Long eventVersion) {
         return OrderDto.builder().id(100L).orderId(orderId).eventVersion(eventVersion).build();
+    }
+
+    private static ExecutionDto stored(String orderId, String execId, long orderVersion) {
+        return ExecutionDto.builder().orderId(orderId).execId(execId).symbol("AAPL").orderVersion(orderVersion).build();
     }
 
     private static String describe(OrderEvent event) {
@@ -518,19 +389,15 @@ class KafkaEventStreamProviderTest {
         if (OrderEvent.SNAPSHOT_END.equals(event.getEventType())) {
             return event.getEventType() + " " + event.getSnapshotTotal();
         }
-        return event.getEventType() + " " + event.getOrderId() + "/" + event.getExecId();
+        return event.getEventType() + " " + event.getOrderId() + "/" + event.getExecId() + " "
+                + event.getExecution().getSymbol();
     }
 
-    /** Fills reach the cache on the consumer's thread; wait until it holds them. */
-    private void awaitCachedExecutions(int count) {
-        long deadline = System.currentTimeMillis() + 5000;
-        while (provider.getExecutionCacheSize() < count && System.currentTimeMillis() < deadline) {
-            Thread.onSpinWait();
-        }
-        assertEquals(count, provider.getExecutionCacheSize());
-    }
-
-    private static OmsQueryClient.OrderSnapshot snapshot(long matching, OrderDto... newestFirst) {
+    private static OmsQueryClient.OrderSnapshot orderSnapshot(long matching, OrderDto... newestFirst) {
         return new OmsQueryClient.OrderSnapshot(Flux.just(newestFirst), Mono.just(matching));
+    }
+
+    private static OmsQueryClient.ExecutionSnapshot executionSnapshot(long matching, ExecutionDto... newestFirst) {
+        return new OmsQueryClient.ExecutionSnapshot(Flux.just(newestFirst), Mono.just(matching));
     }
 }

@@ -111,4 +111,4 @@ content-type: application/json
 POST http://localhost:8090/api/command/execute HTTP/1.1
 content-type: application/json
 
-{"type":"ExecutionCreateCmd","version":"1.0.0","execution":{"execId":"<orderId>-F1","orderId":"<orderId>","lastQty":100,"lastPx":170.00,"execType":"F","lastMkt":"XSIM"}}
+{"type":"ExecutionCreateCmd","version":"1.0.0","execution":{"execId":"<orderId>-F1","orderId":"<orderId>","symbol":"INTC","lastQty":100,"lastPx":170.00,"execType":"F","lastMkt":"XSIM"}}

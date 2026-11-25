@@ -25,7 +25,7 @@ take out of the market, becomes CLOSED: nothing more happens to it. CLOSED is th
 state of the order state machine (SPEC-0029).
 
 The CLOSE event also starts the order's **retention clock** (SPEC-0052). Once it is older than
-`oms.retention.closed-order-days` (90 by default), the order is archived: verified on the archive
+`oms.retention.closed-order-days` (30 by default), the order is archived: verified on the archive
 replica, then deleted from the OMS database
 ([Retention and Archive](../architecture/concepts/retention-and-archive.md)).
 

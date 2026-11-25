@@ -10,15 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 
 import org.example.common.model.msg.CancelState;
 import org.example.common.model.msg.OrdType;
 import org.example.common.model.msg.OrderMessage;
+import org.example.common.model.msg.SecurityIDSource;
 import org.example.common.model.msg.Side;
 import org.example.common.model.msg.State;
 import org.example.common.model.msg.TimeInForce;
 import org.example.simulator.config.SimulatorProperties;
+import org.example.simulator.marketdata.ReferencePrices;
 import org.example.simulator.engine.RecordingSink.Sent;
 import org.example.simulator.metrics.SimulatorMetrics;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,27 @@ class ExchangeEngineTest {
         assertQty("100", sent.get(1).lastQty());
         assertQty("170", sent.get(1).lastPx());
         assertEquals("O1-F1", sent.get(1).execId());
+    }
+
+    // SPEC-0069 AC-6: a fill carries the order's instrument, as a venue's execution report does
+    @Test
+    void fillCarriesTheOrdersInstrument() {
+        engine = engine(2, Duration.ZERO);
+        OrderMessage withIsin = market("O1", Side.BUY, "100");
+        withIsin.setSecurityId("US0378331005");
+        withIsin.setSecurityIDSource(SecurityIDSource.ISIN);
+
+        engine.onOrderMessage(withIsin);
+        engine.onOrderMessage(market("O2", Side.SELL, "10"));
+        engine.flush();
+
+        List<Sent> fills = sink.sent().stream().filter(s -> s.type().equals("FILL")).toList();
+        assertEquals(
+                List.of(new Instrument("AAPL", "US0378331005", SecurityIDSource.ISIN),
+                        new Instrument("AAPL", "US0378331005", SecurityIDSource.ISIN),
+                        new Instrument("AAPL", null, null),
+                        new Instrument("AAPL", null, null)),
+                fills.stream().map(Sent::instrument).toList());
     }
 
     // AC-2
@@ -280,7 +302,7 @@ class ExchangeEngineTest {
         engine.shutdown();
         RecordingSink restartedSink = new RecordingSink();
         SimulatorProperties properties = properties(1, Duration.ZERO);
-        engine = new ExchangeEngine(new OrderEvaluator(properties), properties, restartedSink, new SimulatorMetrics(meterRegistry));
+        engine = new ExchangeEngine(evaluator(properties), properties, restartedSink, new SimulatorMetrics(meterRegistry));
         engine.onOrderMessage(unknownRequest);
         engine.flush();
         assertEquals("O9-CXLREJ-7", restartedSink.sent().getFirst().commandId());
@@ -352,22 +374,17 @@ class ExchangeEngineTest {
 
     private ExchangeEngine engine(int slices, Duration delay) {
         SimulatorProperties properties = properties(slices, delay);
-        return new ExchangeEngine(new OrderEvaluator(properties), properties, sink, new SimulatorMetrics(meterRegistry));
+        return new ExchangeEngine(evaluator(properties), properties, sink, new SimulatorMetrics(meterRegistry));
     }
 
     private int maxTrackedOrders = 100_000;
 
     private SimulatorProperties properties(int slices, Duration delay) {
-        return
-                new SimulatorProperties(
-                        Map.of("AAPL", new BigDecimal("170.00")),
-                        new BigDecimal("10"),
-                        slices,
-                        delay,
-                        "XSIM",
-                        "oms_orders",
-                        "commands",
-                        maxTrackedOrders);
+        return TestProperties.aapl170(slices, delay, maxTrackedOrders);
+    }
+
+    private static OrderEvaluator evaluator(SimulatorProperties properties) {
+        return new OrderEvaluator(properties, ReferencePrices.fixed(properties.referencePrices()));
     }
 
     private void awaitTypes(List<String> expected) throws InterruptedException {

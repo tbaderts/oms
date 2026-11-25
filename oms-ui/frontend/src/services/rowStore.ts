@@ -48,6 +48,11 @@ export class RowStore<T> {
     return this.snapshot !== null;
   }
 
+  /** Whether a row with this key is held (shown or about to be). */
+  has(key: string): boolean {
+    return this.rows.has(key);
+  }
+
   /** The rows, least recently updated first. */
   values(): T[] {
     return Array.from(this.rows.values());

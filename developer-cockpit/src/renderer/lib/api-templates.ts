@@ -60,14 +60,21 @@ export interface ResolveContext {
   variables: Record<string, string>;
   /** The followed order, for `{{orderId}}`. */
   orderId: string | null;
+  /** The followed order's symbol, for `{{symbol}}` in a fill (SPEC-0069). */
+  symbol?: string | null;
   now: () => Date;
   uuid: () => string;
   random: () => number;
 }
 
-export const liveContext = (variables: Record<string, string>, orderId: string | null): ResolveContext => ({
+export const liveContext = (
+  variables: Record<string, string>,
+  orderId: string | null,
+  symbol: string | null = null,
+): ResolveContext => ({
   variables,
   orderId,
+  symbol,
   now: () => new Date(),
   uuid: () => crypto.randomUUID(),
   random: Math.random,
@@ -115,6 +122,7 @@ export function resolveVariables(text: string, ctx: ResolveContext): { text: str
         return value;
       }
       if (expr === 'orderId' && ctx.orderId) return ctx.orderId;
+      if (expr === 'symbol' && ctx.symbol) return ctx.symbol;
       return miss(expr, raw);
     });
 

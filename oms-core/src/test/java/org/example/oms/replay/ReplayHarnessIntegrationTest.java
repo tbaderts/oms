@@ -214,7 +214,7 @@ class ReplayHarnessIntegrationTest {
     private static String fill(String orderId, String execId, String qty) {
         return """
                 {"type":"ExecutionCreateCmd","execution":{
-                  "execId":"%s","orderId":"%s","execType":"F","lastQty":%s,"lastPx":171.90}}"""
+                  "execId":"%s","orderId":"%s","symbol":"AAPL","execType":"F","lastQty":%s,"lastPx":171.90}}"""
                 .formatted(execId, orderId, qty);
     }
 

@@ -57,6 +57,11 @@ public class ExecutionMessageMapper {
                 .setLastMkt(execution.getLastMkt())
                 .setLastCapacity(execution.getLastCapacity())
                 .setTransactTime(execution.getTransactTime())
+                .setSymbol(execution.getSymbol())
+                .setSecurityId(execution.getSecurityId())
+                .setSecurityIdSource(execution.getSecurityIdSource() == null
+                        ? null
+                        : org.example.common.model.msg.SecurityIDSource.valueOf(execution.getSecurityIdSource().name()))
                 .build();
     }
 }

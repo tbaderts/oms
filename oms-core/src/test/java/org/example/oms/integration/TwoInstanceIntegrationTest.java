@@ -388,7 +388,7 @@ class TwoInstanceIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     private static ExecutionCreateCmd fillCommand(String orderId, String execId) {
-        return new ExecutionCreateCmd().type("ExecutionCreateCmd").execution(new org.example.common.model.cmd.Execution()
+        return new ExecutionCreateCmd().type("ExecutionCreateCmd").execution(new org.example.common.model.cmd.Execution().symbol("AAPL")
                 .execId(execId).orderId(orderId).lastQty(new BigDecimal("10")).lastPx(new BigDecimal("170")).execType("F"));
     }
 

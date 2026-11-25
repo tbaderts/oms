@@ -1,7 +1,8 @@
 # API Explorer templates: commands on an existing order (SPEC-0008).
 #
-# In the cockpit, {{orderId}} is the order shown in the follow-up. In VS Code, declare it first,
-# e.g. `@orderId = ORD-…`. With the exchange simulator running, the market side (accept, reject,
+# In the cockpit, {{orderId}} is the order shown in the follow-up and {{symbol}} its symbol, which a
+# fill must carry (SPEC-0069). In VS Code, declare them first, e.g. `@orderId = ORD-…` and
+# `@symbol = AAPL`. With the exchange simulator running, the market side (accept, reject,
 # fills, cancel confirmations) is normally sent by the simulator; these are for testing by hand.
 
 @baseUrl = http://localhost:8090
@@ -41,6 +42,7 @@ content-type: application/json
   "execution": {
     "execId": "{{$guid}}",
     "orderId": "{{orderId}}",
+    "symbol": "{{symbol}}",
     "lastQty": 100,
     "lastPx": 86.96,
     "execType": "F",

@@ -208,7 +208,7 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
         try {
             var response = mockMvc().perform(post("/api/command/execute")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{"
+                            .content("{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"execution\":{\"symbol\":\"AAPL\","
                                     + "\"execId\":\"" + orderId + "-RACE\",\"orderId\":\"" + orderId + "\","
                                     + "\"lastQty\":10,\"lastPx\":170,\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}"))
                     .andReturn().getResponse();
@@ -262,7 +262,7 @@ class OrderVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
     private ExecutionProcessingResult fillThroughPipeline(String orderId, String execId, String qty) {
         ExecutionCreateCmd command = new ExecutionCreateCmd()
                 .type("ExecutionCreateCmd")
-                .execution(new org.example.common.model.cmd.Execution()
+                .execution(new org.example.common.model.cmd.Execution().symbol("AAPL")
                         .execId(execId)
                         .orderId(orderId)
                         .lastQty(new BigDecimal(qty))

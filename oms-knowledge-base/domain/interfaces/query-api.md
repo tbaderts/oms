@@ -5,8 +5,8 @@ title: "Query API"
 description: "The contract-first search endpoint for orders with dynamic filters, sorting and pagination."
 tags: [api, query, search]
 status: draft
-updated: "2026-11-17T08:00:00Z"
-covers: ["openapi:/search", "openapi:/orders/{orderId}/commands", "openapi:/orders/{orderId}/events", "openapi:/executions", "http:/api/query"]
+updated: "2026-11-24T14:00:00Z"
+covers: ["openapi:/search", "openapi:/orders/{orderId}/commands", "openapi:/orders/{orderId}/events", "openapi:/executions", "openapi:/executions/search", "http:/api/query"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-contracts/src/main/openapi/oms-query-api.yml"
@@ -80,8 +80,31 @@ fill (identity, account, side, instrument, price, quantities, state), `orderVers
 `transactTimeFrom` (inclusive) and `transactTimeTo` (exclusive) combine with AND. Results are
 oldest first, or newest first with `order=newest` (SPEC-0067; `order=oldest` is the default and an
 unknown value gives 400), at most `limit` (default 1000, max 5000), so with `newest` the limit
-keeps the most recent fills. No match gives `200 []`. The hidden
-`/api/executions` (bare execution rows, used by oms-ui) is unchanged.
+keeps the most recent fills. No match gives `200 []`. This read model is for booking and
+downstream systems. oms-ui's REST execution blotter and the streaming service (since SPEC-0071)
+read stored fills through the execution search below.
 
 Used by the trade blotter's initial snapshot ([Real-time Streaming](../../capabilities/real-time-streaming.md)),
 the admin UI and the MCP server's `searchOrders` tool. Capability: [Order Query](../../capabilities/order-query.md).
+
+## Execution search
+
+`GET /api/query/executions/search` (`searchExecutions`, in `ExecutionsApi`, implemented by
+`ExecutionViewController` → `ExecutionQueryService`, since 2.6.0, SPEC-0070) searches stored fills,
+the `executions` table, the way `/search` searches orders:
+- **Filters:** every parameter except `page`, `size` and `sort`: `field` (equals), `field__like`
+  (case-insensitive substring; `%` in the value is ignored), `field__gt|gte|lt|lte`,
+  `field__between=a,b` (either side may be empty). Strings: `execId`, `orderId`, `rootOrderId`,
+  `symbol`, `securityId`, `execType`, `lastMkt`, `lastCapacity`; numbers: `lastQty`, `lastPx`,
+  `cumQty`, `leavesQty`, `avgPx`, `orderVersion`; time: `transactTime`; enums (equals only):
+  `status` (`APPLIED`, `BUSTED`, `CORRECTED`), `securityIdSource`. Unknown fields and malformed
+  values are ignored; an enum value that does not exist matches nothing.
+- **Paging and sorting:** `page` (default 0), `size` (1–500, default 50), `sort=field[,ASC|DESC];…`
+  over the fields above or `id`. Default `id,DESC`: the most recently stored fill first. A size
+  outside 1–500 or a sort field an execution does not have gives 400 Problem+JSON.
+- **Response:** `PagedExecutionDto` = `content` (`ExecutionDto`: `id`, the fields above,
+  `transactTime`, `status`, `orderVersion`; no order fields) and `page` (`size`, `totalElements`,
+  `totalPages`, `number`).
+
+It replaced the hidden, uncontracted `GET /api/executions`, which no longer exists. oms-ui's REST
+execution blotter reads it, so its filters apply (they were ignored before).

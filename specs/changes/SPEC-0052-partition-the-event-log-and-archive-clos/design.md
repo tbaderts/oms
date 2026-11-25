@@ -89,12 +89,14 @@ All raw SQL changesets. Nothing in 001–016 changes (P-07).
      order_id   VARCHAR(255) NOT NULL,
      version    BIGINT       NOT NULL,
      command_id VARCHAR(255),
-     CONSTRAINT pk_order_event_keys PRIMARY KEY (order_id, version));
+     ...);
    INSERT INTO order_event_keys (order_id, version, command_id)
      SELECT order_id, version, command_id FROM order_events;
    ```
-   The primary key gives the table a replica identity for logical replication. The unique
-   constraints are added in changeset 4, once the old ones are gone, because their names move here.
+   The table's keys are added in changeset 4, once the old constraints are gone, because their names
+   move here. (As built: the primary key on `(order_id, version)` is itself named
+   `uq_order_events_order_id_version`, so it gives the replica identity and keeps the mapped name;
+   there is no separate `pk_order_event_keys`.)
 2. **`017-partition-order-events`.** Rebuild `order_events` as a partitioned table:
    ```sql
    ALTER TABLE order_events RENAME TO order_events_unpartitioned;
@@ -129,7 +131,7 @@ All raw SQL changesets. Nothing in 001–016 changes (P-07).
    - Logical-replication apply on the replica runs with `session_replication_role = replica`, so
      the trigger **does not fire there**, and the keys arrive by replication instead.
 4. **`017-order-event-keys-unique`.** Add the constraints **with the names the appender maps**:
-   `uq_order_events_order_id_version UNIQUE (order_id, version)` and
+   `uq_order_events_order_id_version PRIMARY KEY (order_id, version)` and
    `uq_order_events_order_id_command_id UNIQUE (order_id, command_id)` on `order_event_keys`.
    - A duplicate version or command now fails inside the event insert, through the trigger, inside
      `saveAndFlush`.
@@ -162,10 +164,12 @@ All raw SQL changesets. Nothing in 001–016 changes (P-07).
   - `primary-conninfo`, the libpq string the replica uses to reach the primary, e.g.
     `host=postgres port=5432 dbname=postgres user=… password=…`, from the environment;
   - `subscription` (default `oms_history`).
-- **`org.example.oms.archive.ReplicaConfig`.** When enabled, it creates a separate HikariCP
-  `DataSource` and a `JdbcTemplate` qualified `@Replica`:
+- **`org.example.oms.archive.ReplicaConfig`.** When enabled, it creates a `ReplicaDatabase` bean
+  that holds its own HikariCP pool and `JdbcTemplate`:
   - `readOnly=true`, pool size 4;
-  - not the primary `@Primary` data source, so JPA and the primary Liquibase are untouched.
+  - a holder rather than a `DataSource` or `JdbcTemplate` bean, because a second bean of either type
+    switches off Spring Boot's auto-configuration of the primary ones; JPA and the primary Liquibase
+    are untouched.
 - **`ReplicaSchema`** (an `ApplicationRunner`, ordered first). When enabled it does three things:
   1. Runs Liquibase on the replica with the **same master changelog** and
      `contexts = "replica"`, so `017-history-publication` (context `primary`) is skipped and every
@@ -262,9 +266,11 @@ and the unique key table enforces correctness.
   `pg_partition_tree`, and the WAL position (`pg_current_wal_lsn`). It reports bytes per order and
   WAL per order.
 - **A retention pass** with `closed-order-days=0` archives the batch, then
-  `VACUUM (VERBOSE) order_events` is timed and reported as vacuum milliseconds per archived order.
+  a `VACUUM` of each history table is timed (as built; more conservative than `order_events` alone)
+  and reported as vacuum milliseconds per archived order.
 - **A small `RetentionProjection` helper** (with a unit test) computes the year projection from
-  those per-order figures and the proposal's numbers: 20,000 orders a day, 90-day retention, a
+  those per-order figures and the proposal's numbers: 20,000 orders a day, 30-day retention (90 until
+  the requester's 2026-11-17 decision), a
   25 GB hot-storage budget and a 10-minute daily vacuum budget. It writes the projection into the
   report.
 
@@ -289,8 +295,10 @@ None. No OpenAPI or Avro changes.
   this stack the tables are small.
 - **Constraints:**
   - `pk_order_events_v2 (id, time_stamp)`;
-  - on `order_event_keys`: `pk_order_event_keys (order_id, version)` plus
-    `uq_order_events_order_id_version` and `uq_order_events_order_id_command_id`.
+  - on `order_event_keys`: the primary key `uq_order_events_order_id_version (order_id, version)`
+    and `uq_order_events_order_id_command_id`.
+  - **on the replica only** (changelog `018-replica-relaxed-keys.yaml`, context `replica`):
+    `uq_orders_session_cl_ord_id` is dropped. See "Changed during verification" below.
 
   P-08's concurrency check and dedup safety net are kept in full (AC-2).
 - **Rollback.** Liquibase `rollback` blocks re-create the unpartitioned table from the partitions
@@ -340,9 +348,80 @@ pipeline.
   - **Why the growth figure didn't work.** On the real stack, storage measured as table growth
     proved unreliable. The background archiving of other orders, and free space left by earlier
     vacuums, made growth come out at 10.6 KB, −0.2 KB and 0 KB per order in three runs.
-  - **The figure of record.** The storage figure is therefore taken from the history tables
-    compacted with `VACUUM FULL`, divided by the orders present. Vacuum and WAL figures come from the
-    suite. The figures and the method are in verification.md.
+  - **The figure of record.** Storage is growth over a run of 5,000 orders (`OMS_LOAD_ORDERS=5000`)
+    with no archiving during the run, cross-checked by the whole history's bytes per order held,
+    which the suite also reports.
+    - **Measured once the orders are CLOSED** (second review). The suite closes the run's orders and
+      waits for CLOSED before measuring storage and WAL, because every retained order is CLOSED at
+      steady state: the CLOSE event, its key, its command-log row and the order update all count.
+    - A retention-pass run (oms-core at retention 0) archives the orders as they close. It therefore
+      measures vacuum only, and reports storage as not measured.
+    - Growth can reuse space freed by earlier archiving, so it is a lower bound. The density counts
+      that free space as used, so it is an upper bound. Both are reported.
+    - Compacting with `VACUUM FULL` first was tried and dropped. It packs the indexes tight, so the
+      next inserts (random UUID keys) split pages everywhere. Four 500-order runs then gave 12.9,
+      13.8, 15.4 and 17.4 KB per order, climbing as the tables grew.
+    - The figures and the method are in verification.md.
+  - **No verdict on an unmeasured figure.** `RetentionProjection` takes storage (null) and vacuum
+    (NaN) as optional: unmeasured, it prints "not measured" instead of "within budget". A negative
+    storage growth (free space reused) fails the run instead of projecting a negative size.
+- **Changed during verification: the replica must survive ordinary operations.** The independent
+  review found that the replica, migrated with the primary's changelog, keeps natural-key unique
+  constraints, while deletes are not replicated. Two ordinary operations then insert a key the
+  replica already holds. The apply worker fails and retries forever, every table stops replicating,
+  and archiving stops for good.
+  - **clOrdId reuse after archiving.** Once an order is archived, a new order may reuse its
+    `(session_id, cl_ord_id)` on the primary (the proposal accepts this). New changelog
+    `018-replica-relaxed-keys.yaml` with one changeset, context `replica`, drops
+    `uq_orders_session_cl_ord_id` on the replica only. On the replica that constraint can't hold: it
+    keeps every order ever, and clOrdIds are unique per session and day only. Every other natural key
+    there contains the order id (a UUID, never reused), so it stays.
+    - Rejected: a tombstone on the primary that keeps refusing the reused clOrdId. That changes order
+      acceptance semantics, which needs the requester.
+  - **Projection rebuild.** `ProjectionRebuilder` deleted every row and re-inserted them with new ids
+    and the same `(order_id, exec_id)`. It now rebuilds **in place**. `Projection.clear()` is replaced
+    by `retainOnly(keys)`: the rebuild projects every fill, and `project()` already upserts by the
+    natural key, keeping the row's id. It then deletes only the rows it did not reproduce. Updates
+    replicate by id, so the replica stays row-for-row equal for every order the rebuild reproduced.
+    - A row the rebuild removes (a stale row of a corrupt projection) stays on the replica. That order
+      then fails verification until resolved by hand. This is rare and visible as
+      `replica-mismatch`, never data loss.
+    - Rejected: dropping the projection from the publication and the verification. AC-4 names the
+      projection rows.
+  - **Failing orders must not starve the batch.** Eligible orders were taken `order by id limit
+    batch`. Orders that keep failing, at least a batch of them, would be taken every run, and no newer
+    order would ever be archived. The job now remembers its failures, in memory and bounded at 10,000
+    orders. It takes `batch + remembered failures` candidates and processes those never failed
+    first, then the failed ones by fewest failures. An archived order is forgotten. A newly eligible
+    order therefore always gets a place, and failed ones still retry when there is room, at once in
+    the tests.
+  - **Smaller fixes:**
+    - the version read before verification sits inside the failure handling, so an order archived
+      meanwhile (after a leadership hand-over) counts as `changed` instead of aborting the batch;
+    - `DETACH PARTITION` runs with `SET LOCAL lock_timeout = '5s'` in its transaction, so it never
+      queues the event appends behind a long transaction for long; a timeout is retried next run;
+    - a refused command's `command_log` row committed between verification and delete stays on the
+      primary as an orphan. It still replicates, so nothing is lost, and the delete runs again on
+      that order id only if it is eligible again, which it no longer is. This is accepted and
+      recorded in the KB.
+  - **Second review:**
+    - **A run continues past an exception for one order.** `RetentionJob.run` maps any exception
+      from archiving one order (for example the primary-side checksum query, or a precondition that
+      throws) to `error` for that order, and goes on with the rest.
+    - **A blocked drop ends the run's drops.** After one drop hits the lock timeout, the run makes no
+      further drops: every other drop would wait on the same lock. Appends are held back at most 5 s
+      per run.
+    - **Changeset 018 can't reach the publisher.** It has a precondition that marks it as run on any
+      database publishing `oms_history`, so a Liquibase run without contexts leaves the primary's
+      key alone. Its rollback is idempotent.
+    - **Accepted limits of the failure memory, documented in the KB:** it is bounded at 10,000
+      orders, and an order archived by another leader stays remembered until a restart.
+- **Changed after verification: retention is 30 days.** On a clean history a CLOSED order
+  measured 14.3 to 14.4 KB, so 90 days came to 25.7 GB, over the 25 GB budget. The requester chose a
+  30-day retention on 2026-11-17, and the proposal was re-approved. `oms.retention.closed-order-days`
+  now defaults to 30 (application.yml and the `@Value` defaults of `RetentionJob` and
+  `PartitionMaintenance`), and `RetentionProjection.proposed` projects 30 days: about 600,000
+  retained orders, about 8.6 GB.
 - **D2 — `PRIMARY KEY (id, time_stamp)`.** PostgreSQL requires the partition key in a partitioned
   table's primary key. `id` stays unique in practice (one sequence); Hibernate maps `@Id id` and
   doesn't validate primary keys.
@@ -399,6 +478,12 @@ pipeline.
   - The rest of the suite is unaffected, apart from the WAL level, which costs little.
 - **Budget realism (AC-10).** The 25 GB figure is a proposal. If the snapshot-per-event design
   exceeds it, verification reports the measured figure and the gap, and does not adjust the numbers.
+- **Vacuum cost at scale (AC-10).** The suite measures a manual `VACUUM` of the history tables
+  after archiving 500 orders, per archived order, and scales it linearly. Vacuum cost also grows with
+  table and index size, which at 1.8 million retained orders is far above the test stack. Partitioning
+  limits that for `order_events`: archived orders' events sit in past months, whose partitions are
+  dropped once empty, rather than vacuumed. The other history tables are not partitioned. The figure is
+  therefore reported as a lower-bound proxy with this caveat, not as a full-scale measurement.
 
 ## Test Strategy
 
@@ -413,13 +498,13 @@ Integration tests extend `AbstractKafkaPostgresIntegrationTest`. Archive tests u
 | AC-1 | integration | existing `OrderLifecycleIntegrationTest`, `OrderVersionIntegrationTest`, `EventMetadataIntegrationTest`, `ProjectionRebuildIntegrationTest`, `EventLogReconcilerIntegrationTest`, `CommandIdBackfillMigrationIntegrationTest`, `LiquibaseMigrationIntegrationTest` | unchanged suites pass on the partitioned table (append, replay, query, reconcile) |
 | AC-2 | integration | `PartitionUniquenessIntegrationTest#same version in another month is a version conflict`, `#same command id is a duplicate command` | appending `(order_id, version)` again with a `time_stamp` in another month, through `OrderEventAppender`, throws `OptimisticLockingFailureException`; the same command id throws `DuplicateCommandException`; `OrderEventAppenderTest` unchanged |
 | AC-3 | integration | `PartitionMaintenanceIntegrationTest#creates partitions two months ahead`, `#event at a month boundary lands in the new month` | after `ensureAhead()` with a fixed clock, partitions exist for the current and next 2 months; an event at `YYYY-MM-01T00:00:00Z` sits in the new month's partition |
-| AC-4 | integration | `ReplicaIntegrationTest#replica receives inserts and updates`, `#replica keeps rows deleted or dropped on the primary` | create, accept, fill and close an order: all six tables match on the replica (awaited, ≤ 10 s); `DELETE` on the primary and `DROP` of a partition leave the replica's rows in place |
-| AC-5 | integration | `RetentionJobIntegrationTest#archives an order closed beyond retention` + `#leaves recent, open and outbox-pending orders` | with retention 0 days: the eligible order's rows are gone from the primary, still on the replica, `oms.retention.archived` = 1; an order closed now (retention 1 day), a LIVE order and a CLOSED order with an outbox row are untouched |
+| AC-4 | integration | `ReplicaIntegrationTest#replica receives inserts and updates`, `#replica keeps rows deleted or dropped on the primary`, `#replicationSurvivesClOrdIdReuseAfterArchiving`, `#replicationSurvivesAProjectionRebuild` | create, accept, fill and close an order: all six tables match on the replica (awaited); `DELETE` on the primary and `DROP` of a partition leave the replica's rows in place; an archived order's clOrdId reused by a new order, and a projection rebuild, leave replication running (a later order still replicates and matches) |
+| AC-5 | integration | `RetentionJobIntegrationTest#archives an order closed beyond retention` + `#leaves recent, open and outbox-pending orders` + `#failingOrdersDoNotStarveNewerOnes` | with retention 0 days: the eligible order's rows are gone from the primary, still on the replica, `oms.retention.archived` = 1; an order closed now (retention 1 day), a LIVE order and a CLOSED order with an outbox row are untouched |
 | AC-6 | integration | `RetentionJobIntegrationTest#refuses when the replica is behind or different` + `#refuses when the replica is unreachable` | a replica row edited or deleted (subscription disabled) gives `replica-mismatch`: nothing deleted, failures +1, a WARN with the order id (log capture); after re-sync the next run archives it. The replica container paused gives `replica-unreachable`, nothing deleted |
 | AC-7 | unit + integration | `ArchivePreconditionsTest#analytics check off by default`, `#refuses without a confirming check when required`; `RetentionJobIntegrationTest#analytics precondition blocks when required` | default: no check consulted; `require-analytics=true` with a stub answering false (and with no bean): refused with reason `precondition` and a WARN; a stub answering true archives |
-| AC-8 | integration | `PartitionMaintenanceIntegrationTest#drops an emptied past partition, keeps one with a retained row` | two past-month partitions: one emptied by archiving is detached and dropped (`partitions_dropped` +1) and its rows remain on the replica; one with a retained order's row stays |
+| AC-8 | integration | `PartitionMaintenanceIntegrationTest#drops an emptied past partition, keeps one with a retained row` + `ReplicaIntegrationTest#maintenanceDropsAnEmptiedPartitionAndTheReplicaKeepsItsRows` | two past-month partitions: one emptied by archiving is detached and dropped (`partitions_dropped` +1) and its rows remain on the replica; one with a retained order's row stays |
 | AC-9 | integration | `RetentionLeadershipIntegrationTest#only the scheduler leader archives` | two contexts on an isolated database: only the leader's `oms.retention.archived` rises; the follower's stays 0 |
-| AC-10 | load (manual) + unit | `LoadSuiteRunnerTest` storage section (`OMS_LOAD_SUITE=true` against compose) + `RetentionProjectionTest` | bytes and WAL per order and vacuum ms per archived order measured; the projection for 20,000 orders/day × 90 days vs 25 GB and 10 min/day computed, and the report copied to verification.md |
+| AC-10 | load (manual) + unit | `LoadSuiteRunnerTest` storage section (`OMS_LOAD_SUITE=true`, `OMS_LOAD_ORDERS=5000` against compose; vacuum with `OMS_LOAD_RETENTION_PASS=true` and retention 0) + `RetentionProjectionTest` (incl. `unmeasuredVacuumHasNoVerdict`, `negativeGrowthIsRejected`) | bytes and WAL per order and vacuum ms per archived order measured; the projection for 20,000 orders/day × 30 days vs 25 GB and 10 min/day computed, and the report copied to verification.md |
 | AC-11 | review | KB pages (below) checked against the AC in verify; `okf-check` | the retention page states each listed point; `domain/concepts/post-trade-analytics.md` and `architecture/context/market-adapter.md` no longer say the OMS stays the system of record |
 
 ## Policy Compliance
@@ -433,7 +518,7 @@ Integration tests extend `AbstractKafkaPostgresIntegrationTest`. Archive tests u
 | P-05 | Every state change is recorded in the event log | comply | Archiving changes no order state. It removes history past retention after verifying the replica holds it; the event log stays complete on the replica. No state transition skips the log |
 | P-06 | Kafka only through the transactional outbox | comply | Nothing is published. Orders with pending outbox rows are never archived, and the outbox is not replicated |
 | P-07 | Schema changes through new Liquibase changesets | comply | New changelog 017 only; 001–016 untouched. The replica runs the same changelog through Liquibase |
-| P-08 | Concurrency and idempotency are explicit | comply | `(order_id, version)` and `(order_id, command_id)` uniqueness kept across partitions (key table, same names). The delete transaction locks the order and re-checks the verified version. Archiving is idempotent: a deleted order is no longer eligible. Partition DDL is `IF NOT EXISTS` |
+| P-08 | Concurrency and idempotency are explicit | comply | `(order_id, version)` and `(order_id, command_id)` uniqueness kept across partitions (key table, same names). The delete transaction locks the order and re-checks the verified version. Archiving is idempotent: a deleted order is no longer eligible. Partition DDL is `IF NOT EXISTS`. Natural keys that cannot hold on an append-only replica (`uq_orders_session_cl_ord_id`) are dropped there only; the primary keeps every constraint |
 | P-09 | Commands and queries stay separate | comply | No command or query API changes. The replica connection is read-only and is the basis for SPEC-0021's query separation |
 | P-10 | State transitions go through the state machine and task pipeline | n/a | No transitions; archiving deletes terminal orders' history |
 | P-11 | Layering and conventions | comply | New package `org.example.oms.archive` (config, jobs, verifier), following `EventLogReconciler`'s leader-only job pattern |
@@ -441,7 +526,7 @@ Integration tests extend `AbstractKafkaPostgresIntegrationTest`. Archive tests u
 | P-13 | Errors and validation follow the framework specs | comply | No API errors. Failures are logged with the order id and reason, counted, never swallowed, and retried |
 | P-14 | Test first, every acceptance criterion is proven by an automated test | comply | AC-1–AC-9 by integration and unit tests, written first. AC-10 by the load suite (a manual run against the stack, as SPEC-0024 defines) plus a unit-tested projection. AC-11 by review and `okf-check` |
 | P-15 | Observability | comply | Counters `oms.retention.archived`, `oms.retention.failures{reason}` and `oms.retention.partitions_dropped`; gauge `oms.retention.eligible`; SLF4J logs with the order id; replica subscription state logged at start |
-| P-16 | Security | comply | Replica credentials and the primary conninfo come from environment variables only; the replica connection is read-only |
+| P-16 | Security | comply | Replica credentials and the primary conninfo come from environment variables only; the replica connection is read-only by session default. It connects as the replica's owner because it creates the subscription; a separate least-privilege reader is a follow-up for SPEC-0021 (experimentation stack) |
 | P-17 | Simplicity and dependencies | comply | No new library. One new compose service; decisions D1–D8 recorded |
 | P-18 | Modules build standalone | comply | Only oms-core (and the KB) change; `./gradlew check` in oms-core covers it. No contracts change, so no consumers need re-verifying |
 | P-19 | Documentation follows behaviour | comply | KB updates below |
@@ -478,3 +563,7 @@ Integration tests extend `AbstractKafkaPostgresIntegrationTest`. Archive tests u
     (queries read the shared `orders` table) still holds after SPEC-0052, which doesn't move
     queries. SPEC-0021 will have to supersede it when it reads from the replica.
 - `infrastructure/local-docker-stack.md`: the `postgres-replica` service, port 5433, the WAL cap.
+- **Changed during verification, KB:** `retention-and-archive.md` also states that the replica drops
+  `uq_orders_session_cl_ord_id` (clOrdId reuse after archiving), that projection rebuilds run in place
+  so they replicate, that orders failing archiving are retried without starving newer ones, and the
+  accepted orphan `command_log` case.

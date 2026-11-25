@@ -98,3 +98,51 @@ describe('DetailPanel formatting (SPEC-0059)', () => {
     expect(within(order).getByText('2,500')).toBeInTheDocument();
   });
 });
+
+// An execution's details show the fill, not the order: no order-only field reads as an empty value.
+describe('DetailPanel execution layout', () => {
+  const fill = {
+    orderId: 'ORD-1', execId: 'ORD-1-F1', execType: 'F', lastQty: 500, lastPx: 86.96, avgPx: 86.96,
+    cumQty: 500, leavesQty: 0, lastMkt: 'XNAS', transactTime: '2026-11-24T09:30:00Z', orderVersion: 3,
+  };
+
+  it('heads the panel with the fill and the order progress it leaves', () => {
+    const { container } = render(<DetailPanel domainObject="Execution" data={fill} />);
+
+    expect(container.querySelector('.header-symbol .symbol')?.textContent).toBe('500 @ 86.96');
+    expect(container.querySelector('.header-symbol .security-desc')?.textContent).toBe('on XNAS');
+    expect(container.querySelector('.header-badges')?.textContent).toBe('Trade');
+    const labels = Array.from(container.querySelectorAll('.summary-label')).map(l => l.textContent);
+    expect(labels).toEqual(['Cumulative Qty', 'Leaves Qty', 'Avg Px', 'Transact Time']);
+    expect(container.querySelector('.header-summary')?.textContent).not.toMatch(/—/);
+    ['Quantity', 'Price', 'Account', 'Destination'].forEach(label =>
+      expect(screen.queryByText(label, { exact: true })).toBeNull());
+  });
+
+  it('leaves out the order fields an execution row may carry', () => {
+    const { container } = render(
+      <DetailPanel domainObject="Execution" data={{ ...fill, symbol: 'MSFT', side: 'BUY', price: 87, orderQty: 1000, account: 'A1', exDestination: 'XNAS', state: 'FILLED' }} />
+    );
+
+    const sections = Array.from(container.querySelectorAll('.section-header h4')).map(h => h.textContent);
+    // The symbol is the fill's own (SPEC-0069); side, price, account and state are the order's.
+    expect(sections).toEqual(['Execution', 'Instrument', 'Order Progress', 'Identification', 'Timing']);
+    expect(container.textContent).not.toMatch(/Additional Fields|Order Details|A1|FILLED/);
+  });
+
+  // SPEC-0069 AC-7: the instrument the venue reported on the fill
+  it('shows the instrument in an Instrument section', () => {
+    render(<DetailPanel domainObject="Execution" data={{ ...fill, symbol: 'MSFT', securityId: 'US5949181045', securityIdSource: 'ISIN' }} />);
+
+    const instrument = screen.getByRole('heading', { name: 'Instrument' }).closest('.detail-section') as HTMLElement;
+    expect(within(instrument).getByText('MSFT')).toBeInTheDocument();
+    expect(within(instrument).getByText('US5949181045')).toBeInTheDocument();
+    expect(within(instrument).getByText('ISIN')).toBeInTheDocument();
+  });
+
+  it('keeps fields it does not know under Additional Fields', () => {
+    render(<DetailPanel domainObject="Execution" data={{ ...fill, somethingNew: 'x' }} />);
+
+    expect(screen.getByRole('heading', { name: 'Additional Fields' })).toBeInTheDocument();
+  });
+});

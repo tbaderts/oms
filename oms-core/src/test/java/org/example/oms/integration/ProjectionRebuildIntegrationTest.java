@@ -76,6 +76,34 @@ class ProjectionRebuildIntegrationTest extends AbstractFillFlowIntegrationTest {
                 "the rebuild published nothing");
     }
 
+    /**
+     * SPEC-0052: a rebuild runs in place. Rows it reproduces keep their ids, so the archive replica
+     * receives them as updates; a row no fill reproduces is deleted.
+     */
+    @Test
+    void rebuild_keepsRowIdsAndRemovesRowsNoFillReproduces() throws Exception {
+        String order = createLiveOrder();
+        assertEquals(201, postFill(order + "-1", order, "10", null));
+        assertEquals(201, postFill(order + "-2", order, "20", null));
+        List<Long> idsBefore = jdbcTemplate.queryForList(
+                "select id from order_execution_projection where order_id = ? order by id", Long.class, order);
+        assertEquals(2, idsBefore.size());
+        // an orphan: a copy of one row under an execution no fill names, with an id of its own
+        String columns = String.join(", ", jdbcTemplate.queryForList(
+                "select column_name from information_schema.columns where table_name = 'order_execution_projection' "
+                        + "and column_name not in ('id', 'execid') order by ordinal_position", String.class));
+        long orphanId = -Math.abs(UUID.randomUUID().getMostSignificantBits() % 1_000_000_000L) - 1;
+        assertEquals(1, jdbcTemplate.update("insert into order_execution_projection (id, execid, " + columns + ") "
+                + "select ?, ?, " + columns + " from order_execution_projection where id = ?", orphanId, order + "-ORPHAN", idsBefore.get(0)));
+
+        mockMvc().perform(post("/actuator/projections/order_execution/rebuild")).andExpect(status().isOk());
+
+        assertEquals(idsBefore, jdbcTemplate.queryForList(
+                "select id from order_execution_projection where order_id = ? order by id", Long.class, order), "rebuilt in place");
+        assertEquals(0, jdbcTemplate.queryForObject(
+                "select count(*) from order_execution_projection where id = ?", Integer.class, orphanId), "the orphan is gone");
+    }
+
     /** A fill event without its execution fails the rebuild, which rolls back: the view is as before. */
     @Test
     void unmatchedFillEvent_failsAndLeavesTheViewUnchanged() throws Exception {

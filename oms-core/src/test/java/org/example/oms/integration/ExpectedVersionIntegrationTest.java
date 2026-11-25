@@ -195,7 +195,7 @@ class ExpectedVersionIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     private static String fillJson(String orderId, String execId, String qty, long expectedVersion) {
         return "{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"expectedVersion\":" + expectedVersion + ","
-                + "\"execution\":{\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
+                + "\"execution\":{\"symbol\":\"AAPL\",\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                 + "\"lastQty\":" + qty + ",\"lastPx\":170,\"execType\":\"F\",\"lastMkt\":\"XSIM\"}}";
     }
 

@@ -201,7 +201,7 @@ class DuplicateCommandIntegrationTest {
 
     private static String fill(String orderId, String commandId, String execId) {
         return "{\"type\":\"ExecutionCreateCmd\",\"version\":\"1.0.0\",\"commandId\":\"" + commandId + "\","
-                + "\"execution\":{\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
+                + "\"execution\":{\"symbol\":\"AAPL\",\"execId\":\"" + execId + "\",\"orderId\":\"" + orderId + "\","
                 + "\"lastQty\":100,\"lastPx\":170,\"execType\":\"F\"}}";
     }
 

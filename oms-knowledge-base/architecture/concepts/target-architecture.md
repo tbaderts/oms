@@ -90,7 +90,7 @@ adapter, the streaming service and booking consume the topics.*
 | **oms-core, query instances** | The same application in a read-only profile: no listener, no relay, no schedulers, no Liquibase; datasource read-only; replication lag in health | M instances |
 | **Kafka** | `commands` in; `oms_orders`, `oms_executions`, `oms_order_executions` out; `commands.DLT` | cluster |
 | **Venue adapter** | Consumes `oms_orders`, acts on market legs, answers with commands carrying a `CommandHeader` (exchange simulator today, FIX gateway later) | separate service |
-| **Streaming service** | Tier-2 projection: bounded in-memory blotter from `oms_orders` and `oms_order_executions`, pushed over RSocket | separate service |
+| **Streaming service** | Stateless fan-out (SPEC-0071): each subscription's snapshot from the query API, then live `oms_orders` and `oms_executions`, pushed over RSocket | separate service |
 | **Booking adapter** | Consumes `oms_order_executions` only; books fills, reverses busts | separate service, planned |
 | **Observability** | OTLP to Alloy, Grafana LGTM; every service labelled `service_name` | unchanged |
 
@@ -287,7 +287,7 @@ keeps per-key order with no shared state.
 |---|---|---|---|---|
 | `oms_orders` | `OrderMessage` | root order id | the order after each change, `eventId` = version, `leg` | venue adapter, streaming service, analytics |
 | `oms_executions` | `Execution` | root order id | the fill with the order's resulting quantities, `orderVersion`, `execType` F / H / G | analytics, any fill consumer that has the order already |
-| `oms_order_executions` | `OrderExecution` | root order id | the fill with the order as of the fill, `orderVersion`, `tradeDate`; **the booking contract** | booking adapter, streaming service, analytics |
+| `oms_order_executions` | `OrderExecution` | root order id | the fill with the order as of the fill, `orderVersion`, `tradeDate`; **the booking contract** | booking adapter, analytics (the streaming service reads `oms_executions`, SPEC-0071) |
 | `commands` | one record per command type | order id | `CommandHeader` first: `commandId`, `correlationId`, `causationId`, `sentAt`, `producer` | oms-core |
 | `commands.DLT` | the original bytes | order id | commands that failed after retries or could not be decoded | operators |
 
@@ -347,7 +347,7 @@ the lock hurts.
 
 ### 7.3 Tier 2: asynchronous projections
 
-An asynchronous projection is a Kafka consumer group: the streaming service's blotter cache,
+An asynchronous projection is a Kafka consumer group:
 booking's state, the analytics warehouse. Its checkpoint is the consumer offset, its lag is a metric,
 its failures go to a dead-letter topic per group, and it is idempotent on the dedup keys above.
 Rebuild: re-read the topic from the beginning, or ask core to republish. Consistency is eventual,

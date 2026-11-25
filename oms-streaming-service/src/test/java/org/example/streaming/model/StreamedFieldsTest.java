@@ -9,12 +9,12 @@ import java.time.Instant;
 
 import org.example.common.model.msg.CancelState;
 import org.example.common.model.msg.OrdType;
-import org.example.common.model.msg.OrderExecution;
+import org.example.common.model.msg.Execution;
 import org.example.common.model.msg.OrderMessage;
 import org.example.common.model.msg.Side;
 import org.example.common.model.msg.State;
 import org.example.common.model.msg.TimeInForce;
-import org.example.streaming.mapper.OrderExecutionMapper;
+import org.example.streaming.mapper.ExecutionMessageMapper;
 import org.example.streaming.mapper.OrderMessageMapper;
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +44,7 @@ class StreamedFieldsTest {
         JsonNode list = JSON.readTree(Files.readString(LIST));
 
         assertFilled(list.get("Order"), JSON.valueToTree(new OrderMessageMapper().toOrderDto(order())), "OrderDto");
-        assertFilled(list.get("Execution"), JSON.valueToTree(new OrderExecutionMapper().toExecutionDto(fill())), "ExecutionDto");
+        assertFilled(list.get("Execution"), JSON.valueToTree(new ExecutionMessageMapper().toExecutionDto(fill())), "ExecutionDto");
     }
 
     private static void assertFilled(JsonNode listed, JsonNode sent, String dto) {
@@ -86,11 +86,13 @@ class StreamedFieldsTest {
         return m;
     }
 
-    /** An order-execution record with every field the execution mapper reads. */
-    private static OrderExecution fill() {
-        OrderExecution f = new OrderExecution();
+    /** An Execution record with every field the execution mapper reads (SPEC-0071). */
+    private static Execution fill() {
+        Execution f = new Execution();
         f.setExecId("EX-1");
         f.setOrderId("ORD-1");
+        f.setSymbol("AAPL");
+        f.setSecurityId("US0378331005");
         f.setRootOrderId("ORD-1");
         f.setLastQty(new BigDecimal("40.00000000"));
         f.setLastPx(new BigDecimal("170.00000000"));

@@ -82,6 +82,13 @@ describe('classifyTemplates', () => {
 });
 
 describe('resolveVariables', () => {
+  // SPEC-0069: a fill names its order's instrument, so the fill template uses {{symbol}}
+  it('resolves symbol from the followed order', () => {
+    expect(resolveVariables('{{symbol}}', ctx({ orderId: 'ORD-1', symbol: 'MSFT' })).text).toBe('MSFT');
+    expect(resolveVariables('{{symbol}}', ctx({ variables: { symbol: 'FILE' }, symbol: 'MSFT' })).text).toBe('FILE');
+    expect(resolveVariables('{{symbol}}', ctx({ orderId: 'ORD-1' })).unresolved).toEqual(['symbol']);
+  });
+
   it('resolves system, file and orderId variables', () => {
     const c = ctx({ variables: { account: 'acc-{{n}}', n: '7', baseUrl: 'http://h' }, orderId: 'ORD-1' });
     const r = resolveVariables(
@@ -158,7 +165,7 @@ describe('starter templates', () => {
     for (const type of catalog.commandTypes) {
       expect(byType[type]?.length ?? 0, type).toBeGreaterThan(0);
       for (const t of byType[type]) {
-        const c = ctx({ variables: t.variables, orderId: 'ORD-sample' });
+        const c = ctx({ variables: t.variables, orderId: 'ORD-sample', symbol: 'INTC' });
         expect(checkTemplateBody(t.body, type, schema(type), c), `${type} ${t.name}`).toEqual({ findings: [] });
         expect(checkBody(resolveVariables(t.body, c).text, type, schema(type)).parseError, t.name).toBeUndefined();
       }

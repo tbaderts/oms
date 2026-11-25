@@ -16,19 +16,21 @@ describe('streamed fields (SPEC-0056)', () => {
 
   it('does not claim fields the stream lacks', () => {
     expect(isStreamed('Execution', 'id')).toBe(false);
-    expect(isStreamed('Execution', 'status')).toBe(false);
+    expect(isStreamed('Execution', 'creationDate')).toBe(false);
+    // Streamed since SPEC-0071: from the execution search and the fill's ExecType.
+    expect(isStreamed('Execution', 'status')).toBe(true);
     expect(isStreamed('Order', 'txNr')).toBe(false);
   });
 
   it('splits saved columns into live and history-only, keeping their order', () => {
-    expect(splitColumns('Execution', ['execId', 'id', 'orderId', 'status'])).toEqual({
+    expect(splitColumns('Execution', ['execId', 'id', 'orderId', 'creationDate'])).toEqual({
       live: ['execId', 'orderId'],
-      historyOnly: ['id', 'status'],
+      historyOnly: ['id', 'creationDate'],
     });
   });
 
   it('keeps history-only columns in place when a live selection is applied', () => {
-    expect(mergeLiveSelection('Execution', ['execId', 'id', 'orderId', 'status'], ['execId', 'lastQty']))
-      .toEqual(['execId', 'id', 'lastQty', 'status']);
+    expect(mergeLiveSelection('Execution', ['execId', 'id', 'orderId', 'creationDate'], ['execId', 'lastQty']))
+      .toEqual(['execId', 'id', 'lastQty', 'creationDate']);
   });
 });

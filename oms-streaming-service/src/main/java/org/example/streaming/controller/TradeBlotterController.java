@@ -3,9 +3,7 @@ package org.example.streaming.controller;
 import org.example.streaming.model.ExecutionEvent;
 import org.example.streaming.model.OrderEvent;
 import org.example.streaming.model.StreamFilter;
-import org.example.streaming.model.StreamRequest;
 import org.example.streaming.service.EventStreamProvider;
-import org.example.streaming.service.FilterService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
@@ -25,20 +23,14 @@ import reactor.core.publisher.Mono;
  * <ul>
  *   <li>{@code orders.stream} - Stream order events with optional filter
  *   <li>{@code executions.stream} - Stream execution events with optional filter
- *   <li>{@code blotter.stream} - Combined stream based on StreamRequest
- *   <li>{@code orders.snapshot} - Get current order snapshot
- *   <li>{@code executions.snapshot} - Get current execution snapshot
+ *   <li>{@code health} - Liveness
  * </ul>
- * 
- * <h2>Communication Patterns</h2>
- * <ul>
- *   <li>Request-Stream: For streaming data to UI
- *   <li>Fire-and-Forget: For filter updates
- *   <li>Request-Response: For snapshots
- * </ul>
- * 
+ *
+ * <p>Each stream's snapshot is read from oms-core when it is requested; the service holds no
+ * orders or executions (SPEC-0071), so {@code blotter.stream}, {@code orders.snapshot} and
+ * {@code executions.snapshot}, which served the former cache, are gone.
+ *
  * @see EventStreamProvider
- * @see FilterService
  */
 @Controller
 @Slf4j
@@ -46,7 +38,6 @@ import reactor.core.publisher.Mono;
 public class TradeBlotterController {
 
     private final EventStreamProvider eventStreamProvider;
-    private final FilterService filterService;
 
     /**
      * Streams order events to the client.
@@ -105,73 +96,6 @@ public class TradeBlotterController {
     }
 
     /**
-     * Unified stream endpoint based on StreamRequest configuration.
-     * 
-     * <p>Allows clients to specify stream type (ORDERS, EXECUTIONS, or ALL)
-     * along with filter criteria in a single request.
-     * 
-     * @param request the stream request with type and filter
-     * @return Flux of order events (executions included as order updates)
-     */
-    @MessageMapping("blotter.stream")
-    public Flux<OrderEvent> streamBlotter(@Payload StreamRequest request) {
-        log.info("Client subscribed to blotter stream: blotterId={}, type={}", 
-                request.getBlotterId(), request.getStreamType());
-        
-        StreamFilter filter = request.getFilter() != null 
-                ? request.getFilter() 
-                : StreamFilter.withSnapshot();
-        
-        Flux<OrderEvent> stream = switch (request.getStreamType()) {
-            case ORDERS -> eventStreamProvider.getOrderEventStream(filter);
-            case EXECUTIONS -> blotterExecutions(filter);
-            case ALL -> Flux.merge(eventStreamProvider.getOrderEventStream(filter), blotterExecutions(filter));
-        };
-        // blotter.stream keeps its pre-SPEC-0057 shape: no SNAPSHOT_END marker.
-        return stream.filter(event -> !OrderEvent.SNAPSHOT_END.equals(event.getEventType()));
-    }
-
-    /** Executions as order events for blotter.stream: the unbounded snapshot, then live fills. */
-    private Flux<OrderEvent> blotterExecutions(StreamFilter filter) {
-        return eventStreamProvider.getExecutionEventStream(true)
-                .filter(event -> !OrderEvent.SNAPSHOT_END.equals(event.getEventType()))
-                .map(this::toOrderEvent)
-                .filter(filterService.createOrderEventPredicate(filter));
-    }
-
-    /**
-     * Gets the current snapshot of all orders.
-     * 
-     * <p>Request-Response pattern for initial data load.
-     * 
-     * @param filter optional filter criteria
-     * @return Flux of current orders
-     */
-    @MessageMapping("orders.snapshot")
-    public Flux<OrderEvent> getOrderSnapshot(@Payload(required = false) StreamFilter filter) {
-        log.info("Client requested orders snapshot");
-        
-        return eventStreamProvider.getCurrentOrders()
-                .filter(filterService.createOrderPredicate(filter))
-                .map(order -> OrderEvent.fromOrder(order, "SNAPSHOT"));
-    }
-
-    /**
-     * Gets the current snapshot of all executions.
-     * 
-     * @param filter optional filter criteria
-     * @return Flux of current executions
-     */
-    @MessageMapping("executions.snapshot")
-    public Flux<ExecutionEvent> getExecutionSnapshot(@Payload(required = false) StreamFilter filter) {
-        log.info("Client requested executions snapshot");
-        
-        return eventStreamProvider.getCurrentExecutions()
-                .filter(filterService.createExecutionPredicate(filter))
-                .map(exec -> ExecutionEvent.fromExecution(exec, "SNAPSHOT"));
-    }
-
-    /**
      * Health check endpoint.
      * 
      * @return status message
@@ -179,21 +103,5 @@ public class TradeBlotterController {
     @MessageMapping("health")
     public Mono<String> health() {
         return Mono.just("OK");
-    }
-
-    /**
-     * Converts an ExecutionEvent to an OrderEvent for unified streaming.
-     */
-    private OrderEvent toOrderEvent(ExecutionEvent execEvent) {
-        // The order as of this fill comes with the fill (SPEC-0019), so the row is no longer empty
-        // and stream filters on order fields apply to fills too.
-        return OrderEvent.builder()
-                .eventType("EXECUTION_" + execEvent.getEventType())
-                .orderId(execEvent.getOrderId())
-                .order(execEvent.getOrder())
-                .eventId(execEvent.getExecution() != null ? execEvent.getExecution().getOrderVersion() : null)
-                .sequenceNumber(execEvent.getSequenceNumber())
-                .timestamp(execEvent.getTimestamp())
-                .build();
     }
 }

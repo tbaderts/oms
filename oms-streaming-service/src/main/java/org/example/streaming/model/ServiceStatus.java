@@ -17,6 +17,4 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ServiceStatus {
     private String status;
-    private int ordersInCache;
-    private int executionsInCache;
 }

@@ -55,6 +55,36 @@ class ExecutionBlotterIntegrationTest extends AbstractFillFlowIntegrationTest {
         metamodel.get("defaultColumns").forEach(c -> defaults.add(c.asString()));
         assertTrue(fields.containsAll(defaults), "every default column is a field: " + defaults);
         assertTrue(defaults.containsAll(List.of("execId", "orderId", "avgPx")), defaults.toString());
+        // SPEC-0068 AC-1 and AC-2, over HTTP.
+        // SPEC-0069 AC-7: the fill's Instrument block follows OrderID; its symbol is a default.
+        assertEquals(List.of("execId", "orderId", "symbol", "securityId", "execType", "lastQty", "lastPx", "lastMkt",
+                "leavesQty", "cumQty", "avgPx", "transactTime", "status"), fields);
+        assertEquals(List.of("execId", "orderId", "symbol", "execType", "lastQty", "lastPx", "lastMkt",
+                "cumQty", "leavesQty", "avgPx", "transactTime"), defaults);
+    }
+
+    /**
+     * SPEC-0068 AC-3: every field the blotter offers has a value on applied fills. Since SPEC-0069 the
+     * fills carry a full instrument (symbol and securityId), as a venue reports one for an order
+     * with an ISIN; a symbol-only fill legitimately leaves securityId empty.
+     */
+    @Test
+    void executionReportFieldsAreFilled() throws Exception {
+        String orderId = createLiveOrder();
+        String instrument = "\"symbol\":\"AAPL\",\"securityId\":\"US0378331005\",\"securityIdSource\":\"ISIN\",";
+        assertEquals(201, postFill(orderId + "-1", orderId, "40", "2026-11-18T09:00:00Z", "10", instrument));
+        assertEquals(201, postFill(orderId + "-2", orderId, "60", "2026-11-18T09:01:00Z", "11", instrument));
+        awaitUntil(() -> executionCount(orderId) == 2, "both fills applied");
+
+        List<String> offered = new ArrayList<>();
+        getJson("/api/v1/metamodel/Execution").get("fields").forEach(f -> offered.add(f.get("name").asString()));
+        Map<String, JsonNode> rows = restRows(orderId);
+        assertEquals(2, rows.size(), "both fills listed");
+        for (JsonNode row : rows.values()) {
+            for (String field : offered) {
+                assertTrue(row.hasNonNull(field), field + " has a value in " + row);
+            }
+        }
     }
 
     // AC-2
@@ -129,7 +159,7 @@ class ExecutionBlotterIntegrationTest extends AbstractFillFlowIntegrationTest {
 
     /** The order's rows from the REST executions feed, by execId. */
     private Map<String, JsonNode> restRows(String orderId) throws Exception {
-        JsonNode page = getJson("/api/executions?size=500&sort=id,desc");
+        JsonNode page = getJson("/api/query/executions/search?orderId=" + orderId + "&size=500&sort=id,DESC");
         Map<String, JsonNode> rows = new HashMap<>();
         page.get("content").forEach(row -> {
             if (orderId.equals(row.path("orderId").asString(null))) {

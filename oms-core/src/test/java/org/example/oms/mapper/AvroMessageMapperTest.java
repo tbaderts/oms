@@ -17,6 +17,7 @@ import org.apache.avro.specific.SpecificDatumWriter;
 import org.example.common.model.Execution;
 import org.example.common.model.OrdType;
 import org.example.common.model.Order;
+import org.example.common.model.SecurityIdSource;
 import org.example.common.model.Side;
 import org.example.common.model.State;
 import org.example.common.model.msg.OrderMessage;
@@ -105,6 +106,23 @@ class AvroMessageMapperTest {
 
         assertEquals("ORD-2", decoded.getRootOrderId());
         assertEquals(3L, decoded.getOrderVersion());
+    }
+
+    /** SPEC-0069 AC-1: the record on oms_executions carries the instrument the fill reported. */
+    @Test
+    void executionMessageCarriesInstrument() throws Exception {
+        Execution execution = Execution.builder().execId("EX-3").orderId("ORD-3")
+                .symbol("MSFT").securityId("US5949181045").securityIdSource(SecurityIdSource.ISIN).build();
+
+        var decoded = roundTrip(executionMessageMapper.toExecutionMessage(execution, null, 2L));
+
+        assertEquals("MSFT", decoded.getSymbol());
+        assertEquals("US5949181045", decoded.getSecurityId());
+        assertEquals(org.example.common.model.msg.SecurityIDSource.ISIN, decoded.getSecurityIdSource());
+
+        var bare = roundTrip(executionMessageMapper.toExecutionMessage(
+                Execution.builder().execId("EX-4").orderId("ORD-3").symbol("MSFT").build(), null, 3L));
+        assertNull(bare.getSecurityIdSource(), "no source without one");
     }
 
     /**

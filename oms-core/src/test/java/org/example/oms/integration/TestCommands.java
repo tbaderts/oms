@@ -37,7 +37,9 @@ final class TestCommands {
                         .orderId(execution.getOrderId())
                         .lastQty(execution.getLastQty())
                         .lastPx(execution.getLastPx())
-                        .execType(execution.getExecType()));
+                        .execType(execution.getExecType())
+                        .symbol(execution.getSymbol())
+                        .securityId(execution.getSecurityId()));
     }
 
     /** Applies a fill with its command. */

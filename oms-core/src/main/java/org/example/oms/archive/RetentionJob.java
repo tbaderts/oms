@@ -3,6 +3,8 @@ package org.example.oms.archive;
 import java.time.Clock;
 import java.time.Instant;
 import java.sql.Timestamp;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +15,7 @@ import org.example.oms.service.leadership.Leadership;
 import org.example.oms.service.leadership.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -38,7 +41,8 @@ import lombok.extern.slf4j.Slf4j;
  *       deletes, so it keeps them.</li>
  * </ol>
  * A failed order keeps every row, is counted in {@code oms.retention.failures} with its reason, logged
- * at WARN with its id, and retried on the next run. Without a replica nothing is archived.
+ * at WARN with its id, and retried on a later run, after the orders that never failed, so failing
+ * orders cannot starve the batch. Without a replica nothing is archived.
  */
 @Component
 @Slf4j
@@ -63,6 +67,16 @@ public class RetentionJob {
     private final int batchSize;
     private final Counter archived;
     private final AtomicInteger eligible = new AtomicInteger();
+
+    /** Most failed orders remembered; beyond it new failures are not ordered last, only retried. */
+    static final int MAX_REMEMBERED_FAILURES = 10_000;
+
+    /**
+     * Failures per order not yet archived, so a run takes never-failed orders first: orders that keep
+     * failing must not take every place in the batch, run after run. In memory: a new leader starts
+     * afresh, which only costs one batch of retries.
+     */
+    private final Map<String, Integer> failures = new HashMap<>();
     private boolean reportedNoReplica;
 
     @Autowired
@@ -75,7 +89,7 @@ public class RetentionJob {
             MeterRegistry meters,
             Clock clock,
             @Value("${oms.retention.enabled:true}") boolean enabled,
-            @Value("${oms.retention.closed-order-days:90}") int retentionDays,
+            @Value("${oms.retention.closed-order-days:30}") int retentionDays,
             @Value("${oms.retention.batch-size:200}") int batchSize) {
         this(jdbc, transactionManager, leadership, replica.map(r -> new ReplicaVerifier(jdbc, r.jdbc())),
                 preconditions, meters, clock, enabled, retentionDays, batchSize, true);
@@ -140,22 +154,47 @@ public class RetentionJob {
             return outcomes;
         }
         Instant cutoff = clock.instant().minusSeconds(86_400L * retentionDays);
-        List<String> orderIds = jdbc.queryForList(
+        // Enough candidates that, however many of them failed before, a batch of never-failed ones fits.
+        List<String> candidates = jdbc.queryForList(
                 "select o.order_id from orders o"
                         + " where o.state = 'CLOSED'"
                         + " and exists (select 1 from order_events e where e.order_id = o.order_id and e.event = 'CLOSE' and e.time_stamp < ?)"
                         + " and not exists (select 1 from outbox x where x.order_id = o.order_id)"
                         + " order by o.id limit ?",
-                String.class, Timestamp.from(cutoff), batchSize);
+                String.class, Timestamp.from(cutoff), batchSize + failures.size());
+        // Never-failed first, then by fewest failures; the sort is stable, so oldest first within each.
+        List<String> orderIds = candidates.stream()
+                .sorted(Comparator.comparingInt(id -> failures.getOrDefault(id, 0)))
+                .limit(batchSize)
+                .toList();
         eligible.set(orderIds.size());
         for (String orderId : orderIds) {
-            outcomes.put(orderId, archive(orderId));
+            Outcome outcome;
+            try {
+                outcome = archive(orderId);
+            } catch (RuntimeException e) {
+                // anything archive() does not map itself (the primary-side checksum query, a
+                // precondition that throws): this order fails, the run goes on
+                outcome = fail(orderId, Outcome.ERROR, "error: " + e);
+            }
+            outcomes.put(orderId, outcome);
+            if (outcome == Outcome.ARCHIVED || outcome == Outcome.CHANGED) {
+                failures.remove(orderId);
+            } else if (failures.containsKey(orderId) || failures.size() < MAX_REMEMBERED_FAILURES) {
+                failures.merge(orderId, 1, Integer::sum);
+            }
         }
         return outcomes;
     }
 
     private Outcome archive(String orderId) {
-        Long version = jdbc.queryForObject("select tx_nr from orders where order_id = ?", Long.class, orderId);
+        Long version;
+        try {
+            version = jdbc.queryForObject("select tx_nr from orders where order_id = ?", Long.class, orderId);
+        } catch (EmptyResultDataAccessException e) {
+            // archived meanwhile, e.g. by the previous leader just before a hand-over
+            return fail(orderId, Outcome.CHANGED, "changed: the order is gone");
+        }
         try {
             ReplicaVerifier.Result result = verifier.orElseThrow().verify(orderId);
             if (result instanceof ReplicaVerifier.Mismatch m) {
@@ -171,8 +210,12 @@ public class RetentionJob {
         }
         try {
             Boolean deleted = tx.execute(s -> {
-                Map<String, Object> locked = jdbc.queryForMap(
+                List<Map<String, Object>> rows = jdbc.queryForList(
                         "select state, tx_nr from orders where order_id = ? for update", orderId);
+                if (rows.isEmpty()) {
+                    return false; // gone since it was verified: changed, not an error
+                }
+                Map<String, Object> locked = rows.get(0);
                 if (!"CLOSED".equals(locked.get("state")) || !version.equals(((Number) locked.get("tx_nr")).longValue())) {
                     return false;
                 }

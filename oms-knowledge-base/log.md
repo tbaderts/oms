@@ -1,5 +1,41 @@
 # Knowledge Base Log
 
+## 2026-11-24
+
+oms-ui has an **Order Entry** tab (SPEC-0072): a new order's instrument, economics and account,
+checked like oms-core checks them and sent as an `OrderCreateCmd` with one `clOrdId` per ticket.
+Instrument lookup and quotes come from oms-ui's new [Market Data API](domain/interfaces/market-data-api.md):
+Alpha Vantage when `ALPHAVANTAGE_API_KEY` is set (no bid/ask on its free tier), else the exchange
+simulator's instruments. See [Order Entry](ui/order-entry.md).
+
+The streaming service holds no orders or executions any more (SPEC-0071). Each subscription's
+snapshot is read from the database through the query API (executions from the execution search),
+so a deleted fill is no longer shown; live fills come from `oms_executions`, without their order.
+The caches, their startup load from the projection (SPEC-0067), the cached fallback and the unused
+routes `blotter.stream`, `orders.snapshot` and `executions.snapshot` are gone. See
+[Streaming Service](architecture/context/streaming-service.md).
+
+Stored fills have a contracted search (SPEC-0070): `GET /api/query/executions/search` filters,
+pages and sorts the `executions` table like `/search` does orders, newest first, with a matching
+count. oms-ui's REST execution blotter reads it, so its filters now apply. The hidden
+`/api/executions` is gone (TD-3 resolved for executions). See
+[Query API](domain/interfaces/query-api.md#execution-search).
+
+Executions carry the FIX Instrument block (SPEC-0069): `symbol`, `securityId` and
+`securityIdSource`, on the fill command, the `executions` table and the `Execution` record on
+`oms_executions`. A fill without an instrument, or with one that differs from its order's, is
+refused. The exchange simulator sends the order's instrument; stored fills were backfilled from
+their order. The execution blotter offers `symbol` (a default column) and `securityId`. See
+[Execution](domain/model/execution.md) and
+[Execution Processing](capabilities/execution-processing.md).
+
+The execution blotter offers only the execution report fields the OMS records (SPEC-0068):
+`execId`, `orderId`, `execType`, `lastQty`, `lastPx`, `lastMkt`, `leavesQty`, `cumQty`, `avgPx`,
+`transactTime` and `status`. `lastMkt` is now a default column. Never-filled fields (the day-order
+statistics, `secondaryExecID`, `creationDate`, `execRefId`, `lastCapacity`) and internal ones
+(`id`, `orderVersion`, `rootOrderId`, `bustedAtVersion`) are no longer offered; the APIs keep them.
+See [Admin UI](ui/admin-ui.md).
+
 ## 2026-11-17
 
 Streaming executions survive a restart (SPEC-0067). The

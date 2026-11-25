@@ -4,7 +4,7 @@ title: "Execution Processing"
 description: "Applying venue fills to orders; busts, corrections and manual cancels are recorded in the event log but have no command handlers yet."
 tags: [executions, fills, quantities]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-24T12:00:00Z"
 maturity: "partial"
 commands: ["ExecutionCreateCmd", "ExecutionBustCmd", "ExecutionWhackCmd"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -47,6 +47,20 @@ Since SPEC-0046:
   command-less overload is gone.
 - **Command log.** Every fill command, applied or not, is recorded in the
   [command log](../domain/model/command-log.md).
+
+Since SPEC-0069, a fill names its instrument, as a FIX ExecutionReport must (Symbol 55, or
+SecurityID 48 with SecurityIDSource 22). `ValidateExecutionTask` refuses a fill:
+- with neither `symbol` nor `securityId`: "Instrument is required: the fill carries neither symbol
+  nor securityId";
+- whose `symbol` differs from the order's, or whose `securityId` differs from the order's when both
+  have one: the message names both values.
+- with a `symbol` or `securityId` that is present but blank (Kafka commands have no length check).
+
+A refused fill changes nothing: REST answers 400, Kafka does not retry it, and the command log
+records it as `REFUSED`. A fill with only a `securityId` is accepted against an order with only a
+`symbol`, since the OMS has no symbology mapping. The fill is stored and published on
+`oms_executions` with the instrument as the venue reported it. The exchange simulator sends the
+order's instrument on every fill.
 
 ## Use cases
 
