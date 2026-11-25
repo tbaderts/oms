@@ -4,7 +4,7 @@ title: "Market Data API"
 description: "oms-ui's instrument lookup and quote endpoints for order entry, backed by Alpha Vantage or built-in instruments, with the provider's key kept on the server and answers cached."
 tags: [api, rest, market-data, oms-ui]
 status: draft
-updated: "2026-11-24T18:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-24T18:00:00Z" }
 covers: ["openapi:/api/market-data/instruments", "openapi:/api/market-data/quotes/{symbol}"]
 sources:
@@ -38,6 +38,11 @@ A query outside the contract is a 400 Problem+JSON (`urn:oms:error:validation-fa
   reachable. A provider problem is never an error for the caller.
 - **Cache:** provider answers only, searches for `search-ttl` (default 24 h), quotes for `quote-ttl`
   (default 5 min); fallbacks are not cached, so data returns as soon as the provider does.
+
+The exchange simulator uses the same provider and key for its reference prices (SPEC-0073), with
+its own `GLOBAL_QUOTE` client and its own cache. It does not call this API. A symbol that order
+entry quotes can therefore be traded, and it fills at the same last price, give or take the two
+caches' ages. See [Exchange Simulator §4.1](../../architecture/context/exchange-simulator.md).
 
 ## The key
 

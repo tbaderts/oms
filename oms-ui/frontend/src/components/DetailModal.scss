@@ -77,6 +77,39 @@
     }
   }
 
+  // Details and History of an order (SPEC-0074)
+  .detail-tabs {
+    display: flex;
+    gap: var(--oms-space-1);
+    padding: 0 var(--oms-space-5);
+    border-bottom: 1px solid var(--oms-border);
+
+    .detail-tab {
+      padding: var(--oms-space-2) var(--oms-space-3);
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--oms-text-muted);
+      font-family: inherit;
+      font-size: var(--oms-font-size-md);
+      cursor: pointer;
+
+      &:hover {
+        color: var(--oms-text);
+      }
+
+      &.active {
+        border-bottom-color: var(--oms-accent);
+        color: var(--oms-text-strong);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--oms-accent);
+        outline-offset: -2px;
+      }
+    }
+  }
+
   .modal-content {
     flex: 1;
     overflow-y: auto;

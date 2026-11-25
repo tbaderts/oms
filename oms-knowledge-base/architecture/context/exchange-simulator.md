@@ -6,12 +6,15 @@ description: "FIX exchange simulator that acknowledges, fills, rejects and cance
 tags: [component, exchange-simulator, fix, kafka, testing]
 status: stable
 version: "1.0"
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 component: "exchange-simulator"
-generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T10:00:00Z" }
+generated: { by: claude-code/claude-opus-5-5, at: "2026-11-25T12:00:00Z" }
 sources:
   - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/ExchangeSimulatorApplication.java"
   - resource: "repo:oms-exchange-simulator/src/main/resources/application.yml"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/engine/LimitPriceRules.java"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePriceService.java"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/AlphaVantageQuoteClient.java"
 ---
 # Exchange Simulator
 
@@ -90,7 +93,35 @@ precondition stops holding once the command has been applied (see
 
 ## 4. Order Economics
 
-Each symbol has a static **reference price**. There is no order book and no market data feed.
+Each symbol has one **reference price**: the price marketable quantity fills at and limit prices
+are checked against. There is no order book, bid or ask.
+
+### 4.1 Reference prices (SPEC-0073)
+
+`ReferencePriceService` answers from, in order:
+
+1. **Its cache**: Alpha Vantage answers, including "no quote", kept for `quote-ttl` (default 5 min)
+   to stay within the free quota of about 25 requests a day.
+2. **Alpha Vantage** `GLOBAL_QUOTE`, field `05. price` (the last price, the same `last` that
+   [order entry](../../ui/order-entry.md) shows the trader), when `ALPHAVANTAGE_API_KEY` is set.
+   Timeouts: connect 2 s, read 3 s.
+3. **The static `simulator.reference-prices`**, when there is no key, Alpha Vantage is rate limited
+   (it answers 200 with a `Note` or `Information` member) or unreachable, or it has no quote for the
+   symbol. Fallbacks are not cached.
+
+A symbol priced by none of them is rejected (`Unknown symbol <s>`). Alpha Vantage's price wins over
+the static one, so AAPL trades at the market price when a key is set. After a rate limit or an
+outage, Alpha Vantage is left alone for `provider-backoff` (default 60 s). Lookups run on the
+engine's single thread, so this bounds how long a dead provider can hold up the venue to one read
+timeout per back-off period.
+
+The key is sent only to Alpha Vantage. It is never logged (requests are logged by function,
+failures by exception type), and it never appears in a reject text or a command. Alpha Vantage's
+own messages, which echo it, are not passed on. The simulator's client is a trimmed copy of
+oms-ui's ([Market Data API](../../domain/interfaces/market-data-api.md)), and the two caches are
+separate.
+
+### 4.2 Trading rules
 
 | Rule | Behaviour |
 |---|---|
@@ -108,9 +139,21 @@ Rejects, checked in this order:
 | orderQty missing or ≤ 0 | `Invalid order quantity` |
 | ordType not MARKET or LIMIT | `Unsupported order type <t>` |
 | side not BUY, SELL, SELL_SHORT | `Unsupported side <s>` |
-| no reference price for the symbol | `Unknown symbol <s>` |
+| no reference price for the symbol (§4.1) | `Unknown symbol <s>` |
 | LIMIT without price | `Limit order without price` |
-| LIMIT price outside reference ± `price-band-percent` | `Price <p> outside band <lo>-<hi>` |
+| LIMIT price zero or negative | `Invalid limit price <p>` |
+| LIMIT price not a whole number of ticks (Reg NMS Rule 612): 0.01 at or above 1.00, 0.0001 below | `Price <p> is not a multiple of tick <t>` |
+| LIMIT buy above `reference × (1 + collar)`, or sell / sell short below `reference × (1 − collar)` | `Price <p> outside collar <lo>-<hi>` |
+
+The **collar** follows NYSE's Limit Order Price Protection tiers: 10 % for a reference price up to
+25.00, 5 % up to 50.00, and 3 % above (`simulator.price-collar`). Only the aggressive side is
+collared. A buy priced below the reference, or a sell above it, is accepted and rests however far
+away it is. Example at AAPL 170.00: a buy at 175.10 fills and a buy at 175.11 is rejected
+`Price 175.11 outside collar 164.9-175.1`, while a buy at 100.00 rests. The collar replaced the
+earlier flat ±10 % band around the reference, which also rejected passive limits.
+
+Out of scope: Limit Up–Limit Down bands, halts and auctions. The OMS itself does no pre-trade price
+check; the venue is what rejects.
 
 A cancel request for an order with open quantity cancels it. If a fill sequence is still running,
 the remaining slices are dropped. A cancel request for a filled, cancelled, rejected or unknown
@@ -120,8 +163,12 @@ order is refused (`Too late to cancel` / `Unknown order`).
 
 | Property | Env var | Default |
 |---|---|---|
-| `simulator.reference-prices.<SYMBOL>` | — | AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |
-| `simulator.price-band-percent` | `SIMULATOR_PRICE_BAND_PERCENT` | 10 |
+| `simulator.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | none: static prices only |
+| `simulator.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | https://www.alphavantage.co |
+| `simulator.quote-ttl` | `SIMULATOR_QUOTE_TTL` | 5m |
+| `simulator.provider-backoff` | `SIMULATOR_PROVIDER_BACKOFF` | 60s |
+| `simulator.reference-prices.<SYMBOL>` | — | the fallback: AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |
+| `simulator.price-collar.tiers` / `.default-percent` | — | `{max-reference: 25.00, percent: 10}`, `{max-reference: 50.00, percent: 5}`; 3 |
 | `simulator.fill-slices` | `SIMULATOR_FILL_SLICES` | 1 |
 | `simulator.fill-delay` | `SIMULATOR_FILL_DELAY` | 0ms |
 | `simulator.last-mkt` | `SIMULATOR_LAST_MKT` | XSIM |
@@ -139,15 +186,25 @@ cd .. && docker compose up -d --build oms-core exchange-simulator
 
 oms-core must run with `KAFKA_ENABLED=true`. Then create an order (see `oms-core/rest.http`):
 
-- symbol AAPL, MARKET: ends FILLED;
+- symbol AAPL, MARKET: ends FILLED, at 170.00 without a key and at Alpha Vantage's last price with one;
+- any other symbol Alpha Vantage quotes (e.g. GOOGL), MARKET, with a key: ends FILLED;
 - symbol ZZZZ: ends REJ;
-- LIMIT BUY 165: rests LIVE. Send `OrderCancelRequestCmd` for it and it ends CXL.
+- LIMIT BUY 165 on AAPL at 170.00 (no key): rests LIVE. Send `OrderCancelRequestCmd` for it and it ends CXL;
+- LIMIT BUY 175.11 on AAPL at 170.00: ends REJ (collar); 170.005 ends REJ (tick).
+
+To use Alpha Vantage, put `ALPHAVANTAGE_API_KEY=<key>` in the root `.env`; compose passes it to
+both oms-ui and the simulator.
 
 ## 7. Observability
 
 - Counters at `http://localhost:8094/actuator/prometheus`: `simulator_orders_received_total`,
   `simulator_acks_total`, `simulator_executions_total`, `simulator_rejects_total`,
   `simulator_cancels_total`, `simulator_cancel_rejects_total`.
+- `simulator_reference_price_lookups_total{source, outcome}` (SPEC-0073), one per reference price
+  lookup. `source` says where the price came from: `CACHE`, `ALPHA_VANTAGE`, `STATIC`, or `NONE`
+  (rejected as unknown). `outcome` is `FOUND` when the provider's price was used, otherwise why it
+  was not: `NOT_FOUND`, `NOT_CONFIGURED`, `RATE_LIMITED` or `UNREACHABLE`. A rising
+  `source="STATIC",outcome="RATE_LIMITED"` means the free quota is spent.
 - Every log line about an order carries `orderId` in the MDC.
 - Kafka observation is enabled on the template and the listener, so trace context crosses the
   simulator.

@@ -1,0 +1,32 @@
+{
+  "ranAt": "2026-11-25T05:56:51.678Z",
+  "result": "pass",
+  "modules": [
+    "oms-ui",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "4b901d2a1eca9147",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 7a89621a)"
+  },
+  "commands": [
+    {
+      "module": "oms-ui",
+      "command": "npm test -- --watchAll=false --passWithNoTests",
+      "exitCode": 0,
+      "seconds": 17,
+      "log": "evidence/oms-ui-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "..\\gradlew.bat -p .. check",
+      "exitCode": 0,
+      "seconds": 25,
+      "log": "evidence/oms-ui-2.log"
+    }
+  ]
+}

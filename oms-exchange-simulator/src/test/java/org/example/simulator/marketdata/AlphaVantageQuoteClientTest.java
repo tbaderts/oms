@@ -119,6 +119,16 @@ class AlphaVantageQuoteClientTest {
         assertUnavailable(ProviderUnavailableException.Reason.UNREACHABLE);
     }
 
+    // AC-4: no answer within the read timeout.
+    @Test
+    void readTimeout_isUnreachable() {
+        server.expect(queryParam("function", "GLOBAL_QUOTE")).andRespond(request -> {
+            throw new java.net.SocketTimeoutException("Read timed out");
+        });
+
+        assertUnavailable(ProviderUnavailableException.Reason.UNREACHABLE);
+    }
+
     // AC-4, AC-8
     @Test
     void errorMessageAnswer_isUnreachable() {

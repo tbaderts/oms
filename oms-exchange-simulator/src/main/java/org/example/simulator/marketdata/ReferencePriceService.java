@@ -97,14 +97,22 @@ public class ReferencePriceService implements ReferencePrices {
             }
             return fallback(key, Outcome.NOT_FOUND);
         } catch (ProviderUnavailableException e) {
-            Outcome outcome = Outcome.valueOf(e.reason().name());
-            if (outcome != Outcome.NOT_CONFIGURED) {
-                lastFailure = outcome;
-                backoffUntil = clock.instant().plus(providerBackoff);
-                log.warn("Alpha Vantage unavailable ({}); using static reference prices for {}", outcome, providerBackoff);
-            }
-            return fallback(key, outcome);
+            return unavailable(key, Outcome.valueOf(e.reason().name()));
+        } catch (RuntimeException e) {
+            // Lookups run on the engine thread: nothing may escape, or the order is never answered.
+            // Log the type only, since the message could hold the request URL and so the key.
+            log.warn("Alpha Vantage lookup failed unexpectedly: {}", e.getClass().getSimpleName());
+            return unavailable(key, Outcome.UNREACHABLE);
         }
+    }
+
+    private Optional<BigDecimal> unavailable(String key, Outcome outcome) {
+        if (outcome != Outcome.NOT_CONFIGURED) {
+            lastFailure = outcome;
+            backoffUntil = clock.instant().plus(providerBackoff);
+            log.warn("Alpha Vantage unavailable ({}); using static reference prices for {}", outcome, providerBackoff);
+        }
+        return fallback(key, outcome);
     }
 
     private Optional<BigDecimal> fallback(String key, Outcome outcome) {

@@ -38,8 +38,12 @@ Docker compose sets the variable.
 
 | Property | Env var | Default |
 |---|---|---|
-| `simulator.reference-prices.<SYMBOL>` | — | AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |
-| `simulator.price-band-percent` | `SIMULATOR_PRICE_BAND_PERCENT` | 10 |
+| `simulator.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | none: static prices only (SPEC-0073) |
+| `simulator.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | https://www.alphavantage.co |
+| `simulator.quote-ttl` | `SIMULATOR_QUOTE_TTL` | 5m |
+| `simulator.provider-backoff` | `SIMULATOR_PROVIDER_BACKOFF` | 60s |
+| `simulator.reference-prices.<SYMBOL>` | — | fallback: AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |
+| `simulator.price-collar.tiers` / `.default-percent` | — | 10 % up to 25.00, 5 % up to 50.00; 3 % above |
 | `simulator.fill-slices` | `SIMULATOR_FILL_SLICES` | 1 |
 | `simulator.fill-delay` | `SIMULATOR_FILL_DELAY` | 0ms |
 | `simulator.last-mkt` | `SIMULATOR_LAST_MKT` | XSIM |

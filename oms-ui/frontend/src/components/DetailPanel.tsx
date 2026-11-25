@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { dateTimeService } from '../services/DateTimeService';
 import Icon, { IconName } from './icons/Icon';
 import EnumCellRenderer from './EnumCellRenderer';
-import { execTypeLabel, formatNumber, formatPrice, isPriceField } from '../services/fieldFormat';
-import { MetamodelService } from '../services/MetamodelService';
+import { execTypeLabel, formatNumber, formatPrice } from '../services/fieldFormat';
 import { DomainObjectType } from '../types/types';
+import { enumBadge, formatFieldValue } from './FieldValue';
 import './DetailPanel.scss';
 
 interface DetailPanelProps {
@@ -187,29 +187,12 @@ const fieldDisplayNames: Record<string, string> = {
   text: 'Text',
 };
 
-// Fields shown as badges, like their grid cells (SPEC-0058)
-const BADGE_FIELDS = new Set(['side', 'ordType', 'state', 'cancelState', 'timeInForce']);
-
-/** The metamodel's label for an enum value ("Sell Short"), or the value itself without one. */
-function enumLabel(domainObject: DomainObjectType | undefined, field: string, value: string): string {
-  if (!domainObject) return value;
-  try {
-    const metadata = MetamodelService.getInstance().getMetamodel(domainObject);
-    return metadata.fields.find(f => f.name === field)?.enumValues?.find(e => e.value === value)?.label ?? value;
-  } catch {
-    // The metamodel is not loaded (it always is behind a blotter): show the value.
-    return value;
-  }
-}
-
 const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
   const layout = (domainObject && layouts[domainObject]) || defaultLayout;
   const fieldGroups = layout.groups;
 
   /** A badge exactly as the grid draws it: the label, in the value's tone. */
-  const badge = (field: string, value: string) => (
-    <EnumCellRenderer value={value} valueFormatted={enumLabel(domainObject, field, value)} />
-  );
+  const badge = (field: string, value: string) => enumBadge(domainObject, field, value);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(layout.expanded)
@@ -233,54 +216,8 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ data, domainObject }) => {
     setExpandedSections(newExpanded);
   };
 
-  const formatValue = (key: string, value: any): React.JSX.Element | string => {
-    if (value === null || value === undefined) {
-      return <span className="value-null">—</span>;
-    }
-
-    // Enum fields as badges, like their grid cells
-    if (BADGE_FIELDS.has(key) && typeof value === 'string') {
-      return badge(key, value);
-    }
-
-    // The FIX exec type code, named as in the grid (SPEC-0059)
-    if (key === 'execType' && typeof value === 'string') {
-      return <EnumCellRenderer value={value} valueFormatted={execTypeLabel(value)} />;
-    }
-
-    // Numbers as in the grid: prices with 2 to 8 decimals, others with separators (SPEC-0059)
-    if (typeof value === 'number') {
-      if (key === 'id' || key === 'txNr' || key === 'orderVersion') {
-        return <span className="value-number">{value}</span>;
-      }
-      const formatted = isPriceField(key) ? formatPrice(value) : formatNumber(value);
-      return <span className="value-number">{formatted}</span>;
-    }
-
-    // Format dates/times - use DateTimeService for locale-aware formatting of ISO-8601 instants
-    if (key.toLowerCase().includes('time') || key.toLowerCase().includes('timestamp')) {
-      const formattedDate = dateTimeService.formatForDisplay(value);
-      if (formattedDate) {
-        return (
-          <span className="value-date">
-            {formattedDate}
-          </span>
-        );
-      }
-    }
-
-    // Format boolean
-    if (typeof value === 'boolean') {
-      return <span className={`value-boolean ${value ? 'true' : 'false'}`}>{value ? 'Yes' : 'No'}</span>;
-    }
-
-    // Format objects
-    if (typeof value === 'object') {
-      return <pre className="value-object">{JSON.stringify(value, null, 2)}</pre>;
-    }
-
-    return <span className="value-string">{String(value)}</span>;
-  };
+  const formatValue = (key: string, value: any): React.JSX.Element | string =>
+    formatFieldValue(key, value, domainObject);
 
   const getFieldsInGroup = (groupKey: string): Array<{ key: string; value: any }> => {
     const group = fieldGroups[groupKey];

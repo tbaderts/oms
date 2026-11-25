@@ -1,0 +1,199 @@
+// OrderHistory.scss - The order History view (SPEC-0074)
+.order-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oms-space-3);
+  color: var(--oms-text);
+  font-family: var(--oms-font-family);
+  font-size: var(--oms-font-size-md);
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .order-history-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--oms-space-2);
+  }
+
+  .order-history-title {
+    color: var(--oms-text-muted);
+    font-size: var(--oms-font-size-sm);
+  }
+
+  .order-history-refresh,
+  .order-history-error button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--oms-space-1);
+    padding: var(--oms-space-1) var(--oms-space-2);
+    border: 1px solid var(--oms-border);
+    border-radius: var(--oms-radius-sm);
+    background: var(--oms-surface);
+    color: var(--oms-text);
+    font-family: inherit;
+    font-size: var(--oms-font-size-sm);
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      border-color: var(--oms-border-hover);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  .order-history-status {
+    margin: 0;
+    color: var(--oms-text-muted);
+  }
+
+  .order-history-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--oms-space-3);
+    padding: var(--oms-space-2) var(--oms-space-3);
+    border-radius: var(--oms-radius-sm);
+    background: var(--oms-danger-bg);
+    color: var(--oms-danger);
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--oms-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .history-entry {
+    display: flex;
+    flex-direction: column;
+    gap: var(--oms-space-2);
+    padding: var(--oms-space-3);
+    border: 1px solid var(--oms-border);
+    border-left: 3px solid var(--oms-accent);
+    border-radius: var(--oms-radius-sm);
+    background: var(--oms-surface);
+
+    // a command that changed nothing: set apart from the applied changes
+    &.history-entry--refused {
+      border-left-color: var(--oms-warning);
+      background: var(--oms-warning-bg);
+    }
+
+    &.history-entry--failed {
+      border-left-color: var(--oms-danger);
+      background: var(--oms-danger-bg);
+    }
+
+    &.history-entry--applied {
+      border-left-color: var(--oms-border-hover);
+    }
+  }
+
+  .history-entry-head,
+  .history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--oms-space-2);
+  }
+
+  .history-version {
+    font-family: var(--oms-font-mono);
+    color: var(--oms-text-muted);
+  }
+
+  .history-event,
+  .history-command-type {
+    color: var(--oms-text-strong);
+    font-weight: 600;
+  }
+
+  .history-time {
+    margin-left: auto;
+    color: var(--oms-text-muted);
+    font-size: var(--oms-font-size-sm);
+  }
+
+  .history-meta {
+    color: var(--oms-text-muted);
+    font-size: var(--oms-font-size-sm);
+  }
+
+  .history-command {
+    display: inline-flex;
+    gap: var(--oms-space-1);
+
+    .history-command-type {
+      font-weight: 500;
+    }
+  }
+
+  .history-source,
+  .history-principal {
+    padding: 0 var(--oms-space-1);
+    border: 1px solid var(--oms-border);
+    border-radius: var(--oms-radius-sm);
+  }
+
+  .history-outcome {
+    font-size: var(--oms-font-size-xs);
+    font-weight: 600;
+
+    &.history-outcome--applied {
+      color: var(--oms-success);
+    }
+
+    &.history-outcome--refused {
+      color: var(--oms-warning);
+    }
+
+    &.history-outcome--failed {
+      color: var(--oms-danger);
+    }
+  }
+
+  .history-reason {
+    color: var(--oms-text);
+  }
+
+  .history-changes {
+    border-collapse: collapse;
+    font-size: var(--oms-font-size-sm);
+
+    th,
+    td {
+      padding: 0 var(--oms-space-2) 0 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .change-field {
+      color: var(--oms-text-muted);
+      font-weight: 400;
+    }
+
+    .change-arrow {
+      color: var(--oms-text-muted);
+    }
+  }
+
+  .history-json {
+    display: flex;
+    flex-direction: column;
+    gap: var(--oms-space-1);
+  }
+}

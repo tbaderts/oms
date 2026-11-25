@@ -175,4 +175,38 @@ describe('OMSApiService', () => {
       expect(order).toBeNull();
     });
   });
+
+  // SPEC-0074 AC-1: the order history comes from the two existing per-order query endpoints.
+  describe('order history (SPEC-0074)', () => {
+    it('getOrderEvents calls the events endpoint with the encoded order id', async () => {
+      mockGet.mockResolvedValue([{ orderId: 'ORD 1/x', version: 1, event: 'NEW_ORDER' }]);
+
+      const events = await apiService.getOrderEvents('ORD 1/x');
+
+      expect(mockGet).toHaveBeenCalledWith('/api/query/orders/ORD%201%2Fx/events');
+      expect(events).toEqual([{ orderId: 'ORD 1/x', version: 1, event: 'NEW_ORDER' }]);
+    });
+
+    it('getOrderCommands calls the commands endpoint with the encoded order id', async () => {
+      mockGet.mockResolvedValue([{ type: 'OrderCreateCmd', outcome: 'APPLIED', eventVersion: 1 }]);
+
+      const commands = await apiService.getOrderCommands('ORD-1');
+
+      expect(mockGet).toHaveBeenCalledWith('/api/query/orders/ORD-1/commands');
+      expect(commands).toEqual([{ type: 'OrderCreateCmd', outcome: 'APPLIED', eventVersion: 1 }]);
+    });
+
+    it('answers an empty list for a null body', async () => {
+      mockGet.mockResolvedValue(null);
+
+      expect(await apiService.getOrderEvents('ORD-1')).toEqual([]);
+      expect(await apiService.getOrderCommands('ORD-1')).toEqual([]);
+    });
+
+    it('lets a failed request reject, so the view can show it', async () => {
+      mockGet.mockRejectedValue(new Error('Request failed with status code 500'));
+
+      await expect(apiService.getOrderEvents('ORD-1')).rejects.toThrow('500');
+    });
+  });
 });

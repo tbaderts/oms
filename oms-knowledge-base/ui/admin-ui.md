@@ -5,7 +5,7 @@ title: "User Interface Specification: OMS Admin Tool"
 description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, ag-grid]
 status: draft
-updated: "2026-11-24T18:00:00Z"
+updated: "2026-11-25T09:00:00Z"
 ---
 # User Interface Specification: OMS Admin Tool
 
@@ -371,6 +371,48 @@ Expandable row detail for viewing complex nested objects:
 - **Syntax Highlighting**: Color-coded JSON for readability
 - **Collapsible**: Click again to collapse detail view
 
+### 8. Order History (`OrderHistory.tsx`, SPEC-0074)
+
+An order's detail modal (`DetailModal.tsx`) has two tabs, **Details** (the detail panel) and
+**History**. An execution's detail has no History tab.
+
+The History tab shows how the order reached its state, as one timeline, oldest first.
+
+**Sources.** It combines two existing query endpoints of oms-core (SPEC-0049):
+- `GET /api/query/orders/{orderId}/events`: the event log, one entry per change in ascending
+  `version`;
+- `GET /api/query/orders/{orderId}/commands`: the command log, refused and failed commands included.
+
+**How they are combined** (`buildTimeline` in `services/orderHistory.ts`):
+- Each event is one entry. It shows the version, event, resulting state, time, source and principal.
+- An applied command joins the event it appended, by `eventVersion` (or by `commandId` when the
+  version is missing). It is shown on that event as its type and outcome, not as an entry of its
+  own.
+- A command that changed nothing (refused or failed) is an entry of its own, in time order by
+  `receivedAt`. It shows its type, outcome and reason, set apart in the warning or danger tone.
+
+**The JSON content of an event:**
+- `changes` (jsonb) as a field list, *old → new*. Values are formatted as in the detail panel
+  (`FieldValue.tsx`, one set of rules), and a field set for the first time has an empty old value.
+- The causing command (`transaction`) and the `orderSnapshot` as JSON trees (`JsonTree.tsx`):
+  - strings, numbers, booleans and null are coloured by type;
+  - objects and arrays are collapsible buttons (`aria-expanded`, Enter and Space), collapsed by
+    default;
+  - **Copy JSON** puts the raw JSON on the clipboard.
+  - Values render as text, never as markup.
+
+**Loading:**
+- The history is fetched when the History tab is first selected, not when the modal opens. It is
+  kept while the modal stays open, and **Refresh** fetches it again.
+- A failed request shows the error with **Retry**, and the Details tab keeps working.
+- An order without history shows "No history recorded for this order".
+
+**Not shown:**
+- Archived orders: closed longer than the retention period, so only on the archive replica
+  (SPEC-0052). The blotters don't list them, and reading their history from the replica belongs to
+  SPEC-0021.
+- Live updates: the view is a snapshot until refreshed.
+
 ## Service Architecture
 
 The frontend uses a layered service architecture with clear separation of concerns:
@@ -485,6 +527,9 @@ const cached = cacheService.get<DomainObjectMetadata>('order-metadata');
 - `GET /api/v1/queries/quotes`: Query quotes
 - `GET /api/v1/queries/quoteRequests`: Query quote requests
 - `GET /api/v1/queries/executions`: Query executions
+- `GET /api/query/orders/{orderId}/events` and `GET /api/query/orders/{orderId}/commands`: an
+  order's event log and command log, for the History tab (`getOrderEvents`, `getOrderCommands`,
+  SPEC-0074). A failed request rejects, so the view can show it
 
 **Filter Conversion**:
 

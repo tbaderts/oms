@@ -1,0 +1,116 @@
+// JsonTree.scss - JSON content of the order history (SPEC-0074), in the design system's syntax colours
+.json-tree {
+  font-family: var(--oms-font-mono);
+  font-size: var(--oms-font-size-sm);
+  color: var(--oms-text);
+
+  .json-tree-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: var(--oms-space-2);
+
+    > .json-node,
+    > .json-row {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
+
+  .json-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--oms-space-1);
+    padding: 0 var(--oms-space-1);
+    border: 0;
+    border-radius: var(--oms-radius-sm);
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: var(--oms-font-size-sm);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--oms-hover);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--oms-accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .json-caret {
+    display: inline-block;
+    transition: transform 0.12s ease;
+
+    &.open {
+      transform: rotate(90deg);
+    }
+  }
+
+  .json-children {
+    margin-left: var(--oms-space-3);
+    padding-left: var(--oms-space-2);
+    border-left: 1px solid var(--oms-border);
+  }
+
+  .json-row {
+    padding: 0 var(--oms-space-1);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .json-key {
+    color: var(--oms-syntax-property);
+  }
+
+  .json-punct,
+  .json-size {
+    color: var(--oms-syntax-punctuation);
+  }
+
+  .json-string {
+    color: var(--oms-syntax-string);
+  }
+
+  .json-number {
+    color: var(--oms-syntax-number);
+  }
+
+  .json-boolean,
+  .json-null {
+    color: var(--oms-syntax-keyword);
+  }
+
+  .json-empty {
+    color: var(--oms-text-muted);
+    font-style: italic;
+  }
+
+  .json-copy {
+    padding: 0 var(--oms-space-2);
+    border: 1px solid var(--oms-border);
+    border-radius: var(--oms-radius-sm);
+    background: var(--oms-surface);
+    color: var(--oms-text-muted);
+    font-family: var(--oms-font-family);
+    font-size: var(--oms-font-size-xs);
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--oms-border-hover);
+      color: var(--oms-text);
+    }
+  }
+
+  .json-copy-status {
+    font-family: var(--oms-font-family);
+    font-size: var(--oms-font-size-xs);
+    color: var(--oms-success);
+
+    &.failed {
+      color: var(--oms-danger);
+    }
+  }
+}

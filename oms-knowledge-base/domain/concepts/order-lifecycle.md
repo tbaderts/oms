@@ -6,7 +6,7 @@ description: "Order states and transitions across the full lifecycle, combining 
 tags: [order-lifecycle, state-machine, fix]
 status: draft
 version: "1.0"
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 ---
 # Order Lifecycle Management Specification
 
@@ -240,8 +240,8 @@ stateDiagram-v2
 topic), processed by `OrderLifecycleCommandProcessor`. Allowed from UNACK and LIVE. Sets
 `leavesQty = 0`, stores the reason in `rejectReason` (the client's `text` is untouched), records
 event `REJ`. Sent by the
-[exchange simulator](../../architecture/context/exchange-simulator.md) for unknown symbols, invalid quantities and price-band
-violations.
+[exchange simulator](../../architecture/context/exchange-simulator.md) for unknown symbols, invalid quantities, sub-penny limits and limits through the price
+collar.
 
 ### 4.6 UNACK → FILLED (Immediate Fill)
 

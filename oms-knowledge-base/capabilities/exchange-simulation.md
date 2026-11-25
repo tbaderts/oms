@@ -4,7 +4,7 @@ title: "Exchange Simulation"
 description: "A simulated venue that acknowledges, fills, rejects and cancels OMS orders so the lifecycle runs end to end."
 tags: [exchange-simulator, testing, kafka]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -25,6 +25,12 @@ Developers and testers.
 ## Behaviour
 
 Listens to `oms_orders`, decides per order, and answers with commands on `commands`. See component [Exchange Simulator](../architecture/context/exchange-simulator.md).
+
+Each symbol's reference price comes from Alpha Vantage when `ALPHAVANTAGE_API_KEY` is set, so any
+symbol order entry offers can be traded; otherwise, or when the provider cannot answer, it comes
+from the static `simulator.reference-prices` (SPEC-0073). Limits are checked as US venues do:
+sub-penny prices at or above 1.00 are rejected (Reg NMS Rule 612), and so are limits priced
+through the reference by more than the NYSE-style collar (10 % / 5 % / 3 % by price tier).
 
 Each answer is a bare command record, keyed by orderId, under its own Schema Registry subject
 (SPEC-0025). Its `CommandHeader` is built from the `OrderMessage` it answers: `correlationId` is the
@@ -61,4 +67,4 @@ None known.
 
 ## Verification
 
-`OrderEvaluatorTest`, `FillSlicerTest`, `ExchangeEngineTest`, `ExchangeSimulatorKafkaIntegrationTest`, `SimulatorMetricsIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).
+`OrderEvaluatorTest`, `LimitPriceRulesTest`, `FillSlicerTest`, `ExchangeEngineTest`, `AlphaVantageQuoteClientTest`, `ReferencePriceServiceTest`, `ExchangeSimulatorKafkaIntegrationTest`, `AlphaVantageKafkaIntegrationTest`, `SimulatorMetricsIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).

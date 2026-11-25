@@ -72,6 +72,9 @@ public class OrderEvaluator {
             return Evaluation.reject("Limit order without price");
         }
 
+        if (price.signum() <= 0) {
+            return Evaluation.reject("Invalid limit price " + price.stripTrailingZeros().toPlainString());
+        }
         Optional<String> violation = LimitPriceRules.tickViolation(price)
                 .or(() -> LimitPriceRules.collarViolation(buy, price, reference, properties.priceCollar()));
         if (violation.isPresent()) {

@@ -161,6 +161,10 @@ change as described in Approach (reject reasons for tick and collar; the band re
 - **Decision — no new dependencies.** `RestClient` comes with `spring-boot-starter-web`, already a
   dependency; `MockRestServiceServer` with `spring-boot-starter-test`; the integration stub uses
   the JDK's `com.sun.net.httpserver` as `MockOtlpReceiver` already does. `build.gradle` unchanged.
+- **Decision — `docker-compose.yml` passes `ALPHAVANTAGE_API_KEY` and `ALPHAVANTAGE_BASE_URL` to
+  the simulator**, from the same root `.env` that oms-ui reads. No new service, image or port.
+  Rejected: a separate `SIMULATOR_ALPHAVANTAGE_API_KEY`, which would let the UI and the venue
+  disagree on whether market data is live, and doubles the setup.
 - **Decision — lookup on the engine thread, bounded by short timeouts + cache + back-off.**
   Alternative: resolve the price on the Kafka listener thread before enqueueing — rejected: the
   listener does not know whether a message is a first-sight new order (engine state), so it would
@@ -182,6 +186,13 @@ change as described in Approach (reject reasons for tick and collar; the band re
   class's, so they win. If that ever stopped holding, the test fails loudly because the stub gets no
   request. Unit tests construct objects directly and never read the environment. Rejected: a
   `src/test/resources/config/application.properties` (outranked by env, so it gives no protection).
+- **Changed during implementation — test isolation by variable name, not registration order.**
+  The base class's `@DynamicPropertySource` registrations turned out to win over the subclass's for
+  the same property (the stub got no request, as foreseen). Now the base class registers
+  `ALPHAVANTAGE_API_KEY=""` and `ALPHAVANTAGE_BASE_URL=http://127.0.0.1:9` (outranking the
+  environment variables `application.yml` resolves), and `AlphaVantageKafkaIntegrationTest` sets
+  `simulator.alpha-vantage.api-key` / `base-url` directly. Different names, so no dependency on
+  ordering; the protection against a developer's real key is unchanged.
 
 ## Risks & Mitigations
 

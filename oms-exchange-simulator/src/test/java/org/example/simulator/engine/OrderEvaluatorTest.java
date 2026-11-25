@@ -91,6 +91,16 @@ class OrderEvaluatorTest {
         }
     }
 
+    // SPEC-0073 review: no venue accepts a limit at or below zero, on either side.
+    @ParameterizedTest
+    @CsvSource({"BUY, 0, 0", "BUY, -5, -5", "SELL, 0, 0", "SELL_SHORT, -5, -5"})
+    void nonPositiveLimit_rejected(Side side, String price, String shown) {
+        Evaluation evaluation = evaluator.evaluate(limitAt("AAPL", side, price));
+
+        assertFalse(evaluation.accepted());
+        assertEquals("Invalid limit price " + shown, evaluation.rejectReason());
+    }
+
     // SPEC-0073 AC-7: the passive side is not collared, so the order rests.
     @Test
     void passiveBuyFarBelowReference_acceptedAndRests() {

@@ -34,35 +34,49 @@
 - [x] **T-3** Introduce `ReferencePrices`; make `OrderEvaluator` use it and apply tick then collar instead of the band; rewrite band tests (AC-6, AC-7)
   - files: oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePrices.java, oms-exchange-simulator/src/main/java/org/example/simulator/engine/OrderEvaluator.java, oms-exchange-simulator/src/test/java/org/example/simulator/engine/OrderEvaluatorTest.java, oms-exchange-simulator/src/test/java/org/example/simulator/engine/ExchangeEngineTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.engine.*'` passes, incl. `OrderEvaluatorTest#subPennyLimitAboveOneDollar_rejected`, `#fourDecimalLimitBelowOneDollar_accepted_fiveDecimalsRejected`, `#buyCollar_perTier`, `#sellCollar_perTier`, `#passiveBuyFarBelowReference_acceptedAndRests`
-- [ ] **T-4** Add `AlphaVantageQuoteClient` and `ProviderUnavailableException` test-first: GLOBAL_QUOTE, not found, rate limit, errors, key never logged (AC-1, AC-3, AC-4, AC-8)
+- [x] **T-4** Add `AlphaVantageQuoteClient` and `ProviderUnavailableException` test-first: GLOBAL_QUOTE, not found, rate limit, errors, key never logged (AC-1, AC-3, AC-4, AC-8)
   - files: oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/AlphaVantageQuoteClient.java, oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ProviderUnavailableException.java, oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/AlphaVantageQuoteClientTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.marketdata.AlphaVantageQuoteClientTest'` passes
-- [ ] **T-5** Add `TtlCache` and `ReferencePriceService` (cache, provider, static fallback, back-off) test-first (AC-2, AC-4, AC-5)
+- [x] **T-5** Add `TtlCache` and `ReferencePriceService` (cache, provider, static fallback, back-off) test-first (AC-2, AC-4, AC-5)
   - files: oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/TtlCache.java, oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePriceService.java, oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/ReferencePriceServiceTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.marketdata.ReferencePriceServiceTest'` passes, incl. `#providerPriceWinsOverStaticPrice`, `#notConfigured_usesStaticWithoutRequest`, `#rateLimited_fallsBackToStatic`, `#unreachable_fallsBackToStatic`, `#unavailableAndNotStatic_isEmpty`, `#backoff_skipsProviderUntilItExpires`, `#cachedWithinTtl_noSecondRequest_refetchedAfterTtl`, `#notFoundIsCachedToo`
-- [ ] **T-6** Count lookups in `SimulatorMetrics` as `simulator.reference.price.lookups{source,outcome}` test-first (AC-9)
+- [x] **T-6** Count lookups in `SimulatorMetrics` as `simulator.reference.price.lookups{source,outcome}` test-first (AC-9)
   - files: oms-exchange-simulator/src/main/java/org/example/simulator/metrics/SimulatorMetrics.java, oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePriceService.java, oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/ReferencePriceServiceTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.marketdata.ReferencePriceServiceTest.lookupsCountedBySourceAndOutcome'` passes
-- [ ] **T-7** Wire `MarketDataConfiguration` (RestClient timeouts, Clock, startup log without key); isolate integration tests from a real key in `AbstractKafkaIntegrationTest`; add the collar Kafka test (AC-4, AC-7)
+- [x] **T-7** Wire `MarketDataConfiguration` (RestClient timeouts, Clock, startup log without key); isolate integration tests from a real key in `AbstractKafkaIntegrationTest`; add the collar Kafka test (AC-4, AC-7)
   - files: oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/MarketDataConfiguration.java, oms-exchange-simulator/src/test/java/org/example/simulator/AbstractKafkaIntegrationTest.java, oms-exchange-simulator/src/test/java/org/example/simulator/kafka/ExchangeSimulatorKafkaIntegrationTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.kafka.ExchangeSimulatorKafkaIntegrationTest'` passes, incl. `#limitThroughCollar_rejected` and the existing no-key tests
-- [ ] **T-8** Add `StubAlphaVantage` and `AlphaVantageKafkaIntegrationTest` end to end (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8, AC-9)
+- [x] **T-8** Add `StubAlphaVantage` and `AlphaVantageKafkaIntegrationTest` end to end (AC-1, AC-2, AC-3, AC-4, AC-5, AC-8, AC-9)
   - files: oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/StubAlphaVantage.java, oms-exchange-simulator/src/test/java/org/example/simulator/kafka/AlphaVantageKafkaIntegrationTest.java
   - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.kafka.AlphaVantageKafkaIntegrationTest'` passes: fill at provider price, unknown reject, rate-limit fallback, one request per symbol within TTL, no key in commands or logs, metric on `/actuator/prometheus`
-- [ ] **T-9** Pass `ALPHAVANTAGE_API_KEY` and `ALPHAVANTAGE_BASE_URL` to the simulator in `docker-compose.yml` (AC-1)
+- [x] **T-9** Pass `ALPHAVANTAGE_API_KEY` and `ALPHAVANTAGE_BASE_URL` to the simulator in `docker-compose.yml` (AC-1)
   - files: docker-compose.yml
   - verify: `docker compose config` succeeds and shows both variables under the `oms-exchange-simulator` environment
-- [ ] **T-10** Run the module's full check (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9)
+- [x] **T-10** Run the module's full check (AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9)
   - files: (none)
   - verify: `cd oms-exchange-simulator && ./gradlew check` passes
-- [ ] **T-11** Update the knowledge base and the simulator README (P-19)
+- [x] **T-11** Update the knowledge base and the simulator README (P-19)
   - files: oms-knowledge-base/architecture/context/exchange-simulator.md, oms-knowledge-base/capabilities/exchange-simulation.md, oms-knowledge-base/domain/concepts/order-lifecycle.md, oms-knowledge-base/domain/interfaces/market-data-api.md, oms-exchange-simulator/README.md
   - verify: `node tools/okf-check/okf-check.mjs oms-knowledge-base` reports no errors, and grep for `price-band` in those files finds nothing
-- [ ] **T-12** Run spec verify
+- [x] **T-12** Run spec verify
   - files: (none)
   - verify: `node specs/tools/spec.mjs verify SPEC-0073` exits 0
+- [x] **T-13** Reject a LIMIT at zero or a negative price (`Invalid limit price <p>`) before the tick check, test-first (AC-6, AC-7)
+  - files: oms-exchange-simulator/src/main/java/org/example/simulator/engine/OrderEvaluator.java, oms-exchange-simulator/src/test/java/org/example/simulator/engine/OrderEvaluatorTest.java
+  - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.engine.OrderEvaluatorTest'` passes, incl. `#nonPositiveLimit_rejected`
+- [x] **T-14** Prove a read timeout falls back (AC-4); a lookup never throws, an unexpected exception counts as UNREACHABLE (AC-4)
+  - files: oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/AlphaVantageQuoteClientTest.java, oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePriceService.java, oms-exchange-simulator/src/test/java/org/example/simulator/marketdata/ReferencePriceServiceTest.java
+  - verify: `cd oms-exchange-simulator && ./gradlew test --tests 'org.example.simulator.marketdata.*'` passes, incl. `AlphaVantageQuoteClientTest#readTimeout_isUnreachable` and `ReferencePriceServiceTest#unexpectedFailure_fallsBackAsUnreachable`
+- [x] **T-15** Re-run the module check and spec verify (all ACs)
+  - files: (none)
+  - verify: `node specs/tools/spec.mjs verify SPEC-0073` exits 0 with a fresh `./gradlew check`
 
 ## Notes
 
 T-2 and T-3 change constructors used by existing tests; T-3 adapts them so the module compiles
 again. T-8 depends on T-7's isolation of the base integration test.
+
+T-13 to T-15 were added after the independent review. Its major finding was that a LIMIT at 0 or
+below passed both new checks, which the old band had rejected and no venue accepts. The other two
+were a missing test for the timeout clause of AC-4 and making the lookup never throw on the engine
+thread.

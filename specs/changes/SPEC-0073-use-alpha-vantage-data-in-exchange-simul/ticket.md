@@ -2,9 +2,9 @@
 id: SPEC-0073
 title: Use Alpha Vantage data in exchange simulator
 type: feature
-status: implement
+status: done
 awaiting:
-autopilot: true
+autopilot: false
 modules: [oms-exchange-simulator, oms-knowledge-base]
 approvals: [proposal]
 owner: Toni Badertscher
@@ -32,3 +32,10 @@ oms-ui now supports order entry using alphavantage api for market data. oms-exch
 - 2026-11-25 04:42 — proposal → design
 - 2026-11-25 04:45 — design → plan
 - 2026-11-25 04:46 — plan → implement
+- 2026-11-25 05:01 — verify run: pass
+- 2026-11-25 05:01 — implement → verify
+- 2026-11-25 05:05 — reopened at implement: Review finding: LIMIT at zero or negative price is accepted (regression vs. old band); also add read-timeout test for AC-4 and make reference lookup never throw
+- 2026-11-25 05:07 — verify run: pass
+- 2026-11-25 05:07 — implement → verify
+- 2026-11-25 05:07 — verify → done
+- 2026-11-25 05:07 — autopilot off

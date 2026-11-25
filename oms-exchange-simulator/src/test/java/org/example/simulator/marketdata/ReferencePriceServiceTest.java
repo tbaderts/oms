@@ -112,6 +112,15 @@ class ReferencePriceServiceTest {
         assertEquals(1.0, lookups("NONE", "UNREACHABLE"));
     }
 
+    // AC-4: a lookup never throws on the engine thread, so no order is left unanswered.
+    @Test
+    void unexpectedFailure_fallsBackAsUnreachable() {
+        when(client.lastPrice("AAPL")).thenThrow(new IllegalStateException("bug"));
+
+        assertEquals(Optional.of(new BigDecimal("170.00")), service.referencePrice("AAPL"));
+        assertEquals(1.0, lookups("STATIC", "UNREACHABLE"));
+    }
+
     // AC-4: a failing provider costs at most one call per back-off period.
     @Test
     void backoff_skipsProviderUntilItExpires() {

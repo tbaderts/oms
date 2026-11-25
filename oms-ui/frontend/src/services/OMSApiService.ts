@@ -1,7 +1,7 @@
 // OMSApiService.ts - Query domain objects from OMS backend
 import { ApiClient } from './ApiClient';
 import { ConfigService } from './ConfigService';
-import { FilterCondition, PageResponse, Order, Execution } from '../types/types';
+import { FilterCondition, PageResponse, Order, Execution, OrderEventEntry, CommandLogEntry } from '../types/types';
 
 /** What became of an order sent from order entry (SPEC-0072). */
 export type CreateOrderOutcome =
@@ -89,6 +89,29 @@ export class OMSApiService {
     });
     const page = normalizePage<Order>(response);
     return page.content.length > 0 ? page.content[0] : null;
+  }
+
+  /**
+   * The order's event log, oldest first (SPEC-0074, from SPEC-0049's endpoint). A failed request
+   * rejects, so the History view can show the error.
+   */
+  public async getOrderEvents(orderId: string): Promise<OrderEventEntry[]> {
+    if (!this.apiClient) {
+      throw new Error('API client not initialized');
+    }
+    const events = await this.apiClient.get<OrderEventEntry[] | null>(
+      `/api/query/orders/${encodeURIComponent(orderId)}/events`);
+    return Array.isArray(events) ? events : [];
+  }
+
+  /** The order's command log, oldest first, refused and failed commands included (SPEC-0074). */
+  public async getOrderCommands(orderId: string): Promise<CommandLogEntry[]> {
+    if (!this.apiClient) {
+      throw new Error('API client not initialized');
+    }
+    const commands = await this.apiClient.get<CommandLogEntry[] | null>(
+      `/api/query/orders/${encodeURIComponent(orderId)}/commands`);
+    return Array.isArray(commands) ? commands : [];
   }
 
   /**

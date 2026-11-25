@@ -75,6 +75,49 @@ export interface Order {
   [key: string]: any;
 }
 
+/**
+ * One entry of an order's event log, as `GET /api/query/orders/{orderId}/events` returns it
+ * (`OrderEventDto` in oms-query-api.yml, SPEC-0049). Shown by the order History view (SPEC-0074).
+ */
+export interface OrderEventEntry {
+  orderId: string;
+  version: number;
+  event: string;
+  commandId?: string | null;
+  resultingState?: string | null;
+  timeStamp?: string | null;
+  /** The causing command, as accepted by the command API. */
+  transaction?: unknown;
+  /** The order after the change. */
+  orderSnapshot?: unknown;
+  correlationId?: string | null;
+  causationId?: string | null;
+  principal?: string | null;
+  source?: string | null;
+  /** The fields this event changed: {"<field>": {"from": old, "to": new}}. */
+  changes?: Record<string, { from?: unknown; to?: unknown }> | null;
+  [key: string]: any;
+}
+
+/**
+ * One command the OMS received for an order and its outcome, as
+ * `GET /api/query/orders/{orderId}/commands` returns it (`CommandLogEntryDto`, SPEC-0049).
+ */
+export interface CommandLogEntry {
+  commandId?: string | null;
+  type: string;
+  orderId?: string | null;
+  receivedAt: string;
+  source?: string | null;
+  principal?: string | null;
+  /** APPLIED, REFUSED or FAILED. */
+  outcome: string;
+  reason?: string | null;
+  /** The version of the event it appended, when applied. */
+  eventVersion?: number | null;
+  [key: string]: any;
+}
+
 export interface Execution {
   id: string;
   execId: string;

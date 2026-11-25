@@ -2,10 +2,10 @@
 aliases: [functional-requirements/FR-027-decide-venue-outcome]
 type: Requirement
 title: "Decide the venue outcome of an order"
-description: "The simulator rejects unknown symbols and limit prices outside the price band, fills marketable quantity at the reference price and rests the rest."
+description: "The simulator prices each symbol from Alpha Vantage or its static prices, rejects unknown symbols, sub-penny limits and limits through the price collar, fills marketable quantity at the reference price and rests the rest."
 tags: [functional, exchange-simulation]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-25T12:00:00Z"
 id: "FR-027"
 priority: "must"
 implementation: "implemented"

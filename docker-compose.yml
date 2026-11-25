@@ -93,6 +93,10 @@ services:
       KAFKA_AUTO_REGISTER_SCHEMAS: "true"
       SIMULATOR_FILL_SLICES: ${SIMULATOR_FILL_SLICES:-1}
       SIMULATOR_FILL_DELAY: ${SIMULATOR_FILL_DELAY:-0ms}
+      # Reference prices from Alpha Vantage when a key is set, as order entry shows them (SPEC-0073);
+      # without one the simulator uses its static prices.
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      ALPHAVANTAGE_BASE_URL: ${ALPHAVANTAGE_BASE_URL:-https://www.alphavantage.co}
     ports:
       - "8094:8094"
     networks:

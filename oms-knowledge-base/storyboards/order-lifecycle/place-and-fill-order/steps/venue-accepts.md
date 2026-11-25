@@ -15,22 +15,22 @@ in:
   - name: Order message
     origin: { kind: step, ref: publish-order }
   - name: Venue rules
-    shape: "simulator configuration: price band, reject rate, fill slices"
+    shape: "simulator configuration: reference prices (Alpha Vantage or static), price collar and tick size, reject rate, fill slices"
     origin: { kind: external, label: exchange simulator configuration }
 out:
   - name: Live order
     shape: "{ orderId, state: LIVE, leavesQty: 100 }"
 extensions:
   - id: venue-rejects
-    when: The venue rejects the order, for example because the price is outside its band
+    when: The venue rejects the order, for example because the limit is outside its price collar
     then: The simulator sends an OrderRejectCmd; the OMS moves the order to REJ and keeps the reason.
     continueAt: { kind: end }
     illustrations:
       - src: venue-accepts-venue-rejects.excalidraw.svg
-        caption: An order priced outside the band ends as REJ, with the reason stored
+        caption: An order priced outside the collar ends as REJ, with the reason stored
     out:
       - name: Reject reason
-        shape: "{ orderId, state: REJ, text: price outside the band }"
+        shape: "{ orderId, state: REJ, text: price outside collar }"
         final: true
 ---
 
