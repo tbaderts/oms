@@ -1,6 +1,6 @@
 import type { CockpitConfig } from './config';
 import type { ApiCatalog, ApiRequest, ApiResponse, HistoryEntry, SaveTemplateRequest, SaveTemplateResult, TemplateSource } from '../apiExplorer';
-import type { KbDocument, KbCategory, KbSearchResult, KbHealthReport, KbIndexFixResult } from './kb';
+import type { KbDocument, KbCategory, KbSearchResult, KbHealthReport, KbIndexFixResult, KbTypeGroup } from './kb';
 import type { AiKeySetResult, AiKeyStatus, AiProviderId, AiRunOptions, AiRunStartResult, AiStatus, AiUsageSummary, KbChatMessage, KbChatStartResult } from './ai';
 import type { FsEntry, FsStat } from './fs';
 import type { DockerStats, DockerLogs } from './docker';
@@ -45,6 +45,8 @@ export interface CockpitAPI {
   kb: {
     getCategories(): Promise<KbCategory[]>;
     getDocuments(category: string): Promise<KbDocument[]>;
+    /** Every document grouped by OKF type, for the tree's type view. */
+    getTypeGroups(): Promise<KbTypeGroup[]>;
     getDocument(path: string): Promise<KbDocument>;
     search(query: string): Promise<KbSearchResult[]>;
     /** The knowledge base checker's errors, warnings and statistics (SPEC-0064). */

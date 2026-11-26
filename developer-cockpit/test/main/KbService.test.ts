@@ -76,4 +76,47 @@ describe('KbService', () => {
     // navigation files stay searchable and readable
     expect(kb.getDocument('domain/index.md')).toBeDefined();
   });
+
+  it('groups documents by OKF type, as the KB explorer does', async () => {
+    ws = createStoryboardWorkspace();
+    ws.write({
+      'knowledge-base/index.md': '# KB\n',
+      'knowledge-base/domain/index.md': md({ type: 'Domain Concept', title: 'Domain' }),
+      'knowledge-base/domain/order.md': md({ type: 'Domain Concept', title: 'Order', status: 'stable' }),
+      'knowledge-base/domain/fill.md': md({ type: 'Domain Concept', title: 'Fill' }),
+      'knowledge-base/capabilities/capture.md': md({ type: 'Capability', title: 'Order Capture', maturity: 'implemented' }),
+      'knowledge-base/capabilities/quotes.md': md({ type: 'Capability', title: 'Quotes', maturity: 'planned' }),
+      'knowledge-base/capabilities/blotter.md': md({ type: 'Capability', title: 'Blotter', maturity: 'partial' }),
+      'knowledge-base/capabilities/req/FR-002.md': md({ type: 'Requirement', id: 'FR-002', title: 'Amend' }),
+      'knowledge-base/capabilities/req/FR-001.md': md({ type: 'Requirement', id: 'FR-001', title: 'Submit' }),
+      'knowledge-base/capabilities/req/NFR-001.md': md({ type: 'Requirement', id: 'NFR-001', title: 'Idempotent' }),
+      'knowledge-base/capabilities/use-cases/UC-001.md': md({ type: 'Use Case', title: 'Submit an order' }),
+      'knowledge-base/notes.md': md({ title: 'Loose note' }),
+      'knowledge-base/archive/old.md': md({ type: 'Domain Concept', title: 'Old', status: 'deprecated' }),
+    });
+    const kb = new KbService(path.join(ws.root, 'knowledge-base'));
+    await kb.scan();
+
+    const groups = kb.getTypeGroups();
+
+    // structured types first, in the conventions' order; documents without a type last
+    expect(groups.map((g) => [g.type, g.count])).toEqual([
+      ['Capability', 3], ['Requirement', 3], ['Use Case', 1], ['Domain Concept', 3], ['Untyped', 1],
+    ]);
+    const labelsAndTitles = (type: string) =>
+      groups.find((g) => g.type === type)!.subgroups.map((s) => [s.label, s.documents.map((d) => d.label)]);
+    // capabilities by maturity, requirements functional / non-functional in id order, ids leading
+    expect(labelsAndTitles('Capability')).toEqual([
+      ['implemented', ['Order Capture']], ['partial', ['Blotter']], ['planned', ['Quotes']],
+    ]);
+    expect(labelsAndTitles('Requirement')).toEqual([
+      ['Functional', ['FR-001 Submit', 'FR-002 Amend']], ['Non-functional', ['NFR-001 Idempotent']],
+    ]);
+    // a folder's index.md is navigation, not a concept; deprecated documents stay, marked
+    expect(labelsAndTitles('Domain Concept')).toEqual([['Domain Concept', ['Fill', 'Old', 'Order']]]);
+    const order = groups.find((g) => g.type === 'Domain Concept')!.subgroups[0].documents.find((d) => d.label === 'Order')!;
+    expect(order).toEqual({ path: expect.stringContaining('order.md'), relativePath: 'domain/order.md', label: 'Order', status: 'stable' });
+    // an entry carries what the tree shows, not the document's content
+    expect(Object.keys(order)).not.toContain('content');
+  });
 });

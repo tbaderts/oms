@@ -126,8 +126,9 @@ abstract class AbstractFillFlowIntegrationTest extends AbstractKafkaPostgresInte
         return new ExecutionCreateCmd(TestCommands.header(), execution);
     }
 
-    void send(String key, Object command) throws Exception {
-        commands.send(commandTopic, key, command).get(10, TimeUnit.SECONDS);
+    /** Sends a command and returns where it landed. */
+    org.apache.kafka.clients.producer.RecordMetadata send(String key, Object command) throws Exception {
+        return commands.send(commandTopic, key, command).get(10, TimeUnit.SECONDS).getRecordMetadata();
     }
 
     long executionCount(String orderId) {

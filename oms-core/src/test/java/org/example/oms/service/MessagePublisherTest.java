@@ -48,6 +48,7 @@ class MessagePublisherTest {
         messagePublisher =
                 new MessagePublisher(
                         kafkaTemplate,
+                        null,
                         orderMessageMapper,
                         executionMessageMapper,
                         orderExecutionMessageMapper,

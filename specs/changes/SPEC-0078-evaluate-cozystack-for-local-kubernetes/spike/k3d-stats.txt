@@ -1,0 +1,49 @@
+## empty cluster (k3s only), 2026-11-26
+k3d-oms-spike-tools	2.949MiB / 15.22GiB	0.00%
+k3d-oms-spike-serverlb	15.8MiB / 15.22GiB	0.00%
+k3d-oms-spike-agent-1	116.2MiB / 15.22GiB	2.20%
+k3d-oms-spike-agent-0	81.74MiB / 15.22GiB	18.06%
+k3d-oms-spike-server-0	594.9MiB / 15.22GiB	14.31%
+
+## operators only (cnpg, strimzi, redis-operator, grafana-operator), 2026-11-26
+k3d-oms-spike-tools	2.949MiB / 15.22GiB	0.00%
+k3d-oms-spike-serverlb	15.82MiB / 15.22GiB	0.00%
+k3d-oms-spike-agent-1	204.3MiB / 15.22GiB	3.27%
+k3d-oms-spike-agent-0	428.4MiB / 15.22GiB	2.68%
+k3d-oms-spike-server-0	801.1MiB / 15.22GiB	13.62%
+cnpg-system      cnpg-cloudnative-pg-7cb44f6bfc-2dw5w        6m    23Mi    
+redis-operator   redis-operator-5b9c65594-nqnxk              3m    11Mi    
+strimzi          strimzi-cluster-operator-84cd7bf46c-njhhf   12m   198Mi   
+
+## operators + idle instances (pg, kafka 1 node KRaft, schema-registry, redis, grafana), 2026-11-26
+k3d-oms-spike-tools	2.949MiB / 15.22GiB	0.00%
+k3d-oms-spike-serverlb	15.82MiB / 15.22GiB	0.00%
+k3d-oms-spike-agent-1	1.212GiB / 15.22GiB	4.50%
+k3d-oms-spike-agent-0	1.109GiB / 15.22GiB	165.40%
+k3d-oms-spike-server-0	1.682GiB / 15.22GiB	92.05%
+cnpg-system        cnpg-cloudnative-pg-7cb44f6bfc-2dw5w        5m     29Mi    
+grafana-operator   grafana-operator-66594f94c8-bjgp2           5m     26Mi    
+oms                oms-grafana-deployment-7bdf5d5dfc-shtsr     373m   190Mi   
+oms                oms-kafka-dual-0                            89m    628Mi   
+oms                oms-pg-1                                    8m     59Mi    
+oms                oms-redis-0                                 8m     9Mi     
+redis-operator     redis-operator-5b9c65594-nqnxk              3m     18Mi    
+strimzi            strimzi-cluster-operator-84cd7bf46c-njhhf   145m   269Mi   
+
+## operators + instances + oms-core x3, 2026-11-26
+k3d-oms-spike-serverlb	15.87MiB / 15.22GiB	0.00%
+k3d-oms-spike-agent-1	2.501GiB / 15.22GiB	13.43%
+k3d-oms-spike-agent-0	2.102GiB / 15.22GiB	8.25%
+k3d-oms-spike-server-0	2.754GiB / 15.22GiB	21.41%
+oms-core-5667bbd9f8-4vbgj                 90m     757Mi   
+oms-core-5667bbd9f8-7dg67                 198m    679Mi   
+oms-core-5667bbd9f8-wnsm7                 1992m   631Mi   
+oms-grafana-deployment-7bdf5d5dfc-shtsr   13m     210Mi   
+oms-kafka-dual-0                          46m     743Mi   
+oms-pg-1                                  24m     131Mi   
+oms-redis-0                               5m      9Mi     
+schema-registry-559774b4c9-z24zc          6m      297Mi   
+
+## Note
+
+The `kubectl top` lists above are a breakdown, not the total. Some pods are missing from them, most likely because metrics-server had not scraped them yet (grafana-operator in "operators only", schema-registry in "operators + idle instances"). The totals are the `docker stats` node lines, which include every pod.

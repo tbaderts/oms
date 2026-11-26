@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import type { KbDocument, KbCategory, KbSearchResult } from '@shared/types/kb';
+import type { KbDocument, KbCategory, KbSearchResult, KbTypeGroup } from '@shared/types/kb';
+
+/** How the tree browses the knowledge base: by folder, or by OKF type as in the OKF explorer. */
+export type KbTreeView = 'folders' | 'types';
 
 interface KnowledgeBaseState {
   categories: KbCategory[];
@@ -8,9 +11,14 @@ interface KnowledgeBaseState {
   searchResults: KbSearchResult[];
   searchQuery: string;
   loading: boolean;
+  /** Kept here so the choice survives leaving the Knowledge Base tab. */
+  treeView: KbTreeView;
+  typeGroups: KbTypeGroup[];
 
   loadCategories: () => Promise<void>;
   loadDocuments: (category: string) => Promise<void>;
+  setTreeView: (view: KbTreeView) => void;
+  loadTypeGroups: () => Promise<void>;
   selectDocument: (path: string) => Promise<void>;
   search: (query: string) => Promise<void>;
   clearSearch: () => void;
@@ -23,6 +31,8 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set) => ({
   searchResults: [],
   searchQuery: '',
   loading: false,
+  treeView: 'folders',
+  typeGroups: [],
 
   loadCategories: async () => {
     set({ loading: true });
@@ -41,6 +51,16 @@ export const useKnowledgeBaseStore = create<KnowledgeBaseState>((set) => ({
       set({ documents, loading: false });
     } catch {
       set({ loading: false });
+    }
+  },
+
+  setTreeView: (treeView) => set({ treeView }),
+
+  loadTypeGroups: async () => {
+    try {
+      set({ typeGroups: await window.cockpit.kb.getTypeGroups() });
+    } catch {
+      set({ typeGroups: [] });
     }
   },
 

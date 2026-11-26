@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useKnowledgeBaseStore } from '@/stores/knowledgeBase';
-import { CategoryTree } from './CategoryTree';
+import { KbTree } from './KbTree';
 import { DocumentViewer } from './DocumentViewer';
 import { TableOfContents } from './TableOfContents';
 import { KbSearchBar } from './KbSearchBar';
@@ -64,14 +64,14 @@ export function KnowledgeBaseView() {
 
   return (
     <div className="flex h-full">
-      {/* Left panel - Category tree and search */}
+      {/* Left panel - search, and the tree by folder or by type */}
       <div className="flex w-64 flex-col border-r border-border">
         <div className="border-b border-border p-3">
           <KbSearchBar onSelect={openDocument} />
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2">
-            <CategoryTree categories={categories} onSelect={openDocument} />
+            <KbTree categories={categories} onSelect={openDocument} />
           </div>
         </ScrollArea>
       </div>

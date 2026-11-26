@@ -5,7 +5,7 @@ title: "Streaming Service"
 description: "Spring Boot service that streams orders and executions to the UI over RSocket."
 tags: [component, rsocket, streaming]
 status: draft
-updated: "2026-11-24T16:00:00Z"
+updated: "2026-11-25T20:00:00Z"
 component: "streaming-service"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -14,6 +14,7 @@ sources:
   - resource: "repo:oms-streaming-service/src/main/java/org/example/streaming/service/KafkaEventStreamProvider.java"
   - resource: "repo:oms-streaming-service/src/main/java/org/example/streaming/client/OmsQueryClient.java"
   - resource: "repo:oms-streaming-service/src/main/java/org/example/streaming/config/KafkaConfig.java"
+  - resource: "repo:oms-streaming-service/src/main/java/org/example/streaming/kafka/errors/RecordErrorPolicy.java"
 ---
 # Streaming Service
 
@@ -45,6 +46,16 @@ startup load from the order-execution projection (SPEC-0067) and the routes that
   shows it and reconnects); a live-only subscription is unaffected. There is no cached fallback.
 - **Kafka:** one consumer group; the executions receiver starts at `latest` when the group has no
   offset on `oms_executions`, since history comes from the snapshot.
+- **Kafka failures (SPEC-0077).** The receivers read values as bytes; each record is decoded and
+  handled through `RecordErrorPolicy`, one at a time, following the
+  [Kafka error policy](../patterns/kafka-messaging.md#error-policy-every-consumer-and-producer).
+  - A retryable failure is retried for `kafka.error-policy.retry-for` (`KAFKA_RETRY_FOR`, PT2M).
+  - After that, or at once for a record that cannot be decoded or a failure that cannot succeed,
+    the record goes to `oms_orders.oms-streaming-service.DLT` or
+    `oms_executions.oms-streaming-service.DLT`, created at startup.
+  - The stream carries on with the next record. Before SPEC-0077 a record that could not be
+    deserialized failed inside the Kafka client, where no error handling could reach it.
+  - An offset is acknowledged only once its record was emitted or dead-lettered.
 - Execution filters apply to execution fields (`orderId`, `symbol`, `execType`, `lastMkt`, …), the
   same for snapshot and live fills; the snapshot passes them to the search as its filters. A live
   fill's `status` follows its FIX ExecType (H busted, G corrected, otherwise applied), as the

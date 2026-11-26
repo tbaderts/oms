@@ -4,13 +4,15 @@ title: "Event Publication"
 description: "Getting order and execution changes onto Kafka reliably through the transactional outbox."
 tags: [kafka, outbox, events]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-25T20:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OutboxRelay.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/MessagePublisher.java"
+  - resource: "repo:oms-core/src/main/java/org/example/oms/service/OutboxDeadLetterPublisher.java"
+  - resource: "repo:oms-core/src/main/resources/db/changelog/020-outbox-dead-letter.yaml"
 ---
 # Event Publication
 
@@ -63,21 +65,32 @@ topic and key, and so one partition.
   the whole batch, at most `kafka.outbox.drain-timeout-ms` (default 30 s), then deletes the
   acknowledged rows in the claiming transaction.
 - **A failure holds only its aggregate.** The failed row keeps its place, its attempt count goes
-  up and its error is recorded, and the later rows of that aggregate are not sent in this drain.
-  Other aggregates are published as usual. On the next poll the failed row is the first of its
-  aggregate again.
-- **A stuck row holds its aggregate.** A row that fails `kafka.outbox.max-attempts` times (default
-  10) is no longer retried. The later rows of its aggregate stay in the outbox behind it, never
-  published out of order, until an operator replays or removes it.
-- **Only a definitive failure costs an attempt.** These are problems with the message itself:
-  serialization, a record too large, authorization, a row without a payload, a pointer whose event
-  or execution cannot be read (its `lastError` names the order and the version). A **transient**
-  failure costs no attempt. It means a Kafka retriable error, such as a send that waited longer
-  than the producer's `max.block.ms` (10 s) for topic metadata, or an I/O error reaching the schema
-  registry. A transient failure stops the aggregate for the drain and records `lastError`. A row
-  the drain stopped waiting for is left untouched. Both are sent again on a later poll, in order.
-  So a broker or registry outage, including one during a restart, delays publication; it never
-  exhausts attempts and holds orders.
+  up and its error is recorded, and the later rows of that aggregate are not sent. Other aggregates
+  are published as usual.
+- **Failures follow the Kafka error policy (SPEC-0077).** The policy is the same one every Kafka
+  client follows; see [Kafka Messaging](../architecture/patterns/kafka-messaging.md#error-policy-every-consumer-and-producer).
+  - **Retryable failures back off.** The row is not claimed again before `next_attempt_at`, which
+    grows exponentially from `kafka.error-policy.initial-interval` up to `max-interval`. It is
+    retried until `kafka.error-policy.retry-for` (default 2 minutes) has passed since it first
+    failed (`first_failed_at`).
+  - **Failures that cannot succeed are dead-lettered at once.** Examples: a null pointer, a
+    serialization error, authorization.
+  - **A row without a payload, or a pointer whose event or execution cannot be read**, fails with an
+    `IllegalStateException` (its `lastError` names the order and the version). That is retryable, so it is
+    retried for the window and then dead-lettered.
+  - **Dead-lettered rows are parked.** The row is written to `<topic>.oms-core.DLT` and parked
+    (`parked_at`, `dead_letter_topic`). It is never retried, and the later rows of its aggregate
+    stay behind it, never published out of order, until an operator replays or removes it.
+  - **A backstop.** A row that reaches `kafka.outbox.max-attempts` (default 50) is dead-lettered
+    even if its window has not passed.
+- **A transient failure costs nothing.** It means a Kafka retriable error, such as a send that
+  waited longer than the producer's `max.block.ms` (10 s) for topic metadata, or an I/O error
+  reaching the schema registry. A transient failure stops the aggregate for the drain and records
+  `lastError`, but costs no attempt and ends any window already running: a failure after the outage
+  starts a fresh one. A row the drain stopped waiting
+  for is left untouched. Both are sent again on a later poll, in order. So a broker or registry
+  outage, including one during a restart, delays publication; it never dead-letters messages or
+  holds orders.
 - **Delivery is at least once.** A row that was in flight when the drain stopped waiting may reach
   Kafka twice. While that send has not settled, later drains skip its aggregate, so the resend
   always follows it: duplicates arrive in order.
@@ -96,7 +109,8 @@ topic and key, and so one partition.
 
 Metrics:
 - `oms.outbox.pending`: rows in the outbox;
-- `oms.outbox.stuck`: rows that exhausted their attempts;
+- `oms.outbox.stuck`: parked rows (dead-lettered, or kept after the dead-letter topic refused them);
+- `kafka.dead.letters{service="oms-core",side="producer"}`: rows dead-lettered, by topic and exception;
 - `oms.outbox.oldest.age` (`oms_outbox_oldest_age_seconds`): how long the oldest row still to be
   published has waited, 0 when none. A held aggregate makes it grow.
 
@@ -153,7 +167,7 @@ the gap without a relay to about a minute.
 
 **Rolling out SPEC-0047, and rolling it back.** `ORDER` and `EXECUTION` rows are pointers from
 SPEC-0047 on, and only SPEC-0047 code can publish them. Code from before SPEC-0047 fails them as
-"no payload", a definitive failure: after `max-attempts` their aggregates are held.
+"no payload": after the retry window their rows are dead-lettered and their aggregates held.
 - **Rolling deploy with several instances.** Stop every pre-SPEC-0047 instance, or make sure none
   holds the outbox-relay leadership, before a SPEC-0047 instance takes commands. Check with
   `GET /actuator/health/leadership` and `oms.leadership.held{role="OUTBOX_RELAY"}`.
@@ -165,13 +179,25 @@ SPEC-0047 on, and only SPEC-0047 code can publish them. Code from before SPEC-00
   sequences back at `INCREMENT BY 1` (changeset `015-pooled-sequences`), or Hibernate's
   startup check refuses to start.
 - **Rows already held.** If rows were held this way, release them by deploying SPEC-0047 code and
-  resetting their `attempts` to 0; they then publish normally.
+  resetting their `attempts` to 0 and `parked_at`, `first_failed_at` and `next_attempt_at` to
+  null; they then publish normally.
 
 **Rolling out SPEC-0026.** Rows that an earlier relay left stuck start holding their aggregates
 once this version runs: every new message for that topic and root order would wait behind them.
 Before deploying, check `oms.outbox.stuck` (or
 `select id, topic, aggregate_id, last_error from outbox where attempts >= 10`). Replay or delete
 each stuck row; the old relay has usually already published the later messages past it.
+
+**Rolling out SPEC-0077.** Changelog 020 adds `first_failed_at`, `next_attempt_at`, `parked_at`
+and `dead_letter_topic`, and parks every row that had already reached the old limit
+(`attempts >= 10`), so rows that were stuck stay stuck. They have no dead letter: replay or
+remove them as before. The backfill uses the old default of 10 whatever `OUTBOX_MAX_ATTEMPTS` a
+deployment ran with: with another value, check the parked rows after the upgrade. Its rollback (to
+tag `before-020-outbox-dead-letter`) drops the columns.
+
+**Duplicate dead letters.** A dead-letter send waits at most 10 s on the drain thread. If it times
+out locally, the row stays pending and is dead-lettered again on a later drain, but the producer may
+still deliver the first copy, so a dead-letter topic can hold the same message twice.
 
 ## Use cases
 

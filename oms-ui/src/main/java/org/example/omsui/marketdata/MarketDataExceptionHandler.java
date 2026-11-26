@@ -12,8 +12,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.validation.ConstraintViolationException;
 
 /**
- * Parameters outside the market data contract (a missing or too long query) are a 400
- * Problem+JSON, in the format oms-core uses (framework/exception-handling.md), not a 500.
+ * Market data errors as Problem+JSON, in the format oms-core uses (framework/exception-handling.md):
+ * parameters outside the contract (a missing or too long query) are a 400, an unreachable price
+ * service a 503 (SPEC-0079), never a 500.
  */
 @RestControllerAdvice(assignableTypes = MarketDataController.class)
 class MarketDataExceptionHandler {
@@ -33,6 +34,16 @@ class MarketDataExceptionHandler {
                         v -> v.getMessage(),
                         (a, b) -> a + "; " + b));
         problem.setProperty("errors", errors);
+        return problem;
+    }
+
+    /** The price service cannot be reached: order entry shows a notice and takes the symbol typed by hand (SPEC-0079). */
+    @ExceptionHandler(PriceServiceUnavailableException.class)
+    ProblemDetail priceServiceUnavailable(PriceServiceUnavailableException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE, "Market data unavailable: the price service cannot be reached");
+        problem.setType(URI.create("urn:oms:error:price-service-unavailable"));
+        problem.setTitle("Price Service Unavailable");
         return problem;
     }
 }

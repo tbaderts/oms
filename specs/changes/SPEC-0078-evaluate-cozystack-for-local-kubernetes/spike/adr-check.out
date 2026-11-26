@@ -1,0 +1,15 @@
+2026-11-26T13:26:38Z
+ok 1 - AC-1 adr exists, indexed, one decision
+ok 2 - AC-2 options table
+ok 3 - AC-3 evidence hardware
+ok 4 - AC-4 memory figures
+ok 5 - AC-5 parity
+ok 6 - AC-6 coexistence ports
+ok 7 - AC-7 inner loop
+ok 8 - AC-8 follow-ups and cozystack page
+ok 9 - AC-9 change scope
+# tests 9
+# pass 9
+# fail 0
+okf-check: 208 concepts, 0 error(s), 95 warning(s)
+okf-exit=0

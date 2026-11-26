@@ -295,10 +295,13 @@ paths:
       operationId: getOutboxSummary
       summary: Counts of outbox messages by state
       description: |
-        How many messages wait in the outbox, by state (SPEC-0075). The outbox holds only messages
-        still to be published: a published message is deleted. STUCK messages used up
-        `kafka.outbox.max-attempts` and are no longer retried; HELD messages wait behind a stuck
-        message of their aggregate (same topic and key); PENDING messages are being retried as usual.
+        How many messages wait in the outbox, by state (SPEC-0075, SPEC-0077). The outbox holds only
+        messages still to be published: a published message is deleted. STUCK messages were
+        dead-lettered (a failure that cannot succeed on a retry, or one that outlasted
+        `kafka.error-policy.retry-for` or `kafka.outbox.max-attempts`), or their dead-letter topic
+        refused them; they are no longer sent and hold the later messages of their aggregate. HELD
+        messages wait behind a stuck message of their aggregate (same topic and key); PENDING messages
+        are being sent or retried.
       tags:
         - Admin
       responses:
@@ -460,9 +463,10 @@ components:
     OutboxState:
       type: string
       description: >-
-        Where an outbox message stands (SPEC-0075). PENDING: being retried as usual. STUCK: used up
-        kafka.outbox.max-attempts, no longer retried. HELD: not stuck, but waiting behind a stuck
-        message of its aggregate (same topic and key).
+        Where an outbox message stands (SPEC-0075, SPEC-0077). PENDING: being sent or retried. STUCK:
+        dead-lettered (or refused by its dead-letter topic) and no longer sent; it holds the later
+        messages of its aggregate. HELD: not stuck, but waiting behind a stuck message of its
+        aggregate (same topic and key).
       enum: [PENDING, STUCK, HELD]
     OutboxSummaryDto:
       type: object
@@ -480,7 +484,9 @@ components:
           format: int64
         maxAttempts:
           type: integer
-          description: kafka.outbox.max-attempts, the attempts after which a message is stuck.
+          description: >-
+            kafka.outbox.max-attempts, the backstop after which a failing message is dead-lettered
+            even within the retry window (SPEC-0077).
         oldestWaitingCreatedAt:
           type: string
           format: date-time

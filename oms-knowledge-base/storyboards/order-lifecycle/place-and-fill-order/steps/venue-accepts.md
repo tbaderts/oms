@@ -15,7 +15,7 @@ in:
   - name: Order message
     origin: { kind: step, ref: publish-order }
   - name: Venue rules
-    shape: "simulator configuration: reference prices (Alpha Vantage or static), price collar and tick size, reject rate, fill slices"
+    shape: "simulator configuration: reference prices (price service or static), price collar and tick size, reject rate, fill slices"
     origin: { kind: external, label: exchange simulator configuration }
 out:
   - name: Live order

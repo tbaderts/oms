@@ -6,6 +6,7 @@ import { dateTimeService } from './DateTimeService';
 import EnumCellRenderer from '../components/EnumCellRenderer';
 import IdCell from '../components/IdCell';
 import { execTypeLabel, formatNumber, formatPrice, isIdField, isPriceField } from './fieldFormat';
+import { DATE_FILTER_PARAMS } from './dateFilter';
 
 /** Identifier columns are at least this wide, so an exec id and its order id can be told apart (SPEC-0059). */
 export const ID_COLUMN_WIDTH = 220;
@@ -66,6 +67,8 @@ export class ColumnConfigService {
       colDef.valueFormatter = (params: any) => {
         return dateTimeService.formatForDisplay(params.value);
       };
+      // Filtered by local calendar day, in the grid and on the server alike (dateFilter.ts)
+      colDef.filterParams = DATE_FILTER_PARAMS;
     } else if (field.type === 'number') {
       // Right-aligned so digits line up; prices with 2 to 8 decimals, other numbers as they are (SPEC-0059)
       colDef.type = 'rightAligned';

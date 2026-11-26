@@ -1,58 +1,74 @@
 ---
 type: Interface
 title: "Market Data API"
-description: "oms-ui's instrument lookup and quote endpoints for order entry, backed by Alpha Vantage or built-in instruments, with the provider's key kept on the server and answers cached."
-tags: [api, rest, market-data, oms-ui]
+description: "Instrument lookup and quote endpoints, served by the price service and forwarded by oms-ui for order entry: instruments from a local list, quotes live within a request budget or end-of-day closes."
+tags: [api, rest, market-data, oms-ui, price-service]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-24T18:00:00Z" }
 covers: ["openapi:/api/market-data/instruments", "openapi:/api/market-data/quotes/{symbol}"]
 sources:
   - resource: "repo:oms-contracts/src/main/openapi/oms-marketdata-api.yml"
+  - resource: "repo:oms-price-service/src/main/java/org/example/price/api/MarketDataController.java"
+  - resource: "repo:oms-price-service/src/main/java/org/example/price/service/PriceService.java"
   - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/MarketDataController.java"
-  - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/MarketDataService.java"
-  - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/AlphaVantageProvider.java"
+  - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/PriceServiceClient.java"
 ---
 # Market Data API
 
-Served by **oms-ui's backend** (port 8080), not by oms-core, for the [Order Entry](../../ui/order-entry.md)
-tab (SPEC-0072). Specified in `oms-contracts/src/main/openapi/oms-marketdata-api.yml`; the models are
-generated in oms-contracts (`org.example.common.model.marketdata`), the interface `MarketDataApi` in
-oms-ui.
+Specified in `oms-contracts/src/main/openapi/oms-marketdata-api.yml` (version 1.1.0). The models are
+generated in oms-contracts (`org.example.common.model.marketdata`); the interface `MarketDataApi` is
+generated in each service that serves it.
+
+- **[Price Service](../../architecture/context/price-service.md)** (port 8098) serves it
+  (SPEC-0079). It owns market data and the provider's key.
+- **oms-ui's backend** (port 8080) serves the same paths for the
+  [Order Entry](../../ui/order-entry.md) tab (SPEC-0072) and forwards them to the price service. The
+  browser keeps one origin.
+- **The [Exchange Simulator](../../architecture/context/exchange-simulator.md)** calls the price
+  service's quote endpoint for its reference prices.
 
 | Endpoint | Answer |
 |---|---|
 | `GET /api/market-data/instruments?query=…` (1–40 characters) | `InstrumentSearchResult`: `instruments` (`symbol`, `name`, `type`, `region`, `currency`), `source`, `notice` |
-| `GET /api/market-data/quotes/{symbol}` | `Quote`: `last`, `change`, `changePercent`, `high`, `low`, `previousClose`, `bid`, `ask` (absent when the provider has none), `currency`, `asOf`, `source`, `notice`; 404 when nobody prices the symbol |
+| `GET /api/market-data/quotes/{symbol}` | `Quote`: `last`, `change`, `changePercent`, `high`, `low`, `previousClose`, `bid`, `ask` (absent when unknown), `currency`, `asOf`, `source`, `notice`; 404 when nobody prices the symbol |
 
-A query outside the contract is a 400 Problem+JSON (`urn:oms:error:validation-failed`).
+## Sources (`MarketDataSource`)
 
-## Sources and fallback
+| Value | Meaning |
+|---|---|
+| `REFERENCE_DATA` | Search results from the price service's instrument list (refreshed daily from Alpha Vantage `LISTING_STATUS`, else the seed). Search never calls the provider |
+| `ALPHA_VANTAGE` | A live `GLOBAL_QUOTE`, within the price service's request budget (25 a day, 5 a minute), cached for 15 min |
+| `END_OF_DAY` | The last known close from the end-of-day store: `last` is the close, `asOf` its trading day. Used when no live price can be had; the `notice` says why |
+| `BUILT_IN` | No longer produced (SPEC-0079); kept in the enum so older answers still parse |
 
-`MarketDataService` answers from its cache, else the provider, else the built-in instruments:
-- **Provider: Alpha Vantage** (`AlphaVantageProvider`, `SYMBOL_SEARCH` and `GLOBAL_QUOTE`), asked only
-  when `ALPHAVANTAGE_API_KEY` is set. Timeouts: connect 2 s, read 5 s.
-- **Built-in instruments** (`oms.ui.market-data.built-in`): the exchange simulator's symbols with its
-  reference prices as `last`. Used, with `source: BUILT_IN` and a `notice`, when the provider is not
-  configured, rate limited (Alpha Vantage answers 200 with a `Note` or `Information` member) or not
-  reachable. A provider problem is never an error for the caller.
-- **Cache:** provider answers only, searches for `search-ttl` (default 24 h), quotes for `quote-ttl`
-  (default 5 min); fallbacks are not cached, so data returns as soon as the provider does.
+The sources, the budget and the end-of-day files are described in
+[Price Service](../../architecture/context/price-service.md).
 
-The exchange simulator uses the same provider and key for its reference prices (SPEC-0073), with
-its own `GLOBAL_QUOTE` client and its own cache. It does not call this API. A symbol that order
-entry quotes can therefore be traded, and it fills at the same last price, give or take the two
-caches' ages. See [Exchange Simulator §4.1](../../architecture/context/exchange-simulator.md).
+## Errors
+
+| Status | When |
+|---|---|
+| 400 Problem+JSON `urn:oms:error:validation-failed` | a query outside the contract. oms-ui checks it before forwarding, so a bad query never leaves oms-ui |
+| 404 (Problem+JSON `urn:oms:error:not-found` from the price service) | neither a live quote nor the end-of-day store has a price |
+| 503 Problem+JSON `urn:oms:error:price-service-unavailable` (oms-ui only) | the price service cannot be reached. Order entry shows "Market data unavailable" and takes a symbol typed by hand |
+
+A provider problem is never an error for the caller: the price service answers from its end-of-day
+store instead.
 
 ## The key
 
-`oms.ui.market-data.alpha-vantage.api-key` (env `ALPHAVANTAGE_API_KEY`) is read only by
-`AlphaVantageProvider`: never logged (requests are logged by function), never returned, not in
-`/api/config`; Alpha Vantage's own messages, which echo it, are not passed on. Tests assert it is in
-no response.
+Only the price service has it: `oms.price.alpha-vantage.api-key`, env `ALPHAVANTAGE_API_KEY`.
+- It is never logged and never returned, and Alpha Vantage's own messages, which echo it, are not
+  passed on.
+- oms-ui and the simulator have no Alpha Vantage setting. `ConfigurationHasNoProviderKeyTest`
+  checks both modules, and `ComposeEnvironmentTest` checks the compose file.
 
 ## Metrics
 
-`oms.ui.marketdata.requests{kind=search|quote, source, outcome}`; outcome `CACHE`, `PROVIDER`,
-`NOT_FOUND` or the reason the provider could not answer (`NOT_CONFIGURED`, `RATE_LIMITED`,
-`UNREACHABLE`).
+On the price service:
+- `oms.price.requests{kind=search|quote|refresh, source, outcome}`;
+- `oms.price.provider.budget.remaining`.
+
+The former `oms.ui.marketdata.requests` is gone with oms-ui's provider. See
+[Price Service §4](../../architecture/context/price-service.md#4-metrics).

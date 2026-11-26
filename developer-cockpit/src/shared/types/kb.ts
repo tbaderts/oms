@@ -23,6 +23,25 @@ export interface KbCategory {
   subcategories: KbCategory[];
 }
 
+/** One document in the type view: what the tree shows, without the content. */
+export interface KbTreeEntry {
+  path: string;
+  relativePath: string;
+  /** The title, led by the requirement id when there is one (`FR-001 Submit`). */
+  label: string;
+  status?: string;
+}
+
+/**
+ * The documents of one OKF type, as the KB explorer's type view groups them: capabilities by
+ * maturity, requirements functional / non-functional, any other type in one subgroup.
+ */
+export interface KbTypeGroup {
+  type: string;
+  count: number;
+  subgroups: { label: string; documents: KbTreeEntry[] }[];
+}
+
 export interface KbSearchResult {
   document: KbDocument;
   score: number;

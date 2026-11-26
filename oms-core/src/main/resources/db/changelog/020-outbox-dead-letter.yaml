@@ -1,0 +1,78 @@
+databaseChangeLog:
+  # ---------------------------------------------------------------------------
+  # SPEC-0077: the outbox retries a failing message for a time window with
+  # back-off, then dead-letters it to <topic>.oms-core.DLT and parks the row.
+  #
+  # first_failed_at  when the current run of failures began (the window's start)
+  # next_attempt_at  the earliest the relay sends it again (back-off)
+  # parked_at        when it stopped being sent: dead-lettered, or refused by its
+  #                  dead-letter topic; a parked row holds its aggregate's later rows
+  # dead_letter_topic where it was dead-lettered; null when the DLT refused it or
+  #                  for rows parked by the backfill below
+  #
+  # Backfill: a row that used up the old attempt budget (10, the default of
+  # kafka.outbox.max-attempts) was stuck; it stays stuck by being parked now. It
+  # was never dead-lettered, so dead_letter_topic stays null. Running it again
+  # changes nothing (it only touches rows not yet parked).
+  #
+  # No context: the replica is migrated with this changelog too (SPEC-0052).
+  # ---------------------------------------------------------------------------
+  - changeSet:
+      id: 020-tag-before-outbox-dead-letter
+      author: oms
+      changes:
+        - tagDatabase:
+            tag: before-020-outbox-dead-letter
+  - changeSet:
+      id: 020-outbox-dead-letter-columns
+      author: oms
+      changes:
+        - addColumn:
+            tableName: outbox
+            columns:
+              - column:
+                  name: first_failed_at
+                  type: timestamptz
+              - column:
+                  name: next_attempt_at
+                  type: timestamptz
+              - column:
+                  name: parked_at
+                  type: timestamptz
+              - column:
+                  name: dead_letter_topic
+                  type: varchar(255)
+      rollback:
+        - dropColumn:
+            tableName: outbox
+            columns:
+              - column:
+                  name: first_failed_at
+              - column:
+                  name: next_attempt_at
+              - column:
+                  name: parked_at
+              - column:
+                  name: dead_letter_topic
+  - changeSet:
+      id: 020-outbox-dead-letter-backfill
+      author: oms
+      changes:
+        - sql:
+            sql: >
+              UPDATE outbox
+                 SET parked_at = now()
+               WHERE attempts >= 10
+                 AND parked_at IS NULL
+      rollback:
+        - empty
+  - changeSet:
+      id: 020-outbox-parked-index
+      author: oms
+      changes:
+        - sql:
+            sql: >
+              CREATE INDEX idx_outbox_parked ON outbox (topic, aggregate_id) WHERE parked_at IS NOT NULL
+      rollback:
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_outbox_parked

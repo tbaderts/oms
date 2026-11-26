@@ -1,0 +1,20 @@
+{
+  "ranAt": "2026-11-26T13:26:38.101Z",
+  "result": "pass",
+  "modules": [
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "32633929087ae397",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-streaming-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-price-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-price-service/settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 7bff5f7f)"
+  },
+  "commands": []
+}

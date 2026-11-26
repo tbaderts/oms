@@ -145,7 +145,9 @@ export interface StreamingConfig {
 export const DEFAULT_STREAMING_CONFIG: StreamingConfig = {
   wsUrl: 'ws://localhost:7000/trade-blotter/stream',
   reconnectDelayMs: 3000,
-  maxReconnectAttempts: 10,
+  // Never give up: after about 5 minutes of 10 failed attempts the blotters used to stay
+  // disconnected until the user pressed Connect. Retries back off to one every 48 s.
+  maxReconnectAttempts: Number.POSITIVE_INFINITY,
   heartbeatIntervalMs: 30000,
 };
 

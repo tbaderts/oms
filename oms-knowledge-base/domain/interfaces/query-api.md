@@ -5,7 +5,7 @@ title: "Query API"
 description: "The contract-first search endpoint for orders with dynamic filters, sorting and pagination."
 tags: [api, query, search]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-25T20:00:00Z"
 covers: ["openapi:/search", "openapi:/orders/{orderId}/commands", "openapi:/orders/{orderId}/events", "openapi:/executions", "openapi:/executions/search", "http:/api/query"]
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
@@ -119,10 +119,12 @@ Errors are Problem+JSON.
 - `GET /api/query/admin/outbox/summary`: the messages waiting, counted by state, and
   `maxAttempts`, plus `oldestWaitingCreatedAt` and `oldestWaitingAgeSeconds`. Those two cover pending
   or held messages, as the `oms.outbox.oldest.age` gauge does.
-  - **PENDING:** retried as usual. Unlike the `oms.outbox.pending` gauge, which counts every row, it
+  - **PENDING:** being sent or retried, including a message waiting out its back-off. Unlike the `oms.outbox.pending` gauge, which counts every row, it
     excludes stuck and held messages.
-  - **STUCK:** used up `kafka.outbox.max-attempts`, so no longer retried. The count equals
-    `oms.outbox.stuck`.
+  - **STUCK:** parked (SPEC-0077): dead-lettered to `<topic>.oms-core.DLT`, or refused by that topic,
+    and no longer sent. That happens at once for a failure that cannot succeed, or once a retryable
+    one outlasts `kafka.error-policy.retry-for` or `kafka.outbox.max-attempts` (the backstop,
+    reported as `maxAttempts`). The count equals `oms.outbox.stuck`.
   - **HELD:** waits behind a stuck message of the same topic and key, so it isn't published out of
     order.
 - `GET /api/query/admin/outbox/messages?state&page&size`: the messages oldest first, optionally of
@@ -149,5 +151,8 @@ Errors are Problem+JSON.
   A topic not ending in `.DLT` gives 400; an unknown one, 404.
 - **No side effects.** Records are read by a short-lived consumer with no consumer group: nothing is
   consumed away and no offset is committed.
+- **Topics.** Each service writes its own `<source topic>.<service>.DLT` (SPEC-0077), e.g.
+  `commands.oms-core.DLT`, and adds the headers `dlt-source` (`consumer` or `producer`) and
+  `dlt-service`, shown among the record's headers.
 - **Bounded.** Every Kafka call is bounded, so an unreachable or disabled Kafka gives 503 within
   10 s.

@@ -52,6 +52,20 @@ streaming:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8080}
 
+# One error policy for every Kafka consumer and producer, the same in every service (SPEC-0077).
+# Retryable failures back off exponentially until retry-for has passed, then go to the dead-letter
+# topic <topic>.<service-name>.DLT; failures that cannot succeed on a retry (bad data, a programming
+# error, a permission error) go there at once.
+kafka:
+  error-policy:
+    service-name: oms-streaming-service
+    retry-for: ${KAFKA_RETRY_FOR:PT2M}
+    initial-interval: ${KAFKA_RETRY_INITIAL:PT0.5S}
+    max-interval: ${KAFKA_RETRY_MAX:PT30S}
+    multiplier: 2.0
+  topics:
+    replication-factor: ${KAFKA_TOPIC_REPLICATION_FACTOR:1}
+
 # Server configuration
 server:
   port: ${SERVER_PORT:8092}

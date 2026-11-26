@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 import org.example.common.model.Execution;
@@ -272,7 +273,7 @@ class EventSourcingIntegrationTest {
         TestCommands.applyFill(executionCommandProcessor, execution("EX-C1", "1.0000"));
 
         transactionTemplate.executeWithoutResult(status -> {
-            List<OutboxMessage> all = outboxRepository.claimPending(10, Limit.of(100));
+            List<OutboxMessage> all = outboxRepository.claimPending(Limit.of(100));
             // ACK order message, then the fill's order, execution and order-execution messages.
             assertEquals(4, all.size());
             assertEquals(
@@ -280,7 +281,7 @@ class EventSourcingIntegrationTest {
                     all.stream().map(OutboxMessage::getId).toList(),
                     "messages must come back in id order, which is commit order");
 
-            List<OutboxMessage> firstOnly = outboxRepository.claimPending(10, Limit.of(1));
+            List<OutboxMessage> firstOnly = outboxRepository.claimPending(Limit.of(1));
             assertEquals(1, firstOnly.size());
             assertEquals(all.get(0).getId(), firstOnly.get(0).getId());
         });
@@ -333,23 +334,46 @@ class EventSourcingIntegrationTest {
         return resolution.record();
     }
 
-    /** Messages that exhausted their retry budget must drop out of the claim set. */
+    /** Parked messages (SPEC-0077: dead-lettered) drop out of the claim set and are counted as stuck. */
     @Test
-    void claimPending_skipsMessagesThatExhaustedTheirRetries() {
+    void claimPending_skipsParkedMessages() {
         accept();
 
-        Long exhaustedId = transactionTemplate.execute(status -> {
-            OutboxMessage staged = outboxRepository.claimPending(10, Limit.of(1)).get(0);
-            staged.setAttempts(10);
+        Long parkedId = transactionTemplate.execute(status -> {
+            OutboxMessage staged = outboxRepository.claimPending(Limit.of(1)).get(0);
+            staged.park("orders.oms-core.DLT", "planted", Instant.now());
             return outboxRepository.saveAndFlush(staged).getId();
         });
 
         transactionTemplate.executeWithoutResult(status -> {
             assertTrue(
-                    outboxRepository.claimPending(10, Limit.of(100)).stream()
-                            .noneMatch(m -> m.getId().equals(exhaustedId)));
-            assertEquals(1, outboxRepository.countByAttemptsGreaterThanEqual(10));
+                    outboxRepository.claimPending(Limit.of(100)).stream()
+                            .noneMatch(m -> m.getId().equals(parkedId)));
+            assertEquals(1, outboxRepository.countByParkedAtIsNotNull());
         });
+    }
+
+    /** A message waiting out its back-off (SPEC-0077) is not claimed until it is due. */
+    @Test
+    void claimPending_skipsMessagesWaitingOutTheirBackOff() {
+        accept();
+
+        Long waitingId = transactionTemplate.execute(status -> {
+            OutboxMessage staged = outboxRepository.claimPending(Limit.of(1)).get(0);
+            staged.recordRetryableFailure("planted", Instant.now(), java.time.Duration.ofHours(1));
+            return outboxRepository.saveAndFlush(staged).getId();
+        });
+        transactionTemplate.executeWithoutResult(status -> assertTrue(
+                outboxRepository.claimPending(Limit.of(100)).stream().noneMatch(m -> m.getId().equals(waitingId))));
+
+        transactionTemplate.executeWithoutResult(status -> {
+            OutboxMessage due = outboxRepository.findById(waitingId).orElseThrow();
+            due.recordRetryableFailure("planted", Instant.now().minus(java.time.Duration.ofHours(2)), java.time.Duration.ofHours(1));
+            outboxRepository.saveAndFlush(due);
+        });
+        transactionTemplate.executeWithoutResult(status -> assertTrue(
+                outboxRepository.claimPending(Limit.of(100)).stream().anyMatch(m -> m.getId().equals(waitingId)),
+                "claimable again once its back-off has passed"));
     }
 
     /** tx_nr is the per-order sequence published to Kafka as eventId; it must actually advance. */

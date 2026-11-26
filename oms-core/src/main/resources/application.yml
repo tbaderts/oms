@@ -93,11 +93,19 @@ kafka:
     partitions: ${KAFKA_TOPIC_PARTITIONS:6}
     replication-factor: ${KAFKA_TOPIC_REPLICATION_FACTOR:1}
     provision-timeout-ms: ${KAFKA_TOPIC_PROVISION_TIMEOUT_MS:30000}
+  # One error policy for every Kafka consumer and producer, the same in every service (SPEC-0077).
+  # Retryable failures back off exponentially until retry-for has passed, then go to the dead-letter
+  # topic <topic>.<service-name>.DLT; failures that cannot succeed on a retry (bad data, a programming
+  # error, a permission error) go there at once.
+  error-policy:
+    service-name: oms-core
+    retry-for: ${KAFKA_RETRY_FOR:PT2M}
+    initial-interval: ${KAFKA_RETRY_INITIAL:PT0.5S}
+    max-interval: ${KAFKA_RETRY_MAX:PT30S}
+    multiplier: 2.0
   consumer:
-    # Failed commands retry with backoff, then land on <topic>.DLT rather than being dropped.
-    retry-attempts: ${KAFKA_RETRY_ATTEMPTS:4}
-    retry-initial-interval-ms: ${KAFKA_RETRY_INITIAL_INTERVAL_MS:500}
-    # A concurrency failure is retried without using the budget above (SPEC-0048), with back-off
+    # Failed commands follow kafka.error-policy above and land on <topic>.oms-core.DLT (SPEC-0077).
+    # A concurrency failure is retried without the retry window (SPEC-0048), with back-off
     # capped at this interval, and logged at ERROR from this attempt on (about 10 minutes at 5 s).
     concurrency-max-interval-ms: ${KAFKA_CONCURRENCY_MAX_INTERVAL_MS:5000}
     concurrency-error-after-attempts: ${KAFKA_CONCURRENCY_ERROR_AFTER_ATTEMPTS:120}
@@ -106,7 +114,9 @@ kafka:
     # between a command committing and its event reaching Kafka.
     poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:200}
     batch-size: ${OUTBOX_BATCH_SIZE:100}
-    max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
+    # A backstop (SPEC-0077): a failing message is dead-lettered after this many attempts even within
+    # kafka.error-policy.retry-for. Broker outages cost no attempt.
+    max-attempts: ${OUTBOX_MAX_ATTEMPTS:50}
     # How long one drain awaits the acknowledgements of its batch (SPEC-0026). Each aggregate's rows
     # are sent one after another, so a chain can need several round trips.
     drain-timeout-ms: ${OUTBOX_DRAIN_TIMEOUT_MS:30000}

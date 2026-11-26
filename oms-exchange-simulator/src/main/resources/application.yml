@@ -12,13 +12,12 @@ spring:
       group-id: ${SIMULATOR_GROUP_ID:exchange-simulator}
       # latest: a new consumer group must not replay the retained order history as new orders.
       auto-offset-reset: ${SIMULATOR_OFFSET_RESET:latest}
-      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      # Values arrive as bytes and are decoded by OrderMessageDecoder (SPEC-0077), so a dead letter
+      # carries exactly what arrived. These properties configure that decoder.
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.ByteArrayDeserializer
       properties:
         specific.avro.reader: true
-        spring.deserializer:
-          key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
-          value.delegate.class: io.confluent.kafka.serializers.KafkaAvroDeserializer
         schema.registry:
           url: ${REGISTRY_URL:http://localhost:8081}
     producer:
@@ -38,20 +37,33 @@ spring:
 server:
   port: ${SERVER_PORT:8094}
 
+# One error policy for every Kafka consumer and producer, the same in every service (SPEC-0077).
+# Retryable failures back off exponentially until retry-for has passed, then go to the dead-letter
+# topic <topic>.<service-name>.DLT; failures that cannot succeed on a retry (bad data, a programming
+# error, a permission error) go there at once.
+kafka:
+  error-policy:
+    service-name: oms-exchange-simulator
+    retry-for: ${KAFKA_RETRY_FOR:PT2M}
+    initial-interval: ${KAFKA_RETRY_INITIAL:PT0.5S}
+    max-interval: ${KAFKA_RETRY_MAX:PT30S}
+    multiplier: 2.0
+  topics:
+    replication-factor: ${KAFKA_TOPIC_REPLICATION_FACTOR:1}
+
 simulator:
   order-topic: ${ORDER_TOPIC:oms_orders}
   command-topic: ${COMMAND_TOPIC:commands}
   fill-slices: ${SIMULATOR_FILL_SLICES:1}
   fill-delay: ${SIMULATOR_FILL_DELAY:0ms}
   last-mkt: ${SIMULATOR_LAST_MKT:XSIM}
-  # Reference prices come from Alpha Vantage's latest quote when ALPHAVANTAGE_API_KEY is set
-  # (SPEC-0073), cached for quote-ttl to stay within the free quota (about 25 requests a day). After
-  # a rate limit or an outage the provider is left alone for provider-backoff.
+  # Reference prices come from the price service (SPEC-0079), which owns market data: a live quote or
+  # the last end-of-day close. Its answers are cached for quote-ttl; after an outage it is left alone
+  # for provider-backoff. Without a URL only the static reference-prices below are used.
   quote-ttl: ${SIMULATOR_QUOTE_TTL:5m}
   provider-backoff: ${SIMULATOR_PROVIDER_BACKOFF:60s}
-  alpha-vantage:
-    api-key: ${ALPHAVANTAGE_API_KEY:}
-    base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
+  price-service:
+    url: ${SIMULATOR_PRICE_SERVICE_URL:}
   # A limit priced further through the reference than this is rejected, as NYSE's Limit Order Price
   # Protection does. The passive side is not collared.
   price-collar:
@@ -59,7 +71,7 @@ simulator:
       - { max-reference: 25.00, percent: 10 }
       - { max-reference: 50.00, percent: 5 }
     default-percent: 3
-  # The fallback when Alpha Vantage is not configured, cannot answer or has no quote for a symbol.
+  # The fallback when the price service is not configured, cannot answer or has no price for a symbol.
   reference-prices:
     AAPL: 170.00
     MSFT: 420.00

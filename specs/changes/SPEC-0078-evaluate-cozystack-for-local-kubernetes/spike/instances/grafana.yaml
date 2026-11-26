@@ -1,0 +1,9 @@
+# grafana-operator: one Grafana; the operator generates the admin credentials Secret.
+apiVersion: grafana.integreatly.org/v1beta1
+kind: Grafana
+metadata:
+  name: oms-grafana
+  labels: { dashboards: oms }
+spec:
+  config:
+    log: { mode: console }

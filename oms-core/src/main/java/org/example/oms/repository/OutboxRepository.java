@@ -29,8 +29,10 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
      * wait lasts as long as the old leader's claiming transaction, which awaits the broker for at most
      * {@code drain-timeout-ms}, or until its session dies.
      *
-     * <p>An aggregate (topic and key) with a message that exhausted its attempts is held: its later
-     * messages are not claimed, so they are never published ahead of the stuck one (SPEC-0026).
+     * <p>An aggregate (topic and key) with a parked message (dead-lettered, SPEC-0077; or stuck under
+     * the old attempt budget) is held: its later messages are not claimed, so they are never published
+     * ahead of it (SPEC-0026). So is an aggregate whose head is waiting out its retry back-off
+     * ({@code next_attempt_at} in the future): its later messages wait with it.
      *
      * <p>One order's rows are published in version order even if their ids are not (SPEC-0047).
      * Pooled ids make that possible in principle. When an order's pending rows on a topic contain an
@@ -41,10 +43,9 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT o FROM OutboxMessage o
-            WHERE o.attempts < :maxAttempts
-              AND NOT EXISTS (SELECT 1 FROM OutboxMessage s
+            WHERE NOT EXISTS (SELECT 1 FROM OutboxMessage s
                               WHERE s.topic = o.topic AND s.aggregateId = o.aggregateId
-                                AND s.attempts >= :maxAttempts)
+                                AND (s.parkedAt IS NOT NULL OR s.nextAttemptAt > CURRENT_TIMESTAMP))
               AND (NOT EXISTS (SELECT 1 FROM OutboxMessage v
                                WHERE v.topic = o.topic AND v.orderId = o.orderId
                                  AND v.aggregateVersion < o.aggregateVersion)
@@ -53,12 +54,12 @@ public interface OutboxRepository extends JpaRepository<OutboxMessage, Long> {
                                     AND b.topic = o.topic AND b.orderId = o.orderId
                                     AND a.aggregateVersion < b.aggregateVersion AND a.id > b.id))
             ORDER BY o.id ASC""")
-    List<OutboxMessage> claimPending(int maxAttempts, Limit limit);
+    List<OutboxMessage> claimPending(Limit limit);
 
-    /** Messages that exhausted their retry budget and need operator attention. */
-    long countByAttemptsGreaterThanEqual(int maxAttempts);
+    /** Parked messages (dead-lettered, or refused by their dead-letter topic) that need operator attention. */
+    long countByParkedAtIsNotNull();
 
     /** When the oldest message still to be published was staged (SPEC-0026); empty when none is. */
-    @Query("SELECT MIN(o.createdAt) FROM OutboxMessage o WHERE o.attempts < :maxAttempts")
-    Optional<Instant> findOldestPendingCreatedAt(int maxAttempts);
+    @Query("SELECT MIN(o.createdAt) FROM OutboxMessage o WHERE o.parkedAt IS NULL")
+    Optional<Instant> findOldestPendingCreatedAt();
 }

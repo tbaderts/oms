@@ -48,7 +48,8 @@ class OutboxInspectorIntegrationTest extends AbstractKafkaPostgresIntegrationTes
         isolate("outbox_inspector", "commands-outbox_inspector");
     }
 
-    private static final int MAX = 10; // kafka.outbox.max-attempts, the default
+    /** kafka.outbox.max-attempts, the default; a planted row with this many attempts is parked (SPEC-0077). */
+    private static final int MAX = 50;
 
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactionManager;
@@ -72,12 +73,12 @@ class OutboxInspectorIntegrationTest extends AbstractKafkaPostgresIntegrationTes
     private long row(String topic, String key, int attempts, Instant createdAt, Map<String, Object> extra) {
         return jdbc.queryForObject(
                 "insert into outbox (id, aggregate_type, aggregate_id, topic, aggregate_version, created_at, attempts, "
-                        + "order_id, exec_id, last_error, payload_type, payload) "
-                        + "values (nextval('outbox_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning id",
+                        + "order_id, exec_id, last_error, payload_type, payload, parked_at) "
+                        + "values (nextval('outbox_seq'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) returning id",
                 Long.class,
                 extra.getOrDefault("type", "ORDER"), key, topic, extra.getOrDefault("version", 1L),
                 Timestamp.from(createdAt), attempts, extra.get("orderId"), extra.get("execId"), extra.get("lastError"),
-                extra.get("payloadType"), extra.get("payload"));
+                extra.get("payloadType"), extra.get("payload"), attempts >= MAX ? Timestamp.from(Instant.now()) : null);
     }
 
     private long row(String topic, String key, int attempts) {

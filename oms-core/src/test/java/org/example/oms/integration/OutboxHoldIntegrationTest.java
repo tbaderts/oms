@@ -75,7 +75,7 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
         // The held order's accept stays in the outbox, unattempted, and never reaches the topic.
         List<OutboxMessage> heldRows = rowsOf(held);
         assertEquals(2, heldRows.size(), "the stuck row and the accept behind it: " + heldRows);
-        OutboxMessage accept = heldRows.stream().filter(row -> row.getAttempts() < maxAttempts).findFirst().orElseThrow();
+        OutboxMessage accept = heldRows.stream().filter(row -> !row.isParked()).findFirst().orElseThrow();
         assertEquals(0, accept.getAttempts(), "the held row was never attempted");
         assertTrue(ordersMessages(held, Duration.ofSeconds(2)).stream().noneMatch(m -> m.getEventId() == 2L),
                 "the accept of the held order must not be published past the stuck row");
@@ -95,8 +95,8 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
     }
 
     /**
-     * Creates an order and lets it publish, then plants a row for it on {@value #ORDERS} that has
-     * exhausted its attempts, and accepts the order, staging a later row of the same aggregate.
+     * Creates an order and lets it publish, then plants a parked (dead-lettered) row for it on
+     * {@value #ORDERS}, and accepts the order, staging a later row of the same aggregate.
      *
      * @return the held order's id
      */
@@ -114,8 +114,10 @@ class OutboxHoldIntegrationTest extends AbstractFillFlowIntegrationTest {
                 .orderPayload(order)
                 // An hour old: the age gauge must ignore it, as it is no longer to be published.
                 .createdAt(Instant.now().minus(Duration.ofHours(1)))
-                .attempts(maxAttempts)
-                .lastError("planted: exhausted its attempts")
+                .attempts(1)
+                .parkedAt(Instant.now())
+                .deadLetterTopic(ORDERS + ".oms-core.DLT")
+                .lastError("planted: dead-lettered")
                 .build());
 
         var accepted = orderLifecycleCommandProcessor.process(

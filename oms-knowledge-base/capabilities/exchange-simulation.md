@@ -4,7 +4,7 @@ title: "Exchange Simulation"
 description: "A simulated venue that acknowledges, fills, rejects and cancels OMS orders so the lifecycle runs end to end."
 tags: [exchange-simulator, testing, kafka]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
@@ -26,9 +26,10 @@ Developers and testers.
 
 Listens to `oms_orders`, decides per order, and answers with commands on `commands`. See component [Exchange Simulator](../architecture/context/exchange-simulator.md).
 
-Each symbol's reference price comes from Alpha Vantage when `ALPHAVANTAGE_API_KEY` is set, so any
-symbol order entry offers can be traded; otherwise, or when the provider cannot answer, it comes
-from the static `simulator.reference-prices` (SPEC-0073). Limits are checked as US venues do:
+Each symbol's reference price comes from the [Price Service](../architecture/context/price-service.md)
+(SPEC-0079): a live Alpha Vantage price within its request budget, else the last end-of-day close.
+So any symbol order entry offers and prices can be traded. When the price service cannot be reached
+or has no price, the static `simulator.reference-prices` are used (SPEC-0073). Limits are checked as US venues do:
 sub-penny prices at or above 1.00 are rejected (Reg NMS Rule 612), and so are limits priced
 through the reference by more than the NYSE-style collar (10 % / 5 % / 3 % by price tier).
 
@@ -67,4 +68,4 @@ None known.
 
 ## Verification
 
-`OrderEvaluatorTest`, `LimitPriceRulesTest`, `FillSlicerTest`, `ExchangeEngineTest`, `AlphaVantageQuoteClientTest`, `ReferencePriceServiceTest`, `ExchangeSimulatorKafkaIntegrationTest`, `AlphaVantageKafkaIntegrationTest`, `SimulatorMetricsIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).
+`OrderEvaluatorTest`, `LimitPriceRulesTest`, `FillSlicerTest`, `ExchangeEngineTest`, `PriceServiceQuoteClientTest`, `ReferencePriceServiceTest`, `PriceServiceKafkaIntegrationTest`, `ExchangeSimulatorKafkaIntegrationTest`, `SimulatorMetricsIntegrationTest`. Conventions: [Testing Patterns](../delivery/testing.md).

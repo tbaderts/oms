@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +26,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 import org.example.common.model.Order;
+import org.example.oms.kafka.errors.ErrorPolicyProperties;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.OutboxRepository;
 import org.example.oms.service.leadership.Leadership;
@@ -60,6 +63,11 @@ class OutboxRelayTest {
 
     @Mock private OutboxRepository outboxRepository;
     @Mock private Leadership leadership;
+    @Mock private OutboxDeadLetterPublisher deadLetterPublisher;
+
+    /** The error policy (SPEC-0077): a 2-minute window, back-off from 500 ms. */
+    private static final ErrorPolicyProperties POLICY =
+            new ErrorPolicyProperties("oms-core", Duration.ofMinutes(2), Duration.ofMillis(500), Duration.ofSeconds(30), 2.0);
 
     private final FakePublisher publisher = new FakePublisher();
     private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
@@ -67,7 +75,10 @@ class OutboxRelayTest {
 
     @BeforeEach
     void setUp() {
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 5_000);
+        lenient().when(deadLetterPublisher.deadLetter(any(), any(), any()))
+                .thenAnswer(inv -> new OutboxDeadLetterPublisher.Outcome.DeadLettered(
+                        inv.<OutboxMessage>getArgument(0).getTopic() + ".oms-core.DLT"));
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 100, MAX_ATTEMPTS, 5_000);
     }
 
     @AfterEach
@@ -108,7 +119,7 @@ class OutboxRelayTest {
 
     @Test
     void drain_whenNothingPending_doesNothing() {
-        when(outboxRepository.claimPending(any(Integer.class), any())).thenReturn(List.of());
+        when(outboxRepository.claimPending(any())).thenReturn(List.of());
 
         relay.drainBatch();
 
@@ -203,7 +214,7 @@ class OutboxRelayTest {
     @Test
     void timeoutLeavesUnfinishedRowsUntouched() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         OutboxMessage a2 = message(3L, "A");
@@ -225,7 +236,7 @@ class OutboxRelayTest {
     @Test
     void lateAcknowledgementAfterTheDrainChangesNothing() throws Exception {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage a2 = message(2L, "A");
         claim(a1, a2);
@@ -296,7 +307,7 @@ class OutboxRelayTest {
     @Test
     void aggregateWithASendStillInFlightIsSkipped() {
         relay.shutdown();
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 100, MAX_ATTEMPTS, 300);
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 100, MAX_ATTEMPTS, 300);
         OutboxMessage a1 = message(1L, "A");
         OutboxMessage b1 = message(2L, "B");
         claim(a1, b1);
@@ -327,6 +338,101 @@ class OutboxRelayTest {
         assertTrue(a1.getLastError() != null && a1.getLastError().contains("NullPointerException"), a1.getLastError());
     }
 
+    // SPEC-0077 AC-7: a failure that cannot succeed on a retry is dead-lettered and parked at once.
+    @Test
+    void nonRetryableFailureIsDeadLetteredAndParked() {
+        OutboxMessage a1 = message(1L, "A");
+        OutboxMessage a2 = message(2L, "A");
+        claim(a1, a2);
+        publisher.answer = m -> m == a1 ? CompletableFuture.failedFuture(new NullPointerException("payload")) : acked(m);
+
+        relay.drainBatch();
+
+        verify(deadLetterPublisher, times(1)).deadLetter(org.mockito.ArgumentMatchers.eq(a1), any(), any());
+        assertTrue(a1.isParked());
+        assertEquals(a1.getTopic() + ".oms-core.DLT", a1.getDeadLetterTopic());
+        verify(outboxRepository, never()).delete(a1);
+        verify(outboxRepository, never()).delete(a2);
+        assertEquals(List.of(1L), publisher.sentIds(), "the row behind it is not sent in this drain");
+    }
+
+    // SPEC-0077 AC-6: a retryable failure backs off and stays pending within the window.
+    @Test
+    void retryableFailureBacksOffWithinTheWindow() {
+        OutboxMessage a1 = message(1L, "A");
+        claim(a1);
+        publisher.answer = m -> failed("database unavailable");
+        Instant before = Instant.now();
+
+        relay.drainBatch();
+
+        assertFalse(a1.isParked());
+        assertEquals(1, a1.getAttempts());
+        assertTrue(!a1.getFirstFailedAt().isBefore(before), "the window starts at the first failure");
+        assertTrue(a1.getNextAttemptAt().isAfter(a1.getFirstFailedAt().plusMillis(400)), "backs off 500 ms first");
+        verify(deadLetterPublisher, never()).deadLetter(any(), any(), any());
+    }
+
+    // SPEC-0077 AC-7: once the window has passed, a retryable failure is dead-lettered too.
+    @Test
+    void retryableFailurePastTheWindowIsDeadLettered() {
+        OutboxMessage a1 = message(1L, "A");
+        a1.recordRetryableFailure("earlier", Instant.now().minus(Duration.ofMinutes(3)), Duration.ZERO);
+        claim(a1);
+        publisher.answer = m -> failed("database unavailable");
+
+        relay.drainBatch();
+
+        assertTrue(a1.isParked());
+        verify(deadLetterPublisher).deadLetter(org.mockito.ArgumentMatchers.eq(a1), any(), any());
+    }
+
+    // SPEC-0077 (design D-6): the attempt backstop dead-letters within the window too.
+    @Test
+    void theAttemptBackstopDeadLettersWithinTheWindow() {
+        OutboxMessage a1 = message(1L, "A");
+        for (int i = 0; i < MAX_ATTEMPTS - 1; i++) {
+            a1.recordRetryableFailure("earlier", Instant.now(), Duration.ZERO);
+        }
+        claim(a1);
+        publisher.answer = m -> failed("database unavailable");
+
+        relay.drainBatch();
+
+        assertEquals(MAX_ATTEMPTS, a1.getAttempts());
+        assertTrue(a1.isParked());
+    }
+
+    // SPEC-0077: a dead-letter topic that cannot be reached leaves the row to be tried again.
+    @Test
+    void anUnreachableDeadLetterTopicLeavesTheRowPending() {
+        OutboxMessage a1 = message(1L, "A");
+        claim(a1);
+        publisher.answer = m -> CompletableFuture.failedFuture(new IllegalArgumentException("bad value"));
+        org.mockito.Mockito.doReturn(new OutboxDeadLetterPublisher.Outcome.Unreachable(new java.io.IOException("down")))
+                .when(deadLetterPublisher).deadLetter(any(), any(), any());
+
+        relay.drainBatch();
+
+        assertFalse(a1.isParked());
+    }
+
+    // SPEC-0077: a dead-letter topic that refuses the row parks it without a topic.
+    @Test
+    void aRefusedDeadLetterParksTheRowWithoutATopic() {
+        OutboxMessage a1 = message(1L, "A");
+        claim(a1);
+        publisher.answer = m -> CompletableFuture.failedFuture(new IllegalArgumentException("bad value"));
+        org.mockito.Mockito.doReturn(new OutboxDeadLetterPublisher.Outcome.Refused(new IllegalArgumentException("too large")))
+                .when(deadLetterPublisher).deadLetter(any(), any(), any());
+
+        relay.drainBatch();
+
+        assertTrue(a1.isParked());
+        assertEquals(null, a1.getDeadLetterTopic());
+        assertTrue(a1.getLastError().contains("refused"), a1.getLastError());
+    }
+
     // AC-3
     @Test
     void aggregatesAreInFlightTogether() {
@@ -350,7 +456,7 @@ class OutboxRelayTest {
     // AC-5
     @Test
     void oldestAgeIsZeroWhenNothingPending() {
-        when(outboxRepository.findOldestPendingCreatedAt(MAX_ATTEMPTS))
+        when(outboxRepository.findOldestPendingCreatedAt())
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(Instant.now().minusSeconds(5)));
 
@@ -372,14 +478,14 @@ class OutboxRelayTest {
 
         relay.drainAll();
 
-        verify(outboxRepository, never()).claimPending(any(Integer.class), any());
+        verify(outboxRepository, never()).claimPending(any());
     }
 
     @Test
     void aFullBatchIsFollowedByAnotherAtOnce() {
         when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
-        when(outboxRepository.claimPending(any(Integer.class), any()))
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 2, MAX_ATTEMPTS, 5_000);
+        when(outboxRepository.claimPending(any()))
                 .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
                 .thenReturn(List.of(message(3L, "C"), message(4L, "D")))
                 .thenReturn(List.of(message(5L, "E")));
@@ -388,7 +494,7 @@ class OutboxRelayTest {
 
         assertEquals(List.of(1L, 2L, 3L, 4L, 5L), publisher.sentIds().stream().sorted().toList(),
                 "every row in one drain, not one batch per poll");
-        verify(outboxRepository, org.mockito.Mockito.times(3)).claimPending(any(Integer.class), any());
+        verify(outboxRepository, org.mockito.Mockito.times(3)).claimPending(any());
     }
 
     @Test
@@ -397,7 +503,7 @@ class OutboxRelayTest {
         AtomicInteger running = new AtomicInteger();
         AtomicInteger maxRunning = new AtomicInteger();
         AtomicInteger calls = new AtomicInteger();
-        when(outboxRepository.claimPending(any(Integer.class), any())).thenAnswer(invocation -> {
+        when(outboxRepository.claimPending(any())).thenAnswer(invocation -> {
             maxRunning.accumulateAndGet(running.incrementAndGet(), Math::max);
             calls.incrementAndGet();
             Thread.sleep(20);
@@ -428,14 +534,14 @@ class OutboxRelayTest {
     void leadershipIsCheckedAgainBeforeEveryBatch() {
         // Leader when the drain starts and for its first batch, then the lock is lost.
         when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true, true, false);
-        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), 2, MAX_ATTEMPTS, 5_000);
-        when(outboxRepository.claimPending(any(Integer.class), any()))
+        relay = new OutboxRelay(outboxRepository, publisher, PASS_THROUGH, meterRegistry, leadership, TransactionOperations.withoutTransaction(), POLICY, deadLetterPublisher, 2, MAX_ATTEMPTS, 5_000);
+        when(outboxRepository.claimPending(any()))
                 .thenReturn(List.of(message(1L, "A"), message(2L, "B")))
                 .thenReturn(List.of(message(3L, "C"), message(4L, "D")));
 
         relay.drainAll();
 
-        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any(Integer.class), any());
+        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any());
         assertEquals(1.0, meterRegistry.get("oms.outbox.drains").counter().count(), "one batch claimed");
     }
 
@@ -444,7 +550,7 @@ class OutboxRelayTest {
         when(leadership.holds(Role.OUTBOX_RELAY)).thenReturn(true);
         java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
-        when(outboxRepository.claimPending(any(Integer.class), any())).thenAnswer(invocation -> {
+        when(outboxRepository.claimPending(any())).thenAnswer(invocation -> {
             entered.countDown();
             release.await(10, TimeUnit.SECONDS);
             return List.of();
@@ -462,11 +568,11 @@ class OutboxRelayTest {
         assertFalse(relay.isRunning());
 
         relay.drainAll();
-        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any(Integer.class), any());
+        verify(outboxRepository, org.mockito.Mockito.times(1)).claimPending(any());
     }
 
     private void claim(OutboxMessage... rows) {
-        when(outboxRepository.claimPending(any(Integer.class), any())).thenReturn(List.of(rows));
+        when(outboxRepository.claimPending(any())).thenReturn(List.of(rows));
     }
 
     private static OutboxMessage message(long id, String aggregate) {
@@ -528,7 +634,7 @@ class OutboxRelayTest {
         volatile Function<OutboxMessage, CompletableFuture<SendResult<String, Object>>> answer = OutboxRelayTest::acked;
 
         FakePublisher() {
-            super(null, null, null, null, null);
+            super(null, null, null, null, null, null);
         }
 
         @Override

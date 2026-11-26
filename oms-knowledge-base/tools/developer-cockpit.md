@@ -235,13 +235,14 @@ is read-only and polls every `intervalSeconds` (10 s for the OMS) while it is op
 
 - **Service board.** One tile per service, grouped as Application, Messaging, Data and
   Observability, with a count of services up. A tile is UP, DOWN (with the reason) or UNKNOWN by
-  its check: Spring Boot actuator health for oms-core, oms-streaming-service and
+  its check: Spring Boot actuator health for oms-core, oms-streaming-service, oms-price-service and
   oms-exchange-simulator; an HTTP status for oms-ui, the Schema Registry, Control Center, pgAdmin,
   Grafana, Loki, Alloy, Mimir and Tempo; a TCP connect for the broker, both Postgres instances,
   oms-mcp-server and grafana-mcp. Each tile also shows a response-time sparkline and the last 30
   checks; a timeline lists every status change while the view is open.
 - **Panels.** Orders by state, order events per minute, outbox pending, stuck and oldest age, heap
-  used and active DB connections are read from oms-core's `/actuator/prometheus`, so they work on
+  used and active DB connections are read from oms-core's `/actuator/prometheus`, and the price
+  service's Alpha Vantage requests left today from its own (SPEC-0079), so they work on
   a host-native run without the observability stack. Time to ACK and time to market p99
   (milliseconds) exist only as histograms in Mimir (`http://localhost:9009/prometheus`), so those
   two need the stack. The raw Prometheus text pane of SPEC-0053 is gone; Grafana Explore covers it.

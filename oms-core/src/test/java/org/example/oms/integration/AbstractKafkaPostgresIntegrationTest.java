@@ -146,6 +146,10 @@ public abstract class AbstractKafkaPostgresIntegrationTest {
         // Concurrency retries are unbounded (SPEC-0048); capped low here so a test outlasting the
         // retry budget stays fast.
         registry.add("kafka.consumer.concurrency-max-interval-ms", () -> "500");
+        // The error policy's retry window (SPEC-0077), short so a test that outlasts it stays fast.
+        registry.add("kafka.error-policy.retry-for", () -> "PT3S");
+        registry.add("kafka.error-policy.initial-interval", () -> "PT0.1S");
+        registry.add("kafka.error-policy.max-interval", () -> "PT0.5S");
         registry.add("kafka.command-topic", () -> commandTopic);
         registry.add("kafka.order-topic", () -> "orders");
         registry.add("kafka.execution-topic", () -> "oms_executions");

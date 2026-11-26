@@ -1,0 +1,10 @@
+# OT-Container-Kit redis-operator: one standalone Redis (no OMS consumer yet; footprint only)
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: oms-redis
+spec:
+  kubernetesConfig:
+    image: quay.io/opstree/redis:v7.0.15
+    resources:
+      requests: { memory: 64Mi, cpu: 50m }

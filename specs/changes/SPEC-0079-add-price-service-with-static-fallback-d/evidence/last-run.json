@@ -1,0 +1,85 @@
+{
+  "ranAt": "2026-11-26T15:00:38.997Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "oms-price-service",
+    "oms-ui",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "f8ad9d94b29c43e7",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] docker-compose.yml: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-streaming-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-price-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)",
+      "[R10 P-17] oms-price-service/settings.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 7bff5f7f)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 643,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 64,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 25,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 122,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    },
+    {
+      "module": "oms-price-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 2,
+      "log": "evidence/oms-price-service-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "npm test -- --watchAll=false --passWithNoTests",
+      "exitCode": 0,
+      "seconds": 27,
+      "log": "evidence/oms-ui-1.log"
+    },
+    {
+      "module": "oms-ui",
+      "command": "..\\gradlew.bat -p .. check",
+      "exitCode": 0,
+      "seconds": 43,
+      "log": "evidence/oms-ui-2.log"
+    }
+  ]
+}

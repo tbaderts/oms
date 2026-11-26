@@ -21,22 +21,10 @@ oms:
     # generated clOrdId it identifies each order to oms-core.
     order-entry:
       session-id: ${OMS_UI_SESSION_ID:OMS-UI}
-    # Instrument lookup and quotes for order entry (SPEC-0072). Without ALPHAVANTAGE_API_KEY only the
-    # built-in instruments are offered. The key stays on this server. Answers are cached to stay within
-    # the free quota (about 25 requests a day).
+    # Instrument lookup and quotes for order entry (SPEC-0072) come from the price service, which
+    # owns market data and the provider's key (SPEC-0079); oms-ui forwards to it.
     market-data:
-      alpha-vantage:
-        api-key: ${ALPHAVANTAGE_API_KEY:}
-        base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
-      search-ttl: PT24H
-      quote-ttl: PT5M
-      # The exchange simulator's instruments and reference prices (oms-exchange-simulator application.yml)
-      built-in:
-        - { symbol: AAPL, name: Apple Inc., currency: USD, price: 170.00 }
-        - { symbol: MSFT, name: Microsoft Corporation, currency: USD, price: 420.00 }
-        - { symbol: IBM, name: International Business Machines Corp., currency: USD, price: 250.00 }
-        - { symbol: NVDA, name: NVIDIA Corporation, currency: USD, price: 120.00 }
-        - { symbol: INTC, name: Intel Corporation, currency: USD, price: 86.96 }
+      price-service-url: ${PRICE_SERVICE_URL:http://localhost:8098}
   api:
     base-url: ${OMS_API_BASE_URL:http://localhost:8090}
   streaming:

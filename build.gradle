@@ -8,7 +8,8 @@ def includedBuildNames = [
     'oms-streaming-service',
     'oms-mcp-server',
     'oms-exchange-simulator',
-    'oms-ui'
+    'oms-ui',
+    'oms-price-service'
 ]
 
 // oms-contracts is a plain library, so it has no bootJar task.

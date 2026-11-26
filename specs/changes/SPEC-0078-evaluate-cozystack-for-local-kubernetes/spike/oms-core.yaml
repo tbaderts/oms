@@ -1,0 +1,45 @@
+# SPEC-0078 spike: oms-core on the k3d prototype, against CloudNativePG, Strimzi and the Schema Registry.
+# The image is the compose one (oms-core:latest), loaded with `k3d image import`, so it is never pulled.
+# Scale: kubectl -n oms scale deploy/oms-core --replicas=3   (several instances are safe, SPEC-0048)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oms-core
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: oms-core } }
+  template:
+    metadata: { labels: { app: oms-core } }
+    spec:
+      containers:
+        - name: oms-core
+          image: oms-core:latest
+          imagePullPolicy: Never
+          ports: [{ containerPort: 8090 }]
+          env:
+            - { name: DB_URL, value: "jdbc:postgresql://oms-pg-rw:5432/oms" }
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: oms-db, key: username } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: oms-db, key: password } }
+            - { name: KAFKA_ENABLED, value: "true" }
+            - { name: KAFKA_BROKERS, value: "oms-kafka-kafka-bootstrap:9092" }
+            - { name: REGISTRY_URL, value: "http://schema-registry:8081" }
+            - { name: KAFKA_AUTO_REGISTER_SCHEMAS, value: "true" }
+            - { name: REPLICA_ENABLED, value: "false" }   # no archive replica in the prototype
+            - { name: OTLP_EXPORT_ENABLED, value: "false" } # no Alloy in the prototype
+            - { name: DEPLOYMENT_ENVIRONMENT, value: "k3d-spike" }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8090 }
+            periodSeconds: 2
+            failureThreshold: 90
+          resources:
+            requests: { memory: 768Mi, cpu: 250m }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oms-core
+spec:
+  selector: { app: oms-core }
+  ports: [{ port: 8090, targetPort: 8090 }]

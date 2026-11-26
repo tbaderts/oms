@@ -61,3 +61,24 @@ describe('MarketDataService.quote (SPEC-0072 AC-6, AC-7)', () => {
     expect(await MarketDataService.quote('AAPL')).toEqual({ symbol: 'AAPL', notice: MARKET_DATA_UNAVAILABLE });
   });
 });
+
+// SPEC-0079 AC-10: oms-ui answers 503 when the price service cannot be reached.
+describe('MarketDataService with the price service down (SPEC-0079)', () => {
+  it('a 503 gives the unavailable notice for search and quote', async () => {
+    const problem = { type: 'urn:oms:error:price-service-unavailable', status: 503 };
+    fetchMock.mockReturnValueOnce(answer(503, problem));
+    expect(await MarketDataService.search('aa')).toEqual({ instruments: [], notice: MARKET_DATA_UNAVAILABLE });
+
+    fetchMock.mockReturnValueOnce(answer(503, problem));
+    expect(await MarketDataService.quote('AAPL')).toEqual({ symbol: 'AAPL', notice: MARKET_DATA_UNAVAILABLE });
+  });
+
+  it('passes an end-of-day quote through with its date and notice', async () => {
+    fetchMock.mockReturnValue(answer(200, {
+      symbol: 'IBM', last: 250.35, asOf: '2026-11-25', source: 'END_OF_DAY',
+      notice: 'Live price request limit reached: end-of-day close shown',
+    }));
+
+    expect(await MarketDataService.quote('IBM')).toEqual(expect.objectContaining({ source: 'END_OF_DAY', asOf: '2026-11-25' }));
+  });
+});

@@ -6,7 +6,7 @@ import { omsGridTheme } from '../theme/agGridTheme';
 import { FIT_COLUMNS_TO_WIDTH, fitColumnsOnResize } from '../theme/gridSizing';
 import Icon from './icons/Icon';
 import '../theme/agGridModules';
-import { LIVE_DEFAULT_COL_DEF } from '../theme/gridOptions';
+import { LIVE_DEFAULT_COL_DEF, sortNewestFirst } from '../theme/gridOptions';
 import { DomainObjectType, FilterCondition } from '../types/types';
 import {
   StreamFilter,
@@ -674,11 +674,11 @@ const StreamingBlotter: React.FC<StreamingBlotterProps> = ({
 
   // The same column definitions until the columns change (SPEC-0057): the blotter renders once per
   // frame, and new definitions would make AG Grid rebuild its columns every frame, costing frame
-  // time and memory.
+  // time and memory. Rows are sorted by transactTime, newest on top, until the user sorts otherwise.
   const visibleColumnsKey = visibleColumns.join(',');
   const columnDefs = useMemo(
     () => (initialized
-      ? columnConfigService.getColumnConfig(domainObject, splitColumns(domainObject, visibleColumns).live)
+      ? sortNewestFirst(columnConfigService.getColumnConfig(domainObject, splitColumns(domainObject, visibleColumns).live))
       : []),
     // visibleColumnsKey stands for visibleColumns; the service is a singleton.
     // eslint-disable-next-line react-hooks/exhaustive-deps

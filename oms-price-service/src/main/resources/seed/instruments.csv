@@ -1,0 +1,6 @@
+symbol,name,type,region,currency
+AAPL,Apple Inc.,Stock,NASDAQ,USD
+MSFT,Microsoft Corporation,Stock,NASDAQ,USD
+IBM,International Business Machines Corp.,Stock,NYSE,USD
+NVDA,NVIDIA Corporation,Stock,NASDAQ,USD
+INTC,Intel Corporation,Stock,NASDAQ,USD

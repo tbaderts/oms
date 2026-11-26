@@ -1,6 +1,7 @@
 import { ColumnConfigService } from './ColumnConfigService';
 import IdCell from '../components/IdCell';
 import EnumCellRenderer from '../components/EnumCellRenderer';
+import { DATE_FILTER_PARAMS } from './dateFilter';
 
 const mockField = (name: string, type: string, extra: object = {}) => ({ name, displayName: name, type, required: false, width: 150, ...extra });
 const mockFields = [
@@ -82,5 +83,13 @@ describe('ColumnConfigService (SPEC-0068)', () => {
       saved = ColumnConfigService.getInstance().getColumnConfig('Execution', ['dayAvgPx', 'lastQty']);
     }).not.toThrow();
     expect(saved.map(c => c.field)).toEqual(['lastQty']);
+  });
+});
+
+describe('ColumnConfigService date filters', () => {
+  test('date columns filter by local calendar day, like the server query', () => {
+    expect(col('transactTime').filter).toBe('agDateColumnFilter');
+    expect(col('transactTime').filterParams).toBe(DATE_FILTER_PARAMS);
+    expect(col('lastQty').filterParams).toBeUndefined();
   });
 });

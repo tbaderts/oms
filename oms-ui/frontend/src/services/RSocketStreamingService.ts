@@ -57,7 +57,11 @@ export class RSocketStreamingService {
   private connectionState: StreamingConnectionState = 'disconnected';
   private connectionStateListeners: Set<(state: StreamingConnectionState) => void> = new Set();
   private reconnectAttempts = 0;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  /** The connect in progress: concurrent callers (two blotters) share it instead of opening two. */
+  private connecting: Promise<void> | null = null;
+  /** Set by disconnect(): a connection the user closed is not re-established. */
+  private closedByUser = false;
 
   private constructor(config?: Partial<StreamingConfig>) {
     this.config = { ...DEFAULT_STREAMING_CONFIG, ...config };
@@ -106,11 +110,22 @@ export class RSocketStreamingService {
   /**
    * Connect to the RSocket streaming server
    */
-  public async connect(): Promise<void> {
+  public connect(): Promise<void> {
+    this.closedByUser = false;
     if (this.socket) {
-      return;
+      return Promise.resolve();
     }
+    if (!this.connecting) {
+      // An explicit connect replaces a pending retry.
+      this.clearReconnectTimer();
+      this.connecting = this.openConnection().finally(() => {
+        this.connecting = null;
+      });
+    }
+    return this.connecting;
+  }
 
+  private async openConnection(): Promise<void> {
     this.setConnectionState('connecting');
     console.info(`[RSocketStreamingService] Connecting to ${this.config.wsUrl}`);
 
@@ -144,27 +159,51 @@ export class RSocketStreamingService {
         });
       });
 
-      this.setConnectionState('connected');
-
-      // Handle connection close - RSocket uses closeable pattern
-      if (this.socket && typeof this.socket.close === 'function') {
-        // Store original close to detect when connection is closed externally
-        const originalClose = this.socket.close.bind(this.socket);
-        this.socket.close = () => {
-          this.socket = null;
-          this.setConnectionState('disconnected');
-          return originalClose();
-        };
+      if (this.closedByUser) {
+        // Disconnected while connecting: close what just opened.
+        const opened = this.socket;
+        this.socket = null;
+        this.client = null;
+        opened?.close?.();
+        return;
       }
-
+      this.setConnectionState('connected');
+      this.watchConnection(this.socket);
     } catch (error) {
       console.error('[RSocketStreamingService] Failed to connect:', error);
+      this.client = null;
       this.setConnectionState('error');
-      this.scheduleReconnect();
+      if (!this.closedByUser) {
+        this.scheduleReconnect();
+      }
       throw error;
     }
   }
 
+  /**
+   * Notices when the connection goes away without disconnect(): the server restarted or closed it,
+   * the network dropped, or keep-alives stopped. The streams on it have ended with an error; the
+   * connection is opened again, and the blotters re-subscribe when it reports connected.
+   */
+  private watchConnection(socket: any): void {
+    socket.connectionStatus?.().subscribe({
+      onNext: (status: { kind: string; error?: Error }) => {
+        if (status.kind !== 'CLOSED' && status.kind !== 'ERROR') return;
+        // A late status from a connection already replaced or closed on purpose changes nothing.
+        if (this.socket !== socket || this.closedByUser) return;
+        console.warn('[RSocketStreamingService] Connection lost:', status.error?.message ?? status.kind);
+        this.socket = null;
+        this.client = null;
+        this.scheduleReconnect();
+      },
+      onSubscribe: (subscription: any) => subscription.request(Number.MAX_SAFE_INTEGER),
+    });
+  }
+
+  /**
+   * Retries with exponential backoff, capped at 16 times the base delay, until it connects (or the
+   * configured attempts run out). A successful connect starts from the first delay again.
+   */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       console.error('[RSocketStreamingService] Max reconnect attempts reached');
@@ -172,36 +211,40 @@ export class RSocketStreamingService {
       return;
     }
 
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
+    this.clearReconnectTimer();
     this.reconnectAttempts++;
     const delay = this.config.reconnectDelayMs * Math.pow(2, Math.min(this.reconnectAttempts - 1, 4));
     console.warn(`[RSocketStreamingService] Scheduling reconnect attempt ${this.reconnectAttempts} in ${delay}ms`);
-    
+
     this.setConnectionState('reconnecting');
     this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       this.connect().catch(err => {
         console.error('[RSocketStreamingService] Reconnect failed:', err);
       });
     }, delay);
   }
 
-  /**
-   * Disconnect from the streaming server
-   */
-  public disconnect(): void {
+  private clearReconnectTimer(): void {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
-    
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
-    
+  }
+
+  /**
+   * Disconnect from the streaming server. The connection stays closed until connect() is called.
+   */
+  public disconnect(): void {
+    this.closedByUser = true;
+    this.clearReconnectTimer();
+    this.reconnectAttempts = 0;
+
+    const socket = this.socket;
+    this.socket = null;
+    this.client = null;
+    socket?.close();
+
     this.setConnectionState('disconnected');
   }
 

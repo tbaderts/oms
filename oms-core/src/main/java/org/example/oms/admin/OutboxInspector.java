@@ -25,9 +25,9 @@ import tools.jackson.databind.JsonNode;
  * The outbox as an operator sees it (SPEC-0075): what waits to be published, and in which state.
  *
  * <p>The states are the relay's own ({@code OutboxRepository.claimPending}), derived on every read and
- * never stored: a message is STUCK once it used up {@code kafka.outbox.max-attempts}; HELD when, not
- * stuck itself, its aggregate (same topic and key) has a stuck message, so the relay keeps it back to
- * preserve order; PENDING otherwise. Reads take no locks, so they never hold up the relay, and change
+ * never stored: a message is STUCK once it is parked (SPEC-0077: dead-lettered, or refused by its
+ * dead-letter topic); HELD when, not stuck itself, its aggregate (same topic and key) has a stuck
+ * message, so the relay keeps it back to preserve order; PENDING otherwise (being sent or retried). Reads take no locks, so they never hold up the relay, and change
  * nothing.
  */
 @Service
@@ -55,12 +55,12 @@ public class OutboxInspector {
      */
     public record Detail(Entry entry, JsonNode payload, Integer payloadSchemaId, String payloadError) {}
 
-    /** The state of row {@code o}, with the relay's predicates; binds max attempts twice. */
+    /** The state of row {@code o}, with the relay's predicates. */
     private static final String STATE = """
-            CASE WHEN o.attempts >= ? THEN 'STUCK'
+            CASE WHEN o.parked_at IS NOT NULL THEN 'STUCK'
                  WHEN EXISTS (SELECT 1 FROM outbox s
                               WHERE s.topic = o.topic AND s.aggregate_id = o.aggregate_id
-                                AND s.attempts >= ?) THEN 'HELD'
+                                AND s.parked_at IS NOT NULL) THEN 'HELD'
                  ELSE 'PENDING' END""";
 
     private static final String ROWS = """
@@ -80,7 +80,7 @@ public class OutboxInspector {
             OutboxRepository outboxRepository,
             OutboxRecordMapper outboxRecordMapper,
             Clock clock,
-            @Value("${kafka.outbox.max-attempts:10}") int maxAttempts) {
+            @Value("${kafka.outbox.max-attempts:50}") int maxAttempts) {
         this.jdbc = jdbc;
         this.outboxRepository = outboxRepository;
         this.outboxRecordMapper = outboxRecordMapper;
@@ -100,8 +100,7 @@ public class OutboxInspector {
                     Instant oldestAt = oldest == null ? null : oldest.toInstant();
                     Long age = oldestAt == null ? null : Math.max(0, Duration.between(oldestAt, clock.instant()).getSeconds());
                     return new Summary(rs.getLong("pending"), rs.getLong("stuck"), rs.getLong("held"), maxAttempts, oldestAt, age);
-                },
-                maxAttempts, maxAttempts);
+                });
     }
 
     /**
@@ -114,7 +113,7 @@ public class OutboxInspector {
             throw new IllegalArgumentException("page must be >= 0 and size between 1 and 200");
         }
         String filter = state == null ? "" : " WHERE x.state = ?";
-        List<Object> args = new ArrayList<>(List.of(maxAttempts, maxAttempts));
+        List<Object> args = new ArrayList<>();
         if (state != null) {
             args.add(state.name());
         }
@@ -131,7 +130,7 @@ public class OutboxInspector {
         List<Row> rows = jdbc.query(
                 "SELECT * FROM (" + ROWS + ") x WHERE x.id = ?",
                 (rs, i) -> new Row(entry(rs, i), (Integer) rs.getObject("payload_schema_id")),
-                maxAttempts, maxAttempts, id);
+                id);
         if (rows.isEmpty()) {
             return Optional.empty();
         }

@@ -1,5 +1,20 @@
 # Knowledge Base Log
 
+## 2026-11-26
+
+Market data has its own service, the [Price Service](architecture/context/price-service.md)
+(SPEC-0079, port 8098).
+- **The key:** it is now the only holder of the Alpha Vantage key. oms-ui forwards its
+  [Market Data API](domain/interfaces/market-data-api.md) to it, and the exchange simulator takes
+  its reference prices from it. Neither calls Alpha Vantage any more.
+- **Search:** answered from a local instrument list (`source: REFERENCE_DATA`), refreshed daily with
+  one `LISTING_STATUS` request.
+- **Quotes:** live within a self-enforced budget of 25 a day and 5 a minute. When no live price can
+  be had, the answer is the last known close (`source: END_OF_DAY`, with its date). Closes come
+  from a seed, from operator CSV files in the `eod/` folder and from every live quote.
+- **Providers:** the comparison of free alternatives is in
+  [Market Data Providers (2026-11)](architecture/assessments/market-data-providers-2026-11.md).
+
 ## 2026-11-25
 
 The developer cockpit is a generic tool with its own repository,
@@ -9,6 +24,14 @@ API Explorer's oms-core convention, the Monitoring tiles — now comes from `coc
 repository root. Its Monitoring view checks all compose services and shows the order-flow metrics
 as panels; the API Explorer works from the OpenAPI operations, with the order templates in
 `tools/api-templates/`. See [Developer Cockpit](tools/developer-cockpit.md).
+
+Every Kafka consumer and producer, in oms-core, the exchange simulator and the streaming service,
+now follows one error policy (SPEC-0077). A failure that may succeed is retried with back-off for
+`kafka.error-policy.retry-for` (2 minutes by default); one that cannot (a null pointer, permission
+denied, a record that cannot be decoded) goes at once to `<topic>.<service>.DLT`, created at startup.
+The outbox parks dead-lettered rows (`parked_at`, changelog 020), and `max-attempts` is only a
+backstop. Each service has a test that fails when a Kafka client is not covered. See
+[Kafka Messaging](architecture/patterns/kafka-messaging.md#error-policy-every-consumer-and-producer).
 
 ## 2026-11-24
 

@@ -54,7 +54,7 @@ import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 class DeadLetterReaderIntegrationTest extends AbstractKafkaPostgresIntegrationTest {
 
     private static final String COMMANDS = "commands-dlt_reader";
-    private static final String DLT = COMMANDS + ".DLT";
+    private static final String DLT = COMMANDS + ".oms-core.DLT";
 
     @DynamicPropertySource
     static void world(DynamicPropertyRegistry registry) {

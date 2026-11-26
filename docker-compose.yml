@@ -93,10 +93,9 @@ services:
       KAFKA_AUTO_REGISTER_SCHEMAS: "true"
       SIMULATOR_FILL_SLICES: ${SIMULATOR_FILL_SLICES:-1}
       SIMULATOR_FILL_DELAY: ${SIMULATOR_FILL_DELAY:-0ms}
-      # Reference prices from Alpha Vantage when a key is set, as order entry shows them (SPEC-0073);
-      # without one the simulator uses its static prices.
-      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
-      ALPHAVANTAGE_BASE_URL: ${ALPHAVANTAGE_BASE_URL:-https://www.alphavantage.co}
+      # Reference prices from the price service, as order entry shows them (SPEC-0079); when it cannot
+      # be reached the simulator uses its static prices.
+      SIMULATOR_PRICE_SERVICE_URL: http://price-service:8098
     ports:
       - "8094:8094"
     networks:
@@ -144,16 +143,39 @@ services:
     depends_on:
       - oms-core
       - streaming-service
+      - price-service
     environment:
       # Browser-facing URLs must be host-reachable (published ports), not in-network hostnames
       OMS_API_BASE_URL: http://localhost:8090
       OMS_STREAMING_URL: ws://localhost:7000/trade-blotter/stream
-      # Order entry (SPEC-0072): the session its orders are sent under, and the market data key.
-      # Without a key the built-in instruments are offered. Set it in a root .env file, never here.
+      # Order entry (SPEC-0072): the session its orders are sent under.
       OMS_UI_SESSION_ID: ${OMS_UI_SESSION_ID:-OMS-UI}
-      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      # Instrument lookup and quotes are forwarded to the price service (SPEC-0079), server to server.
+      PRICE_SERVICE_URL: http://price-service:8098
     ports:
       - "8080:8080"
+    networks:
+      - app-net
+
+  price-service:
+    image: 'oms-price-service:latest'
+    container_name: oms-price-service
+    build:
+      context: ./oms-price-service
+    depends_on:
+      - alloy
+    environment:
+      <<: *otlp-env
+      # The only holder of the market data provider's key (SPEC-0079). Without one, quotes are
+      # end-of-day closes and search uses the instrument list. Set it in a root .env file, never here.
+      ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      ALPHAVANTAGE_BASE_URL: ${ALPHAVANTAGE_BASE_URL:-https://www.alphavantage.co}
+      # The instrument list, learned closes and operator end-of-day files (put CSVs in /data/eod).
+      PRICE_DATA_DIR: /data
+    volumes:
+      - price-data:/data
+    ports:
+      - "8098:8098"
     networks:
       - app-net
 
@@ -386,5 +408,6 @@ volumes:
   postgres-replica:
   pgadmin:
   grafana-storage: {}
+  price-data:
   mcp-kb-index:
     driver: local

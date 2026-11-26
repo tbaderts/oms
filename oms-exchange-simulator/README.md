@@ -38,8 +38,7 @@ Docker compose sets the variable.
 
 | Property | Env var | Default |
 |---|---|---|
-| `simulator.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | none: static prices only (SPEC-0073) |
-| `simulator.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | https://www.alphavantage.co |
+| `simulator.price-service.url` | `SIMULATOR_PRICE_SERVICE_URL` | none: static prices only (compose: `http://price-service:8098`; SPEC-0079) |
 | `simulator.quote-ttl` | `SIMULATOR_QUOTE_TTL` | 5m |
 | `simulator.provider-backoff` | `SIMULATOR_PROVIDER_BACKOFF` | 60s |
 | `simulator.reference-prices.<SYMBOL>` | — | fallback: AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |

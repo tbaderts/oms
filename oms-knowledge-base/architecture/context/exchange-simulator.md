@@ -6,7 +6,7 @@ description: "FIX exchange simulator that acknowledges, fills, rejects and cance
 tags: [component, exchange-simulator, fix, kafka, testing]
 status: stable
 version: "1.0"
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 component: "exchange-simulator"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-25T12:00:00Z" }
 sources:
@@ -14,7 +14,9 @@ sources:
   - resource: "repo:oms-exchange-simulator/src/main/resources/application.yml"
   - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/engine/LimitPriceRules.java"
   - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/ReferencePriceService.java"
-  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/AlphaVantageQuoteClient.java"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/marketdata/PriceServiceQuoteClient.java"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/kafka/errors/KafkaErrorHandlingConfig.java"
+  - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/kafka/CommandGateway.java"
 ---
 # Exchange Simulator
 
@@ -96,64 +98,27 @@ precondition stops holding once the command has been applied (see
 Each symbol has one **reference price**: the price marketable quantity fills at and limit prices
 are checked against. There is no order book, bid or ask.
 
-### 4.1 Reference prices (SPEC-0073)
+### 4.1 Reference prices (SPEC-0073, SPEC-0079)
 
 `ReferencePriceService` answers from, in order:
 
-1. **Its cache**: Alpha Vantage answers, including "no quote", kept for `quote-ttl` (default 5 min)
-   to stay within the free quota of about 25 requests a day.
-2. **Alpha Vantage** `GLOBAL_QUOTE`, field `05. price` (the last price, the same `last` that
-   [order entry](../../ui/order-entry.md) shows the trader), when `ALPHAVANTAGE_API_KEY` is set.
-   Timeouts: connect 2 s, read 3 s.
-3. **The static `simulator.reference-prices`**, when there is no key, Alpha Vantage is rate limited
-   (it answers 200 with a `Note` or `Information` member) or unreachable, or it has no quote for the
-   symbol. Fallbacks are not cached.
+1. **Its cache**: the price service's answers, including "no price", kept for `quote-ttl` (default
+   5 min).
+2. **The [Price Service](price-service.md)**, `GET /api/market-data/quotes/{symbol}`: the quote's
+   `last`, the same price [order entry](../../ui/order-entry.md) shows the trader. That is a live
+   Alpha Vantage price within the price service's budget, else its last end-of-day close. Used when
+   `SIMULATOR_PRICE_SERVICE_URL` is set. Timeouts: connect 2 s, read 3 s.
+3. **The static `simulator.reference-prices`**, when no URL is set, the price service cannot be
+   reached or answers an error, or it has no price for the symbol (404). Fallbacks are not cached.
 
-A symbol priced by none of them is rejected (`Unknown symbol <s>`). Alpha Vantage's price wins over
-the static one, so AAPL trades at the market price when a key is set. After a rate limit or an
-outage, Alpha Vantage is left alone for `provider-backoff` (default 60 s). Lookups run on the
-engine's single thread, so this bounds how long a dead provider can hold up the venue to one read
-timeout per back-off period.
+A symbol priced by none of them is rejected (`Unknown symbol <s>`). The price service's price wins
+over the static one, so AAPL trades at the market price, or at its last known close. After an
+outage, the price service is left alone for `provider-backoff` (default 60 s). Lookups run on the
+engine's single thread, so this bounds how long a dead price service can hold up the venue to one
+read timeout per back-off period.
 
-The key is sent only to Alpha Vantage. It is never logged (requests are logged by function,
-failures by exception type), and it never appears in a reject text or a command. Alpha Vantage's
-own messages, which echo it, are not passed on. The simulator's client is a trimmed copy of
-oms-ui's ([Market Data API](../../domain/interfaces/market-data-api.md)), and the two caches are
-separate.
-
-### 4.2 Trading rules
-
-| Rule | Behaviour |
-|---|---|
-| MARKET order | Marketable; fills at the reference price |
-| LIMIT buy | Marketable when price ≥ reference; fills at the reference price (price improvement) |
-| LIMIT sell / sell short | Marketable when price ≤ reference; fills at the reference price |
-| Not marketable, DAY/GTC/other | Acknowledged and rests (LIVE, no fills) until cancelled |
-| Not marketable, IOC | Acknowledged, then cancelled (unsolicited ExecType=4) |
-| Marketable quantity | Split into `fill-slices` executions (e.g. 100 / 3 → 33, 33, 34), `fill-delay` apart |
-
-Rejects, checked in this order:
-
-| Condition | Reason |
-|---|---|
-| orderQty missing or ≤ 0 | `Invalid order quantity` |
-| ordType not MARKET or LIMIT | `Unsupported order type <t>` |
-| side not BUY, SELL, SELL_SHORT | `Unsupported side <s>` |
-| no reference price for the symbol (§4.1) | `Unknown symbol <s>` |
-| LIMIT without price | `Limit order without price` |
-| LIMIT price zero or negative | `Invalid limit price <p>` |
-| LIMIT price not a whole number of ticks (Reg NMS Rule 612): 0.01 at or above 1.00, 0.0001 below | `Price <p> is not a multiple of tick <t>` |
-| LIMIT buy above `reference × (1 + collar)`, or sell / sell short below `reference × (1 − collar)` | `Price <p> outside collar <lo>-<hi>` |
-
-The **collar** follows NYSE's Limit Order Price Protection tiers: 10 % for a reference price up to
-25.00, 5 % up to 50.00, and 3 % above (`simulator.price-collar`). Only the aggressive side is
-collared. A buy priced below the reference, or a sell above it, is accepted and rests however far
-away it is. Example at AAPL 170.00: a buy at 175.10 fills and a buy at 175.11 is rejected
-`Price 175.11 outside collar 164.9-175.1`, while a buy at 100.00 rests. The collar replaced the
-earlier flat ±10 % band around the reference, which also rejected passive limits.
-
-Out of scope: Limit Up–Limit Down bands, halts and auctions. The OMS itself does no pre-trade price
-check; the venue is what rejects.
+The simulator has no market data provider and no key of its own (SPEC-0079). Before that, it asked
+Alpha Vantage directly, through its own client and cache, on the same key as oms-ui.
 
 A cancel request for an order with open quantity cancels it. If a fill sequence is still running,
 the remaining slices are dropped. A cancel request for a filled, cancelled, rejected or unknown
@@ -163,8 +128,7 @@ order is refused (`Too late to cancel` / `Unknown order`).
 
 | Property | Env var | Default |
 |---|---|---|
-| `simulator.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | none: static prices only |
-| `simulator.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | https://www.alphavantage.co |
+| `simulator.price-service.url` | `SIMULATOR_PRICE_SERVICE_URL` | none: static prices only (compose: http://price-service:8098) |
 | `simulator.quote-ttl` | `SIMULATOR_QUOTE_TTL` | 5m |
 | `simulator.provider-backoff` | `SIMULATOR_PROVIDER_BACKOFF` | 60s |
 | `simulator.reference-prices.<SYMBOL>` | — | the fallback: AAPL 170.00, MSFT 420.00, IBM 250.00, NVDA 120.00, INTC 86.96 |
@@ -176,24 +140,39 @@ order is refused (`Too late to cancel` / `Unknown order`).
 | `simulator.command-topic` | `COMMAND_TOPIC` | commands |
 | `simulator.max-tracked-orders` | — | 100000 (oldest orders are forgotten beyond this) |
 | `spring.kafka.consumer.auto-offset-reset` | `SIMULATOR_OFFSET_RESET` | latest (a new group does not replay order history) |
+| `kafka.error-policy.retry-for` | `KAFKA_RETRY_FOR` | PT2M (SPEC-0077) |
+| `kafka.error-policy.initial-interval` / `.max-interval` | `KAFKA_RETRY_INITIAL` / `KAFKA_RETRY_MAX` | PT0.5S / PT30S |
+| `kafka.topics.replication-factor` | `KAFKA_TOPIC_REPLICATION_FACTOR` | 1 (for the dead-letter topics it creates) |
+
+**Kafka failures (SPEC-0077).** The simulator follows the
+[Kafka error policy](../patterns/kafka-messaging.md#error-policy-every-consumer-and-producer):
+- **Order consumer.** It reads `oms_orders` as bytes and decodes them in `OrderMessageDecoder`.
+  `orderErrorHandler` retries a retryable failure for `retry-for`, then sends the record to
+  `oms_orders.oms-exchange-simulator.DLT`. A record that cannot be decoded, or a failure that
+  cannot succeed, goes there at once.
+- **Command producer.** `CommandGateway` sends asynchronously; the Kafka client retries for
+  `retry-for`. A command that still fails is written to `commands.oms-exchange-simulator.DLT`
+  (Avro, or JSON if it cannot be serialized) by `CommandDeadLetterPublisher`. The engine never
+  waits on a send.
+- Both dead-letter topics are created at startup with the partition count of their source topic.
 
 ## 6. Running It
 
 ```bash
 cd oms-exchange-simulator && ./gradlew bootJar
-cd .. && docker compose up -d --build oms-core exchange-simulator
+cd .. && docker compose up -d --build oms-core price-service exchange-simulator
 ```
 
 oms-core must run with `KAFKA_ENABLED=true`. Then create an order (see `oms-core/rest.http`):
 
-- symbol AAPL, MARKET: ends FILLED, at 170.00 without a key and at Alpha Vantage's last price with one;
-- any other symbol Alpha Vantage quotes (e.g. GOOGL), MARKET, with a key: ends FILLED;
+- symbol AAPL, MARKET: ends FILLED, at the price service's price for it: its live price with a key, else its last end-of-day close (170.00 from the seed);
+- any other symbol the price service prices (e.g. GOOGL with a key), MARKET: ends FILLED;
 - symbol ZZZZ: ends REJ;
 - LIMIT BUY 165 on AAPL at 170.00 (no key): rests LIVE. Send `OrderCancelRequestCmd` for it and it ends CXL;
 - LIMIT BUY 175.11 on AAPL at 170.00: ends REJ (collar); 170.005 ends REJ (tick).
 
-To use Alpha Vantage, put `ALPHAVANTAGE_API_KEY=<key>` in the root `.env`; compose passes it to
-both oms-ui and the simulator.
+To use live prices, put `ALPHAVANTAGE_API_KEY=<key>` in the root `.env`; compose passes it to the
+price service only (SPEC-0079).
 
 ## 7. Observability
 
@@ -201,13 +180,16 @@ both oms-ui and the simulator.
   `simulator_acks_total`, `simulator_executions_total`, `simulator_rejects_total`,
   `simulator_cancels_total`, `simulator_cancel_rejects_total`.
 - `simulator_reference_price_lookups_total{source, outcome}` (SPEC-0073), one per reference price
-  lookup. `source` says where the price came from: `CACHE`, `ALPHA_VANTAGE`, `STATIC`, or `NONE`
-  (rejected as unknown). `outcome` is `FOUND` when the provider's price was used, otherwise why it
-  was not: `NOT_FOUND`, `NOT_CONFIGURED`, `RATE_LIMITED` or `UNREACHABLE`. A rising
-  `source="STATIC",outcome="RATE_LIMITED"` means the free quota is spent.
+  lookup. `source` says where the price came from: `CACHE`, `PRICE_SERVICE`, `STATIC`, or `NONE`
+  (rejected as unknown). `outcome` is `FOUND` when the price service's price was used, otherwise why
+  it was not: `NOT_FOUND`, `NOT_CONFIGURED` or `UNREACHABLE`. A rising
+  `source="STATIC",outcome="UNREACHABLE"` means the price service is down. The provider's own quota is
+  watched on the price service (`oms_price_provider_budget_remaining`).
 - Every log line about an order carries `orderId` in the MDC.
 - Kafka observation is enabled on the template and the listener, so trace context crosses the
   simulator.
+- `kafka_dead_letters_total{service="oms-exchange-simulator"}` counts dead letters by topic, side
+  and exception; `kafka_dead_letters_failed_total` counts dead letters that could not be written.
 
 ## 8. Load Suite
 

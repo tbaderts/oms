@@ -46,7 +46,7 @@ import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 
 /**
  * SPEC-0025 AC-4: a command record that cannot be handled — a type without a handler, a type this
- * service has no class for, or bytes that are not Avro at all — goes to {@code commands.DLT} with
+ * service has no class for, or bytes that are not Avro at all — goes to {@code commands.oms-core.DLT} with
  * exactly the bytes it arrived with, and the commands behind it on the partition still apply.
  */
 class CommandDeadLetterIntegrationTest extends AbstractFillFlowIntegrationTest {
@@ -144,7 +144,7 @@ class CommandDeadLetterIntegrationTest extends AbstractFillFlowIntegrationTest {
         return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(config));
     }
 
-    /** The values on commands.DLT under this key, in order, once {@code expected} have arrived. */
+    /** The values on commands.oms-core.DLT under this key, in order, once {@code expected} have arrived. */
     private static List<byte[]> deadLetters(String key, int expected) {
         Map<String, Object> config = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
@@ -154,7 +154,7 @@ class CommandDeadLetterIntegrationTest extends AbstractFillFlowIntegrationTest {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
         List<byte[]> values = new ArrayList<>();
         try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(config)) {
-            consumer.subscribe(List.of("commands.DLT"));
+            consumer.subscribe(List.of("commands.oms-core.DLT"));
             long deadline = System.nanoTime() + TIMEOUT.toNanos();
             while (values.size() < expected && System.nanoTime() < deadline) {
                 for (ConsumerRecord<String, byte[]> record : consumer.poll(Duration.ofMillis(250))) {

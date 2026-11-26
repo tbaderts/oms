@@ -2,13 +2,16 @@ package org.example.oms.service;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.example.oms.kafka.errors.DeadLetterSender;
 import org.example.oms.mapper.AvroPayloadCodec;
 import org.example.oms.mapper.ExecutionMessageMapper;
 import org.example.oms.mapper.OrderExecutionMessageMapper;
 import org.example.oms.mapper.OrderMessageMapper;
 import org.example.oms.mapper.OutboxRecordMapper;
 import org.example.oms.model.OutboxMessage;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
@@ -25,9 +28,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Component
 @Slf4j
-public class MessagePublisher {
+public class MessagePublisher implements DeadLetterSender {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final KafkaTemplate<String, byte[]> deadLetterTemplate;
     private final OrderMessageMapper orderMessageMapper;
     private final ExecutionMessageMapper executionMessageMapper;
     private final OrderExecutionMessageMapper orderExecutionMessageMapper;
@@ -36,11 +40,13 @@ public class MessagePublisher {
 
     public MessagePublisher(
             KafkaTemplate<String, Object> kafkaTemplate,
+            @Qualifier("deadLetterTemplate") KafkaTemplate<String, byte[]> deadLetterTemplate,
             OrderMessageMapper orderMessageMapper,
             ExecutionMessageMapper executionMessageMapper,
             OrderExecutionMessageMapper orderExecutionMessageMapper,
             AvroPayloadCodec payloadCodec) {
         this.kafkaTemplate = kafkaTemplate;
+        this.deadLetterTemplate = deadLetterTemplate;
         this.orderMessageMapper = orderMessageMapper;
         this.executionMessageMapper = executionMessageMapper;
         this.orderExecutionMessageMapper = orderExecutionMessageMapper;
@@ -93,5 +99,11 @@ public class MessagePublisher {
      */
     public Object toRecord(OutboxMessage message) {
         return records.toRecord(message);
+    }
+
+    /** A dead letter of the outbox (Avro bytes or a JSON document), sent with the dead-letter producer (SPEC-0077). */
+    @Override
+    public CompletableFuture<?> sendBytes(ProducerRecord<String, byte[]> record) {
+        return deadLetterTemplate.send(record);
     }
 }

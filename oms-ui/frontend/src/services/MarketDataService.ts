@@ -1,12 +1,14 @@
 // MarketDataService.ts - instrument lookup and quotes for order entry (SPEC-0072)
 //
-// Asks oms-ui's own backend (oms-marketdata-api.yml), which holds the provider's API key, caches its
-// answers and falls back to the built-in instruments. When the backend itself cannot be reached
+// Asks oms-ui's own backend (oms-marketdata-api.yml), which forwards to the price service (SPEC-0079):
+// it holds the provider's key and falls back to end-of-day closes. When either cannot be reached
 // (e.g. the React dev server, which proxies to oms-core), the form shows a notice and the symbol can
 // still be typed by hand.
 import { ConfigService } from './ConfigService';
 
-export type MarketDataSource = 'ALPHA_VANTAGE' | 'BUILT_IN';
+// END_OF_DAY: the price service's last known close (asOf is its date); REFERENCE_DATA: its instrument
+// list (SPEC-0079). BUILT_IN is no longer sent; kept for older answers.
+export type MarketDataSource = 'ALPHA_VANTAGE' | 'BUILT_IN' | 'END_OF_DAY' | 'REFERENCE_DATA';
 
 export interface Instrument {
   symbol: string;

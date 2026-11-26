@@ -4,13 +4,14 @@ title: "Order Entry"
 description: "The Order Entry tab of the OMS UI: a new order's instrument, economics and account, checked before it is sent to oms-core as an OrderCreateCmd, with instrument lookup and quotes from a market data provider."
 tags: [ui, order-entry, market-data]
 status: draft
-updated: "2026-11-24T18:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-24T18:00:00Z" }
 sources:
   - resource: "repo:oms-ui/frontend/src/components/OrderEntry.tsx"
   - resource: "repo:oms-ui/frontend/src/services/orderTicket.ts"
   - resource: "repo:oms-ui/frontend/src/services/MarketDataService.ts"
-  - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/MarketDataService.java"
+  - resource: "repo:oms-ui/src/main/java/org/example/omsui/marketdata/PriceServiceClient.java"
+  - resource: "repo:oms-price-service/src/main/java/org/example/price/service/PriceService.java"
   - resource: "repo:oms-contracts/src/main/openapi/oms-marketdata-api.yml"
 ---
 # Order Entry
@@ -65,15 +66,22 @@ price, change, day range, as-of date, bid and ask. **Use last price** copies the
 limit price.
 
 The data comes from oms-ui's own backend, the [Market Data API](../domain/interfaces/market-data-api.md),
-which holds the provider's key and caches its answers:
-- **Alpha Vantage** when `ALPHAVANTAGE_API_KEY` is set. Its free quote has no bid or ask, so they
-  show "n/a"; its free tier allows about 25 requests a day.
-- **The built-in instruments** otherwise, or when the provider is out of quota or unreachable: the
-  exchange simulator's AAPL, MSFT, IBM, NVDA and INTC with its reference prices, and a notice saying
-  why. The simulator rejects orders for symbols it does not price.
+which forwards to the [Price Service](../architecture/context/price-service.md) (SPEC-0079):
+- **Search** lists instruments from the price service's instrument list, all active US listings
+  once it has downloaded them, else the exchange simulator's AAPL, MSFT, IBM, NVDA and INTC. Search
+  never spends the provider's quota.
+- **The quote** is a live Alpha Vantage price while the price service's daily budget lasts. The
+  footer then says "Alpha Vantage". Its free quote has no bid or ask, so they show "n/a".
+- **Otherwise the quote is the last known close.** The footer says **End-of-day close**, "As of"
+  shows its trading day, and a notice says why: limit reached, provider not configured or not
+  reachable.
 
-If the backend itself cannot be reached (the React dev server proxies to oms-core), the form says
-"Market data unavailable" and the symbol can be typed by hand. Market data never blocks an order.
+  **Use last price** copies the close like any last price. The simulator fills at the same price.
+  It rejects orders for symbols nobody prices.
+
+If oms-ui's backend or the price service cannot be reached (the React dev server proxies to
+oms-core), the form says "Market data unavailable" and the symbol can be typed by hand. Market data
+never blocks an order.
 
 ## Not covered
 

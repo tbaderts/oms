@@ -187,7 +187,7 @@ class CommandLogKafkaIntegrationTest extends AbstractFillFlowIntegrationTest {
         return counter == null ? 0.0 : counter.count();
     }
 
-    /** How many records are on commands.DLT under this key, after waiting up to {@code wait} for at least one. */
+    /** How many records are on commands.oms-core.DLT under this key, after waiting up to {@code wait} for at least one. */
     private static int deadLetterCount(String key, Duration wait) {
         Map<String, Object> config = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
@@ -197,7 +197,7 @@ class CommandLogKafkaIntegrationTest extends AbstractFillFlowIntegrationTest {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
         int count = 0;
         try (KafkaConsumer<String, byte[]> consumer = new KafkaConsumer<>(config)) {
-            consumer.subscribe(List.of("commands.DLT"));
+            consumer.subscribe(List.of("commands.oms-core.DLT"));
             long deadline = System.nanoTime() + wait.toNanos();
             while (count == 0 && System.nanoTime() < deadline) {
                 for (ConsumerRecord<String, byte[]> record : consumer.poll(Duration.ofMillis(250))) {

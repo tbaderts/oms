@@ -85,3 +85,23 @@ describe('kb.ipc health tools (SPEC-0064)', () => {
     expect(cli.fixIndexes).toHaveBeenLastCalledWith(kbPath, false);
   });
 });
+
+describe('kb.ipc type view', () => {
+  it('kb:getTypeGroups groups the configured knowledge base by OKF type', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-ipc-types-'));
+    try {
+      const kbPath = path.join(root, 'kb');
+      fs.mkdirSync(path.join(kbPath, 'domain'), { recursive: true });
+      fs.writeFileSync(path.join(kbPath, 'domain', 'order.md'), '---\ntype: Domain Concept\ntitle: Order\n---\n# Order\n');
+      const configService = { getWorkspaceRoot: () => root, getKnowledgeBasePath: () => kbPath } as unknown as ConfigService;
+      const { ipcMain, invoke } = fakeIpcMain();
+      registerKbIpc(ipcMain, configService);
+
+      expect(await invoke('kb:getTypeGroups')).toEqual([
+        { type: 'Domain Concept', count: 1, subgroups: [{ label: 'Domain Concept', documents: [expect.objectContaining({ label: 'Order', relativePath: 'domain/order.md' })] }] },
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -13,3 +13,4 @@ Part of [Architecture](../index.md). Back to the [knowledge base index](../../in
 - [OMS UI](oms-ui.md) — React admin tool and trade blotter.
 - [Streaming Service](streaming-service.md) — Spring Boot service that streams orders and executions to the UI over RSocket.
 - [System Context](system-context.md) — The OMS components, the infrastructure they use and how commands, events and queries flow between them.
+- [Price Service](price-service.md) — Owns market data for the other services: instrument search from a local list, quotes from Alpha Vantage within a request budget, and end-of-day closes from files as the fallback.

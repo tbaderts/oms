@@ -97,6 +97,11 @@ monitoring:
       check: { kind: http, url: "http://localhost:8080/" }
       links:
         - { label: Open, url: "http://localhost:8080" }
+    # Market data for order entry and the simulator (SPEC-0079).
+    - name: price-service
+      group: Application
+      check: { kind: spring-actuator, url: "http://localhost:8098/actuator/health" }
+      metricsUrl: http://localhost:8098/actuator/prometheus
     # Messaging
     - name: broker
       group: Messaging
@@ -176,6 +181,10 @@ monitoring:
       type: stat
       unit: s
       source: { kind: scrape, service: oms-core, metric: oms_outbox_oldest_age_seconds }
+    # The price service's Alpha Vantage requests left today; at 0 quotes are end-of-day closes (SPEC-0079).
+    - title: Price service budget left
+      type: stat
+      source: { kind: scrape, service: price-service, metric: oms_price_provider_budget_remaining }
     - title: oms-core heap used
       type: timeseries
       unit: bytes

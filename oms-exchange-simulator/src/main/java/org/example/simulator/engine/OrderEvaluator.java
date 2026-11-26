@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 /**
  * Decides what the venue does with a new order: reject it, trade it now, or rest it.
  *
- * <p>Logic over the order, the configuration and the symbol's reference price (Alpha Vantage or the
- * static fallback, SPEC-0073), so every economic rule is unit-testable. It never throws on bad data:
+ * <p>Logic over the order, the configuration and the symbol's reference price (the price service or
+ * the static fallback, SPEC-0073, SPEC-0079), so every economic rule is unit-testable. It never throws on bad data:
  * anything it cannot trade becomes a reject with a reason, because a real venue answers every order.
  *
  * <ul>

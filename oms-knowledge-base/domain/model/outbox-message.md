@@ -5,13 +5,14 @@ title: "Outbox Message"
 description: "A message staged in the outbox table in the same transaction as a state change, later published to Kafka by the outbox relay."
 tags: [outbox, kafka, entity]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-25T20:00:00Z"
 entity: "OutboxMessage"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/oms/model/OutboxMessage.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/OutboxRelay.java"
   - resource: "repo:oms-core/src/main/resources/db/changelog/003-event-sourcing-and-outbox.yaml"
+  - resource: "repo:oms-core/src/main/resources/db/changelog/020-outbox-dead-letter.yaml"
   - resource: "repo:oms-core/src/test/java/org/example/oms/service/OutboxRelayTest.java"
 ---
 # Outbox Message
@@ -32,20 +33,24 @@ change and the message exist, or neither does.
 | `topic` | Target topic (`oms_orders`, `oms_executions` or `oms_order_executions`) |
 | `orderPayload`, `executionPayload` | Only on rows staged before SPEC-0047 (`EXECUTION` and `ORDER_EXECUTION` rows carry both), which still publish from them. Rows staged since are pointers and leave both empty, so a fill serializes the order once, in `order_events` |
 | `payloadType`, `payload` | For `PROJECTION` rows: the Avro record's schema full name and its binary encoding |
-| `createdAt`, `attempts`, `lastError` | Bookkeeping for retries. After `kafka.outbox.max-attempts` (default 10) a message is no longer retried and stays in the table for investigation; the later messages of its aggregate stay too, held behind it (SPEC-0026). `createdAt` of the oldest pending message feeds `oms.outbox.oldest.age` |
+| `createdAt`, `attempts`, `lastError` | Bookkeeping for retries. `createdAt` of the oldest pending message feeds `oms.outbox.oldest.age` |
+| `firstFailedAt`, `nextAttemptAt` | When the message first failed retryably, which starts the `kafka.error-policy.retry-for` window, and when it may be tried again; the relay does not claim it, or its aggregate's later rows, before then (SPEC-0077) |
+| `parkedAt`, `deadLetterTopic` | Set when the message is dead-lettered (to `deadLetterTopic`, `<topic>.oms-core.DLT`) or its dead-letter topic refused it (`deadLetterTopic` null). A parked message is no longer retried and stays in the table for investigation; the later messages of its aggregate stay too, held behind it (SPEC-0026, SPEC-0077). Changelog 020 parked the rows that had reached the old limit of 10 attempts |
 
 The index `idx_outbox_topic_aggregate_id` (changelog 009) serves the relay's check for a held
 aggregate, and `idx_outbox_order_version` (changelog 015) its per-order version check.
 
 A pointer whose event or execution cannot be read fails definitively: `lastError` names the order
-and the version, its attempts count, and after `max-attempts` its aggregate is held like any
-stuck row. The target is committed in the same transaction as the row, so a missing one is a
+and the version. It is retried for the `retry-for` window, then dead-lettered and parked, and its
+aggregate is held like any stuck row. The target is committed in the same transaction as the row, so a missing one is a
 defect, not a race. How the relay claims, sends and retries: [Event Publication](../../capabilities/event-publication.md#the-relay-spec-0026).
 
 **Seeing the outbox (SPEC-0075).** oms-ui's **Outbox** tab shows the messages waiting, by state:
 - *pending:* retried as usual;
-- *stuck:* out of attempts;
+- *stuck:* parked (dead-lettered, or refused by its dead-letter topic);
 - *held:* behind a stuck message of the same topic and key.
+
+A message waiting out its back-off is *pending*.
 
 It shows each one's attempts and `lastError`, and its payload or pointer target. The state is
 derived on every read with the relay's own predicates, never stored. It is served by

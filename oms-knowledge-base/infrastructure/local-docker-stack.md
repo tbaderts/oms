@@ -4,7 +4,7 @@ title: "Local Docker Stack"
 description: "The root docker-compose.yml: every OMS module and the infrastructure it needs (PostgreSQL, Kafka with Schema Registry, the Grafana LGTM stack), with ports, how to start, rebuild and reset it, and its known oddities."
 tags: [infrastructure, docker, docker-compose, local-development]
 status: draft
-updated: "2026-11-17T12:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
   - resource: "repo:docker-compose.yml"
@@ -14,8 +14,10 @@ sources:
 # Local Docker Stack
 
 One `docker-compose.yml` at the repository root builds and runs the whole OMS. There are no
-per-module compose files and no Kubernetes manifests in the repository; the planned cloud platform
-is [Cozystack](cozystack.md).
+per-module compose files and no Kubernetes manifests in the repository. Compose stays the everyday
+local stack. Scaling tests are to run on a disposable k3d cluster, one at a time with compose
+([ADR-006](../architecture/decisions/ADR-006-local-kubernetes-platform.md)). The candidate platform
+for shared environments is [Cozystack](cozystack.md).
 
 ```bash
 docker compose up -d                          # everything
@@ -32,6 +34,7 @@ docker compose up -d --remove-orphans         # after a service was removed (dro
 | | `exchange-simulator` | 8094 | [Exchange Simulator](../architecture/context/exchange-simulator.md) |
 | | `mcp-server` | 8091 | [Knowledge Server](../tools/knowledge-server.md); mounts the knowledge base read-only; expects Ollama on the host for embeddings |
 | | `oms-ui` | 8080 | [OMS UI](../architecture/context/oms-ui.md) |
+| | `price-service` | 8098 | [Price Service](../architecture/context/price-service.md); holds the market data key; volume `price-data` |
 | Messaging | `broker` (Kafka) | 9092 | Confluent Platform 7.9 |
 | | `schema-registry` | 8081 | Subjects registered by oms-contracts `registerSchemas` |
 | | `control-center` | 9021 | Confluent Control Center |
@@ -43,16 +46,25 @@ docker compose up -d --remove-orphans         # after a service was removed (dro
 | | `alloy` | 4317 gRPC, 4318 HTTP, 12345 UI | The single telemetry agent |
 | | `loki`, `mimir`, `tempo` | 3100, 9009, 3200 | Logs, metrics, traces |
 
-All services share the `app-net` network. The four Java services take their telemetry settings
+All services share the `app-net` network. The Java services take their telemetry settings
 from the `x-otlp-env` anchor (`OTLP_EXPORT_ENABLED=true`, `OTLP_ENDPOINT=http://alloy:4318`,
 sampling 1.0). Details: [Observability](observability.md).
 
 **oms-ui and order entry (SPEC-0072).** The `oms-ui` image includes oms-contracts, passed as the
-named build context `oms-contracts` (`additional_contexts`). Its order entry reads two settings
-from the environment, best kept in a root `.env` file (git-ignored):
-- `ALPHAVANTAGE_API_KEY`: the market data key; without it only the built-in instruments are offered
-  ([Market Data API](../domain/interfaces/market-data-api.md));
-- `OMS_UI_SESSION_ID`: the session its orders are sent under (default `OMS-UI`).
+named build context `oms-contracts` (`additional_contexts`). Its order entry reads
+`OMS_UI_SESSION_ID`, the session its orders are sent under (default `OMS-UI`). Instrument lookup
+and quotes go to the price service (`PRICE_SERVICE_URL=http://price-service:8098`).
+
+**The price service (SPEC-0079).** `price-service` owns market data for oms-ui and the exchange
+simulator ([Price Service](../architecture/context/price-service.md)).
+- **The key:** `ALPHAVANTAGE_API_KEY`, set in a root `.env` file (git-ignored), goes to this
+  service only. Without it, quotes are end-of-day closes.
+- **Its data:** the volume `price-data`, mounted at `/data`, holds the instrument list, the learned
+  closes and the operator's end-of-day files.
+- **Adding closes:** copy a CSV into `/data/eod/`, e.g.
+  `docker cp closes.csv oms-price-service:/data/eod/`. It is picked up within a minute.
+- **Building:** like the simulator, the image copies the jar from `build/libs`, so run
+  `./gradlew bootJar` in `oms-price-service` first.
 
 Compose v5 builds images through Bake. On Windows it may ask to grant `fs.read` on the Dockerfile
 (`docker compose up --build oms-ui`); answer yes, or build the image with

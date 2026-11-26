@@ -430,3 +430,33 @@ describe('Blotter ergonomics (SPEC-0059)', () => {
     expect(screen.queryByText('Include Snapshot')).toBeNull();
   });
 });
+
+// A date column's header filter means a calendar day in the browser's zone; the server gets the
+// instants of that day's local midnights, not the grid's zone-less "YYYY-MM-DD 00:00:00".
+describe('Blotter header filters', () => {
+  beforeEach(() => {
+    mockSavedState = null;
+    mockGetOrdersCalls = [];
+    mockResponse = mockExecutions;
+  });
+  const lastOrderFilters = () => mockGetOrdersCalls[mockGetOrdersCalls.length - 1][0];
+  const applyModel = (model: object) => act(async () => {
+    mockGridProps.onFilterChanged({ api: { getFilterModel: () => model } });
+  });
+
+  it('sends "today" on a date column as that local day, and keeps text filters', async () => {
+    render(<Blotter domainObject="Order" />);
+    await waitFor(() => expect(mockGetOrdersCalls.length).toBeGreaterThan(0));
+
+    await applyModel({
+      transactTime: { filterType: 'date', type: 'equals', dateFrom: '2026-11-25 00:00:00', dateTo: null },
+      symbol: { filterType: 'text', type: 'contains', filter: 'AA' },
+    });
+
+    await waitFor(() => expect(lastOrderFilters()).toEqual([
+      { field: 'transactTime', operation: '__gte', value: new Date(2026, 10, 25).toISOString() },
+      { field: 'transactTime', operation: '__lt', value: new Date(2026, 10, 26).toISOString() },
+      { field: 'symbol', operation: '__like', value: '%AA%' },
+    ]));
+  });
+});

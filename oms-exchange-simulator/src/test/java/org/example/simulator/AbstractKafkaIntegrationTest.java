@@ -27,11 +27,10 @@ public abstract class AbstractKafkaIntegrationTest {
         registry.add("spring.kafka.producer.properties.schema.registry.url", () -> REGISTRY);
         // The mock registry starts empty; tests register as they go, as the compose dev setup does.
         registry.add("KAFKA_AUTO_REGISTER_SCHEMAS", () -> "true");
-        // Never Alpha Vantage, even when the developer's environment has ALPHAVANTAGE_API_KEY: these
-        // outrank the environment variables application.yml resolves, so the static prices are used
-        // (SPEC-0073). A test that wants a provider sets simulator.alpha-vantage.* directly, which
-        // does not collide with these names.
-        registry.add("ALPHAVANTAGE_API_KEY", () -> "");
-        registry.add("ALPHAVANTAGE_BASE_URL", () -> "http://127.0.0.1:9");
+        // No price service, even when the developer environment sets SIMULATOR_PRICE_SERVICE_URL:
+        // this outranks the environment variable application.yml resolves, so the static prices are
+        // used (SPEC-0079). A test that wants a price service sets simulator.price-service.url directly,
+        // which does not collide with this name.
+        registry.add("SIMULATOR_PRICE_SERVICE_URL", () -> "");
     }
 }

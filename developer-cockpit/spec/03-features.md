@@ -539,6 +539,19 @@ tags: [state-machine, architecture, events]
     Deployment
 ```
 
+A **Folders / Types** toggle above the tree switches how it browses:
+- **Folders** (the default) is the tree above, nested to any depth.
+- **Types** groups documents by their front-matter `type`. Structured types come first
+  (Capability, Requirement, Use Case, Actor, Domain Concept, …), other types by name, and
+  untyped documents last.
+  - Capabilities are split by `maturity` (implemented, partial, planned).
+  - Requirements are split Functional / Non-functional, in `id` order, with the id leading the
+    label.
+  - Each type shows its count and collapses. Deprecated documents are struck through, as in
+    folder view.
+  - Navigation files (index.md, log.md) are left out.
+- The choice is kept while the app runs (`kb:getTypeGroups` supplies the groups).
+
 **Right panel -- Document viewer:**
 - Rendered markdown with:
   - Mermaid diagram support (rendered inline; see *Mermaid diagrams* below)

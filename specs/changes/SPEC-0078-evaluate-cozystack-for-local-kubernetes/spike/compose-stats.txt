@@ -1,0 +1,34 @@
+oms-ui	291.3MiB / 15.22GiB	0.09%
+oms-streaming-service	405.1MiB / 15.22GiB	0.63%
+oms-core	1019MiB / 15.22GiB	0.73%
+oms-exchange-simulator	371MiB / 15.22GiB	0.22%
+alloy	119.5MiB / 15.22GiB	0.77%
+mimir	94.04MiB / 15.22GiB	0.71%
+tempo	178.3MiB / 15.22GiB	0.57%
+loki	76.2MiB / 15.22GiB	0.74%
+postgres-replica	33.09MiB / 15.22GiB	0.01%
+postgres	73.24MiB / 15.22GiB	0.28%
+oms-mcp-server	657.6MiB / 15.22GiB	0.14%
+grafana-mcp	15.54MiB / 15.22GiB	0.00%
+grafana	443.8MiB / 15.22GiB	1.59%
+schema-registry	411.4MiB / 15.22GiB	0.39%
+broker	1.34GiB / 15.22GiB	1.86%
+
+## with control-center and pgadmin also started (they had been stopped), 2026-11-26
+oms-core	788.8MiB / 15.22GiB	1.44%
+oms-ui	341.1MiB / 15.22GiB	0.20%
+oms-streaming-service	376.5MiB / 15.22GiB	0.93%
+oms-exchange-simulator	346.9MiB / 15.22GiB	0.30%
+oms-pgadmin-1	297.9MiB / 15.22GiB	0.03%
+control-center	860.8MiB / 15.22GiB	56.00%
+alloy	198.1MiB / 15.22GiB	2.49%
+mimir	132.6MiB / 15.22GiB	0.67%
+tempo	204.6MiB / 15.22GiB	0.34%
+loki	153.6MiB / 15.22GiB	0.98%
+postgres-replica	30.56MiB / 15.22GiB	0.01%
+postgres	79.36MiB / 15.22GiB	0.37%
+oms-mcp-server	537.1MiB / 15.22GiB	0.24%
+grafana-mcp	21.74MiB / 15.22GiB	0.00%
+grafana	709.5MiB / 15.22GiB	1.41%
+schema-registry	303.6MiB / 15.22GiB	0.52%
+broker	587.2MiB / 15.22GiB	8.00%

@@ -1,0 +1,31 @@
+# No operator provides a Schema Registry (Cozystack's Kafka has none either): plain Deployment,
+# same Confluent 7.9 image line as the compose stack.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: schema-registry
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: schema-registry } }
+  template:
+    metadata: { labels: { app: schema-registry } }
+    spec:
+      enableServiceLinks: false   # otherwise SCHEMA_REGISTRY_PORT from the Service breaks the image
+      containers:
+        - name: schema-registry
+          image: confluentinc/cp-schema-registry:7.9.0
+          env:
+            - { name: SCHEMA_REGISTRY_HOST_NAME, value: schema-registry }
+            - { name: SCHEMA_REGISTRY_LISTENERS, value: "http://0.0.0.0:8081" }
+            - { name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS, value: "oms-kafka-kafka-bootstrap:9092" }
+          ports: [{ containerPort: 8081 }]
+          resources:
+            requests: { memory: 384Mi, cpu: 100m }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry
+spec:
+  selector: { app: schema-registry }
+  ports: [{ port: 8081, targetPort: 8081 }]

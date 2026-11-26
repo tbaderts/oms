@@ -19,6 +19,7 @@ import ColumnSelector from './ColumnSelector';
 import DetailModal from './DetailModal';
 import BlotterToolbar from './BlotterToolbar';
 import { useShortcuts } from '../hooks/useKeyboard';
+import { dateFilterToConditions } from '../services/dateFilter';
 import './Blotter.scss';
 
 interface BlotterProps {
@@ -184,7 +185,10 @@ const Blotter: React.FC<BlotterProps> = ({ domainObject, pageSize: pageSizeProp 
     const omsFilters: FilterCondition[] = [];
 
     Object.entries(filterModel).forEach(([field, filter]: [string, any]) => {
-      if (filter.type === 'contains') {
+      if (filter.filterType === 'date') {
+        // A calendar day in the browser's zone, sent as instants (services/dateFilter.ts)
+        omsFilters.push(...dateFilterToConditions(field, filter));
+      } else if (filter.type === 'contains') {
         omsFilters.push({ field, operation: '__like', value: `%${filter.filter}%` });
       } else if (filter.type === 'equals') {
         omsFilters.push({ field, operation: '', value: filter.filter });

@@ -5,7 +5,7 @@ title: "System Context"
 description: "The OMS components, the infrastructure they use and how commands, events and queries flow between them."
 tags: [architecture, system-context, overview]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-26T15:00:00Z"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
   - resource: "repo:docker-compose.yml"
@@ -25,6 +25,9 @@ flowchart LR
   stream -->|snapshot via Query API| core
   ui[OMS UI] -->|RSocket| stream
   ui -->|REST| core
+  ui -->|market data REST| price[Price Service]
+  sim -->|reference price REST| price
+  price -->|budgeted| av[(Alpha Vantage)]
   mcp[MCP Server] -->|Query API| core
   mcp -->|reads| kb[(Knowledge base)]
   agents([AI assistants]) -->|MCP| mcp
@@ -39,6 +42,7 @@ flowchart LR
 | [Streaming Service](streaming-service.md) | Real-time feed for the UI (8092 HTTP, 7000 RSocket) |
 | [Exchange Simulator](exchange-simulator.md) | Simulated venue (8094) |
 | [OMS UI](oms-ui.md) | Admin tool and trade blotter (8080) |
+| [Price Service](price-service.md) | Market data for order entry and the simulator: instrument list, quotes within a request budget, end-of-day closes (8098) |
 | [MCP Server](../../tools/knowledge-server.md) | Knowledge and order tools for AI assistants (8091) |
 | [KB Explorer](../../tools/kb-explorer.md) | Web UI for the knowledge base (local dev server) |
 | [oms-contracts](oms-contracts.md) | Shared OpenAPI and Avro contracts |

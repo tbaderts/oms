@@ -70,6 +70,13 @@ function rememberAccount(account: string): string[] {
 
 const fmt = (value?: number) => (value === undefined || value === null ? 'n/a' : String(value));
 
+/** Where a quote came from, as the trader reads it (SPEC-0079: END_OF_DAY is a close, its date in As of). */
+const SOURCE_LABELS: Record<string, string> = {
+  ALPHA_VANTAGE: 'Alpha Vantage',
+  END_OF_DAY: 'End-of-day close',
+  BUILT_IN: 'Simulator reference price',
+};
+
 const OrderEntry: React.FC<OrderEntryProps> = ({ lookupDelayMs = 400, onShowOrders }) => {
   const [ticket, setTicket] = useState<OrderTicket>(() => newTicket());
   const [attempted, setAttempted] = useState(false);
@@ -284,7 +291,7 @@ const OrderEntry: React.FC<OrderEntryProps> = ({ lookupDelayMs = 400, onShowOrde
                 <div><dt>As of</dt><dd>{quote.asOf ?? 'n/a'}</dd></div>
               </dl>
               <div className="quote-footer">
-                <span className="quote-source">{quote.source === 'BUILT_IN' ? 'Simulator reference price' : quote.source === 'ALPHA_VANTAGE' ? 'Alpha Vantage' : ''}</span>
+                <span className="quote-source">{quote.source ? SOURCE_LABELS[quote.source] ?? '' : ''}</span>
                 {quote.last !== undefined && needsPrice(ticket.ordType) && (
                   <button type="button" className="secondary-button" onClick={() => update({ price: String(quote.last) })}>
                     Use last price

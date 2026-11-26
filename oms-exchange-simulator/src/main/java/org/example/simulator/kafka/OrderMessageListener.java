@@ -1,5 +1,6 @@
 package org.example.simulator.kafka;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.example.common.model.msg.OrderMessage;
 import org.example.simulator.engine.ExchangeEngine;
 import org.slf4j.MDC;
@@ -12,6 +13,11 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Feeds the OMS's order stream to the engine. Every order update arrives here; the engine decides
  * which ones are orders or cancel requests addressed to the venue.
+ *
+ * <p>Values arrive as bytes and are decoded here (SPEC-0077). The listener does not catch: a failure
+ * is the container's to handle, by the error policy ({@code KafkaErrorHandlingConfig}): retried for
+ * the window if it may succeed, else, and once the window has passed, sent to
+ * {@code oms_orders.oms-exchange-simulator.DLT} with the bytes it arrived with.
  */
 @Component
 @Slf4j
@@ -19,9 +25,11 @@ import lombok.extern.slf4j.Slf4j;
 public class OrderMessageListener {
 
     private final ExchangeEngine engine;
+    private final OrderMessageDecoder decoder;
 
     @KafkaListener(topics = "${simulator.order-topic}")
-    public void onOrder(OrderMessage message) {
+    public void onOrder(ConsumerRecord<String, byte[]> record) {
+        OrderMessage message = decoder.decode(record.topic(), record.value());
         MDC.put("orderId", message.getOrderId());
         try {
             log.debug(

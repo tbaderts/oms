@@ -37,3 +37,5 @@ databaseChangeLog:
       file: db/changelog/018-replica-relaxed-keys.yaml
   - include:
       file: db/changelog/019-execution-instrument.yaml
+  - include:
+      file: db/changelog/020-outbox-dead-letter.yaml

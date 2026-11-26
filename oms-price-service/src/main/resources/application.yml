@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: oms-price-service
+
+server:
+  port: ${SERVER_PORT:8098}
+
+oms:
+  price:
+    # The only place the provider's key is configured (SPEC-0079). Without one, quotes come from the
+    # end-of-day store and search from the instrument list.
+    alpha-vantage:
+      api-key: ${ALPHAVANTAGE_API_KEY:}
+      base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
+    # Provider requests this service allows itself: Alpha Vantage's free key has 25 a day, 5 a minute.
+    # The day starts at 00:00 in reset-zone.
+    budget:
+      daily: ${PRICE_BUDGET_DAILY:25}
+      per-minute: ${PRICE_BUDGET_PER_MINUTE:5}
+      reset-zone: UTC
+    # How long a live quote is served from the cache.
+    quote-ttl: PT15M
+    reference:
+      # The instrument list is fetched again (one LISTING_STATUS request) when older than this.
+      refresh-interval: P1D
+    # instruments.csv, learned-closes.csv and eod/*.csv (operator files) live here.
+    data-dir: ${PRICE_DATA_DIR:./data}
+    eod:
+      # How often eod/*.csv is checked for new or changed files.
+      reload-interval: PT1M
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  # Traces, metrics and logs go to the OTLP endpoint (the Alloy agent) only when
+  # OTLP_EXPORT_ENABLED=true; without it nothing is exported (SPEC-0033).
+  opentelemetry:
+    resource-attributes:
+      "[service.name]": oms-price-service
+      "[service.namespace]": oms
+      "[deployment.environment]": ${DEPLOYMENT_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT:http://localhost:4318}/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: ${OTLP_ENDPOINT:http://localhost:4318}/v1/logs
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+    export:
+      otlp:
+        enabled: ${OTLP_EXPORT_ENABLED:false}
+  logging:
+    export:
+      otlp:
+        enabled: ${OTLP_EXPORT_ENABLED:false}
+  otlp:
+    metrics:
+      export:
+        enabled: ${OTLP_EXPORT_ENABLED:false}
+        url: ${OTLP_ENDPOINT:http://localhost:4318}/v1/metrics
+        step: 15s

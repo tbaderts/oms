@@ -1,0 +1,18 @@
+# CloudNativePG: one-instance PostgreSQL for oms-core (database `oms`, owner `oms`, password in Secret oms-db)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: oms-pg
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+  storage:
+    size: 2Gi
+  bootstrap:
+    initdb:
+      database: oms
+      owner: oms
+      secret:
+        name: oms-db
+  resources:
+    requests: { memory: 256Mi, cpu: 100m }

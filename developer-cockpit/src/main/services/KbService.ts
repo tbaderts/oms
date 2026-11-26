@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import matter from 'gray-matter';
 import Fuse from 'fuse.js';
-import type { KbDocument, KbCategory, KbSearchResult } from '../../shared/types/kb';
+import type { KbDocument, KbCategory, KbSearchResult, KbTreeEntry, KbTypeGroup } from '../../shared/types/kb';
 
 export class KbService {
   private documents: KbDocument[] = [];
@@ -117,6 +117,27 @@ export class KbService {
       .sort((x, y) => x.title.localeCompare(y.title));
   }
 
+  /**
+   * Every document grouped by its OKF `type`, as in the OKF knowledge base explorer's type view: the structured
+   * types first in the conventions' order, other types by name, untyped documents last. Navigation
+   * files (index.md, log.md) are left out.
+   */
+  getTypeGroups(): KbTypeGroup[] {
+    const byType = new Map<string, KbDocument[]>();
+    for (const doc of this.documents) {
+      if (isNavigation(doc)) continue;
+      const type = stringField(doc, 'type') ?? UNTYPED;
+      byType.set(type, [...(byType.get(type) ?? []), doc]);
+    }
+    const rank = (t: string) => (t === UNTYPED ? 1e6 : TYPE_ORDER.includes(t) ? TYPE_ORDER.indexOf(t) : 1e3);
+    return [...byType.keys()]
+      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+      .map((type) => {
+        const docs = byType.get(type)!;
+        return { type, count: docs.length, subgroups: typeSubgroups(type, docs) };
+      });
+  }
+
   getDocument(docPath: string): KbDocument | undefined {
     return this.documents.find((d) => d.path === docPath || d.relativePath === docPath);
   }
@@ -133,6 +154,56 @@ export class KbService {
 }
 
 /** index.md and log.md are navigation (OKF reserved files), not documents to list. */
+/**
+ * Structured types first, then the document types, as in okf-conventions.md and the OKF knowledge base explorer;
+ * use cases and actors follow requirements, patterns follow architecture.
+ */
+const TYPE_ORDER = [
+  'Capability', 'Requirement', 'Use Case', 'Actor', 'Domain Concept', 'Glossary', 'Interface', 'Architecture',
+  'Pattern', 'Component', 'Decision', 'Specification', 'Concept Paper', 'Diagram', 'Methodology', 'Assessment',
+  'Strategy', 'Reference',
+];
+const UNTYPED = 'Untyped';
+const MATURITY_ORDER = ['implemented', 'partial', 'planned'];
+
+function stringField(doc: KbDocument, key: string): string | undefined {
+  const value = doc.frontmatter?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function treeEntry(doc: KbDocument): KbTreeEntry {
+  const id = stringField(doc, 'id');
+  const status = stringField(doc, 'status');
+  return {
+    path: doc.path,
+    relativePath: doc.relativePath,
+    label: id ? `${id} ${doc.title}` : doc.title,
+    ...(status ? { status } : {}),
+  };
+}
+
+/** Capabilities by maturity, requirements functional / non-functional in id order, others by title. */
+function typeSubgroups(type: string, docs: KbDocument[]): KbTypeGroup['subgroups'] {
+  const entries = (list: KbDocument[]) => list.map(treeEntry);
+  const byTitle = [...docs].sort((a, b) => a.title.localeCompare(b.title));
+  if (type === 'Capability') {
+    const maturity = (d: KbDocument) => stringField(d, 'maturity') ?? 'unspecified';
+    const rank = (m: string) => (MATURITY_ORDER.indexOf(m) + 1) || 99;
+    return [...new Set(docs.map(maturity))]
+      .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+      .map((label) => ({ label, documents: entries(byTitle.filter((d) => maturity(d) === label)) }));
+  }
+  if (type === 'Requirement') {
+    const id = (d: KbDocument) => stringField(d, 'id') ?? '';
+    const byId = [...docs].sort((a, b) => id(a).localeCompare(id(b)));
+    return [
+      { label: 'Functional', documents: entries(byId.filter((d) => !id(d).startsWith('NFR'))) },
+      { label: 'Non-functional', documents: entries(byId.filter((d) => id(d).startsWith('NFR'))) },
+    ].filter((g) => g.documents.length > 0);
+  }
+  return [{ label: type, documents: entries(byTitle) }];
+}
+
 function isNavigation(doc: KbDocument): boolean {
   const name = doc.relativePath.split('/').pop();
   return name === 'index.md' || name === 'log.md';

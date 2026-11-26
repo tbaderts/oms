@@ -1,5 +1,7 @@
 package org.example.streaming.service;
 
+import org.example.streaming.kafka.AvroRecordDecoder;
+import org.example.streaming.kafka.errors.RecordErrorPolicy;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,8 +51,10 @@ import reactor.kafka.receiver.KafkaReceiver;
 @ConditionalOnProperty(prefix = "streaming.kafka", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaEventStreamProvider implements EventStreamProvider {
 
-    private final KafkaReceiver<String, OrderMessage> orderMessageReceiver;
-    private final KafkaReceiver<String, Execution> executionReceiver;
+    private final KafkaReceiver<String, byte[]> orderMessageReceiver;
+    private final KafkaReceiver<String, byte[]> executionReceiver;
+    private final AvroRecordDecoder decoder;
+    private final RecordErrorPolicy errorPolicy;
     private final OmsQueryClient omsQueryClient;
     private final OrderMessageMapper orderMessageMapper;
     private final ExecutionMessageMapper executionMessageMapper;
@@ -73,8 +77,10 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     private volatile Disposable executionConsumerDisposable;
 
     public KafkaEventStreamProvider(
-            KafkaReceiver<String, OrderMessage> orderMessageReceiver,
-            KafkaReceiver<String, Execution> executionReceiver,
+            KafkaReceiver<String, byte[]> orderMessageReceiver,
+            KafkaReceiver<String, byte[]> executionReceiver,
+            AvroRecordDecoder decoder,
+            RecordErrorPolicy errorPolicy,
             OmsQueryClient omsQueryClient,
             OrderMessageMapper orderMessageMapper,
             ExecutionMessageMapper executionMessageMapper,
@@ -82,6 +88,8 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
             MeterRegistry meterRegistry) {
         this.orderMessageReceiver = orderMessageReceiver;
         this.executionReceiver = executionReceiver;
+        this.decoder = decoder;
+        this.errorPolicy = errorPolicy;
         this.omsQueryClient = omsQueryClient;
         this.orderMessageMapper = orderMessageMapper;
         this.executionMessageMapper = executionMessageMapper;
@@ -105,24 +113,28 @@ public class KafkaEventStreamProvider implements EventStreamProvider {
     @PostConstruct
     public void startConsuming() {
         log.info("Starting Kafka Avro event consumers");
-        orderConsumerDisposable = consume("order", orderMessageReceiver.receive().doOnNext(record -> {
-            OrderMessage msg = record.value();
+        // Each record goes through the error policy (SPEC-0077): retried for the window if it may
+        // succeed, otherwise dead-lettered; acknowledged only then. concatMap keeps the records in order.
+        orderConsumerDisposable = consume("order", orderMessageReceiver.receive().concatMap(record -> errorPolicy.process(record, r -> {
+            OrderMessage msg = decoder.decode(r.topic(), r.value(), OrderMessage.class);
             log.debug("Received OrderMessage: orderId={}, state={}", msg.getOrderId(), msg.getState());
             orderEventSink.tryEmitNext(orderMessageMapper.toOrderEvent(msg, "UPDATE"));
-            record.receiverOffset().acknowledge();
-        }));
-        executionConsumerDisposable = consume("execution", executionReceiver.receive().doOnNext(record -> {
-            Execution fill = record.value();
+        })));
+        executionConsumerDisposable = consume("execution", executionReceiver.receive().concatMap(record -> errorPolicy.process(record, r -> {
+            Execution fill = decoder.decode(r.topic(), r.value(), Execution.class);
             log.debug("Received Execution: orderId={}, execId={}, orderVersion={}",
                     fill.getOrderId(), fill.getExecId(), fill.getOrderVersion());
             String eventType = fill.getExecType() != null ? fill.getExecType() : "NEW";
             executionEventSink.tryEmitNext(
                     ExecutionEvent.fromExecution(executionMessageMapper.toExecutionDto(fill), eventType));
-            record.receiverOffset().acknowledge();
-        }));
+        })));
     }
 
-    /** Subscribes a consumer, retrying with backoff after errors. */
+    /**
+     * Subscribes a consumer, re-subscribing with backoff after an error. Record failures are handled by
+     * the error policy; what reaches here is the broker connection or a dead letter that could not be
+     * written, and the receiver then resumes from the last committed offset.
+     */
     private Disposable consume(String name, Flux<?> records) {
         return records
                 .doOnError(error -> log.error("Error consuming {} messages", name, error))

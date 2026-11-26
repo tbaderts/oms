@@ -10,22 +10,23 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * The market data API for order entry (SPEC-0072, {@code oms-marketdata-api.yml}): instrument lookup
- * and quotes, from the provider, its cache or the built-in instruments.
+ * and quotes, forwarded to the price service (SPEC-0079), which owns market data. Parameters are
+ * validated here, so a bad query never leaves oms-ui.
  */
 @RestController
 @RequiredArgsConstructor
 public class MarketDataController implements MarketDataApi {
 
-    private final MarketDataService service;
+    private final PriceServiceClient priceService;
 
     @Override
     public ResponseEntity<InstrumentSearchResult> searchInstruments(String query) {
-        return ResponseEntity.ok(service.search(query));
+        return ResponseEntity.ok(priceService.search(query));
     }
 
     @Override
     public ResponseEntity<Quote> getQuote(String symbol) {
-        return service.quote(symbol)
+        return priceService.quote(symbol)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

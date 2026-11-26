@@ -286,6 +286,25 @@ describe('OrderEntry (SPEC-0072)', () => {
     expect(field('Price').value).toBe('250.35');
   });
 
+  /** SPEC-0079 AC-10: a quote from the price service's end-of-day store says so, with its date. */
+  it('labels an end-of-day quote with its date', async () => {
+    mockSearch.mockResolvedValue({ source: 'REFERENCE_DATA', instruments: [{ symbol: 'IBM', name: 'IBM' }] });
+    mockQuote.mockResolvedValue({
+      symbol: 'IBM', last: 250.35, previousClose: 249, asOf: '2026-11-25', source: 'END_OF_DAY',
+      notice: 'Live price request limit reached: end-of-day close shown',
+    });
+    render(<OrderEntry lookupDelayMs={0} />);
+    type('Symbol', 'ib');
+    fireEvent.click(await screen.findByRole('option', { name: /IBM/ }));
+
+    const quote = await screen.findByRole('region', { name: 'Quote' });
+    expect(within(quote).getByText('End-of-day close')).toBeInTheDocument();
+    expect(within(quote).getByText('2026-11-25')).toBeInTheDocument();
+    expect(within(quote).getByText('Live price request limit reached: end-of-day close shown')).toBeInTheDocument();
+    fireEvent.click(within(quote).getByRole('button', { name: 'Use last price' }));
+    expect(field('Price').value).toBe('250.35');
+  });
+
   /** AC-7 */
   it('works when market data is unavailable', async () => {
     mockSearch.mockResolvedValue({ instruments: [], notice: MARKET_DATA_UNAVAILABLE });

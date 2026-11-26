@@ -5,7 +5,7 @@ title: "User Interface Specification: OMS Admin Tool"
 description: "React and AG Grid admin tool for viewing and managing orders, executions, quotes and quote requests."
 tags: [ui, react, ag-grid]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-25T20:00:00Z"
 ---
 # User Interface Specification: OMS Admin Tool
 
@@ -71,6 +71,16 @@ Built with modern React patterns using functional components and hooks:
 
 - **Blotter Display**: Tabular view (blotter) for Orders, Quote Requests, Quotes, and Executions
 - **Dynamic Filtering**: Users can apply filters on any column with server-side filtering via Query API. Column filters are AG Grid Community's text, number and date filters; boolean columns filter on the "Yes"/"No" they show (SPEC-0060)
+  - **Date column filters pick calendar days in the browser's time zone**, the zone times are shown
+    in. The server gets the instants of that day's local midnights (`services/dateFilter.ts`):
+    - Equals (e.g. today) becomes `field__gte=<day start>&field__lt=<next day start>`.
+    - Before a day becomes `__lt=<day start>`; after a day becomes `__gte=<next day start>`.
+    - In range includes both days.
+  - The grid filters the rows it holds with the same day comparison, so the History and Live
+    blotters and the server agree.
+  - Only these four operators and one condition are offered: the Query API has no "not equal", no
+    "blank" and no OR.
+  - Before, a date filter reached the server as `field=undefined` and was ignored.
 - **Metamodel-driven Table**: Table columns generated from backend metamodel with automatic type handling
 - **Configurable Columns**: Users can select which attributes to display with state persistence
 - **State Persistence**: Filter, column, and sort preferences saved per domain object type
@@ -234,6 +244,17 @@ of the most recent objects in memory:
   (SPEC-0057; before, the first to arrive). An update moves a row to the newest end, so a busy order
   that keeps getting fills stays. The toolbar record count never exceeds the limit.
 - On reconnect after a connection error, the window and the event counter are reset.
+- **Rows are sorted by `transactTime`, newest on top,** for orders and executions, including rows
+  that arrive or change later. It is the grid's initial sort, so clicking a header sorts otherwise.
+  When Transact Time is not a chosen column, a hidden one carries the sort. Times compare as
+  instants; rows without one go to the bottom (`sortNewestFirst` in `theme/gridOptions.ts`).
+- **A dropped connection is re-established on its own.**
+  - `RSocketStreamingService` watches the RSocket connection status. When the connection closes
+    or fails without Disconnect (a server restart, a network drop, missed keep-alives), it shows
+    `reconnecting` and retries with backoff: 3, 6, 12, 24, then every 48 s, without a limit.
+  - When it is back, every blotter whose stream died re-subscribes, with a fresh snapshot.
+  - Disconnect stays disconnected until Connect. Concurrent connects share one connection.
+  - Before, the status kept showing `connected` over a dead stream, and nothing reconnected.
 - **Updates are batched per frame (SPEC-0057).**
   - The rows live outside React state, in `services/rowStore.ts`, so an event costs O(1) and
     renders nothing.
@@ -422,7 +443,9 @@ letters are a follow-up ticket.
 
 **Outbox** (`OutboxView.tsx`):
 - **Summary tiles:** pending, stuck (in the danger tone when above 0), held (in the warning tone) and
-  the oldest waiting age (`1 h 5 min`), with a line explaining stuck and held.
+  the oldest waiting age (`1 h 5 min`), with a line explaining stuck and held. Since SPEC-0077 a
+  stuck message is one that was dead-lettered (or refused by its dead-letter topic); its dead letter
+  is in the Dead letters tab under `<topic>.oms-core.DLT`.
 - **State filter** (All, Pending, Stuck, Held) and a paged table: state badge, id, topic, key, order,
   type, attempts against the maximum, created time, and last error.
 - **Detail.** Opening a message shows every field and its last error. The payload is a JSON tree

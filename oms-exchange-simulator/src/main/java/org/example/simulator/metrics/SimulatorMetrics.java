@@ -61,8 +61,8 @@ public class SimulatorMetrics {
     }
 
     /**
-     * One reference price lookup (SPEC-0073): where its price came from (CACHE, ALPHA_VANTAGE,
-     * STATIC, NONE) and why the provider's price was not used (FOUND when it was).
+     * One reference price lookup (SPEC-0073, SPEC-0079): where its price came from (CACHE,
+     * PRICE_SERVICE, STATIC, NONE) and why the price service's price was not used (FOUND when it was).
      */
     public void referencePriceLookup(String source, String outcome) {
         Counter.builder("simulator.reference.price.lookups")

@@ -1,0 +1,87 @@
+/*
+ * oms-price-service — price and reference data for the other services (SPEC-0079).
+ *
+ * The only holder of the market data provider's key and the only caller of the provider. Serves the
+ * market data API (oms-marketdata-api.yml): instrument search from a local instrument list, quotes
+ * from the provider within a request budget, else from an end-of-day store.
+ */
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.openapi.generator' version '7.24.0'
+}
+
+group = 'org.example.oms'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Shared contracts: the market data API's models, generated in oms-contracts.
+	implementation 'org.example.oms:oms-contracts'
+
+	// The same artifacts and versions oms-ui and the exchange simulator use; nothing new.
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// Enforces the generated interface's parameter constraints (400 instead of reaching the code).
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'io.micrometer:micrometer-registry-prometheus'
+	// Traces, metrics and logs over OTLP (SPEC-0033), as in the other services.
+	implementation 'org.springframework.boot:spring-boot-starter-opentelemetry'
+	implementation 'io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.28.1-alpha'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// ---------------------------------------------------------------------------
+// API interface generation: models come from oms-contracts; only the interface this module
+// implements, MarketDataApi, is generated here, as in oms-ui.
+// ---------------------------------------------------------------------------
+
+def contractsSpecDir = findProperty('omsContractsSpecDir') ?: "$projectDir/../oms-contracts/src/main/openapi"
+
+tasks.register('openApiGenerateMarketData', org.openapitools.generator.gradle.plugin.tasks.GenerateTask) {
+	generatorName = "spring"
+	inputSpec = "$contractsSpecDir/oms-marketdata-api.yml".toString()
+	outputDir = layout.buildDirectory.dir("generated").get().asFile.toString()
+	apiPackage = "org.example.common.api"
+	modelPackage = "org.example.common.model.marketdata"
+	globalProperties = [apis: ""]
+	configOptions = [
+		interfaceOnly: "true",
+		useSpringBoot3: "true",
+		skipDefaultInterface: "true",
+		// one interface per tag (MarketDataApi), not per first path segment ("/api")
+		useTags: "true",
+		enumPropertyNaming: "original",
+		modelNameSuffix: ""
+	]
+}
+
+tasks.named('compileJava') {
+	dependsOn 'openApiGenerateMarketData'
+}
+
+sourceSets.main.java.srcDirs += layout.buildDirectory.dir("generated/src/main/java")

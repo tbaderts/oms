@@ -29,6 +29,20 @@ class KafkaConfigTest {
         assertSame(registry, config.executionReceiverOptions(registry).observationRegistry());
     }
 
+    /** SPEC-0077: values are read as bytes and decoded per record, so a bad record cannot stop the stream. */
+    @Test
+    void receiversReadBytes() {
+        KafkaConfig config = new KafkaConfig();
+        ReflectionTestUtils.setField(config, "bootstrapServers", "localhost:9092");
+        ReflectionTestUtils.setField(config, "groupId", "streaming-it");
+        ReflectionTestUtils.setField(config, "schemaRegistryUrl", "mock://streaming-it");
+
+        var options = config.receiverOptions("oms_orders", ObservationRegistry.create());
+
+        assertEquals(org.apache.kafka.common.serialization.ByteArrayDeserializer.class,
+                options.consumerProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG));
+    }
+
     /**
      * SPEC-0071 AC-3: live fills come from oms_executions, not oms_order_executions, and a first start
      * reads new fills only: history comes from the database snapshot.

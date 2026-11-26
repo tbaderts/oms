@@ -224,13 +224,14 @@ class PointerOutboxIntegrationTest extends AbstractFillFlowIntegrationTest {
                     .attempts(0)
                     .build());
 
-            awaitUntil(() -> outboxRepository.findById(broken.getId()).orElseThrow().getAttempts() >= maxAttempts,
-                    "the broken pointer used up its attempts");
+            // SPEC-0077: retried for the error policy's window, then dead-lettered and parked.
+            awaitUntil(() -> outboxRepository.findById(broken.getId()).orElseThrow().isParked(),
+                    "the broken pointer was dead-lettered once its retry window passed");
             OutboxMessage failed = outboxRepository.findById(broken.getId()).orElseThrow();
             assertTrue(failed.getLastError().contains(orderId) && failed.getLastError().contains("version " + missing),
                     "the error names the order and the version: " + failed.getLastError());
-            awaitUntil(() -> outboxRepository.findById(brokenExecution.getId()).orElseThrow().getAttempts() >= maxAttempts,
-                    "the broken EXECUTION pointer used up its attempts");
+            awaitUntil(() -> outboxRepository.findById(brokenExecution.getId()).orElseThrow().isParked(),
+                    "the broken EXECUTION pointer was dead-lettered once its retry window passed");
             String executionError = outboxRepository.findById(brokenExecution.getId()).orElseThrow().getLastError();
             assertTrue(executionError.contains("NO-SUCH-EXEC") && executionError.contains(orderId)
                             && executionError.contains("version " + missing),

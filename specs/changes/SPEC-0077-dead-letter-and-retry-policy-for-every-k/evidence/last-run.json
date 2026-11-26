@@ -1,0 +1,57 @@
+{
+  "ranAt": "2026-11-26T06:34:23.200Z",
+  "result": "pass",
+  "modules": [
+    "oms-contracts",
+    "oms-core",
+    "oms-streaming-service",
+    "oms-mcp-server",
+    "oms-exchange-simulator",
+    "oms-knowledge-base"
+  ],
+  "fingerprint": "645b730e4b041dc1",
+  "policy": {
+    "errors": [],
+    "warnings": [
+      "[R10 P-17] oms-streaming-service/build.gradle: build or dependency change: record the decision in design.md (Alternatives & Decisions)"
+    ],
+    "scope": "changes since main (merge-base 7bff5f7f)"
+  },
+  "commands": [
+    {
+      "module": "oms-contracts",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 7,
+      "log": "evidence/oms-contracts-1.log"
+    },
+    {
+      "module": "oms-core",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 603,
+      "log": "evidence/oms-core-1.log"
+    },
+    {
+      "module": "oms-streaming-service",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 61,
+      "log": "evidence/oms-streaming-service-1.log"
+    },
+    {
+      "module": "oms-mcp-server",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 21,
+      "log": "evidence/oms-mcp-server-1.log"
+    },
+    {
+      "module": "oms-exchange-simulator",
+      "command": "./gradlew check",
+      "exitCode": 0,
+      "seconds": 121,
+      "log": "evidence/oms-exchange-simulator-1.log"
+    }
+  ]
+}

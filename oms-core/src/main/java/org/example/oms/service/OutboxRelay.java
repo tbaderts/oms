@@ -17,6 +17,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.example.oms.kafka.errors.ErrorClassifier;
+import org.example.oms.kafka.errors.ErrorPolicyProperties;
 import org.example.oms.model.OutboxMessage;
 import org.example.oms.repository.OutboxRepository;
 import org.example.oms.service.leadership.Leadership;
@@ -50,10 +52,15 @@ import lombok.extern.slf4j.Slf4j;
  * independent: their rows are in flight together, and one failing order does not delay the others
  * (SPEC-0026). The broker stays off the request path.
  *
- * <p>A message that fails {@code maxAttempts} times stops being retried and is left in the table for
- * operators, counted by the {@code oms.outbox.stuck} gauge. The later rows of its aggregate are held
- * behind it rather than published out of order. {@code oms.outbox.oldest.age} shows how long the
- * oldest row has been waiting. Silent loss is the one outcome this class is built to prevent.
+ * <p>Failures follow the error policy (SPEC-0077). The broker or registry being unreachable costs
+ * nothing and is retried on every drain. A failure that cannot succeed on a retry is dead-lettered at
+ * once to {@code <topic>.oms-core.DLT}; any other failure is retried with exponential back-off until
+ * {@code kafka.error-policy.retry-for} has passed (or {@code kafka.outbox.max-attempts}, a backstop,
+ * is reached) and then dead-lettered. A dead-lettered row is not deleted: it is <em>parked</em>, counted
+ * by the {@code oms.outbox.stuck} gauge, and the later rows of its aggregate are held behind it rather
+ * than published out of order. A row whose dead-letter topic refused it is parked too. {@code
+ * oms.outbox.oldest.age} shows how long the oldest row has been waiting. Silent loss is the one
+ * outcome this class is built to prevent.
  *
  * <p>Ordering holds because exactly one drainer exists (SPEC-0048). Of several instances, only the
  * one holding the {@link Role#OUTBOX_RELAY} leadership drains; the others do nothing. Within that
@@ -80,6 +87,8 @@ public class OutboxRelay implements SmartLifecycle {
     private final int batchSize;
     private final int maxAttempts;
     private final long drainTimeoutMs;
+    private final ErrorPolicyProperties errorPolicy;
+    private final OutboxDeadLetterPublisher deadLetterPublisher;
 
     /**
      * Runs the steps of every aggregate's chain, each on its own virtual thread. It keeps the next
@@ -114,14 +123,18 @@ public class OutboxRelay implements SmartLifecycle {
             MeterRegistry meterRegistry,
             Leadership leadership,
             TransactionOperations transactions,
+            ErrorPolicyProperties errorPolicy,
+            OutboxDeadLetterPublisher deadLetterPublisher,
             @Value("${kafka.outbox.batch-size:100}") int batchSize,
-            @Value("${kafka.outbox.max-attempts:10}") int maxAttempts,
+            @Value("${kafka.outbox.max-attempts:50}") int maxAttempts,
             @Value("${kafka.outbox.drain-timeout-ms:30000}") long drainTimeoutMs) {
         this.outboxRepository = outboxRepository;
         this.messagePublisher = messagePublisher;
         this.outboxPayloads = outboxPayloads;
         this.leadership = leadership;
         this.transactions = transactions;
+        this.errorPolicy = errorPolicy;
+        this.deadLetterPublisher = deadLetterPublisher;
         this.batchSize = batchSize;
         this.maxAttempts = maxAttempts;
         this.drainTimeoutMs = drainTimeoutMs;
@@ -134,7 +147,7 @@ public class OutboxRelay implements SmartLifecycle {
         meterRegistry.gauge(
                 "oms.outbox.stuck",
                 outboxRepository,
-                repo -> repo.countByAttemptsGreaterThanEqual(maxAttempts));
+                OutboxRepository::countByParkedAtIsNotNull);
         Gauge.builder("oms.outbox.oldest.age", outboxRepository, this::oldestPendingAgeSeconds)
                 .description("Age of the oldest outbox row still to be published")
                 .baseUnit("seconds")
@@ -268,7 +281,7 @@ public class OutboxRelay implements SmartLifecycle {
      */
     BatchResult drainBatch() {
         List<OutboxMessage> pending =
-                outboxRepository.claimPending(maxAttempts, Limit.of(batchSize));
+                outboxRepository.claimPending(Limit.of(batchSize));
 
         if (pending.isEmpty()) {
             return new BatchResult(0, 0);
@@ -315,7 +328,7 @@ public class OutboxRelay implements SmartLifecycle {
             outcomes.closed.set(true);
         }
 
-        apply(byAggregate.values(), outcomes);
+        apply(byAggregate.values(), outcomes, records);
         return new BatchResult(pending.size(), outcomes.acknowledged.size());
     }
 
@@ -386,7 +399,10 @@ public class OutboxRelay implements SmartLifecycle {
      * it would let a broker outage exhaust every pending aggregate's attempts and hold them all
      * (SPEC-0026 review). The producer retries transient errors itself, for longer than a drain.
      */
-    private void apply(Iterable<List<OutboxMessage>> aggregates, Outcomes outcomes) {
+    private void apply(
+            Iterable<List<OutboxMessage>> aggregates,
+            Outcomes outcomes,
+            Map<OutboxMessage, OutboxPayloads.Resolution> records) {
         int unfinished = 0;
         for (List<OutboxMessage> rows : aggregates) {
             for (OutboxMessage row : rows) {
@@ -404,7 +420,8 @@ public class OutboxRelay implements SmartLifecycle {
                             row.getAggregateId(),
                             describe(failure));
                 } else if (failure != null) {
-                    recordFailure(row, describe(failure));
+                    OutboxPayloads.Resolution resolution = records.get(row);
+                    recordFailure(row, failure, resolution == null ? null : resolution.record());
                 } else {
                     unfinished++;
                 }
@@ -442,29 +459,46 @@ public class OutboxRelay implements SmartLifecycle {
         return failure.getMessage() != null ? failure.getMessage() : failure.toString();
     }
 
-    private void recordFailure(OutboxMessage message, String error) {
-        message.recordFailure(error);
-        log.error(
-                "Failed to publish outbox message {} ({} {}), attempt {}/{}: {}",
-                message.getId(),
-                message.getAggregateType(),
-                message.getAggregateId(),
-                message.getAttempts(),
-                maxAttempts,
-                error);
+    /**
+     * A failure that is not the broker being unreachable (SPEC-0077): one that cannot succeed is
+     * dead-lettered at once; any other backs off and is dead-lettered once the retry window (or the
+     * attempt backstop) is spent.
+     */
+    private void recordFailure(OutboxMessage message, Throwable failure, Object record) {
+        String error = describe(failure);
+        Instant now = Instant.now();
+        boolean retryable = ErrorClassifier.isRetryable(failure);
+        if (retryable) {
+            message.recordRetryableFailure(error, now, errorPolicy.backOffBefore(message.getAttempts() + 1));
+            boolean windowSpent = !now.isBefore(message.getFirstFailedAt().plus(errorPolicy.retryFor()));
+            if (!windowSpent && message.getAttempts() < maxAttempts) {
+                log.warn(
+                        "Failed to publish outbox message {} ({} {}), attempt {}, retrying after {}: {}",
+                        message.getId(),
+                        message.getAggregateType(),
+                        message.getAggregateId(),
+                        message.getAttempts(),
+                        Duration.between(now, message.getNextAttemptAt()),
+                        error);
+                return;
+            }
+        } else {
+            message.recordFailure(error);
+        }
 
-        if (message.getAttempts() >= maxAttempts) {
-            log.error(
-                    "Outbox message {} exhausted its retry budget and will not be retried. It remains in "
-                            + "the outbox table for manual replay, and holds the later messages of {} on {}.",
+        switch (deadLetterPublisher.deadLetter(message, record, failure)) {
+            case OutboxDeadLetterPublisher.Outcome.DeadLettered dead -> message.park(dead.topic(), error, now);
+            case OutboxDeadLetterPublisher.Outcome.Unreachable unreachable -> log.warn(
+                    "Outbox message {} could not be dead-lettered yet, the broker is unreachable: {}",
                     message.getId(),
-                    message.getAggregateId(),
-                    message.getTopic());
+                    describe(unreachable.failure()));
+            case OutboxDeadLetterPublisher.Outcome.Refused refused -> message.park(
+                    null, error + " (dead-letter topic refused it: " + describe(refused.failure()) + ")", now);
         }
     }
 
     private double oldestPendingAgeSeconds(OutboxRepository repository) {
-        return repository.findOldestPendingCreatedAt(maxAttempts)
+        return repository.findOldestPendingCreatedAt()
                 .map(oldest -> Math.max(0, Duration.between(oldest, Instant.now()).toMillis() / 1000.0))
                 .orElse(0.0);
     }

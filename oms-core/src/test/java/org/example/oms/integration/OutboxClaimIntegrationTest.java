@@ -57,7 +57,7 @@ class OutboxClaimIntegrationTest {
         // The old leader claims the aggregate's first row and holds its claim, as while a send is
         // awaited, then publishes it (deletes the row) and commits.
         CompletableFuture<Void> oldLeader = CompletableFuture.runAsync(() -> transactionTemplate.executeWithoutResult(status -> {
-            List<OutboxMessage> mine = outboxRepository.claimPending(10, Limit.of(1));
+            List<OutboxMessage> mine = outboxRepository.claimPending(Limit.of(1));
             assertEquals(rows.getFirst().getId(), mine.getFirst().getId());
             claimed.countDown();
             await(release);
@@ -67,7 +67,7 @@ class OutboxClaimIntegrationTest {
 
         // The new leader claims meanwhile.
         CompletableFuture<List<Long>> newLeader = CompletableFuture.supplyAsync(() -> transactionTemplate.execute(status ->
-                outboxRepository.claimPending(10, Limit.of(10)).stream()
+                outboxRepository.claimPending(Limit.of(10)).stream()
                         .filter(m -> aggregate.equals(m.getAggregateId()))
                         .map(OutboxMessage::getId)
                         .toList()));
@@ -112,7 +112,7 @@ class OutboxClaimIntegrationTest {
     /** Claims what is claimable for this run, deletes it as the relay would after publishing, and names it. */
     private List<String> claimAndPublish(String run) {
         return transactionTemplate.execute(status -> {
-            List<OutboxMessage> claimed = outboxRepository.claimPending(10, Limit.of(50)).stream()
+            List<OutboxMessage> claimed = outboxRepository.claimPending(Limit.of(50)).stream()
                     .filter(m -> m.getAggregateId().endsWith(run))
                     .toList();
             outboxRepository.deleteAll(claimed);

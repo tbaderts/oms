@@ -32,7 +32,8 @@
         "oms-core",
         "oms-streaming-service",
         "oms-mcp-server",
-        "oms-exchange-simulator"
+        "oms-exchange-simulator",
+        "oms-price-service"
       ]
     },
     "oms-core": {
@@ -51,6 +52,11 @@
       ]
     },
     "oms-exchange-simulator": {
+      "verify": [
+        "./gradlew check"
+      ]
+    },
+    "oms-price-service": {
       "verify": [
         "./gradlew check"
       ]

@@ -31,8 +31,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * SPEC-0048 AC-2, second half: a failure that is not a concurrency failure keeps the bounded retry
- * budget and is dead-lettered once it is spent, as before. (The first half, a conflict retried past
+ * SPEC-0048 AC-2, second half, and SPEC-0077 AC-2: a retryable failure that is not a concurrency
+ * failure is retried for the error policy's window and dead-lettered once it has passed. (The first half, a conflict retried past
  * the budget and never dead-lettered, is {@code OrderVersionIntegrationTest#kafkaFillRetriedAfterAConflict}.)
  *
  * <p>Runs in a world of its own, so its spied dispatcher is the only consumer of its command topic.
@@ -47,7 +47,7 @@ class CommandRetryBudgetIntegrationTest extends AbstractFillFlowIntegrationTest 
 
     @MockitoSpyBean CommandDispatcher commandDispatcher;
     @Autowired MeterRegistry meterRegistry;
-    @Value("${kafka.consumer.retry-attempts}") int retryAttempts;
+    @Value("${kafka.error-policy.retry-for}") java.time.Duration retryFor;
     @Autowired KafkaListenerEndpointRegistry listeners;
     @Autowired KafkaTopicProvisioner provisioner;
 
@@ -77,11 +77,18 @@ class CommandRetryBudgetIntegrationTest extends AbstractFillFlowIntegrationTest 
             Thread.sleep(100);
         }
         double failedBefore = failed();
+        long sent = System.nanoTime();
 
         send(orderId, fill(orderId + "-E1", orderId, "10"));
 
-        assertEquals(1, deadLetters("commands-budget.DLT", orderId), "dead-lettered once the budget is spent");
-        assertEquals(retryAttempts + 1, failed() - failedBefore, 0.0, "the first attempt and every retry, then no more");
+        assertEquals(1, deadLetters("commands-budget.oms-core.DLT", orderId), "dead-lettered once the retry window is spent");
+        java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - sent);
+        // SPEC-0077: retried with back-off for the window (the waits add up to retry-for), not a count.
+        org.junit.jupiter.api.Assertions.assertTrue(took.compareTo(retryFor) >= 0, "dead-lettered after " + took + ", before the window " + retryFor);
+        double failures = failed() - failedBefore;
+        org.junit.jupiter.api.Assertions.assertTrue(failures >= 4, "retried several times within the window, failed " + failures + " times");
+        Thread.sleep(1_000);
+        assertEquals(failures, failed() - failedBefore, 0.0, "no more attempts after the dead letter");
     }
 
     private double failed() {

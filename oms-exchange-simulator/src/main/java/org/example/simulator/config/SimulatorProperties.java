@@ -12,14 +12,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * How the simulated venue behaves.
  *
- * @param referencePrices the fallback price per symbol, used when Alpha Vantage is not configured,
- *     cannot answer or has no quote (SPEC-0073); a symbol priced by neither is unknown to the venue
- *     and its orders are rejected
+ * @param referencePrices the fallback price per symbol, used when the price service is not
+ *     configured, cannot answer or has no price (SPEC-0073, SPEC-0079); a symbol priced by neither is
+ *     unknown to the venue and its orders are rejected
  * @param priceCollar how far through the reference price a limit may be before it is rejected
- * @param quoteTtl how long an Alpha Vantage answer is reused
- * @param providerBackoff after Alpha Vantage was rate limited or unreachable, how long it is not
- *     asked; the static prices are used meanwhile
- * @param alphaVantage the reference price provider; without an API key it is never asked
+ * @param quoteTtl how long a price service answer is reused
+ * @param providerBackoff after the price service was unreachable, how long it is not asked; the
+ *     static prices are used meanwhile
+ * @param priceService where reference prices come from (SPEC-0079); without a URL it is never asked
  * @param fillSlices how many executions a marketable quantity is split into (1 = single fill)
  * @param fillDelay pause between consecutive executions of one order
  * @param lastMkt market identifier reported on every execution (FIX LastMkt)
@@ -34,7 +34,7 @@ public record SimulatorProperties(
         @DefaultValue PriceCollar priceCollar,
         @DefaultValue("5m") Duration quoteTtl,
         @DefaultValue("60s") Duration providerBackoff,
-        @DefaultValue AlphaVantage alphaVantage,
+        @DefaultValue PriceService priceService,
         @DefaultValue("1") int fillSlices,
         @DefaultValue("0ms") Duration fillDelay,
         @DefaultValue("XSIM") String lastMkt,
@@ -51,7 +51,7 @@ public record SimulatorProperties(
         }
         referencePrices = Map.copyOf(referencePrices);
         priceCollar = priceCollar != null ? priceCollar : new PriceCollar(null, null);
-        alphaVantage = alphaVantage != null ? alphaVantage : new AlphaVantage(null, null);
+        priceService = priceService != null ? priceService : new PriceService(null);
     }
 
     /**
@@ -77,18 +77,11 @@ public record SimulatorProperties(
         public record Tier(BigDecimal maxReference, BigDecimal percent) {}
     }
 
-    /** The key is read from the environment (ALPHAVANTAGE_API_KEY) and never leaves the simulator. */
-    public record AlphaVantage(String apiKey, String baseUrl) {
+    /** The price service (SPEC-0079), which owns market data; blank means static prices only. */
+    public record PriceService(String url) {
 
-        public AlphaVantage {
-            apiKey = apiKey != null ? apiKey.trim() : "";
-            baseUrl = baseUrl != null && !baseUrl.isBlank() ? baseUrl : "https://www.alphavantage.co";
-        }
-
-        @Override
-        public String toString() {
-            // Never print the key, e.g. when the properties are logged.
-            return "AlphaVantage[baseUrl=" + baseUrl + ", apiKey=" + (apiKey.isEmpty() ? "<none>" : "<set>") + "]";
+        public PriceService {
+            url = url != null ? url.trim() : "";
         }
     }
 }

@@ -44,11 +44,37 @@ import reactor.test.StepVerifier;
  */
 class KafkaEventStreamProviderTest {
 
-    private final Sinks.Many<ReceiverRecord<String, OrderMessage>> orderRecords =
+    private final Sinks.Many<ReceiverRecord<String, byte[]>> orderRecords =
             Sinks.many().unicast().onBackpressureBuffer();
 
-    private final Sinks.Many<ReceiverRecord<String, Execution>> fillRecords =
+    private final Sinks.Many<ReceiverRecord<String, byte[]>> fillRecords =
             Sinks.many().unicast().onBackpressureBuffer();
+
+    /**
+     * Stands in for the Avro decoder: records carry a placeholder as their value, decoded back to the
+     * object the test built (partial objects, which Avro would refuse to encode). SPEC-0077.
+     */
+    private static final class ObjectDecoder extends org.example.streaming.kafka.AvroRecordDecoder {
+        private final java.util.Map<String, Object> objects = new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.concurrent.atomic.AtomicLong ids = new java.util.concurrent.atomic.AtomicLong();
+
+        ObjectDecoder() {
+            super("mock://provider-unit");
+        }
+
+        byte[] encode(Object value) {
+            String id = "obj-" + ids.incrementAndGet();
+            objects.put(id, value);
+            return id.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public <T> T decode(String topic, byte[] value, Class<T> type) {
+            return type.cast(objects.get(new String(value, java.nio.charset.StandardCharsets.UTF_8)));
+        }
+    }
+
+    private final ObjectDecoder decoder = new ObjectDecoder();
 
     private KafkaEventStreamProvider provider;
 
@@ -323,15 +349,20 @@ class KafkaEventStreamProviderTest {
 
     private KafkaEventStreamProvider startProvider(OmsQueryClient queryClient) {
         @SuppressWarnings("unchecked")
-        KafkaReceiver<String, OrderMessage> orderReceiver = mock(KafkaReceiver.class);
+        KafkaReceiver<String, byte[]> orderReceiver = mock(KafkaReceiver.class);
         @SuppressWarnings("unchecked")
-        KafkaReceiver<String, Execution> executionReceiver = mock(KafkaReceiver.class);
+        KafkaReceiver<String, byte[]> executionReceiver = mock(KafkaReceiver.class);
         when(orderReceiver.receive()).thenReturn(orderRecords.asFlux());
         when(executionReceiver.receive()).thenReturn(fillRecords.asFlux());
 
         KafkaEventStreamProvider started = new KafkaEventStreamProvider(
                 orderReceiver,
                 executionReceiver,
+                decoder,
+                new org.example.streaming.kafka.errors.RecordErrorPolicy(
+                        new org.example.streaming.kafka.errors.ErrorPolicyProperties("oms-streaming-service",
+                                Duration.ofSeconds(1), Duration.ofMillis(50), Duration.ofMillis(200), 2.0),
+                        mock(org.example.streaming.kafka.errors.StreamingDeadLetterPublisher.class)),
                 queryClient,
                 new OrderMessageMapper(),
                 new ExecutionMessageMapper(),
@@ -355,7 +386,7 @@ class KafkaEventStreamProviderTest {
         fill.setExecType("F");
         fill.setOrderVersion(orderVersion);
         fillRecords.tryEmitNext(new ReceiverRecord<>(
-                new ConsumerRecord<>("oms_executions", 0, orderVersion, orderId, fill),
+                new ConsumerRecord<>("oms_executions", 0, orderVersion, orderId, decoder.encode(fill)),
                 mock(ReceiverOffset.class)));
     }
 
@@ -366,7 +397,7 @@ class KafkaEventStreamProviderTest {
         message.setRootOrderId(orderId);
         message.setEventId(eventId);
         orderRecords.tryEmitNext(new ReceiverRecord<>(
-                new ConsumerRecord<>("oms_orders", 0, eventId, orderId, message),
+                new ConsumerRecord<>("oms_orders", 0, eventId, orderId, decoder.encode(message)),
                 mock(ReceiverOffset.class)));
     }
 

@@ -1,0 +1,5 @@
+rootProject.name = 'oms-price-service'
+
+// The market data API this service serves is specified in oms-contracts, which also generates its
+// models; included so `cd oms-price-service && ./gradlew build` works on its own (SPEC-0079).
+includeBuild('../oms-contracts')

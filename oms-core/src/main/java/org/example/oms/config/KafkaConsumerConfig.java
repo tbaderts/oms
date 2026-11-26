@@ -4,6 +4,12 @@ import java.util.Map;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Headers;
+import org.apache.kafka.common.header.internals.RecordHeaders;
+import org.example.oms.kafka.errors.DeadLetterMetrics;
+import org.example.oms.kafka.errors.DeadLetters;
+import org.example.oms.kafka.errors.ErrorClassifier;
+import org.example.oms.kafka.errors.ErrorPolicyProperties;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,9 +23,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
-import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.util.backoff.BackOff;
-import org.springframework.util.backoff.ExponentialBackOff;
+import org.springframework.util.backoff.FixedBackOff;
 
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
  * <p>The important part is the error handler. Without one, a command that failed to process was
  * committed as consumed and silently dropped — for an OMS that means a lost fill nobody notices
  * until reconciliation. Failures now retry with backoff and then land on a dead-letter topic where
- * they can be inspected and replayed.
+ * they can be inspected and replayed (SPEC-0077: {@code <topic>.oms-core.DLT}, by the error policy).
  *
  * <p>Command values are consumed as bytes and decoded by {@link CommandDecoder} (SPEC-0025), so
  * every dead letter carries the record exactly as it arrived, schema id included.
@@ -65,8 +70,9 @@ public class KafkaConsumerConfig {
      * Avro template the outbox uses, which would re-encode the value under a subject of its own.
      */
     @Bean
-    public KafkaTemplate<String, byte[]> deadLetterTemplate(KafkaProperties kafkaProperties) {
+    public KafkaTemplate<String, byte[]> deadLetterTemplate(KafkaProperties kafkaProperties, ErrorPolicyProperties errorPolicy) {
         Map<String, Object> config = kafkaProperties.buildProducerProperties();
+        config.putAll(errorPolicy.producerTimeouts());
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
         // Not a bean: a second ProducerFactory bean would switch off Boot's own, which the outbox uses.
@@ -87,17 +93,20 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Retries transient failures, then routes to {@code <topic>.DLT}.
+     * The error policy for the command topic (SPEC-0077): retries retryable failures for
+     * {@code kafka.error-policy.retry-for}, then routes to {@code <topic>.oms-core.DLT}.
      *
-     * <p>Records that cannot be read or handled skip the retries: a malformed payload or an unknown
-     * command type will not succeed on a second attempt, so retrying only delays the inevitable and
-     * blocks the partition meanwhile.
+     * <p>Records that cannot succeed on a retry skip the retries ({@link ErrorClassifier}): a
+     * malformed payload, an unknown command type, a programming error or a permission error would
+     * only block the partition while the inevitable is delayed. A concurrency failure is retried until
+     * it clears and never dead-lettered (SPEC-0048).
      */
     @Bean
     public DefaultErrorHandler commandErrorHandler(
             KafkaTemplate<String, byte[]> deadLetterTemplate,
-            @Value("${kafka.consumer.retry-attempts:4}") int retryAttempts,
-            @Value("${kafka.consumer.retry-initial-interval-ms:500}") long initialInterval,
+            ErrorPolicyProperties errorPolicy,
+            DeadLetters deadLetters,
+            DeadLetterMetrics deadLetterMetrics,
             @Value("${kafka.consumer.concurrency-max-interval-ms:5000}") long concurrencyMaxIntervalMs,
             @Value("${kafka.consumer.concurrency-error-after-attempts:120}") int concurrencyErrorAfterAttempts) {
 
@@ -105,26 +114,37 @@ public class KafkaConsumerConfig {
                 new DeadLetterPublishingRecoverer(
                         deadLetterTemplate,
                         (record, exception) -> {
+                            String destination = deadLetters.topicFor(record.topic());
                             log.error(
-                                    "Routing record from {}-{} offset {} to DLT after failure: {}",
+                                    "Routing record from {}-{} offset {} to {} after failure: {}",
                                     record.topic(),
                                     record.partition(),
                                     record.offset(),
+                                    destination,
                                     exception.getMessage());
-                            return new TopicPartition(record.topic() + ".DLT", record.partition());
+                            deadLetterMetrics.deadLettered(record.topic(), DeadLetters.CONSUMER, exception);
+                            return new TopicPartition(destination, record.partition());
                         });
+        recoverer.setHeadersFunction((record, exception) -> {
+            Headers extra = new RecordHeaders();
+            deadLetters.addSource(extra, DeadLetters.CONSUMER);
+            return extra;
+        });
 
-        ExponentialBackOff backOff = new ExponentialBackOff(initialInterval, 2.0);
-        backOff.setMaxAttempts(retryAttempts);
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, errorPolicy.windowBackOff());
 
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, backOff);
-        errorHandler.addNotRetryableExceptions(
-                DeserializationException.class, IllegalArgumentException.class);
-
-        // A concurrency failure is retried until the competing command has committed, never
-        // dead-lettered (SPEC-0048): it cannot be a poison message.
-        BackOff concurrency = CommandBackOffs.concurrencyBackOff(initialInterval, concurrencyMaxIntervalMs);
-        errorHandler.setBackOffFunction((record, failure) -> CommandBackOffs.backOffFor(failure, concurrency));
+        // Precedence (design D-5): a concurrency failure is retried until the competing command has
+        // committed; otherwise a failure that cannot succeed is dead-lettered at once, and the rest
+        // back off until the window has passed.
+        BackOff concurrency = CommandBackOffs.concurrencyBackOff(errorPolicy.initialInterval().toMillis(), concurrencyMaxIntervalMs);
+        BackOff noRetry = new FixedBackOff(0, 0);
+        errorHandler.setBackOffFunction((record, failure) -> {
+            BackOff conflict = CommandBackOffs.backOffFor(failure, concurrency);
+            if (conflict != null) {
+                return conflict;
+            }
+            return ErrorClassifier.isRetryable(failure) ? errorPolicy.windowBackOff() : noRetry;
+        });
         errorHandler.setRetryListeners((record, failure, attempt) -> {
             if (!CommandBackOffs.isConcurrencyFailure(failure)) {
                 return;

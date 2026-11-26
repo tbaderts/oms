@@ -96,13 +96,12 @@ instruments and quotes through this backend's Market Data API (`/api/market-data
 | Property | Env var | Default |
 |---|---|---|
 | `oms.ui.order-entry.session-id` | `OMS_UI_SESSION_ID` | `OMS-UI` (sent with every order; served in `/api/config`) |
-| `oms.ui.market-data.alpha-vantage.api-key` | `ALPHAVANTAGE_API_KEY` | empty: only the built-in instruments (the exchange simulator's) are offered |
-| `oms.ui.market-data.alpha-vantage.base-url` | `ALPHAVANTAGE_BASE_URL` | `https://www.alphavantage.co` |
-| `oms.ui.market-data.search-ttl` / `quote-ttl` | — | `PT24H` / `PT5M` (cache; the free tier allows about 25 requests a day) |
-| `oms.ui.market-data.built-in` | — | AAPL, MSFT, IBM, NVDA, INTC with the simulator's reference prices |
+| `oms.ui.market-data.price-service-url` | `PRICE_SERVICE_URL` | `http://localhost:8098` (compose: `http://price-service:8098`) |
 
-The key stays on the server: it is never sent to the browser or logged. The backend includes
-oms-contracts (`settings.gradle`), and the Docker image gets it as the named build context
+The Market Data API is forwarded to `oms-price-service` (SPEC-0079), which holds the market data
+key, its request budget and the end-of-day fallback; oms-ui has no provider settings. When the price
+service cannot be reached, the API answers 503 and order entry takes a symbol typed by hand. The
+backend includes oms-contracts (`settings.gradle`), and the Docker image gets it as the named build context
 `oms-contracts` (see the root `docker-compose.yml`).
 
 ## Running

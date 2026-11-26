@@ -131,6 +131,22 @@ public class OutboxMessage {
     @Column(name = "last_error", length = 2000)
     private String lastError;
 
+    /** When the current run of failures began: the start of the retry window (SPEC-0077). */
+    @Column(name = "first_failed_at")
+    private Instant firstFailedAt;
+
+    /** The earliest the relay sends it again; null when it may be sent now. */
+    @Column(name = "next_attempt_at")
+    private Instant nextAttemptAt;
+
+    /** When it stopped being sent (dead-lettered or refused by its dead-letter topic); null while pending. */
+    @Column(name = "parked_at")
+    private Instant parkedAt;
+
+    /** The dead-letter topic it was written to; null when the topic refused it. */
+    @Column(name = "dead_letter_topic")
+    private String deadLetterTopic;
+
     /** Records a failed publication attempt so the relay can back off and operators can triage. */
     public void recordFailure(String error) {
         this.attempts++;
@@ -138,11 +154,41 @@ public class OutboxMessage {
     }
 
     /**
+     * A retryable failure (SPEC-0077): counts an attempt, starts the retry window on the first one,
+     * and waits {@code backOff} before the next send.
+     */
+    public void recordRetryableFailure(String error, Instant now, java.time.Duration backOff) {
+        recordFailure(error);
+        if (firstFailedAt == null) {
+            firstFailedAt = now;
+        }
+        nextAttemptAt = now.plus(backOff);
+    }
+
+    /** Stops sending it: dead-lettered to {@code topic}, or refused when {@code topic} is null. */
+    public void park(String topic, String error, Instant now) {
+        this.parkedAt = now;
+        this.deadLetterTopic = topic;
+        this.nextAttemptAt = null;
+        if (error != null) {
+            this.lastError = truncate(error);
+        }
+    }
+
+    public boolean isParked() {
+        return parkedAt != null;
+    }
+
+    /**
      * Records a transient failure (the broker or the schema registry unreachable): visible to
      * operators, but it costs no attempt, so an outage cannot exhaust the retry budget (SPEC-0026).
+     * It also ends the current run of failures: once the broker is back, a new failure starts a fresh
+     * retry window rather than one an outage used up (SPEC-0077).
      */
     public void recordTransientFailure(String error) {
         this.lastError = truncate(error);
+        this.firstFailedAt = null;
+        this.nextAttemptAt = null;
     }
 
     private static String truncate(String error) {

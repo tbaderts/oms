@@ -35,6 +35,11 @@ export function registerKbIpc(ipcMain: IpcMain, configService: ConfigService, de
     return svc.getDocuments(category);
   });
 
+  ipcMain.handle('kb:getTypeGroups', async () => {
+    const svc = await getKbService(configService);
+    return svc.getTypeGroups();
+  });
+
   ipcMain.handle('kb:getDocument', async (_event, path: string) => {
     const svc = await getKbService(configService);
     return svc.getDocument(path);

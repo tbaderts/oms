@@ -206,6 +206,15 @@ describe('StreamingBlotter columns (SPEC-0056)', () => {
     expect(document.querySelector('.history-only-note')).toBeNull();
   });
 
+  it.each(['Order', 'Execution'] as const)('sorts %s rows by transactTime, newest on top, by default', async (domainObject) => {
+    render(<StreamingBlotter domainObject={domainObject} />);
+
+    await waitFor(() => expect(mockGridProps?.columnDefs).toBeDefined());
+    // The stubbed column service returns no columns, so a hidden transactTime column carries the sort.
+    const sortColumns = mockGridProps.columnDefs.filter((col: any) => col.initialSort);
+    expect(sortColumns).toEqual([expect.objectContaining({ field: 'transactTime', initialSort: 'desc' })]);
+  });
+
   // The live blotter stays mounted while the paging one is shown; they share the saved choice.
   it('re-reads the shared saved columns when it becomes active, and saves only while active', async () => {
     mockSavedState = { filters: {}, visibleColumns: ['execId'], sortModel: [], pageSize: 100, currentPage: 1 };

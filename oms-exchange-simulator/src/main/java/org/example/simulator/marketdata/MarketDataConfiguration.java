@@ -12,29 +12,31 @@ import org.springframework.web.client.RestClient;
 
 import lombok.extern.slf4j.Slf4j;
 
-/** Wires the venue's reference prices (SPEC-0073): Alpha Vantage, the cache and the static fallback. */
+/**
+ * Wires the venue's reference prices (SPEC-0073, SPEC-0079): the price service, the cache and the
+ * static fallback.
+ */
 @Slf4j
 @Configuration
 public class MarketDataConfiguration {
 
     @Bean
-    AlphaVantageQuoteClient alphaVantageQuoteClient(SimulatorProperties properties) {
+    PriceServiceQuoteClient priceServiceQuoteClient(SimulatorProperties properties) {
         SimpleClientHttpRequestFactory timeouts = new SimpleClientHttpRequestFactory();
-        // Lookups run on the engine thread: a slow provider must not hold up the venue for long.
+        // Lookups run on the engine thread: a slow price service must not hold up the venue for long.
         timeouts.setConnectTimeout(Duration.ofSeconds(2));
         timeouts.setReadTimeout(Duration.ofSeconds(3));
-        SimulatorProperties.AlphaVantage alphaVantage = properties.alphaVantage();
-        AlphaVantageQuoteClient client = new AlphaVantageQuoteClient(
-                RestClient.builder().requestFactory(timeouts), alphaVantage.baseUrl(), alphaVantage.apiKey());
+        String url = properties.priceService().url();
+        PriceServiceQuoteClient client = new PriceServiceQuoteClient(RestClient.builder().requestFactory(timeouts), url);
         log.info("Reference prices: {}", client.isConfigured()
-                ? "Alpha Vantage (" + alphaVantage.baseUrl() + "), static prices as fallback"
-                : "static prices only (no ALPHAVANTAGE_API_KEY)");
+                ? "price service (" + url + "), static prices as fallback"
+                : "static prices only (no SIMULATOR_PRICE_SERVICE_URL)");
         return client;
     }
 
     @Bean
     ReferencePriceService referencePriceService(
-            AlphaVantageQuoteClient client, SimulatorProperties properties, SimulatorMetrics metrics) {
+            PriceServiceQuoteClient client, SimulatorProperties properties, SimulatorMetrics metrics) {
         return new ReferencePriceService(
                 client,
                 properties.referencePrices(),

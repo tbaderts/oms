@@ -24,8 +24,8 @@ import org.junit.jupiter.api.Test;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
- * SPEC-0073 AC-2, AC-4, AC-5, AC-9: where the venue's reference price comes from. The cache comes
- * first, then Alpha Vantage, then the static prices. A failing provider is left alone for the
+ * SPEC-0073 AC-2, AC-4, AC-5, AC-9 and SPEC-0079 AC-9: where the venue's reference price comes from.
+ * The cache comes first, then the price service, then the static prices. A failing provider is left alone for the
  * back-off, and every lookup is counted by where its price came from.
  */
 class ReferencePriceServiceTest {
@@ -37,23 +37,23 @@ class ReferencePriceServiceTest {
 
     private final MutableClock clock = new MutableClock();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-    private AlphaVantageQuoteClient client;
+    private PriceServiceQuoteClient client;
     private ReferencePriceService service;
 
     @BeforeEach
     void setUp() {
-        client = mock(AlphaVantageQuoteClient.class);
+        client = mock(PriceServiceQuoteClient.class);
         when(client.isConfigured()).thenReturn(true);
         service = new ReferencePriceService(client, STATIC, TTL, BACKOFF, clock, new SimulatorMetrics(meters));
     }
 
     // AC-2
     @Test
-    void providerPriceWinsOverStaticPrice() {
+    void usesPriceServiceLast() {
         when(client.lastPrice("AAPL")).thenReturn(Optional.of(new BigDecimal("189.50")));
 
         assertEquals(Optional.of(new BigDecimal("189.50")), service.referencePrice("AAPL"));
-        assertEquals(1.0, lookups("ALPHA_VANTAGE", "FOUND"));
+        assertEquals(1.0, lookups("PRICE_SERVICE", "FOUND"));
     }
 
     @Test
@@ -87,16 +87,7 @@ class ReferencePriceServiceTest {
 
     // AC-4
     @Test
-    void rateLimited_fallsBackToStatic() {
-        when(client.lastPrice("MSFT")).thenThrow(new ProviderUnavailableException(ProviderUnavailableException.Reason.RATE_LIMITED));
-
-        assertEquals(Optional.of(new BigDecimal("420.00")), service.referencePrice("MSFT"));
-        assertEquals(1.0, lookups("STATIC", "RATE_LIMITED"));
-    }
-
-    // AC-4
-    @Test
-    void unreachable_fallsBackToStatic() {
+    void fallsBackToStaticWhenPriceServiceUnreachable() {
         when(client.lastPrice("AAPL")).thenThrow(new ProviderUnavailableException(ProviderUnavailableException.Reason.UNREACHABLE));
 
         assertEquals(Optional.of(new BigDecimal("170.00")), service.referencePrice("AAPL"));
@@ -105,7 +96,7 @@ class ReferencePriceServiceTest {
 
     // AC-4
     @Test
-    void unavailableAndNotStatic_isEmpty() {
+    void unknownToBothIsEmpty() {
         when(client.lastPrice("GOOGL")).thenThrow(new ProviderUnavailableException(ProviderUnavailableException.Reason.UNREACHABLE));
 
         assertEquals(Optional.empty(), service.referencePrice("GOOGL"));
@@ -125,14 +116,14 @@ class ReferencePriceServiceTest {
     @Test
     void backoff_skipsProviderUntilItExpires() {
         when(client.lastPrice(anyString()))
-                .thenThrow(new ProviderUnavailableException(ProviderUnavailableException.Reason.RATE_LIMITED))
+                .thenThrow(new ProviderUnavailableException(ProviderUnavailableException.Reason.UNREACHABLE))
                 .thenReturn(Optional.of(new BigDecimal("190.00")));
 
         service.referencePrice("AAPL");
         clock.advance(BACKOFF.minusSeconds(1));
         assertEquals(Optional.of(new BigDecimal("420.00")), service.referencePrice("MSFT"));
         verify(client, times(1)).lastPrice(anyString());
-        assertEquals(2.0, lookups("STATIC", "RATE_LIMITED"), "the reason holds through the back-off");
+        assertEquals(2.0, lookups("STATIC", "UNREACHABLE"), "the reason holds through the back-off");
 
         clock.advance(Duration.ofSeconds(1));
         assertEquals(Optional.of(new BigDecimal("190.00")), service.referencePrice("AAPL"));
@@ -186,12 +177,12 @@ class ReferencePriceServiceTest {
         when(client.lastPrice("AAPL")).thenReturn(Optional.of(new BigDecimal("189.50")));
         when(client.lastPrice("ZZZZ")).thenReturn(Optional.empty());
 
-        service.referencePrice("AAPL"); // ALPHA_VANTAGE / FOUND
+        service.referencePrice("AAPL"); // PRICE_SERVICE / FOUND
         service.referencePrice("AAPL"); // CACHE / FOUND
         service.referencePrice("AAPL"); // CACHE / FOUND
         service.referencePrice("ZZZZ"); // NONE / NOT_FOUND
 
-        assertEquals(1.0, lookups("ALPHA_VANTAGE", "FOUND"));
+        assertEquals(1.0, lookups("PRICE_SERVICE", "FOUND"));
         assertEquals(2.0, lookups("CACHE", "FOUND"));
         assertEquals(1.0, lookups("NONE", "NOT_FOUND"));
         assertEquals(4.0, meters.find("simulator.reference.price.lookups").counters().stream().mapToDouble(c -> c.count()).sum());

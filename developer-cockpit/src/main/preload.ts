@@ -11,6 +11,7 @@ const api: CockpitAPI = {
   kb: {
     getCategories: () => ipcRenderer.invoke('kb:getCategories'),
     getDocuments: (category) => ipcRenderer.invoke('kb:getDocuments', category),
+    getTypeGroups: () => ipcRenderer.invoke('kb:getTypeGroups'),
     getDocument: (path) => ipcRenderer.invoke('kb:getDocument', path),
     search: (query) => ipcRenderer.invoke('kb:search', query),
     health: () => ipcRenderer.invoke('kb:health'),
