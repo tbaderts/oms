@@ -77,13 +77,6 @@
         "npm run build"
       ]
     },
-    "developer-cockpit": {
-      "cwd": "developer-cockpit",
-      "verify": [
-        "npm run typecheck",
-        "npm test"
-      ]
-    },
     "mission-control": {
       "cwd": "mission-control",
       "verify": [

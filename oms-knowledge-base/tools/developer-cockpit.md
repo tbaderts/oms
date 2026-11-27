@@ -5,36 +5,36 @@ title: "Developer Cockpit"
 description: "Generic Electron workbench for the spec workflow, knowledge base, storyboards and service monitoring; the OMS configures it with cockpit.yaml."
 tags: [component, electron, tooling, storyboards]
 status: draft
-updated: "2026-11-25T12:00:00Z"
+updated: "2026-11-27T12:00:00Z"
 component: "developer-cockpit"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-29T12:00:00Z" }
 sources:
-  - resource: "repo:developer-cockpit/src/main/index.ts"
-  - resource: "repo:developer-cockpit/src/main/services/RequirementsService.ts"
-  - resource: "repo:developer-cockpit/src/main/services/kbLayout.ts"
-  - resource: "repo:developer-cockpit/src/main/services/OkfCli.ts"
-  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbHealthPanel.tsx"
-  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/FrontMatterPanel.tsx"
-  - resource: "repo:developer-cockpit/test/main/RequirementsService.test.ts"
-  - resource: "repo:developer-cockpit/src/main/storyboards/StoryboardService.ts"
-  - resource: "repo:developer-cockpit/src/main/ipc/storyboards.ipc.ts"
-  - resource: "repo:developer-cockpit/src/main/storyboards/cli/checkStoryboards.ts"
-  - resource: "repo:developer-cockpit/test/main/StoryboardService.writes.test.ts"
-  - resource: "repo:developer-cockpit/src/main/services/MonitorService.ts"
-  - resource: "repo:developer-cockpit/src/shared/prometheusParser.ts"
-  - resource: "repo:developer-cockpit/src/renderer/views/monitor/MonitorView.tsx"
-  - resource: "repo:developer-cockpit/src/shared/projectConfig.ts"
-  - resource: "repo:developer-cockpit/src/main/services/ApiCatalogService.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/index.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/RequirementsService.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/kbLayout.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/OkfCli.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/knowledge-base/KbHealthPanel.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/knowledge-base/FrontMatterPanel.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/test/main/RequirementsService.test.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/storyboards/StoryboardService.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/ipc/storyboards.ipc.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/storyboards/cli/checkStoryboards.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/test/main/StoryboardService.writes.test.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/MonitorService.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/shared/prometheusParser.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/monitor/MonitorView.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/shared/projectConfig.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/ApiCatalogService.ts"
   - resource: "repo:cockpit.yaml"
   - resource: "repo:tools/api-templates/orders.http"
-  - resource: "repo:developer-cockpit/src/main/ai/KbChatTools.ts"
-  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatPanel.tsx"
-  - resource: "repo:developer-cockpit/src/renderer/views/knowledge-base/KbChatDetails.tsx"
-  - resource: "repo:developer-cockpit/src/renderer/lib/kbChatTrace.ts"
-  - resource: "repo:developer-cockpit/test/main/kbChat.ipc.test.ts"
-  - resource: "repo:developer-cockpit/src/main/ai/KeyStore.ts"
-  - resource: "repo:developer-cockpit/src/main/ai/keyMigration.ts"
-  - resource: "repo:developer-cockpit/src/main/ipc/aiKeys.ipc.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/ai/KbChatTools.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/knowledge-base/KbChatPanel.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/knowledge-base/KbChatDetails.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/lib/kbChatTrace.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/test/main/kbChat.ipc.test.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/ai/KeyStore.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/ai/keyMigration.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/ipc/aiKeys.ipc.ts"
 ---
 # Developer Cockpit
 
@@ -60,7 +60,17 @@ history it had here. Its source contains nothing about the OMS. Everything OMS-s
 
 Personal settings (theme, AI provider and keys, the workspace root) stay in
 `~/.developer-cockpit/config.json`. The cockpit's README in its repository documents every key.
-The `developer-cockpit/` folder still exists in this repository until a follow-up removes it.
+
+**Running it.** The cockpit is no longer part of this repository. Clone it next to the OMS
+checkout and point `general.workspaceRoot` in `~/.developer-cockpit/config.json` at the OMS
+checkout:
+
+```bash
+git clone https://github.com/tbaderts/developer-cockpit.git   # beside oms/
+cd developer-cockpit && npm ci && npm run dev
+```
+
+Source paths on this page (`src/main/…`, `test/…`) are paths in the cockpit's repository.
 
 ## Requirements
 
@@ -224,8 +234,8 @@ The **Storyboards** view (Knowledge group, SPEC-0014) reads and edits the proces
   files, never a CDN.
 - **Optional AI assists** (draft prose, review alternate paths, suggest links) only propose
   changes; the user applies them to the editor draft.
-- **CI gate.** `npm run check:storyboards [-- --strict]` in `developer-cockpit` checks the
-  repository's storyboards, with the roots and library named in `cockpit.yaml`.
+- **CI gate.** `npm run check:storyboards -- --workspace ../oms [--strict]`, run in the cockpit's
+  checkout, checks the OMS storyboards, with the roots and library named in `cockpit.yaml`.
 
 ## Monitoring
 

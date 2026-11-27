@@ -96,11 +96,15 @@ public class EndOfDayStore {
      * @return whether they were re-read
      */
     public synchronized boolean reloadIfChanged() {
-        List<Path> paths = operatorFiles();
-        String signature = signature(paths);
+        List<Path> all = operatorFiles();
+        String signature = signature(all);
         if (signature.equals(filesSignature)) {
             return false;
         }
+        List<Path> paths = all.stream().filter(EndOfDayStore::isCsv).toList();
+        // A file that is not read is named, e.g. one copied in as "stooq.csv." with a trailing dot.
+        all.stream().filter(p -> !isCsv(p)).forEach(p ->
+                log.warn("{}: ignored, only files ending in .csv are read from {}", p.getFileName(), EOD_DIR));
         Map<String, Close> merged = new HashMap<>();
         for (Path path : paths) {
             readFile(path, Origin.FILE).forEach((symbol, close) -> merged.merge(symbol, close,
@@ -172,14 +176,15 @@ public class EndOfDayStore {
             return List.of();
         }
         try (Stream<Path> listing = Files.list(dir)) {
-            return listing.filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".csv"))
-                    .filter(Files::isRegularFile)
-                    .sorted()
-                    .toList();
+            return listing.filter(Files::isRegularFile).sorted().toList();
         } catch (IOException e) {
             log.warn("Could not list {}: {}", dir, e.getClass().getSimpleName());
             return List.of();
         }
+    }
+
+    private static boolean isCsv(Path path) {
+        return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".csv");
     }
 
     private static String signature(List<Path> paths) {

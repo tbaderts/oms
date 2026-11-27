@@ -8,7 +8,8 @@ optional sketch, links to the contracts, data in and out, and alternate paths.
 Storyboards are plain files reviewed in git. Open them in the Developer Cockpit (**Knowledge →
 Storyboards**) to read, present, edit and export them. This folder is **not** part of the OKF
 knowledge-base bundle: `tools/okf-check` skips it, and storyboards have their own check (below).
-The full specification is `developer-cockpit/spec/11-storyboards.md` (SPEC-0014).
+The full specification is `spec/11-storyboards.md` in the cockpit's repository,
+[github.com/tbaderts/developer-cockpit](https://github.com/tbaderts/developer-cockpit) (SPEC-0014).
 
 ## Layout
 
@@ -31,10 +32,13 @@ storyboards/
 
 ## Checks
 
+Run them from the cockpit's checkout, cloned next to this repository. `--workspace` names the OMS
+checkout; without it the check looks in the cockpit folder's parent.
+
 ```bash
-cd developer-cockpit
-npm run check:storyboards            # fails on scan errors, structural errors and broken evidence
-npm run check:storyboards -- --strict  # also fails on warnings, drift and storyboards without a card
+cd ../developer-cockpit
+npm run check:storyboards -- --workspace ../oms           # fails on scan errors, structural errors and broken evidence
+npm run check:storyboards -- --workspace ../oms --strict  # also fails on warnings, drift and storyboards without a card
 ```
 
 ## Evidence and drift

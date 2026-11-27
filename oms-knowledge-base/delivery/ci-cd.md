@@ -4,7 +4,7 @@ title: "Continuous Integration and Delivery"
 description: "What runs automatically when the OMS changes: the spec-gates and OpenWiki GitHub workflows, the per-module verify commands the spec gates run, and what does not exist yet (build and test CI, image publishing, deployment)."
 tags: [ci, cd, github-actions, quality-gates]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-27T12:00:00Z"
 sources:
   - resource: "repo:.github/workflows/spec-gates.yml"
   - resource: "repo:.github/workflows/openwiki-update.yml"
@@ -26,7 +26,7 @@ spec workflow runs before a ticket can be verified:
 |---|---|
 | oms-contracts, oms-core, oms-streaming-service, oms-mcp-server, oms-exchange-simulator | `./gradlew check` |
 | oms-ui | `npm test`, plus the Gradle check |
-| developer-cockpit, mission-control | `npm run typecheck`, `npm test` |
+| mission-control | `npm run typecheck`, `npm test` |
 | oms-kb-explorer | `npm run build` |
 | knowledge base | none configured: `oms-knowledge-base` has `verify: []` in `specs/config.json`, so `spec verify` runs no knowledge base check. Run `node tools/okf-check/okf-check.mjs oms-knowledge-base`, `cd tools/okf-check && npm test` and `node tools/okf-check/check-kb-refs.mjs` by hand (TD-14) |
 

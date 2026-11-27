@@ -4,7 +4,7 @@ title: "Schema and Constraints"
 description: "Every rule that keeps the knowledge base consistent and truthful, what it protects and which tool enforces it: okf-check rules, its coverage tests against the code, check-kb-refs, the retrieval evaluation and the storyboard check."
 tags: [semantic-layer, okf, checker, constraints, quality]
 status: stable
-updated: "2026-11-15T19:00:00Z"
+updated: "2026-11-27T12:00:00Z"
 sources:
   - resource: "repo:tools/okf-check/okf-check.mjs"
   - resource: "repo:tools/okf-check/test/kb-coverage.test.mjs"
@@ -37,7 +37,7 @@ node tools/okf-check/check-kb-refs.mjs                  # references to the know
 | `OMS-REQ` | A Requirement has a unique `FR-nnn`/`NFR-nnn` in its folder under `capabilities/`, a priority, an implementation and a capability | Requirements are traceable |
 | `OMS-TRACE` | Every Requirement is linked from at least one Use Case | No requirement without a reason |
 | `OMS-ADR` | A Decision has a unique `ADR-nnn` that starts its file name | Decisions are citable |
-| `OMS-SRC`, `OMS-PROV` | `repo:` sources exist; implemented requirements cite code and a test; structured types say who generated them | Claims point at real code |
+| `OMS-SRC`, `OMS-PROV` | `repo:` sources exist; implemented requirements cite code and a test (`repo:` paths, or GitHub file URLs for code in another repository); structured types say who generated them | Claims point at real code |
 | `OMS-REVIEWED` | Outside the archive, `updated` is on or after `reviewed_since` | Nothing escapes a review |
 | `OMS-RETIRED` | Outside the archive and point-in-time records, prose contains no `retired_terms` | Known-false claims cannot come back |
 | `OMS-ARCHIVE` | Archived documents are `deprecated`; every deprecated document names `superseded_by` | Readers are sent to the current page |
@@ -79,5 +79,5 @@ Cockpit shows all of it in its Knowledge Base **Health** panel.
   the archive, dated assessments, the log).
 - **`RetrievalEvalTest`** (oms-mcp-server) keeps search recall@5 at 0.90 or better, with golden
   queries for every section ([NFR-009](../capabilities/non-functional-requirements/NFR-009-knowledge-retrieval-quality.md)).
-- **`npm run check:storyboards`** (developer-cockpit) checks the storyboards, which are not part of
-  the bundle.
+- **`npm run check:storyboards`** (in the [developer cockpit](../tools/developer-cockpit.md)'s own
+  repository) checks the storyboards, which are not part of the bundle.

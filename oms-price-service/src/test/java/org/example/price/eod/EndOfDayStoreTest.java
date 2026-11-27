@@ -77,6 +77,23 @@ class EndOfDayStoreTest {
         }
     }
 
+    // A file copied in as "stooq.csv." (trailing dot) was ignored without a word: name what is ignored, and why.
+    @Test
+    void warnsAboutFilesItIgnores() throws Exception {
+        operatorFile("stooq.csv.bak", "symbol,date,close\nORCL,2026-11-25,191.20\n");
+        EndOfDayStore store = new EndOfDayStore(dataDir);
+
+        assertThat(store.get("ORCL")).isEmpty();
+        assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage)
+                .anyMatch(m -> m.contains("stooq.csv.bak") && m.contains("ignored") && m.contains(".csv"));
+
+        // adding the ignored file counts as a change, so the warning is not missed on a reload either
+        logs.list.clear();
+        operatorFile("notes.txt", "hello");
+        assertThat(store.reloadIfChanged()).isTrue();
+        assertThat(logs.list).extracting(ILoggingEvent::getFormattedMessage).anyMatch(m -> m.contains("notes.txt"));
+    }
+
     @Test
     void theSeedPricesTheSimulatorsSymbols() {
         EndOfDayStore store = new EndOfDayStore(dataDir);

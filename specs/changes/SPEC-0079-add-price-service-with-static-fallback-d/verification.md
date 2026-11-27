@@ -158,8 +158,10 @@ several fixable ones. All were handled before the final verify.
   wanted.
 - **Client spans for provider and price-service calls (P-15):** use an observation-instrumented
   `RestClient.Builder` in the price service, oms-ui and the simulator.
-- **End-of-day coverage:** an importer for a common export format (e.g. Stooq's per-ticker files)
-  that writes the price service's CSV, if operators do this often.
+- **End-of-day coverage:** done after this ticket. `tools/stooq-eod` converts Stooq downloads (the
+  bulk US archive or per-symbol CSVs) into the price service's CSV. Stooq's downloads are behind a
+  browser check, so they are fetched by hand. Automatic end-of-day downloads would need a source
+  with an API (e.g. Polygon/Massive grouped daily bars, terms to be checked).
 
 ## Verdict
 

@@ -11,10 +11,10 @@ implementation: "implemented"
 capability: "/capabilities/knowledge-services.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
-  - resource: "repo:developer-cockpit/src/main/services/RequirementsService.ts"
-  - resource: "repo:developer-cockpit/src/renderer/views/requirements/CapabilitiesTab.tsx"
-  - resource: "repo:developer-cockpit/test/main/RequirementsService.test.ts"
-  - resource: "repo:developer-cockpit/test/renderer/RequirementsView.test.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/main/services/RequirementsService.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/src/renderer/views/requirements/CapabilitiesTab.tsx"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/test/main/RequirementsService.test.ts"
+  - resource: "https://github.com/tbaderts/developer-cockpit/blob/main/test/renderer/RequirementsView.test.tsx"
 ---
 # FR-048 Browse the capability catalogue
 

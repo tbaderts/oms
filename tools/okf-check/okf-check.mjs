@@ -284,8 +284,11 @@ function checkStructure(bundle, repoRoot, concepts, parsed, err) {
       const cap = typeof fm.capability === 'string' ? resolveLink(bundle, p, fm.capability) : null;
       if (!cap || typeOf(cap) !== 'Capability') e('OMS-REQ', `capability must point to a Capability concept (found ${JSON.stringify(fm.capability)})`);
       if (fm.implementation === 'implemented' || fm.implementation === 'partial') {
-        if (!repoPaths.some(isMainSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a main source (repo:…/src/…)`);
-        if (!repoPaths.some(isTestSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a test source (repo:…/src/test/… or *.test.*)`);
+        // Code in another repository (e.g. a tool that moved out) is cited as a GitHub file URL; not checked for existence.
+        const codePaths = [...repoPaths, ...(Array.isArray(fm.sources) ? fm.sources : [])
+          .map((s) => GITHUB_FILE.exec(typeof s?.resource === 'string' ? s.resource : '')?.[1]).filter(Boolean)];
+        if (!codePaths.some(isMainSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a main source (repo:…/src/… or a GitHub file URL)`);
+        if (!codePaths.some(isTestSource)) e('OMS-SRC', `${fm.implementation} requirement must cite a test source (repo:…/src/test/…, *.test.* or a GitHub file URL)`);
       }
     }
   }
@@ -368,6 +371,8 @@ function checkReview(bundle, concepts, parsed, err, settings) {
 // Test sources: a src/test tree (JVM) or *.test.* / *Test.java files (front ends). Main: any other file under a src/ tree.
 const isTestSource = (rp) => /(^|\/)src\/test\//.test(rp) || /\.test\.[cm]?[jt]sx?$/.test(rp) || /Test\.java$/.test(rp);
 const isMainSource = (rp) => !isTestSource(rp) && /(^|\/)src\//.test(rp);
+// https://github.com/<owner>/<repo>/blob/<ref>/<path> → <path>
+const GITHUB_FILE = /^https:\/\/github\.com\/[^/]+\/[^/]+\/blob\/[^/]+\/(.+)$/;
 
 function checkIndexes(bundle, dirs, concepts, parsed, err) {
   const sepd = (d) => d + sep;

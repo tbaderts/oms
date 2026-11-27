@@ -1,9 +1,0 @@
-node_modules/
-dist/
-release/
-.env
-*.local
-.vite/
-src/renderer/public/excalidraw-assets/
-test-results/
-playwright-report/

@@ -41,3 +41,5 @@ SPEC-0073 added alpha vantage as a market data provider for oms-ui and oms-excha
 - 2026-11-26 15:02 — implement → verify
 - 2026-11-26 15:02 — verify → done
 - 2026-11-26 15:02 — autopilot off
+- 2026-11-26 19:39 — archived
+- 2026-11-26 19:39 — archived

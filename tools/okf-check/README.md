@@ -35,8 +35,8 @@ without `index.md` gets one. It is idempotent and keeps the file's line endings 
 Developer Cockpit's Knowledge Base Health panel runs both.
 
 The `storyboards/` folder at the bundle root is not part of the bundle and is skipped. Storyboards
-have their own file format and their own check, `npm run check:storyboards` in `developer-cockpit`
-(SPEC-0014). A folder named `storyboards` deeper in the bundle is checked as usual.
+have their own file format and their own check, `npm run check:storyboards` in the
+[developer cockpit](https://github.com/tbaderts/developer-cockpit)'s checkout (SPEC-0014). A folder named `storyboards` deeper in the bundle is checked as usual.
 
 ```bash
 cd tools/okf-check && npm test               # fixtures + the real bundle
@@ -68,7 +68,7 @@ cd tools/okf-check && npm test               # fixtures + the real bundle
 | `OMS-RETIRED` | project (SPEC-0061) | outside `archive/` and `point_in_time: true` documents, prose (not code) contains none of the conventions' `retired_terms`, case-insensitive |
 | `OMS-ARCHIVE` | project (SPEC-0061) | documents in `archive/` are `deprecated`; every `deprecated` document has `superseded_by` (a concept path or `none`) |
 | `OMS-ALIAS` | project (SPEC-0061) | `aliases` are strings, unique across the bundle, and never the id of an existing concept |
-| `OMS-SRC` | project (SPEC-0010) | every `repo:<path>` source exists under the repository root; an implemented or partial requirement cites a main source (a file under a `src/` tree) and a test (`src/test/…`, `*.test.*` or `*Test.java`) |
+| `OMS-SRC` | project (SPEC-0010) | every `repo:<path>` source exists under the repository root; an implemented or partial requirement cites a main source (a file under a `src/` tree) and a test (`src/test/…`, `*.test.*` or `*Test.java`), as `repo:` paths or, for code in another repository, GitHub file URLs (`https://github.com/<owner>/<repo>/blob/<ref>/<path>`, not checked for existence) |
 | `OMS-PROV` | project (SPEC-0010) | concepts of the structured types (Capability, Requirement, Domain Concept, Glossary, Interface, Architecture, Component, Decision) carry `generated` by a tool actor and non-empty `sources` |
 | `OMS-AGE` (warning) | project (SPEC-0064) | outside `archive/`, `updated` is older than the conventions' `review_after_days` (off when not set) |
 | `OMS-STALE` (warning) | OKF §5 | `stale_after` has passed |

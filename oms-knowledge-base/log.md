@@ -1,5 +1,12 @@
 # Knowledge Base Log
 
+## 2026-11-27
+
+The `developer-cockpit/` folder is gone from this repository; the cockpit lives only in
+[github.com/tbaderts/developer-cockpit](https://github.com/tbaderts/developer-cockpit), cloned next
+to the OMS checkout. Pages cite its code as GitHub links, and the storyboard check runs from its
+checkout with `--workspace ../oms`. See [Developer Cockpit](tools/developer-cockpit.md#a-generic-tool-configured-by-cockpityaml).
+
 ## 2026-11-26
 
 Market data has its own service, the [Price Service](architecture/context/price-service.md)

@@ -4,7 +4,7 @@ title: "Knowledge Base Conventions (OKF)"
 description: "How the OMS knowledge base follows the Open Knowledge Format: document types, required metadata, lifecycle and how to add a document."
 tags: [knowledge-base, okf, conventions]
 status: stable
-updated: "2026-11-15T19:00:00Z"
+updated: "2026-11-27T12:00:00Z"
 reviewed_since: "2026-11-14T00:00:00Z"
 review_after_days: 180
 retired_terms: [ReadySet, Spring Boot 3, oms-methodolgy, oms-concepts/, oms-framework/]
@@ -22,7 +22,7 @@ for example `oms-concepts/order-lifecycle`.
 journeys in their own file format: `story.md`, one file per step, sketches and an optional evidence
 card. The Developer Cockpit creates and reorders them, so they cannot carry concept front matter or
 folder indexes. The checker skips `storyboards/` at the bundle root, and storyboards have their own
-check, `npm run check:storyboards` in `developer-cockpit`; see
+check, `npm run check:storyboards` in the developer cockpit's checkout; see
 [`storyboards/README.md`](storyboards/README.md). Link to a storyboard's folder from a concept as
 plain text, not as a markdown link.
 

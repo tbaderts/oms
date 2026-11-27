@@ -303,7 +303,7 @@ feature branches and no pull requests.
   - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
   - Scope: the module, e.g. `fix(oms-core): …`.
   - Name the spec ticket when there is one, e.g.
-    `feat(developer-cockpit): API Explorer command templates (SPEC-0008)`.
+    `feat(oms-price-service): price service with static fallback (SPEC-0079)`.
   - Prefer one ticket per commit.
 - **Push.** Run `git push origin main`.
   - If the push is rejected, run `git pull --rebase origin main`, then push again.

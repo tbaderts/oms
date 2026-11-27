@@ -90,6 +90,15 @@ test('repository sources exist and implemented requirements cite code and tests'
   assert.deepEqual(frontEnd.errors, []);
   // a test file alone is not a main source
   hasError(variant({ [FR]: replaceIn('repo:src/main/Foo.java', 'repo:src/test/FooTest.java') }), FR, 'OMS-SRC');
+  // code in another repository counts when cited as a GitHub file URL, classified by its path
+  const GH = 'https://github.com/acme/tool/blob/main/';
+  const external = variant({
+    [FR]: (s) => s.replace('repo:src/main/Foo.java', `${GH}src/main/Svc.ts`).replace('repo:src/test/FooTest.java', `${GH}test/Svc.test.ts`),
+  });
+  assert.deepEqual(external.errors, []);
+  hasError(variant({ [FR]: replaceIn('repo:src/main/Foo.java', `${GH}test/Svc.test.ts`) }), FR, 'OMS-SRC');
+  // any other URL is not a code source
+  hasError(variant({ [FR]: replaceIn('repo:src/main/Foo.java', 'https://example.com/src/main/Svc.ts') }), FR, 'OMS-SRC');
   // the repository root defaults to the bundle's parent: from there, repo:src/... does not exist
   const r = checkBundle(VALID);
   hasError(r, CAP, 'OMS-SRC');

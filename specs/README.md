@@ -79,7 +79,7 @@ cat my-draft.md | node specs/tools/spec.mjs gate SPEC-0003 proposal --draft prop
 
 ### In the Developer Cockpit
 
-The cockpit (`developer-cockpit/`) has a **Spec Tickets** view and a spec-workflow overview on its
+The [developer cockpit](https://github.com/tbaderts/developer-cockpit), a separate repository, has a **Spec Tickets** view and a spec-workflow overview on its
 Dashboard. They show your tickets (owner = `git config user.name`), stage, gate result, task and AC
 progress, evidence freshness and the documents, and refresh live when files under `specs/` change.
 The current stage's document can be edited there, with the gate re-checked as you type
@@ -87,8 +87,8 @@ The current stage's document can be edited there, with the gate re-checked as yo
 Its buttons run the same CLI commands (new, advance, reopen, block/unblock, withdraw, note,
 autopilot, approve), so every rule above applies unchanged. **Approve** there is a human action: it asks for
 confirmation, is only offered while a stage is awaiting approval, and records the git user as
-approver. The cockpit's WebSocket and AI features cannot trigger it. See
-`developer-cockpit/spec/03-features.md` §1.
+approver. The cockpit's WebSocket and AI features cannot trigger it. See `spec/03-features.md` §1
+in the cockpit's repository.
 
 ## The documents
 

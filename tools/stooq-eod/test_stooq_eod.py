@@ -180,6 +180,34 @@ class ConvertTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("nope.zip", err)
 
+    def test_a_leading_tilde_means_the_home_folder(self):
+        # PowerShell passes ~ to python unexpanded; the tool expands it itself
+        home = self.dir / "home"
+        (home / "Downloads").mkdir(parents=True)
+        (home / "Downloads" / "ibm.us.txt").write_text(bulk_file("IBM.US", ("20261125", "250.35")), encoding="utf-8")
+        old = {k: os.environ.get(k) for k in ("HOME", "USERPROFILE")}
+        os.environ["HOME"] = os.environ["USERPROFILE"] = str(home)
+        try:
+            code, err = self.run_tool("~/Downloads/ibm.us.txt")
+        finally:
+            for k, v in old.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+        self.assertEqual(code, 0, err)
+        self.assertEqual(read_output(self.out)[1][0], "IBM")
+
+    def test_a_missing_symbols_file_is_a_usage_error_not_a_crash(self):
+        self.write("ibm.us.txt", bulk_file("IBM.US", ("20261125", "250.35")))
+
+        code, err = self.run_tool(self.dir / "ibm.us.txt", "--symbols", self.dir / "instruments.csv")
+
+        self.assertEqual(code, 2)
+        self.assertIn("instruments.csv", err)
+        self.assertFalse(self.out.exists())
+
     def test_writes_atomically_leaving_no_temp_files(self):
         self.write("ibm.us.txt", bulk_file("IBM.US", ("20261125", "250.35")))
         self.out.parent.mkdir(parents=True)

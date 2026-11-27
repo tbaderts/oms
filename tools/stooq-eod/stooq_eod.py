@@ -230,7 +230,14 @@ def main(argv: list[str] | None = None, stderr: TextIO = sys.stderr) -> int:
     except SystemExit as e:
         return 2 if e.code else 0
 
+    # PowerShell hands "~" to python unexpanded; expand it here so the README's commands work anywhere.
+    args.inputs = [p.expanduser() for p in args.inputs]
+    args.out = args.out.expanduser()
+    args.symbols = args.symbols.expanduser() if args.symbols else None
+
     missing = [str(p) for p in args.inputs if not p.exists()]
+    if args.symbols is not None and not args.symbols.is_file():
+        missing.append(f"{args.symbols} (--symbols)")
     if missing:
         print(f"stooq-eod: not found: {', '.join(missing)}", file=stderr)
         return 2
