@@ -16,8 +16,8 @@ sources:
 # Service Template
 
 There is no generator; a new service copies the shape of an existing one. **The exchange simulator
-(`oms-exchange-simulator`) is the smallest complete example**; oms-core is the full one. The four
-Java services (oms-core, oms-streaming-service, oms-exchange-simulator, oms-mcp-server) all follow it.
+(`oms-exchange-simulator`) is the smallest complete example**; oms-core is the full one. The Java
+services oms-core, oms-streaming-service and oms-exchange-simulator follow it.
 
 ## Checklist
 
@@ -37,8 +37,6 @@ Java services (oms-core, oms-streaming-service, oms-exchange-simulator, oms-mcp-
 
 ## Known deviations
 
-- `oms-mcp-server` has no actuator dependency.
-- Jackson 2 (`com.fasterxml.jackson.databind`) is still used by `JsonHelper` (oms-core) and by
-  `EmbeddingService` and `OrderQueryClient` (oms-mcp-server); see the
+- Jackson 2 (`com.fasterxml.jackson.databind`) is still used by `JsonHelper` (oms-core); see the
   [technical debt register](../technical-debt/technical-debt-register.md). Jackson 3 keeps its
   annotations in `com.fasterxml.jackson.annotation`, so those imports are fine.

@@ -6,8 +6,8 @@ tags: [knowledge-graph, semantic-layer, okf, links, agents]
 status: draft
 updated: "2026-11-14T12:00:00Z"
 sources:
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/ConceptLinks.java"
-  - resource: "repo:oms-kb-explorer/src/okf/links.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/docs/ConceptLinks.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/links.ts"
   - resource: "repo:tools/okf-check/okf-check.mjs"
 ---
 # Knowledge Graph

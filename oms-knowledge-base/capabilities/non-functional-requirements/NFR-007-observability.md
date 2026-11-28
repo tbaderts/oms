@@ -30,7 +30,6 @@ sources:
   - resource: "repo:oms-core/src/test/java/org/example/oms/integration/OtlpExportIntegrationTest.java"
   - resource: "repo:oms-exchange-simulator/src/main/java/org/example/simulator/engine/ExchangeEngine.java"
   - resource: "repo:oms-streaming-service/src/main/java/org/example/streaming/config/KafkaConfig.java"
-  - resource: "repo:oms-mcp-server/src/main/resources/logback-spring.xml"
 ---
 # Observable command processing
 
@@ -40,15 +39,15 @@ sources:
 
 ## How the services report (SPEC-0033)
 
-oms-core, oms-streaming-service, oms-exchange-simulator and oms-mcp-server use Spring Boot's
+oms-core, oms-streaming-service and oms-exchange-simulator use Spring Boot's
 `spring-boot-starter-opentelemetry`, configured the same way in each `application.yml`:
 
 - **Switch and endpoint.** `OTLP_EXPORT_ENABLED` (default `false`) turns on all three exports.
   `OTLP_ENDPOINT` is the Alloy base URL: `http://alloy:4318` in docker-compose, and
   `http://localhost:4318` by default for host-native runs. Without the switch nothing is exported,
   as in every test.
-- **Resource.** `service.name` is `oms-core`, `oms-streaming-service`, `oms-exchange-simulator` or
-  `oms-mcp-server`. `service.namespace` is `oms`. `deployment.environment` comes from
+- **Resource.** `service.name` is `oms-core`, `oms-streaming-service` or `oms-exchange-simulator`.
+  `service.namespace` is `oms`. `deployment.environment` comes from
   `DEPLOYMENT_ENVIRONMENT` (`local` by default, `compose` in docker-compose). Loki, Tempo and Mimir
   label everything with `service_name`. Mimir promotes the three attributes to labels and also sets
   `job="oms/<service>"`.
@@ -62,8 +61,11 @@ oms-core, oms-streaming-service, oms-exchange-simulator and oms-mcp-server use S
   - the trace and span ids;
   - the MDC, for example oms-core's `commandId` and `correlationId` or the simulator's `orderId`.
 
-  oms-mcp-server's stdio profiles log to the file and over OTLP, never to stdout. Alloy no longer
-  ships these four services' container stdout, so each line reaches Loki once.
+  Alloy no longer
+  ships these services' container stdout, so each line reaches Loki once. The knowledge server
+  (kb-server, in its own repository since SPEC-0080) can export the same way when it is started with
+  `OTLP_EXPORT_ENABLED=true` and `OTLP_ENDPOINT` pointing at Alloy; its `service.namespace` is
+  `knowledge-server`.
 
 **Traces across Kafka.** Every Kafka template and listener is observed:
 - oms-core: the outbox and dead-letter templates and the command listener;

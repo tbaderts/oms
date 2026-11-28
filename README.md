@@ -6,7 +6,7 @@ This repository is an Order Management System implemented in Java (Java 25) usin
 
 - `oms-core` — core services, controllers, domain model and business logic. Runs on port 8090.
 - `oms-streaming-service` — real-time streaming service using RSocket over WebSocket. Consumes order events from Kafka and streams them to connected clients. Supports filtered streaming with snapshot + live updates. Runs on port 7000 (RSocket) and 8092 (HTTP).
-- `oms-mcp-server` — Model Context Protocol (MCP) server for AI tooling, hybrid search over an embedded Lucene index (Ollama embeddings), and documentation access. Runs on port 8091.
+- The knowledge server for AI tooling (MCP, hybrid search over `oms-knowledge-base`) and its web UI run from their own repository, [knowledge-server](https://github.com/tbaderts/knowledge-server) (`kb-server` on port 8091, `kb-explorer` on 8097).
 - `oms-ui` — React frontend application with AG Grid blotters, real-time streaming support, and filter builder. Runs on port 3000.
 
 ## Architecture
@@ -32,7 +32,7 @@ This repository is an Order Management System implemented in Java (Java 25) usin
 - Kafka + Schema Registry for event streaming with Avro serialization.
 - DB migrations and Testcontainers used for integration tests (see module docs).
 - OpenAPI-first approach: APIs and DTOs are defined in OpenAPI YAML and generated during the build.
-- Documentation and architecture notes under `oms-knowledge-base/` and `oms-mcp-server/docs/`.
+- Documentation and architecture notes under `oms-knowledge-base/`.
 
 ## Build & run (examples)
 
@@ -62,9 +62,10 @@ cd oms-streaming-service
 $env:KAFKA_ENABLED = "true"
 java -jar build/libs/oms-streaming-service-0.0.1-SNAPSHOT.jar
 
-# Run MCP server
-cd oms-mcp-server
-.\run-mcp.ps1
+# Run the knowledge server (MCP + UI) from its checkout next to this one
+cd ..\knowledge-server
+$env:KB_REPO_NAME = "oms-knowledge-base"; $env:KB_REPO_PATH = "../oms/oms-knowledge-base"
+docker compose up -d --build
 
 # Run UI (development)
 cd oms-ui/frontend

@@ -1,6 +1,6 @@
 ## Quick context for AI coding agents
 
-- Repo: OMS (Order Management System) — Java 25, Spring Boot 4 microservices with OpenAPI + Avro specs. Primary modules: `oms-core`, `oms-mcp-server`, `oms-ui`.
+- Repo: OMS (Order Management System) — Java 25, Spring Boot 4 microservices with OpenAPI + Avro specs. Primary modules: `oms-core`, `oms-ui`. The knowledge server (MCP) lives in its own repository, [knowledge-server](https://github.com/tbaderts/knowledge-server).
 - Spec-driven: APIs and DTOs are defined in OpenAPI YAML under `oms-contracts/src/main/openapi/` (e.g. `oms-query-api.yml`, `oms-cmd-api.yml`). Models are generated once in `oms-contracts`; only `oms-core` generates API interfaces.
 - Migrations & DB: project uses standard DB migration folders (look for `db/migration` or Liquibase conventions in module docs). Tests rely on Testcontainers for integration tests.
 
@@ -16,13 +16,10 @@
   .\gradlew.bat clean build
 - Fast build (skip tests / create jar):
   .\gradlew.bat bootJar -x test
-- Run locally (MCP server):
-  .\run-mcp.ps1    # builds jar and runs the MCP server (see oms-mcp-server/run-mcp.ps1)
-  or
-  ./run-mcp.sh     # unix shell
-- Gradle run for development:
-  .\gradlew.bat bootRun --args='--spring.main.web-application-type=servlet --server.port=8091'
-- Semantic search (optional): the MCP server keeps its own Lucene index and embeds with Ollama on the host (`mxbai-embed-large` by default); without Ollama it falls back to keyword search. No vector database is needed.
+- Knowledge server (MCP tools over `oms-knowledge-base`), from its checkout next to this one:
+  docker compose -f ..\knowledge-server\docker-compose.yml up -d   # with KB_REPO_NAME=oms-knowledge-base, KB_REPO_PATH=../oms/oms-knowledge-base
+  MCP at http://localhost:8091/mcp (registered as `knowledge` in `.vscode/mcp.json`), UI at http://localhost:8097.
+- Semantic search (optional): the knowledge server keeps its own Lucene index and embeds with Ollama on the host (`mxbai-embed-large` by default); without Ollama it falls back to keyword search. No vector database is needed.
 
 ## Project-specific conventions & patterns
 
@@ -34,9 +31,9 @@
 
 ## Integration points to be aware of
 
-- OMS backend APIs: controllers under `oms-core/src/main/java/org/example/oms/api` expose endpoints consumed by `oms-ui` and `oms-mcp-server` tool clients (`OrderQueryClient` in `oms-mcp-server`).
+- OMS backend APIs: controllers under `oms-core/src/main/java/org/example/oms/api` expose endpoints consumed by `oms-ui`.
 - OpenAPI generator tasks: `build.gradle` wires `openApiGenerate` to generate models and controllers; avoid manual edits to generated packages unless migrating generator configs.
-- Semantic search (optional): Ollama embeddings into the MCP server's embedded Lucene index; see `oms-knowledge-base/tools/knowledge-server.md`.
+- Knowledge server: kb-server serves `oms-knowledge-base` over MCP; see `oms-knowledge-base/tools/knowledge-server.md`.
 
 ## What reviewers expect from generated code
 
@@ -48,8 +45,8 @@
 
 - OpenAPI specs: `oms-contracts/src/main/openapi/{oms-cmd-api,oms-query-api,schema}.yml`.
 - Controllers: `oms-core/src/main/java/org/example/oms/api/*Controller.java`.
-- MCP docs & run scripts: `oms-mcp-server/docs/README.md`, `oms-mcp-server/run-mcp.ps1`, `oms-mcp-server/run-mcp.sh`, `oms-mcp-server/setup-semantic-search.ps1`.
-- Gradle build config: `oms-core/build.gradle`, `oms-mcp-server/build.gradle`, `oms-ui/build.gradle`.
+- Knowledge server docs: `oms-knowledge-base/tools/knowledge-server.md` and the knowledge-server repository's README.
+- Gradle build config: `oms-core/build.gradle`, `oms-ui/build.gradle`.
 
 ## Safety & guardrails for AI agents
 

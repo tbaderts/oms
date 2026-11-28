@@ -8,7 +8,7 @@
       ],
       "type": "stdio"
     },
-    "oms": {
+    "knowledge": {
       "type": "http",
       "url": "http://localhost:8091/mcp"
     },

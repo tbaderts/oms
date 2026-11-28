@@ -1,5 +1,5 @@
 """
-How coding agents use oms-mcp-server, animated with Manim.
+How coding agents use the knowledge server (kb-server), animated with Manim.
 
 Scenes, in story order
   Chunking      markdown is cut at headings into citable section chunks
@@ -12,8 +12,9 @@ Render:
   manim -qh  mcp_knowledge_server.py Chunking Indexing HybridSearch AgentSession   # 1080p
 
 Rankings, tool names and schemas, citations, line ranges and payload sizes are real output of
-oms-mcp-server (26 docs, 702 sections, mxbai-embed-large), captured 2026-10-03 over MCP Streamable
-HTTP. The agent's reasoning in AgentSession is illustrative.
+the knowledge server (26 docs, 702 sections, mxbai-embed-large), captured 2026-10-03 over MCP Streamable
+HTTP; since then the server moved to the knowledge-server repository as kb-server and lost its
+order tool (SPEC-0080), which the scenes leave out. The agent's reasoning in AgentSession is illustrative.
 """
 
 from manim import *
@@ -506,8 +507,8 @@ class AgentSession(Narrated):
 
     def build(self):
         self.agent = component("Coding agent", "e.g. Claude Code, Copilot", UI_C, 4.4, 5.1, [-4.75, 0.65, 0])
-        self.server = component("oms-mcp-server", "Spring AI MCP · :8091/mcp", CORE, 4.0, 3.2, [4.95, 1.6, 0])
-        names = ["getKnowledgeBaseOverview", "searchKnowledgeBase", "readKnowledgeBase", "searchOrders", "ping"]
+        self.server = component("kb-server", "Spring AI MCP · :8091/mcp", CORE, 4.0, 3.2, [4.95, 1.6, 0])
+        names = ["getKnowledgeBaseOverview", "searchKnowledgeBase", "readKnowledgeBase", "ping"]
         self.tools = VGroup(*[chip(n, CORE, 12) for n in names]).arrange(DOWN, buff=0.08).move_to([4.95, 1.55, 0])
         self.extras = label("26 resources kb://…  ·  2 prompts", 11, MUTED, mono=True).move_to([4.95, 0.28, 0])
         self.lucene = component("Lucene index", "702 sections", DB_C, 1.9, 0.7, [3.95, -0.7, 0])
@@ -606,18 +607,17 @@ class AgentSession(Narrated):
         self.say("When a session starts, the agent connects to the server and asks what it can do")
         self.request("initialize", ['{"method": "initialize",',
                                     ' "params": {"protocolVersion": "2025-06-18"}}'])
-        resp = self.response("result", ['{"serverInfo": {"name": "mcp-server"},',
+        resp = self.response("result", ['{"serverInfo": {"name": "kb-server"},',
                                         ' "capabilities": tools · resources · prompts',
                                         '                 · logging · completions}',
                                         'header  Mcp-Session-Id: …'], hold=1.5)
         self.play(FadeOut(resp))
 
         self.request("tools/list", ['{"method": "tools/list"}'])
-        resp = self.response("result: 5 tools", [
+        resp = self.response("result: 4 tools", [
             'getKnowledgeBaseOverview()',
             'searchKnowledgeBase(query, topK, category, status)',
             'readKnowledgeBase(path, anchor, offset, limit)',
-            'searchOrders(filters, page, size, sort)',
             'ping()',
         ], hold=0.8)
         self.say("Tool names, descriptions and JSON schemas: nothing about the server is hard-coded in the agent")

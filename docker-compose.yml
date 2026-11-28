@@ -101,37 +101,6 @@ services:
     networks:
       - app-net
 
-  mcp-server:
-    image: 'oms-mcp-server:latest'
-    container_name: oms-mcp-server
-    build:
-      context: ./oms-mcp-server
-    depends_on:
-      - oms-core
-      - alloy
-    env_file:
-      - path: oms-mcp-server/.env
-        required: false   # gitignored and optional; everything needed is set in `environment` below
-    environment:
-      <<: *otlp-env
-      # Overrides for in-network container hostnames/paths (oms-mcp-server/.env targets host-native `run-mcp` execution).
-      # Default transport is stdio (for AI clients to launch as a subprocess); force the
-      # reactive HTTP profile so it runs as a normal long-lived service under Compose.
-      SPRING_PROFILES_ACTIVE: dev
-      OMS_BASE_URL: http://oms-core:8090
-      DOMAIN_DOCS_PATHS: /oms-knowledge-base
-      KNOWLEDGE_INDEX_CACHE_DIR: /kb-index
-      # No Ollama container in this stack; assumes Ollama runs on the Docker host
-      # (Docker Desktop). Set knowledge.index.embeddings.enabled=false to run BM25-only.
-      SPRING_AI_OLLAMA_BASE_URL: http://host.docker.internal:11434
-    volumes:
-      - ./oms-knowledge-base:/oms-knowledge-base:ro
-      - mcp-kb-index:/kb-index
-    ports:
-      - "8091:8091"
-    networks:
-      - app-net
-
   oms-ui:
     image: 'oms-ui:latest'
     container_name: oms-ui
@@ -409,5 +378,3 @@ volumes:
   pgadmin:
   grafana-storage: {}
   price-data:
-  mcp-kb-index:
-    driver: local

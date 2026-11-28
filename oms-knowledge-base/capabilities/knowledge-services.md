@@ -1,22 +1,22 @@
 ---
 type: Capability
 title: "Knowledge Services"
-description: "Making the knowledge base and OMS data available to AI assistants (MCP) and to people (KB explorer)."
+description: "Making the knowledge base available to AI assistants (MCP) and to people (KB explorer), through the external knowledge server."
 tags: [mcp, knowledge-base, ai-assisted-development]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-28T12:00:00Z"
 maturity: "implemented"
 commands: []
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kb/KnowledgeBaseTools.java"
-  - resource: "repo:oms-kb-explorer/src/components/DocumentViewer.tsx"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/kb/KnowledgeBaseTools.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/components/DocumentViewer.tsx"
 ---
 # Knowledge Services
 
 ## Summary
 
-AI agents query the knowledge base and live orders through the MCP server; people browse it in the KB explorer.
+AI agents query the knowledge base through the knowledge server (MCP); people browse it in the KB explorer. Both come from the general-purpose [knowledge-server](https://github.com/tbaderts/knowledge-server) repository (`kb-server`, `kb-explorer`), which serves `oms-knowledge-base` as one of its knowledge repositories (SPEC-0080). Live orders are not served over MCP any more: agents use the [Query API](../domain/interfaces/query-api.md).
 
 ## Actors
 
@@ -24,7 +24,7 @@ Developers and AI assistants (Claude, Copilot).
 
 ## Behaviour
 
-Components: [MCP Server](../tools/knowledge-server.md), [KB Explorer](../tools/kb-explorer.md).
+Components: [Knowledge Server](../tools/knowledge-server.md), [KB Explorer](../tools/kb-explorer.md).
 
 ## Use cases
 
@@ -35,7 +35,7 @@ Components: [MCP Server](../tools/knowledge-server.md), [KB Explorer](../tools/k
 
 - [FR-033 Serve the knowledge base to AI agents](functional-requirements/FR-033-serve-knowledge-base.md)
 - [FR-045 Serve OKF metadata and links to AI agents](functional-requirements/FR-045-okf-aware-knowledge-tools.md)
-- [FR-034 Let AI agents search orders](functional-requirements/FR-034-search-orders-for-agents.md)
+- [FR-034 Let AI agents search orders](functional-requirements/FR-034-search-orders-for-agents.md) — withdrawn in SPEC-0080
 - [FR-035 Browse the knowledge base in a web UI](functional-requirements/FR-035-browse-knowledge-base.md)
 - [FR-046 Browse the knowledge base by OKF type, metadata and links](functional-requirements/FR-046-okf-aware-kb-explorer.md)
 - [NFR-009 Knowledge retrieval quality](non-functional-requirements/NFR-009-knowledge-retrieval-quality.md)

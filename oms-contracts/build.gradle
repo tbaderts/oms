@@ -167,7 +167,7 @@ tasks.register('verifyContracts') {
     group = 'verification'
     description = 'Fails if a service module has reintroduced its own copy of the contracts.'
     doLast {
-        def strays = ['oms-core', 'oms-streaming-service', 'oms-mcp-server', 'oms-exchange-simulator', 'oms-ui']
+        def strays = ['oms-core', 'oms-streaming-service', 'oms-exchange-simulator', 'oms-ui']
             .collectMany { module ->
                 [new File(rootDir, "../$module/src/main/avro"),
                  new File(rootDir, "../$module/src/main/openapi")]

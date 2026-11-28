@@ -12,16 +12,16 @@ implementation: "implemented"
 capability: "/capabilities/knowledge-services.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/FrontMatter.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/OkfMetadata.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/ConceptLinks.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kb/KnowledgeBaseTools.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/index/KnowledgeIndexService.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/docs/OkfMetadataTest.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/kb/KnowledgeBaseToolsTest.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/index/KnowledgeIndexServiceTest.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/docs/ConceptLinksTest.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/kbexplorer/KbExplorerControllerTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/docs/FrontMatter.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/docs/OkfMetadata.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/docs/ConceptLinks.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/kb/KnowledgeBaseTools.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/index/KnowledgeIndexService.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/docs/OkfMetadataTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/kb/KnowledgeBaseToolsTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/index/KnowledgeIndexServiceTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/docs/ConceptLinksTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/api/KnowledgeApiControllerTest.java"
 ---
 # Serve OKF metadata and links to AI agents
 

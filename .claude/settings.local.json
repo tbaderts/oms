@@ -5,7 +5,6 @@
       "Bash(npm create:*)",
       "Bash(npm install:*)",
       "Bash(node_modules/.bin/tailwindcss init:*)",
-      "Bash(\"c:\\\\data\\\\workspace\\\\oms\\\\oms-kb-explorer\\\\README.md\":*)",
       "Bash(git -C C:/data/workspace/oms status)",
       "Bash(git -C C:/data/workspace/oms ls-files --others --exclude-standard)",
       "Bash(git -C C:/data/workspace/oms status --porcelain)",

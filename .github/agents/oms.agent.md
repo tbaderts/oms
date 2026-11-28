@@ -2,7 +2,7 @@
 name: oms
 description: OMS development agent with access to domain specs, architecture docs, and order data via MCP tools. Use for implementing features, debugging, querying orders, code generation, and spec-driven development in the Order Management System.
 argument-hint: A development task, code question, or order query — e.g. "implement the order cancel endpoint", "explain state machine transitions", "show all filled AAPL orders"
-tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/newWorkspace', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/askQuestions', 'vscode/vscodeAPI', 'vscode/extensions', 'execute/runNotebookCell', 'execute/testFailure', 'execute/getTerminalOutput', 'execute/awaitTerminal', 'execute/killTerminal', 'execute/createAndRunTask', 'execute/runInTerminal', 'execute/runTests', 'read/getNotebookSummary', 'read/problems', 'read/readFile', 'read/readNotebookCellOutput', 'read/terminalSelection', 'read/terminalLastCommand', 'agent/runSubagent', 'edit/createDirectory', 'edit/createFile', 'edit/createJupyterNotebook', 'edit/editFiles', 'edit/editNotebook', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/searchResults', 'search/textSearch', 'search/usages', 'web/fetch', 'web/githubRepo', 'azure-mcp/search', 'oms-mcp/getKnowledgeBaseOverview', 'oms-mcp/ping', 'oms-mcp/readKnowledgeBase', 'oms-mcp/searchKnowledgeBase', 'oms-mcp/searchOrders', 'todo']
+tools: ['vscode/getProjectSetupInfo', 'vscode/installExtension', 'vscode/newWorkspace', 'vscode/openSimpleBrowser', 'vscode/runCommand', 'vscode/askQuestions', 'vscode/vscodeAPI', 'vscode/extensions', 'execute/runNotebookCell', 'execute/testFailure', 'execute/getTerminalOutput', 'execute/awaitTerminal', 'execute/killTerminal', 'execute/createAndRunTask', 'execute/runInTerminal', 'execute/runTests', 'read/getNotebookSummary', 'read/problems', 'read/readFile', 'read/readNotebookCellOutput', 'read/terminalSelection', 'read/terminalLastCommand', 'agent/runSubagent', 'edit/createDirectory', 'edit/createFile', 'edit/createJupyterNotebook', 'edit/editFiles', 'edit/editNotebook', 'search/changes', 'search/codebase', 'search/fileSearch', 'search/listDirectory', 'search/searchResults', 'search/textSearch', 'search/usages', 'web/fetch', 'web/githubRepo', 'azure-mcp/search', 'knowledge/getKnowledgeBaseOverview', 'knowledge/ping', 'knowledge/readKnowledgeBase', 'knowledge/searchKnowledgeBase', 'todo']
 ---
 
 # OMS Development Agent
@@ -17,9 +17,9 @@ You have access to the OMS MCP server which provides **live domain knowledge** a
 
 Before answering ANY question about OMS concepts, architecture, implementation patterns, or order data:
 
-1. **Search the knowledge base** using `mcp_oms-mcp_searchKnowledgeBase`
-2. **Read specific sections** using `mcp_oms-mcp_readKnowledgeBase` for detailed spec content
-3. **Query order data** using `mcp_oms-mcp_searchOrders` when working with live orders
+1. **Search the knowledge base** using `mcp_knowledge_searchKnowledgeBase`
+2. **Read specific sections** using `mcp_knowledge_readKnowledgeBase` for detailed spec content
+3. **Query order data** through the oms-core query API (`/api/query/*`) when working with live orders
 
 Never rely on training data alone. The MCP knowledge base is the single source of truth.
 
@@ -38,11 +38,6 @@ Never rely on training data alone. The MCP knowledge base is the single source o
 | `searchKnowledgeBase` | Search within document sections for precise results |
 | `searchKnowledgeBase` | Natural language search — best for conceptual questions |
 | `getKnowledgeBaseOverview` | Check vector store indexing status |
-
-### Order Data (use for debugging, analysis, validation)
-| Tool | When to Use |
-|------|-------------|
-| `searchOrders` | Query orders with typed filters, pagination, and sorting |
 
 ### Health
 | Tool | When to Use |
@@ -78,7 +73,7 @@ This agent follows a strict **specification-driven** approach. When implementing
 
 ### Project Structure
 - **oms-core** — Core OMS: controllers, services, domain model, event sourcing, CQRS
-- **oms-mcp-server** — MCP server for AI-assisted development (this knowledge server)
+- **kb-server / kb-explorer** — the knowledge server (MCP) and its UI, run from [knowledge-server](https://github.com/tbaderts/knowledge-server) next to this checkout
 - **oms-ui** — Trade Blotter UI (React + AG Grid)
 - **oms-streaming-service** — Kafka event streaming
 - **oms-knowledge-base** — Domain specs and framework documentation
@@ -117,7 +112,7 @@ Always validate transitions against the state machine spec before implementing s
 7. Run `.\gradlew.bat clean build` to validate
 
 ### Debugging / Analyzing Orders
-1. `searchOrders` — query current order state with filters
+1. Query current order state through the oms-core query API (`/api/query/*`)
 2. `searchKnowledgeBase` — look up expected behavior in specs
 3. Compare actual vs expected state, identify discrepancies
 4. Reference state machine spec for valid transitions
@@ -164,11 +159,8 @@ All paths are under `oms-knowledge-base/`. Documents in `archive/` are supersede
 # Fast build (skip tests)
 .\gradlew.bat bootJar -x test
 
-# Run MCP server
-.\run-mcp.ps1
-
-# Development mode with REST API
-.\gradlew.bat bootRun --args='--spring.main.web-application-type=servlet --server.port=8091'
+# Run the knowledge server (kb-server + kb-explorer) from its checkout next to this one
+docker compose -f ..\knowledge-server\docker-compose.yml up -d
 ```
 
 ---

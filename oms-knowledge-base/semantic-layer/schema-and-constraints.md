@@ -9,7 +9,7 @@ sources:
   - resource: "repo:tools/okf-check/okf-check.mjs"
   - resource: "repo:tools/okf-check/test/kb-coverage.test.mjs"
   - resource: "repo:tools/okf-check/check-kb-refs.mjs"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/index/RetrievalEvalTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/index/RetrievalEvalTest.java"
 ---
 # Schema and Constraints
 
@@ -77,7 +77,7 @@ Cockpit shows all of it in its Knowledge Base **Health** panel.
 - **`check-kb-refs`** fails on any reference to a knowledge base path that no longer exists, and on
   the retired folder names, anywhere in the repository except history (archived tickets, OpenWiki,
   the archive, dated assessments, the log).
-- **`RetrievalEvalTest`** (oms-mcp-server) keeps search recall@5 at 0.90 or better, with golden
+- **`RetrievalEvalTest`** (kb-server, in the knowledge-server repository, run with this knowledge base and `tools/retrieval-evals/oms-golden-queries.yaml`) keeps search recall@5 at 0.90 or better, with golden
   queries for every section ([NFR-009](../capabilities/non-functional-requirements/NFR-009-knowledge-retrieval-quality.md)).
 - **`npm run check:storyboards`** (in the [developer cockpit](../tools/developer-cockpit.md)'s own
   repository) checks the storyboards, which are not part of the bundle.

@@ -12,8 +12,11 @@ This is a multi-module project consisting of:
 - **oms-core** - Main Java/Spring Boot application for order management
 - **oms-streaming-service** - Kafka-based streaming service
 - **oms-ui** - React-based frontend application
-- **oms-mcp-server** - Model Context Protocol server for AI-assisted development
 - **oms-knowledge-base** - Project documentation and specifications
+
+The knowledge server that serves `oms-knowledge-base` to AI assistants (MCP) and its web UI live in
+their own repository, [knowledge-server](https://github.com/tbaderts/knowledge-server)
+(`kb-server`, `kb-explorer`); see [MCP Server Integration](#mcp-server-integration).
 
 The Gradle build is a **composite**: each module is an independent build, and the service modules
 include `oms-contracts` so they still build standalone.
@@ -148,7 +151,6 @@ oms/
 ├── oms-streaming-service/       # Kafka streaming service
 ├── oms-ui/                      # React frontend
 │   └── frontend/
-├── oms-mcp-server/              # MCP server for AI integration
 ├── oms-knowledge-base/          # Documentation (OKF bundle; start at index.md)
 │   ├── capabilities/            # Capabilities, use cases, actors, FR/NFR requirements
 │   ├── domain/                  # Domain model, concepts, interfaces
@@ -242,18 +244,27 @@ Sub-domains (Equity, FX, etc.) are intended to extend these base entities throug
 
 ## MCP Server Integration
 
-The project includes an MCP server (`oms-mcp-server`) that provides:
-- Access to OMS specifications for AI assistants
-- Domain knowledge tools (read, search, navigate specs)
-- Query tools for OMS data
-- Enables spec-driven development with GitHub Copilot and Claude
+The knowledge server lives in its own repository,
+[knowledge-server](https://github.com/tbaderts/knowledge-server), cloned next to this checkout. It is
+general-purpose: `oms-knowledge-base` is one knowledge repository it is configured with.
+- `kb-server` gives AI assistants the knowledge tools `getKnowledgeBaseOverview`,
+  `searchKnowledgeBase` (optional `repository` filter) and `readKnowledgeBase`, every document as a
+  `kb://` resource, and spec-driven prompts. It has no order tools; query orders through the oms-core
+  query API.
+- `kb-explorer` is the web UI for browsing and searching the same knowledge.
 
-### Using MCP Server
+### Running it for OMS
 ```bash
-cd oms-mcp-server
-./run-mcp.ps1        # Windows
-./run-mcp.sh         # Linux/Mac
+git clone https://github.com/tbaderts/knowledge-server ../knowledge-server   # once
+cd ../knowledge-server
+KB_REPO_NAME=oms-knowledge-base KB_REPO_PATH=../oms/oms-knowledge-base docker compose up -d --build
 ```
+- MCP endpoint `http://localhost:8091/mcp`, registered as `knowledge` in `.mcp.json` and
+  `.vscode/mcp.json`; UI `http://localhost:8097`.
+- Document paths keep the `oms-knowledge-base/` prefix, so citations and links are unchanged.
+- The retrieval golden queries for this knowledge base are in
+  `tools/retrieval-evals/oms-golden-queries.yaml`; see
+  `oms-knowledge-base/tools/knowledge-server.md` for how to run them.
 
 ## Documentation References
 
@@ -330,11 +341,11 @@ LGTM observability stack from the root `docker-compose.yml` (SPEC-0031, SPEC-003
   datasources Mimir/Loki/Tempo are provisioned at startup, with trace→log/metric links
 - Alloy (telemetry agent): OTLP `localhost:4317` (gRPC) / `localhost:4318` (HTTP), UI
   `http://localhost:12345`.
-  - oms-core, oms-streaming-service, oms-exchange-simulator and oms-mcp-server push traces, metrics
+  - oms-core, oms-streaming-service and oms-exchange-simulator push traces, metrics
     and logs here over OTLP/HTTP when `OTLP_EXPORT_ENABLED=true`.
   - Compose sets that, with `OTLP_ENDPOINT=http://alloy:4318`. Host-native runs are off by default,
     with the endpoint `http://localhost:4318`.
-  - Alloy ships the infrastructure containers' stdout to Loki, not the four services' stdout: their
+  - Alloy ships the infrastructure containers' stdout to Loki, not the three services' stdout: their
     logs arrive over OTLP.
 - Everything is labelled `service_name` (`oms-core`, `oms-exchange-simulator`, …): Loki streams,
   Tempo traces and Mimir series (also `job="oms/<service>"`). Nothing scrapes
@@ -356,7 +367,7 @@ LGTM observability stack from the root `docker-compose.yml` (SPEC-0031, SPEC-003
 ## Questions?
 
 For project-specific questions, refer to:
-- MCP server documentation: `oms-mcp-server/README.md`
+- Knowledge server (MCP) documentation: `oms-knowledge-base/tools/knowledge-server.md` and the [knowledge-server](https://github.com/tbaderts/knowledge-server) README
 - Core OMS documentation: `oms-core/README.md`
 - Knowledge base: `oms-knowledge-base/`
 

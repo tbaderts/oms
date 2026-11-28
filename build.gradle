@@ -6,7 +6,6 @@ def includedBuildNames = [
     'oms-contracts',
     'oms-core',
     'oms-streaming-service',
-    'oms-mcp-server',
     'oms-exchange-simulator',
     'oms-ui',
     'oms-price-service'

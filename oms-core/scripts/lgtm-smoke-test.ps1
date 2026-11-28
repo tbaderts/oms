@@ -298,7 +298,7 @@ function Check-ServiceTelemetry {
     Add-Result 'S33-AC-6' 'tempo trace spans oms-core and oms-exchange-simulator' $trace "trace_id=$SmokeTraceId"
 
     # Metrics: pushed with the resource attributes as labels; the old scrape is gone
-    foreach ($name in @($services.Values) + @('oms-streaming-service', 'oms-mcp-server')) {
+    foreach ($name in @($services.Values) + @('oms-streaming-service')) {
         $ok = Wait-Until { @(Invoke-Mimir "count({service_name=`"$name`"})").Count -gt 0 } 90 "mimir has series with service_name=$name"
         Add-Result 'S33-AC-6' "mimir series with service_name=$name" $ok
     }

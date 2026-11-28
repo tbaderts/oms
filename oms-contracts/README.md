@@ -42,7 +42,6 @@ src/registry/java/    SchemaRegistrar, run by `registerSchemas`; not in the publ
 | --- | --- | --- |
 | oms-core | models + specs | `ExecuteApi`, `SearchApi` (servlet) |
 | oms-streaming-service | models | nothing |
-| oms-mcp-server | models | nothing |
 
 Each consumer's `settings.gradle` has `includeBuild('../oms-contracts')`, so a module still builds
 on its own with `cd <module> && ./gradlew build`. The root composite picks it up transitively.

@@ -18,7 +18,7 @@ sources:
 
 ```mermaid
 flowchart LR
-  core[oms-core] & stream[streaming-service] & sim[exchange-simulator] & mcp[mcp-server] -->|OTLP/HTTP 4318| alloy[Grafana Alloy]
+  core[oms-core] & stream[streaming-service] & sim[exchange-simulator] -->|OTLP/HTTP 4318| alloy[Grafana Alloy]
   infra[infrastructure containers] -->|stdout via docker.sock| alloy
   alloy --> tempo[(Tempo: traces)]
   alloy --> loki[(Loki: logs)]

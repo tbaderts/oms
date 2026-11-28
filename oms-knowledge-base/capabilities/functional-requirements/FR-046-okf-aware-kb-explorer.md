@@ -12,17 +12,17 @@ implementation: "implemented"
 capability: "/capabilities/knowledge-services.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "repo:oms-kb-explorer/src/okf/sidebar.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/header.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/links.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/search.ts"
-  - resource: "repo:oms-kb-explorer/src/components/TreeView.tsx"
-  - resource: "repo:oms-kb-explorer/src/okf/sidebar.test.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/header.test.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/links.test.ts"
-  - resource: "repo:oms-kb-explorer/src/okf/search.test.ts"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kbexplorer/KbExplorerController.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/kbexplorer/KbExplorerControllerTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/sidebar.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/header.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/links.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/search.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/components/TreeView.tsx"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/sidebar.test.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/header.test.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/links.test.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-explorer/src/okf/search.test.ts"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/api/KnowledgeApiController.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/api/KnowledgeApiControllerTest.java"
 ---
 # Browse the knowledge base by OKF type, metadata and links
 

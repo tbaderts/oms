@@ -24,10 +24,9 @@ spec workflow runs before a ticket can be verified:
 
 | Module | Verify |
 |---|---|
-| oms-contracts, oms-core, oms-streaming-service, oms-mcp-server, oms-exchange-simulator | `./gradlew check` |
+| oms-contracts, oms-core, oms-streaming-service, oms-exchange-simulator, oms-price-service | `./gradlew check` |
 | oms-ui | `npm test`, plus the Gradle check |
 | mission-control | `npm run typecheck`, `npm test` |
-| oms-kb-explorer | `npm run build` |
 | knowledge base | none configured: `oms-knowledge-base` has `verify: []` in `specs/config.json`, so `spec verify` runs no knowledge base check. Run `node tools/okf-check/okf-check.mjs oms-knowledge-base`, `cd tools/okf-check && npm test` and `node tools/okf-check/check-kb-refs.mjs` by hand (TD-14) |
 
 ## What does not exist yet

@@ -4,10 +4,9 @@ title: "Technical Debt Register"
 description: "Known shortcuts, gaps and open review findings of the OMS, each with its impact, where it is, and the planned fix or ticket; kept current by the tickets that add or remove debt."
 tags: [technical-debt, architecture, review, backlog]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-28T12:00:00Z"
 sources:
   - resource: "repo:oms-core/src/main/java/org/example/common/util/JsonHelper.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/index/EmbeddingService.java"
   - resource: "repo:docker-compose.yml"
   - resource: "repo:oms-core/src/main/java/org/example/oms/api/OrderController.java"
   - resource: "repo:oms-core/src/main/java/org/example/oms/service/command/tasks/ValidateOrderTask.java"
@@ -24,7 +23,7 @@ Severity: **H** risks wrong behaviour or data, **M** costs effort or performance
 
 | # | Sev | Debt | Where | Impact | Fix |
 |---|---|---|---|---|---|
-| TD-1 | M | Jackson 2 (`com.fasterxml.jackson.databind`) still used, against policy P-12 | `JsonHelper` (oms-core), `EmbeddingService`, `OrderQueryClient` (oms-mcp-server) | Two JSON stacks, different defaults | Port to `tools.jackson.databind` |
+| TD-1 | M | Jackson 2 (`com.fasterxml.jackson.databind`) still used, against policy P-12 | `JsonHelper` (oms-core) | Two JSON stacks, different defaults | Port to `tools.jackson.databind` |
 | TD-3 | M | The REST read API (`/api/orders`) is hand-written, not in the OpenAPI contracts, and has no automated tests. Executions: resolved by SPEC-0070 (contracted execution search, `/api/executions` removed) | `OrderController` | Breaks spec-first (P-02); changes go unnoticed | Contract it in `oms-query-api.yml` or retire it in favour of the Query API |
 | TD-4 | H | Order validation is a hard-coded task, tested for one rule only; the designed rule engine is not built | `ValidateOrderTask`, [Validation Engine](../../framework/validation-engine.md), FR-002 (partial) | Untested rules can regress silently | Test every rule in `ValidateOrderTaskTest`; build the engine when rules multiply |
 | TD-5 | H | `ExecutionBustCmd` and `ExecutionWhackCmd` have schemas and log events (SPEC-0044) but no handler | [Execution Processing](../../capabilities/execution-processing.md), FR-015, FR-016 | Busts must be fixed by hand in the database | SPEC-0030 |
@@ -34,7 +33,6 @@ Severity: **H** risks wrong behaviour or data, **M** costs effort or performance
 | TD-9 | L | No trading calendar and one end of day for the whole OMS | `EndOfDayScheduler` | Wrong expiry on holidays and across venues | Calendar and per-venue sessions when a real venue arrives |
 | TD-10 | L | SLA metrics have dashboards but no alert rules; `leg` is not populated, so client and market orders are not separated | [Order SLA Monitoring](../../capabilities/order-sla-monitoring.md) | Breaches are only seen by looking | Alert rules in Grafana; populate `leg` with order trees |
 | TD-11 | L | The knowledge index is built at startup only | `KnowledgeIndexService` | Knowledge base edits need a server restart | Watch the folder and re-index changed files |
-| TD-12 | L | `oms-mcp-server` has no actuator, unlike the other services | `oms-mcp-server/build.gradle` | No health endpoint for compose or monitoring | Add `spring-boot-starter-actuator` |
 | TD-13 | M | No build-and-test CI; the only workflow with checks (`spec-gates`) triggers on pull requests, which the direct-to-main workflow does not use | `.github/workflows/` | A broken module is found only when someone runs its checks | Run every module's verify on push to `main` ([CI/CD](../../delivery/ci-cd.md)) |
 | TD-14 | M | The knowledge base checks (`okf-check`, its tests, `check-kb-refs`) are not in the `verify` list of `oms-knowledge-base` in `specs/config.json`, so `spec verify` does not run them | `specs/config.json` | A ticket can pass verify with a broken knowledge base | Add the three commands to the module's `verify` (a human change: gate config) |
 
@@ -53,6 +51,10 @@ From the [event sourcing and CQRS review](../assessments/event-sourcing-cqrs-rev
 
 TD-2, an unused Qdrant container in compose (left over from before the knowledge server moved to an
 embedded Lucene index), was removed in SPEC-0061.
+
+TD-12, the knowledge server without an actuator, left this register in SPEC-0080: the server moved
+to its own repository (knowledge-server, `kb-server`, which has a `/api/kb/health` endpoint), and
+its share of TD-1 (Jackson 2 in `EmbeddingService`, `OrderQueryClient`) went with it.
 
 
 Going by the tickets that closed them: F-1 execution lifecycle in the log (SPEC-0044); F-2 refused

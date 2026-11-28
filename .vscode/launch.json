@@ -32,17 +32,6 @@
             "args": "",
             "envFile": "${workspaceFolder}/oms-ui/.env",
             "vmArgs": "-Dspring.profiles.active=dev"
-        },
-        {
-            "type": "java",
-            "name": "Spring Boot-SpringAiApplication<oms-mcp-server>",
-            "request": "launch",
-            "cwd": "${workspaceFolder}",
-            "mainClass": "org.example.mcp.SpringAiApplication",
-            "projectName": "oms-mcp-server",
-            "args": "",
-            "envFile": "${workspaceFolder}/oms-mcp-server/.env",
-            "vmArgs": "-Dspring.profiles.active=dev"
         }
     ]
 }

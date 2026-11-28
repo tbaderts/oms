@@ -85,7 +85,7 @@ downstream systems. oms-ui's REST execution blotter and the streaming service (s
 read stored fills through the execution search below.
 
 Used by the trade blotter's initial snapshot ([Real-time Streaming](../../capabilities/real-time-streaming.md)),
-the admin UI and the MCP server's `searchOrders` tool. Capability: [Order Query](../../capabilities/order-query.md).
+the admin UI and AI agents that need live order data (the knowledge server has no order tool since SPEC-0080). Capability: [Order Query](../../capabilities/order-query.md).
 
 ## Execution search
 

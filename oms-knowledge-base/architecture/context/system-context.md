@@ -43,8 +43,8 @@ flowchart LR
 | [Exchange Simulator](exchange-simulator.md) | Simulated venue (8094) |
 | [OMS UI](oms-ui.md) | Admin tool and trade blotter (8080) |
 | [Price Service](price-service.md) | Market data for order entry and the simulator: instrument list, quotes within a request budget, end-of-day closes (8098) |
-| [MCP Server](../../tools/knowledge-server.md) | Knowledge and order tools for AI assistants (8091) |
-| [KB Explorer](../../tools/kb-explorer.md) | Web UI for the knowledge base (local dev server) |
+| [Knowledge Server](../../tools/knowledge-server.md) | Knowledge tools for AI assistants over MCP (8091); external, from the knowledge-server repository |
+| [KB Explorer](../../tools/kb-explorer.md) | Web UI for the knowledge base (8097); external, from the knowledge-server repository |
 | [oms-contracts](oms-contracts.md) | Shared OpenAPI and Avro contracts |
 | [Developer Cockpit](../../tools/developer-cockpit.md) | Desktop tool for the spec workflow and the knowledge base |
 | [Mission Control](../../tools/mission-control.md) | Local load-test tool: creates orders over REST, follows them on Kafka |

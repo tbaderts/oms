@@ -5,7 +5,7 @@ title: "AI-Augmented Development with MCP, Agents & Skills"
 description: "Using MCP servers, Copilot agents and chat modes, and external AI agents in OMS development."
 tags: [ai-assisted-development, mcp, copilot]
 status: draft
-updated: "2026-11-14T12:00:00Z"
+updated: "2026-11-28T12:00:00Z"
 ---
 # AI-Augmented Development with MCP, Agents & Skills
 
@@ -16,7 +16,7 @@ A practical guide to using MCP servers as domain knowledge bases, customizing Gi
 ## Table of Contents
 
 1. [Why MCP as a Knowledge Base](#1-why-mcp-as-a-knowledge-base)
-2. [OMS MCP Server — Anatomy of a Knowledge-Serving MCP](#2-oms-mcp-server--anatomy-of-a-knowledge-serving-mcp)
+2. [The Knowledge Server — Anatomy of a Knowledge-Serving MCP](#2-the-knowledge-server--anatomy-of-a-knowledge-serving-mcp)
 3. [Customizing GitHub Copilot](#3-customizing-github-copilot)
    - 3.1 Copilot Instructions
    - 3.2 Custom Agents
@@ -51,9 +51,9 @@ MCP wins because:
 
 ---
 
-## 2. OMS MCP Server — Anatomy of a Knowledge-Serving MCP
+## 2. The Knowledge Server — Anatomy of a Knowledge-Serving MCP
 
-The OMS MCP server (`oms-mcp-server/`) is a Spring Boot application that serves two categories of tools: **domain knowledge** and **live data**.
+The knowledge server (`kb-server`, from the [knowledge-server](https://github.com/tbaderts/knowledge-server) repository) is a general-purpose Spring Boot MCP server. OMS runs it with `oms-knowledge-base` as its knowledge repository (SPEC-0080; until then it lived in this repository and also served live order data).
 
 ### 2.1 Knowledge Tools
 
@@ -62,15 +62,16 @@ These tools serve the `oms-knowledge-base/` bundle (details: [Knowledge Server](
 | Tool | Strategy | Best For |
 |------|----------|----------|
 | `getKnowledgeBaseOverview` | Enumerate | Orientation at the start of a session: every concept with type, status, trust tier and sections |
-| `searchKnowledgeBase` | Hybrid: BM25 + embeddings, rank-fused | Questions in natural language and exact terms alike; filter by `type`, `tag`, `status`, `category` (top-level section) |
+| `searchKnowledgeBase` | Hybrid: BM25 + embeddings, rank-fused | Questions in natural language and exact terms alike; filter by `repository`, `type`, `tag`, `status`, `category` (top-level section) |
 | `readKnowledgeBase` | Full or section read | Reading a document, or one section by the anchor a search hit cites; former paths of moved documents still resolve |
 
-### 2.2 Data Tools
+### 2.2 Other Tools
 
 | Tool | Purpose |
 |------|---------|
-| `searchOrders` | Query live order data with typed filters (symbol, side, state, price ranges, dates, pagination, sorting) |
 | `ping` | Health check |
+
+There is no order tool: for live order data, agents call the oms-core [Query API](../domain/interfaces/query-api.md).
 
 ### 2.3 Architecture of the Knowledge Base
 
@@ -97,28 +98,22 @@ Each markdown file is:
 
 ### 2.4 How It Connects to VS Code
 
-The MCP server is registered in `.vscode/mcp.json`:
+The knowledge server runs from its own checkout next to this one (see
+[Knowledge Server](../tools/knowledge-server.md#running-it-for-oms)) and is registered over HTTP in
+`.vscode/mcp.json`:
 
 ```jsonc
 {
   "servers": {
-    "oms-mcp": {
-      "type": "stdio",
-      "command": "powershell.exe",
-      "args": [
-        "-ExecutionPolicy", "Bypass",
-        "-File", "${workspaceFolder}\\oms-mcp-server\\run-mcp.ps1"
-      ],
-      "env": {
-        "SPRING_PROFILES_ACTIVE": "mcp",
-        "MCP_TRANSPORT": "stdio"
-      }
+    "knowledge": {
+      "type": "http",
+      "url": "http://localhost:8091/mcp"
     }
   }
 }
 ```
 
-Once registered, every Copilot agent and chat mode in the workspace can bind to `oms-mcp/*` tools.
+Once registered, every Copilot agent and chat mode in the workspace can bind to `knowledge/*` tools.
 
 ### 2.5 Semantic Search
 
@@ -171,8 +166,8 @@ GitHub Copilot in VS Code supports three layers of customization. Use them toget
 ```yaml
 ---
 name: oms
-description: OMS development agent with access to domain specs and order data via MCP tools.
-tools: ['oms-mcp/searchOrders', 'oms-mcp/searchKnowledgeBase', 'oms-mcp/readKnowledgeBase', ...]
+description: OMS development agent with access to domain specs via MCP tools.
+tools: ['knowledge/searchKnowledgeBase', 'knowledge/readKnowledgeBase', ...]
 ---
 ```
 
@@ -220,18 +215,17 @@ The agent definition includes:
 ### 3.4 Skills (Tool Binding)
 
 **What**: Skills are the individual tools that agents and chat modes can access. In VS Code, these map to:
-- **MCP tools** — e.g., `oms-mcp/searchOrders`, `oms-mcp/searchKnowledgeBase`
+- **MCP tools** — e.g., `knowledge/searchKnowledgeBase`, `knowledge/readKnowledgeBase`
 - **Built-in tools** — e.g., `read/readFile`, `edit/editFiles`, `execute/runInTerminal`
 - **Extension tools** — e.g., `azure-mcp/search`
 
 **When to design custom skills**: When your MCP server needs a new retrieval or action capability. For the OMS, each tool was designed around a specific retrieval pattern:
 
 ```
-Discover → Navigate → Search → Read → Act
-  │           │          │        │       │
-  listDocs  listSections  keyword  readSection  searchOrders
-              │          semantic    readDoc
-              TOC        search
+Discover → Search → Read → Act
+   │          │        │      │
+ overview   hybrid   section  code, with
+            search   or doc   path#anchor citations
 ```
 
 **Skill composition in agents**: The `tools` array in the agent frontmatter controls which skills are available:
@@ -239,11 +233,9 @@ Discover → Navigate → Search → Read → Act
 ```yaml
 tools: [
   # MCP knowledge tools
-  'oms-mcp/getKnowledgeBaseOverview',
-  'oms-mcp/searchKnowledgeBase',
-  'oms-mcp/readKnowledgeBase',
-  # MCP data tools
-  'oms-mcp/searchOrders',
+  'knowledge/getKnowledgeBaseOverview',
+  'knowledge/searchKnowledgeBase',
+  'knowledge/readKnowledgeBase',
   # Standard development tools
   'edit/editFiles',
   'execute/runInTerminal',
@@ -345,8 +337,8 @@ Agent outputs:
 | Phase | Primary MCP Tools | Purpose |
 |-------|-------------------|---------|
 | **Design** | `searchKnowledgeBase`, `readKnowledgeBase`, `getKnowledgeBaseOverview` | Discover specs, understand constraints |
-| **Build** | `readKnowledgeBase`, `searchKnowledgeBase`, `searchOrders` | Ground code in specs, validate with live data |
-| **Review** | `searchKnowledgeBase`, `readKnowledgeBase`, `searchOrders` | Verify compliance, check real order states |
+| **Build** | `readKnowledgeBase`, `searchKnowledgeBase` | Ground code in specs (live data through the Query API) |
+| **Review** | `searchKnowledgeBase`, `readKnowledgeBase` | Verify compliance (real order states through the Query API) |
 
 ---
 
@@ -400,14 +392,10 @@ For complex, multi-step coding tasks that benefit from Claude's deep reasoning:
 - Runs as a terminal-based agent with full filesystem access
 - Can be configured to use the same MCP server:
   ```json
-  // claude_desktop_config.json or .mcp.json
+  // .mcp.json (Claude Code) or claude_desktop_config.json
   {
     "mcpServers": {
-      "oms-mcp": {
-        "command": "powershell.exe",
-        "args": ["-ExecutionPolicy", "Bypass", "-File", "oms-mcp-server/run-mcp.ps1"],
-        "env": { "SPRING_PROFILES_ACTIVE": "mcp", "MCP_TRANSPORT": "stdio" }
-      }
+      "knowledge": { "type": "http", "url": "http://localhost:8091/mcp" }
     }
   }
   ```
@@ -427,11 +415,11 @@ Codex agents run in sandboxed cloud environments with their own compute. Best fo
 - **Parallel work streams** — multiple Codex agents tackling independent modules
 - **CI-integrated tasks** — triggered from GitHub Actions for automated code fixes
 
-**Setup**: Configure Codex to clone the repo and connect to an MCP endpoint. Since Codex runs remotely, the MCP server needs to be accessible over HTTP (not just stdio):
+**Setup**: Configure Codex to clone the repo and connect to an MCP endpoint. Since Codex runs remotely, the knowledge server must be reachable over HTTP. It already serves MCP over HTTP when started with Docker Compose from the knowledge-server checkout:
 
 ```bash
-# Run MCP server with HTTP transport for remote agents
-./gradlew bootRun --args='--spring.main.web-application-type=servlet --server.port=8091'
+# Knowledge server with MCP over HTTP at :8091/mcp
+cd ../knowledge-server && KB_REPO_NAME=oms-knowledge-base KB_REPO_PATH=../oms/oms-knowledge-base docker compose up -d
 ```
 
 ### 5.5 Delegation Decision Matrix
@@ -479,14 +467,9 @@ Codex agents run in sandboxed cloud environments with their own compute. Best fo
 ```jsonc
 {
   "servers": {
-    "oms-mcp": {
-      "type": "stdio",                              // stdio for local, sse for remote
-      "command": "powershell.exe",
-      "args": ["-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}\\oms-mcp-server\\run-mcp.ps1"],
-      "env": {
-        "SPRING_PROFILES_ACTIVE": "mcp",
-        "MCP_TRANSPORT": "stdio"
-      }
+    "knowledge": {
+      "type": "http",                               // the knowledge server over streamable HTTP
+      "url": "http://localhost:8091/mcp"
     }
   }
 }
@@ -499,7 +482,7 @@ When the MCP server needs to use LLM sampling (e.g., for generating summaries), 
 ```jsonc
 {
   "chat.mcp.serverSampling": {
-    "oms/.vscode/mcp.json: oms-mcp": {
+    "oms/.vscode/mcp.json: knowledge": {
       "allowedModels": [
         "copilot/claude-sonnet-4.5",
         "copilot/claude-haiku-4.5",
@@ -518,8 +501,7 @@ name: oms                             # Invoked as @oms
 description: OMS development agent... # Shown in agent picker
 argument-hint: A development task...  # Placeholder text in chat input
 tools: [                              # Skills available to this agent
-  'oms-mcp/searchKnowledgeBase',       # MCP knowledge tools
-  'oms-mcp/searchOrders',             # MCP data tools
+  'knowledge/searchKnowledgeBase',     # MCP knowledge tools
   'edit/editFiles',                   # Standard IDE tools
   'agent/runSubagent',                # Delegation capability
   ...

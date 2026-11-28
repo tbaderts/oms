@@ -38,8 +38,8 @@ Part of [the parent section](../index.md). Back to the [knowledge base index](..
 - [FR-030 Measure order latency at SLA checkpoints](FR-030-measure-order-latency.md) — The OMS stamps received, ack, market-send and market-ack checkpoints on each order once and records time-to-ack, processing, market round-trip and time-to-market timers. *(implemented)*
 - [FR-031 Show a live blotter](FR-031-live-blotter.md) — The UI subscribes to the streaming service over RSocket and keeps the blotter rows in step with incoming orders and executions. *(implemented)*
 - [FR-032 Build columns and filters from the metamodel](FR-032-metamodel-driven-grid.md) — Grid columns and filter editors are derived from the oms-core metamodel rather than hard-coded. *(implemented)*
-- [FR-033 Serve the knowledge base to AI agents](FR-033-serve-knowledge-base.md) — The MCP server offers knowledge base search, section reads by anchor and an overview with metadata. *(implemented)*
-- [FR-034 Let AI agents search orders](FR-034-search-orders-for-agents.md) — The MCP server offers a searchOrders tool that maps typed filters and paging onto the OMS query API. *(implemented)*
+- [FR-033 Serve the knowledge base to AI agents](FR-033-serve-knowledge-base.md) — The knowledge server (kb-server) offers knowledge base search, section reads by anchor and an overview with metadata. *(implemented)*
+- [FR-034 Let AI agents search orders](FR-034-search-orders-for-agents.md) — Withdrawn: the knowledge server no longer offers a searchOrders tool; agents use the oms-core query API.
 - [FR-035 Browse the knowledge base in a web UI](FR-035-browse-knowledge-base.md) — The KB explorer lists, searches and renders knowledge base documents without showing their front matter. *(implemented)*
 - [FR-036 Replace (amend) orders](FR-036-replace-orders.md) — A client can change the quantity or price of a working order; the change is confirmed or refused by the market. *(not-implemented)*
 - [FR-037 Request quotes](FR-037-request-quotes.md) — A client can create a quote request for a quantity of an instrument in a currency. *(not-implemented)*

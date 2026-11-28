@@ -48,7 +48,7 @@
 | Contracts (OpenAPI / Avro) | <!-- FILL: none, or which spec/schema and whether additive --> |
 | Data (tables, migrations) | <!-- FILL --> |
 | Events / Kafka topics | <!-- FILL --> |
-| Consumers (oms-ui, oms-mcp-server, downstream) | <!-- FILL --> |
+| Consumers (oms-ui, downstream) | <!-- FILL --> |
 | Knowledge base | <!-- FILL: pages that will need updating --> |
 
 ## Open Questions

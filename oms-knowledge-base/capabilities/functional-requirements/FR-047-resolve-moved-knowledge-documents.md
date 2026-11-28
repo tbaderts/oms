@@ -11,10 +11,10 @@ implementation: "implemented"
 capability: "/capabilities/knowledge-services.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-11-14T12:00:00Z" }
 sources:
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/docs/DocumentRepository.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/kb/KnowledgeBaseTools.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/docs/DocumentRepositoryTest.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/kb/KnowledgeBaseToolsTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/docs/DocumentRepository.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/main/java/io/kbserver/kb/KnowledgeBaseTools.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/docs/DocumentRepositoryTest.java"
+  - resource: "https://github.com/tbaderts/knowledge-server/blob/main/kb-server/src/test/java/io/kbserver/kb/KnowledgeBaseToolsTest.java"
 ---
 # FR-047 Resolve moved knowledge documents
 

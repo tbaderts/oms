@@ -175,8 +175,7 @@ width. Switching keeps the conversation. Opening a source from an answer switche
   [knowledge server](knowledge-server.md) at `ai.knowledgeServerUrl` (Settings → AI, default
   `http://localhost:8091/mcp`).
   - It gives the model only the three read-only KB tools: `searchKnowledgeBase`,
-    `readKnowledgeBase` and `getKnowledgeBaseOverview`. Order tools such as `searchOrders` are
-    left out.
+    `readKnowledgeBase` and `getKnowledgeBaseOverview` (the server has no order tools).
   - When the server is unreachable, the chat falls back to local tools: `search_knowledge_base`
     over the cockpit's own index, and `read_knowledge_base_document`, which reads only indexed KB
     documents. The panel then shows "Knowledge server unavailable — using local search". The
@@ -248,7 +247,7 @@ is read-only and polls every `intervalSeconds` (10 s for the OMS) while it is op
   its check: Spring Boot actuator health for oms-core, oms-streaming-service, oms-price-service and
   oms-exchange-simulator; an HTTP status for oms-ui, the Schema Registry, Control Center, pgAdmin,
   Grafana, Loki, Alloy, Mimir and Tempo; a TCP connect for the broker, both Postgres instances,
-  oms-mcp-server and grafana-mcp. Each tile also shows a response-time sparkline and the last 30
+  grafana-mcp, and an HTTP health check for kb-server. Each tile also shows a response-time sparkline and the last 30
   checks; a timeline lists every status change while the view is open.
 - **Panels.** Orders by state, order events per minute, outbox pending, stuck and oldest age, heap
   used and active DB connections are read from oms-core's `/actuator/prometheus`, and the price

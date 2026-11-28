@@ -101,7 +101,7 @@ use in the second.
 | k3d + 4 operators | 1.42 GiB | measured 2026-11-26 |
 | k3d + operators + idle instances (CNPG 1 instance, Kafka 1 KRaft node, Schema Registry, Redis, Grafana) | 4.02 GiB | measured 2026-11-26 |
 | k3d + operators + instances + oms-core × 3 | 7.37 GiB | measured 2026-11-26 |
-| k3d with the whole OMS (4 services + LGTM) at 1 replica | ~7.5 GiB | estimate: 4.02 GiB + compose figures for oms-core, streaming, simulator, mcp-server, ui and LGTM |
+| k3d with the whole OMS (4 services + LGTM) at 1 replica | ~7.5 GiB | estimate: 4.02 GiB + compose figures for oms-core, streaming, simulator, the knowledge server, ui and LGTM |
 | Cozystack Minimal tier | 72 GB | estimate: documented minimum, cozystack.io hardware requirements |
 
 How the k3d totals were taken:
@@ -117,7 +117,7 @@ Compose per container (`docker stats --no-stream`, measured 2026-11-26):
 |---|---|
 | broker (Kafka) | 1.34 GiB |
 | oms-core | 1019 MiB |
-| oms-mcp-server | 658 MiB |
+| knowledge server (now kb-server, in its own repository) | 658 MiB |
 | grafana | 444 MiB |
 | schema-registry | 411 MiB |
 | oms-streaming-service | 405 MiB |
@@ -174,7 +174,7 @@ They do not clash on ports:
 | 8092 | streaming-service | no |
 | 7000 | streaming-service (RSocket) | no |
 | 8094 | exchange-simulator | no |
-| 8091 | mcp-server | no |
+| 8091 | knowledge server (kb-server, its own compose since SPEC-0080) | no |
 | 8080 | oms-ui | no |
 | 9092 | broker | no |
 | 9101 | broker (JMX) | no |

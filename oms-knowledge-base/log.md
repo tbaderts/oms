@@ -1,5 +1,23 @@
 # Knowledge Base Log
 
+## 2026-11-28
+
+The knowledge server and the KB explorer moved out of this repository into the general-purpose
+[knowledge-server](https://github.com/tbaderts/knowledge-server) repository, as `kb-server` and
+`kb-explorer` (SPEC-0080). Until now they lived here as `oms-mcp-server` and `oms-kb-explorer`.
+
+- **Configured, not built in.** Neither knows about OMS any more. This knowledge base is one of the
+  knowledge repositories kb-server is configured with. Its name is `oms-knowledge-base`, so every
+  path, citation and alias is unchanged. See [Knowledge Server](tools/knowledge-server.md#running-it-for-oms).
+- **No order tool.** The `searchOrders` MCP tool is gone and
+  [FR-034](capabilities/functional-requirements/FR-034-search-orders-for-agents.md) is withdrawn.
+  Agents use the [Query API](domain/interfaces/query-api.md) for live orders.
+- **Citations.** Pages cite the moved code as GitHub links.
+- **Retrieval eval.** The golden queries moved to `tools/retrieval-evals/oms-golden-queries.yaml`
+  ([NFR-009](capabilities/non-functional-requirements/NFR-009-knowledge-retrieval-quality.md)).
+- **Tokens.** The KB explorer keeps its own design tokens now
+  ([Design System](ui/design-system.md#other-apps)).
+
 ## 2026-11-27
 
 The `developer-cockpit/` folder is gone from this repository; the cockpit lives only in

@@ -2,22 +2,26 @@
 aliases: [functional-requirements/FR-034-search-orders-for-agents]
 type: Requirement
 title: "Let AI agents search orders"
-description: "The MCP server offers a searchOrders tool that maps typed filters and paging onto the OMS query API."
+description: "Withdrawn: the knowledge server no longer offers a searchOrders tool; agents use the oms-core query API."
 tags: [functional, knowledge-services]
-status: draft
-updated: "2026-11-14T12:00:00Z"
+status: deprecated
+superseded_by: none
+updated: "2026-11-28T12:00:00Z"
 id: "FR-034"
 priority: "could"
-implementation: "implemented"
+implementation: "not-implemented"
 capability: "/capabilities/knowledge-services.md"
 generated: { by: claude-code/claude-opus-5-5, at: "2026-10-27T17:30:00Z" }
 sources:
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/oms/OrderSearchMcpTools.java"
-  - resource: "repo:oms-mcp-server/src/main/java/org/example/mcp/oms/OrderQueryClient.java"
-  - resource: "repo:oms-mcp-server/src/test/java/org/example/mcp/oms/OrderSearchMcpToolsTest.java"
+  - resource: "/domain/interfaces/query-api.md"
 ---
 # Let AI agents search orders
 
-Negative pages and excessive page sizes are clamped.
+> **Withdrawn (SPEC-0080, 2026-11-28).** The MCP server moved out of this repository into the
+> general-purpose [knowledge-server](https://github.com/tbaderts/knowledge-server) (`kb-server`),
+> which knows nothing about orders. Its `searchOrders` tool, which mapped typed filters and paging
+> onto the [Query API](../../domain/interfaces/query-api.md), was removed with the move. Agents that
+> need live order data call the Query API directly. Offering order tools over MCP again, from
+> oms-core, would be a ticket of its own.
 
 Capability: [knowledge-services](../knowledge-services.md).

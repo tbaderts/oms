@@ -19,7 +19,7 @@ node specs/tools/spec.mjs verify <id>
 ```
 
 This runs the policy check and `verify` commands for every affected module plus its consumers
-(e.g. a contracts change also builds oms-core, oms-streaming-service and oms-mcp-server). It can
+(e.g. a contracts change also builds oms-core, oms-streaming-service, oms-exchange-simulator and oms-price-service). It can
 take several minutes (Testcontainers), so use a long timeout or run it in the background.
 It writes `evidence/last-run.json` and one log per command.
 

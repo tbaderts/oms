@@ -48,7 +48,7 @@ automatically; existing tickets fail their next gate until they address it.
 
 - **Rule:** Avro changes are backward compatible (new fields have defaults, no removals or renames,
   no type narrowing). OpenAPI changes are additive; a breaking change is marked **BREAKING** in the
-  proposal, versioned, and lists the consumers it breaks (oms-ui, oms-mcp-server, downstream).
+  proposal, versioned, and lists the consumers it breaks (oms-ui, downstream).
 - **Why:** producers and consumers deploy independently; Schema Registry enforces compatibility
   at runtime, too late to fix cheaply.
 - **Check:** review (diff of `oms-contracts/src/main/**`).

@@ -13,7 +13,8 @@ knowledgeBase:
   checkScript: tools/okf-check/okf-check.mjs
   # Storyboard steps may link to the transitions of this state diagram.
   stateDiagramDoc: domain/model/order-state.md
-  # The KB chat asks oms-mcp-server; without it the chat uses local search and read tools.
+  # The KB chat asks kb-server (github.com/tbaderts/knowledge-server, run next to this checkout);
+  # without it the chat uses local search and read tools.
   serverUrl: http://localhost:8091/mcp
 
 specs:
@@ -88,10 +89,12 @@ monitoring:
     - name: exchange-simulator
       group: Application
       check: { kind: spring-actuator, url: "http://localhost:8094/actuator/health" }
-    - name: mcp-server
+    # The knowledge server runs from its own repository (github.com/tbaderts/knowledge-server).
+    - name: kb-server
       group: Application
-      # No actuator; the MCP endpoint only answers POST, so check the port.
-      check: { kind: tcp, host: localhost, port: 8091 }
+      check: { kind: http, url: "http://localhost:8091/api/kb/health" }
+      links:
+        - { label: KB Explorer, url: "http://localhost:8097" }
     - name: oms-ui
       group: Application
       check: { kind: http, url: "http://localhost:8080/" }

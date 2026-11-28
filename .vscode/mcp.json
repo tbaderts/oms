@@ -1,18 +1,8 @@
 {
   "servers": {
-    "oms-mcp": {
-      "type": "stdio",
-      "command": "powershell.exe",
-      "args": [
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\oms-mcp-server\\run-mcp.ps1"
-      ],
-      "env": {
-        "SPRING_PROFILES_ACTIVE": "mcp",
-        "MCP_TRANSPORT": "stdio"
-      }
+    "knowledge": {
+      "type": "http",
+      "url": "http://localhost:8091/mcp"
     },
     "mastra": {
       "command": "npx",

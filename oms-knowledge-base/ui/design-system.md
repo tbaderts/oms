@@ -94,16 +94,11 @@ to add.
 
 ## Other apps
 
-The [KB Explorer](../tools/kb-explorer.md) uses the same tokens (SPEC-0066).
-- **Its copy.** It keeps a copy in `oms-kb-explorer/src/theme/tokens.css`, so it builds without
-  oms-ui. Its `tokens.test.ts` fails when the copy differs from `_tokens.scss`.
-- **Its tests.** It has its own style-rule and contrast tests, and Tailwind there is limited to the
-  token colours and sizes.
+None. The [KB Explorer](../tools/kb-explorer.md) used a copy of these tokens until SPEC-0080. Since it
+moved to the general-purpose knowledge-server repository, it keeps its own tokens (`--kb-*`), which
+are not synchronised with oms-ui.
 
 ## Adding to it
 
 Add the value to `_tokens.scss` (and to `tokens.ts` if AG Grid needs it), use the custom property,
 and let the two tests prove the rest. A new colour needs a reason: prefer an existing tone.
-
-Then copy the `:root` block to `oms-kb-explorer/src/theme/tokens.css`. Its build fails until you
-do.

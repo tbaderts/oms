@@ -32,7 +32,6 @@ docker compose up -d --remove-orphans         # after a service was removed (dro
 | OMS | `oms-core` | 8090 | [oms-core](../architecture/context/oms-core.md) |
 | | `streaming-service` | 8092 HTTP, 7000 RSocket | [Streaming Service](../architecture/context/streaming-service.md) |
 | | `exchange-simulator` | 8094 | [Exchange Simulator](../architecture/context/exchange-simulator.md) |
-| | `mcp-server` | 8091 | [Knowledge Server](../tools/knowledge-server.md); mounts the knowledge base read-only; expects Ollama on the host for embeddings |
 | | `oms-ui` | 8080 | [OMS UI](../architecture/context/oms-ui.md) |
 | | `price-service` | 8098 | [Price Service](../architecture/context/price-service.md); holds the market data key; volume `price-data` |
 | Messaging | `broker` (Kafka) | 9092 | Confluent Platform 7.9 |
@@ -45,6 +44,11 @@ docker compose up -d --remove-orphans         # after a service was removed (dro
 | | `grafana-mcp` | 8096 (localhost only) | Grafana MCP server, registered in `.mcp.json` as `grafana` |
 | | `alloy` | 4317 gRPC, 4318 HTTP, 12345 UI | The single telemetry agent |
 | | `loki`, `mimir`, `tempo` | 3100, 9009, 3200 | Logs, metrics, traces |
+
+The [Knowledge Server](../tools/knowledge-server.md) (`kb-server` on 8091, `kb-explorer` on 8097)
+is not part of this stack. It has its own `docker-compose.yml` in the
+[knowledge-server](https://github.com/tbaderts/knowledge-server) checkout, started with this
+knowledge base as its repository.
 
 All services share the `app-net` network. The Java services take their telemetry settings
 from the `x-otlp-env` anchor (`OTLP_EXPORT_ENABLED=true`, `OTLP_ENDPOINT=http://alloy:4318`,
